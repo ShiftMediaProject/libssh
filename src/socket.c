@@ -709,7 +709,7 @@ int ssh_socket_get_status(ssh_socket s) {
  * @param fd   file descriptor
  */
 
-void ssh_socket_set_connecting(ssh_socket s, int fd){
+void ssh_socket_set_connecting(ssh_socket s, socket_t fd){
 	ssh_socket_set_fd(s,fd);
 	s->state=SSH_SOCKET_CONNECTING;
 	/* POLLOUT is the event to wait for in a nonblocking connect */
