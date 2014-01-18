@@ -27,15 +27,48 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-const char *libssh_benchmarks_names[]={
-    "null",
-    "benchmark_raw_upload"
+struct benchmark benchmarks[]= {
+    {
+        .name="benchmark_raw_upload",
+        .fct=benchmarks_raw_up,
+        .enabled=0
+    },
+    {
+        .name="benchmark_raw_download",
+        .fct=benchmarks_raw_down,
+        .enabled=0
+    },
+    {
+        .name="benchmark_scp_upload",
+        .fct=benchmarks_scp_up,
+        .enabled=0
+    },
+    {
+        .name="benchmark_scp_download",
+        .fct=benchmarks_scp_down,
+        .enabled=0
+    },
+    {
+        .name="benchmark_sync_sftp_upload",
+        .fct=benchmarks_sync_sftp_up,
+        .enabled=0
+    },
+    {
+        .name="benchmark_sync_sftp_download",
+        .fct=benchmarks_sync_sftp_down,
+        .enabled=0
+    },
+    {
+        .name="benchmark_async_sftp_download",
+        .fct=benchmarks_async_sftp_down,
+        .enabled=0
+    }
 };
 
 #ifdef HAVE_ARGP_H
 #include <argp.h>
 
-const char *argp_program_version = "libssh benchmarks 2010-12-28";
+const char *argp_program_version = "libssh benchmarks 2011-08-28";
 const char *argp_program_bug_address = "Aris Adamantiadis <aris@0xbadc0de.be>";
 
 static char **cmdline;
@@ -63,6 +96,57 @@ static struct argp_option options[] = {
     .group = 0
   },
   {
+    .name  = "raw-download",
+    .key   = '2',
+    .arg   = NULL,
+    .flags = 0,
+    .doc   = "Download raw data using channel",
+    .group = 0
+  },
+  {
+    .name  = "scp-upload",
+    .key   = '3',
+    .arg   = NULL,
+    .flags = 0,
+    .doc   = "Upload data using SCP",
+    .group = 0
+  },
+  {
+    .name  = "scp-download",
+    .key   = '4',
+    .arg   = NULL,
+    .flags = 0,
+    .doc   = "Download data using SCP",
+    .group = 0
+  },
+  {
+    .name  = "sync-sftp-upload",
+    .key   = '5',
+    .arg   = NULL,
+    .flags = 0,
+    .doc   = "Upload data using synchronous SFTP",
+    .group = 0
+
+  },
+  {
+    .name  = "sync-sftp-download",
+    .key   = '6',
+    .arg   = NULL,
+    .flags = 0,
+    .doc   = "Download data using synchronous SFTP (slow)",
+    .group = 0
+
+  },
+  {
+    .name  = "async-sftp-download",
+    .key   = '7',
+    .arg   = NULL,
+    .flags = 0,
+    .doc   = "Download data using asynchronous SFTP (fast)",
+    .group = 0
+
+  },
+  {
     .name  = "host",
     .key   = 'h',
     .arg   = "HOST",
@@ -70,6 +154,39 @@ static struct argp_option options[] = {
     .doc   = "Add a host to connect for benchmark (format user@hostname)",
     .group = 0
   },
+  {
+    .name  = "size",
+    .key   = 's',
+    .arg   = "MBYTES",
+    .flags = 0,
+    .doc   = "MBytes of data to send/receive per test",
+    .group = 0
+  },
+  {
+    .name  = "chunk",
+    .key   = 'c',
+    .arg   = "bytes",
+    .flags = 0,
+    .doc   = "size of data chunks to send/receive",
+    .group = 0
+  },
+  {
+    .name  = "prequests",
+    .key   = 'p',
+    .arg   = "number [20]",
+    .flags = 0,
+    .doc   = "[async SFTP] number of concurrent requests",
+    .group = 0
+  },
+  {
+    .name  = "cipher",
+    .key   = 'C',
+    .arg   = "cipher",
+    .flags = 0,
+    .doc   = "Cryptographic cipher to be used",
+    .group = 0
+  },
+
   {NULL, 0, NULL, 0, NULL, 0}
 };
 
@@ -85,11 +202,29 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
 
   switch (key) {
     case '1':
-      arguments->benchmarks[key - '1' + 1] = 1;
+    case '2':
+    case '3':
+    case '4':
+    case '5':
+    case '6':
+    case '7':
+      benchmarks[key - '1'].enabled = 1;
       arguments->ntests ++;
       break;
     case 'v':
       arguments->verbose++;
+      break;
+    case 's':
+      arguments->datasize = atoi(arg);
+      break;
+    case 'p':
+      arguments->concurrent_requests = atoi(arg);
+      break;
+    case 'c':
+      arguments->chunksize = atoi(arg);
+      break;
+    case 'C':
+      arguments->cipher = arg;
       break;
     case 'h':
       if(arguments->nhosts >= MAX_HOSTS_CONNECT){
@@ -126,21 +261,32 @@ static void cmdline_parse(int argc, char **argv, struct argument_s *arguments) {
 #else /* HAVE_ARGP_H */
   (void) argc;
   (void) argv;
-  (void) arguments;
+  arguments->hosts[0]="localhost";
+  arguments->nhosts=1;
 #endif /* HAVE_ARGP_H */
 }
 
 static void arguments_init(struct argument_s *arguments){
   memset(arguments,0,sizeof(*arguments));
+  arguments->chunksize=32758;
+  arguments->concurrent_requests=20;
+  arguments->datasize = 10;
 }
 
-static ssh_session connect_host(const char *host, int verbose){
+static ssh_session connect_host(const char *host, int verbose, char *cipher){
   ssh_session session=ssh_new();
   if(session==NULL)
     goto error;
   if(ssh_options_set(session,SSH_OPTIONS_HOST, host)<0)
     goto error;
   ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbose);
+  if(cipher != NULL){
+    if (ssh_options_set(session, SSH_OPTIONS_CIPHERS_C_S, cipher) ||
+        ssh_options_set(session, SSH_OPTIONS_CIPHERS_S_C, cipher)){
+      goto error;
+    }
+  }
+  ssh_options_parse_config(session, NULL);
   if(ssh_connect(session)==SSH_ERROR)
     goto error;
   if(ssh_userauth_autopubkey(session,NULL) != SSH_AUTH_SUCCESS)
@@ -153,19 +299,19 @@ error:
 }
 
 static char *network_speed(float bps){
-  static char buffer[128];
+  static char buf[128];
   if(bps > 1000*1000*1000){
     /* Gbps */
-    snprintf(buffer,sizeof(buffer),"%f Gbps",bps/(1000*1000*1000));
+    snprintf(buf,sizeof(buf),"%f Gbps",bps/(1000*1000*1000));
   } else if(bps > 1000*1000){
     /* Mbps */
-    snprintf(buffer,sizeof(buffer),"%f Mbps",bps/(1000*1000));
+    snprintf(buf,sizeof(buf),"%f Mbps",bps/(1000*1000));
   } else if(bps > 1000){
-    snprintf(buffer,sizeof(buffer),"%f Kbps",bps/1000);
+    snprintf(buf,sizeof(buf),"%f Kbps",bps/1000);
   } else {
-    snprintf(buffer,sizeof(buffer),"%f bps",bps);
+    snprintf(buf,sizeof(buf),"%f bps",bps);
   }
-  return buffer;
+  return buf;
 }
 
 static void do_benchmarks(ssh_session session, struct argument_s *arguments,
@@ -173,7 +319,9 @@ static void do_benchmarks(ssh_session session, struct argument_s *arguments,
   float ping_rtt=0.0;
   float ssh_rtt=0.0;
   float bps=0.0;
+  int i;
   int err;
+  struct benchmark *b;
 
   if(arguments->verbose>0)
     fprintf(stdout,"Testing ICMP RTT\n");
@@ -183,16 +331,20 @@ static void do_benchmarks(ssh_session session, struct argument_s *arguments,
   }
   err=benchmarks_ssh_latency(session, &ssh_rtt);
   if(err==0){
-    fprintf(stdout, "SSH RTT : %f ms\n",ssh_rtt);
+    fprintf(stdout, "SSH RTT : %f ms. Theoretical max BW (win=128K) : %s\n",ssh_rtt,network_speed(128000.0/(ssh_rtt / 1000.0)));
   }
-  if(arguments->benchmarks[BENCHMARK_RAW_UPLOAD-1]){
-    err=benchmarks_raw_up(session,arguments,&bps);
-    if(err==0){
-      fprintf(stdout, "%s : %s : %s\n",hostname,
-          libssh_benchmarks_names[BENCHMARK_RAW_UPLOAD], network_speed(bps));
+  for (i=0 ; i<BENCHMARK_NUMBER ; ++i){
+    b = &benchmarks[i];
+    if(b->enabled){
+      err=b->fct(session,arguments,&bps);
+      if(err==0){
+        fprintf(stdout, "%s : %s : %s\n",hostname, b->name, network_speed(bps));
+      }
     }
   }
 }
+
+char *buffer;
 
 int main(int argc, char **argv){
   struct argument_s arguments;
@@ -206,10 +358,15 @@ int main(int argc, char **argv){
     return EXIT_FAILURE;
   }
   if (arguments.ntests==0){
-    for(i=1; i < BENCHMARK_NUMBER ; ++i){
-      arguments.benchmarks[i-1]=1;
+    for(i=0; i < BENCHMARK_NUMBER ; ++i){
+      benchmarks[i].enabled=1;
     }
-    arguments.ntests=BENCHMARK_NUMBER-1;
+    arguments.ntests=BENCHMARK_NUMBER;
+  }
+  buffer=malloc(arguments.chunksize > 1024 ? arguments.chunksize : 1024);
+  if(buffer == NULL){
+    fprintf(stderr,"Allocation of chunk buffer failed\n");
+    return EXIT_FAILURE;
   }
   if (arguments.verbose > 0){
     fprintf(stdout, "Will try hosts ");
@@ -217,9 +374,9 @@ int main(int argc, char **argv){
       fprintf(stdout,"\"%s\" ", arguments.hosts[i]);
     }
     fprintf(stdout,"with benchmarks ");
-    for(i=0;i<BENCHMARK_NUMBER-1;++i){
-      if(arguments.benchmarks[i])
-        fprintf(stdout,"\"%s\" ",libssh_benchmarks_names[i+1]);
+    for(i=0;i<BENCHMARK_NUMBER;++i){
+      if(benchmarks[i].enabled)
+        fprintf(stdout,"\"%s\" ",benchmarks[i].name);
     }
     fprintf(stdout,"\n");
   }
@@ -227,11 +384,11 @@ int main(int argc, char **argv){
   for(i=0; i<arguments.nhosts;++i){
     if(arguments.verbose > 0)
       fprintf(stdout,"Connecting to \"%s\"...\n",arguments.hosts[i]);
-    session=connect_host(arguments.hosts[i], arguments.verbose);
+    session=connect_host(arguments.hosts[i], arguments.verbose, arguments.cipher);
     if(session != NULL && arguments.verbose > 0)
       fprintf(stdout,"Success\n");
     if(session == NULL){
-      fprintf(stderr,"Errors occured, stopping\n");
+      fprintf(stderr,"Errors occurred, stopping\n");
       return EXIT_FAILURE;
     }
     do_benchmarks(session, &arguments, arguments.hosts[i]);

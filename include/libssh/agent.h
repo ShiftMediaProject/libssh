@@ -1,3 +1,23 @@
+/*
+ * This file is part of the SSH Library
+ *
+ * Copyright (c) 2008-2009 Andreas Schneider <asn@cryptomilk.org>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
+ *
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
+ */
+
 #ifndef __AGENT_H
 #define __AGENT_H
 
@@ -51,6 +71,7 @@ struct ssh_agent_struct {
   struct ssh_socket_struct *sock;
   ssh_buffer ident;
   unsigned int count;
+  ssh_channel channel;
 };
 
 #ifndef _WIN32
@@ -80,17 +101,17 @@ void agent_free(struct ssh_agent_struct *agent);
  */
 int agent_is_running(struct ssh_session_struct *session);
 
-int agent_get_ident_count(struct ssh_session_struct *session);
+int ssh_agent_get_ident_count(struct ssh_session_struct *session);
 
-struct ssh_public_key_struct *agent_get_next_ident(struct ssh_session_struct *session,
-    char **comment);
+ssh_key ssh_agent_get_next_ident(struct ssh_session_struct *session,
+                                 char **comment);
 
-struct ssh_public_key_struct *agent_get_first_ident(struct ssh_session_struct *session,
-    char **comment);
+ssh_key ssh_agent_get_first_ident(struct ssh_session_struct *session,
+                                  char **comment);
 
-ssh_string agent_sign_data(struct ssh_session_struct *session,
-    struct ssh_buffer_struct *data,
-    struct ssh_public_key_struct *pubkey);
+ssh_string ssh_agent_sign_data(ssh_session session,
+                               const ssh_key pubkey,
+                               struct ssh_buffer_struct *data);
 #endif
 
 #endif /* __AGENT_H */

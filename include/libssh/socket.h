@@ -3,20 +3,19 @@
  *
  * Copyright (c) 2009 by Aris Adamantiadis
  *
- * The SSH Library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
  *
- * The SSH Library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License
- * along with the SSH Library; see the file COPYING.  If not, write to
- * the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
- * MA 02111-1307, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef SOCKET_H_
@@ -53,9 +52,12 @@ void ssh_socket_set_write_wontblock(ssh_socket s);
 void ssh_socket_set_read_wontblock(ssh_socket s);
 void ssh_socket_set_except(ssh_socket s);
 int ssh_socket_get_status(ssh_socket s);
+int ssh_socket_get_poll_flags(ssh_socket s);
 int ssh_socket_buffered_write_bytes(ssh_socket s);
 int ssh_socket_data_available(ssh_socket s);
 int ssh_socket_data_writable(ssh_socket s);
+int ssh_socket_set_nonblocking(socket_t fd);
+int ssh_socket_set_blocking(socket_t fd);
 
 void ssh_socket_set_callbacks(ssh_socket s, ssh_socket_callbacks callbacks);
 int ssh_socket_pollcallback(struct ssh_poll_handle_struct *p, socket_t fd, int revents, void *v_s);

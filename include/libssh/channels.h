@@ -3,20 +3,19 @@
  *
  * Copyright (c) 2009 by Aris Adamantiadis
  *
- * The SSH Library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
  *
- * The SSH Library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License
- * along with the SSH Library; see the file COPYING.  If not, write to
- * the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
- * MA 02111-1307, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef CHANNELS_H_
@@ -42,10 +41,18 @@ enum ssh_channel_request_state_e {
 
 enum ssh_channel_state_e {
   SSH_CHANNEL_STATE_NOT_OPEN = 0,
+  SSH_CHANNEL_STATE_OPENING,
   SSH_CHANNEL_STATE_OPEN_DENIED,
   SSH_CHANNEL_STATE_OPEN,
   SSH_CHANNEL_STATE_CLOSED
 };
+
+/* The channel has been closed by the remote side */
+#define SSH_CHANNEL_FLAG_CLOSED_REMOTE 0x1
+/* The channel has been freed by the calling program */
+#define SSH_CHANNEL_FLAG_FREED_LOCAL 0x2
+/* the channel has not yet been bound to a remote one */
+#define SSH_CHANNEL_FLAG_NOT_BOUND 0x4
 
 struct ssh_channel_struct {
     ssh_session session; /* SSH_SESSION pointer */
@@ -60,11 +67,11 @@ struct ssh_channel_struct {
     uint32_t remote_maxpacket;
     enum ssh_channel_state_e state;
     int delayed_close;
+    int flags;
     ssh_buffer stdout_buffer;
     ssh_buffer stderr_buffer;
     void *userarg;
     int version;
-    int blocking;
     int exit_status;
     enum ssh_channel_request_state_e request_state;
     ssh_channel_callbacks callbacks;
@@ -86,10 +93,12 @@ SSH_PACKET_CALLBACK(channel_rcv_data);
 ssh_channel ssh_channel_new(ssh_session session);
 int channel_default_bufferize(ssh_channel channel, void *data, int len,
         int is_stderr);
+int ssh_channel_flush(ssh_channel channel);
 uint32_t ssh_channel_new_id(ssh_session session);
 ssh_channel ssh_channel_from_local(ssh_session session, uint32_t id);
 int channel_write_common(ssh_channel channel, const void *data,
     uint32_t len, int is_stderr);
+void ssh_channel_do_free(ssh_channel channel);
 #ifdef WITH_SSH1
 SSH_PACKET_CALLBACK(ssh_packet_data1);
 SSH_PACKET_CALLBACK(ssh_packet_close1);

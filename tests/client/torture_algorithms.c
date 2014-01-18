@@ -27,7 +27,9 @@
 
 
 static void setup(void **state) {
+    int verbosity=torture_libssh_verbosity();
     ssh_session session = ssh_new();
+    ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
     *state = session;
 }
 
@@ -99,22 +101,33 @@ static void torture_algorithms_zlib(void **state) {
     assert_true(rc == SSH_OK);
 
     rc = ssh_options_set(session, SSH_OPTIONS_COMPRESSION_C_S, "zlib");
+#ifdef WITH_ZLIB
     assert_true(rc == SSH_OK);
+#else
+    assert_true(rc == SSH_ERROR);
+#endif
 
     rc = ssh_options_set(session, SSH_OPTIONS_COMPRESSION_S_C, "zlib");
+#ifdef WITH_ZLIB
     assert_true(rc == SSH_OK);
+#else
+    assert_true(rc == SSH_ERROR);
+#endif
 
     rc = ssh_connect(session);
+#ifdef WITH_ZLIB
     if (ssh_get_openssh_version(session)) {
         assert_false(rc == SSH_OK);
-    } else {
-        assert_true(rc == SSH_OK);
+        ssh_disconnect(session);
+        return;
+    }
+#endif
+    assert_true(rc == SSH_OK);
 
-        rc = ssh_userauth_none(session, NULL);
-        if (rc != SSH_OK) {
-            rc = ssh_get_error_code(session);
-            assert_true(rc == SSH_REQUEST_DENIED);
-        }
+    rc = ssh_userauth_none(session, NULL);
+    if (rc != SSH_OK) {
+        rc = ssh_get_error_code(session);
+        assert_true(rc == SSH_REQUEST_DENIED);
     }
 
     ssh_disconnect(session);
@@ -128,12 +141,21 @@ static void torture_algorithms_zlib_openssh(void **state) {
     assert_true(rc == SSH_OK);
 
     rc = ssh_options_set(session, SSH_OPTIONS_COMPRESSION_C_S, "zlib@openssh.com");
+#ifdef WITH_ZLIB
     assert_true(rc == SSH_OK);
+#else
+    assert_true(rc == SSH_ERROR);
+#endif
 
     rc = ssh_options_set(session, SSH_OPTIONS_COMPRESSION_S_C, "zlib@openssh.com");
+#ifdef WITH_ZLIB
     assert_true(rc == SSH_OK);
+#else
+    assert_true(rc == SSH_ERROR);
+#endif
 
     rc = ssh_connect(session);
+#ifdef WITH_ZLIB
     if (ssh_get_openssh_version(session)) {
         assert_true(rc==SSH_OK);
         rc = ssh_userauth_none(session, NULL);
@@ -141,13 +163,60 @@ static void torture_algorithms_zlib_openssh(void **state) {
             rc = ssh_get_error_code(session);
             assert_true(rc == SSH_REQUEST_DENIED);
         }
-    } else {
-      assert_false(rc == SSH_OK);
+        ssh_disconnect(session);
+        return;
     }
+    assert_false(rc == SSH_OK);
+#else
+    assert_true(rc == SSH_OK);
+#endif
 
     ssh_disconnect(session);
 }
 
+#if defined(HAVE_LIBCRYPTO) && defined(HAVE_ECC)
+static void torture_algorithms_ecdh_sha2_nistp256(void **state) {
+    ssh_session session = *state;
+    int rc;
+
+    rc = ssh_options_set(session,SSH_OPTIONS_HOST,"localhost");
+    assert_true(rc == SSH_OK);
+
+    rc = ssh_options_set(session, SSH_OPTIONS_KEY_EXCHANGE, "ecdh-sha2-nistp256");
+    assert_true(rc == SSH_OK);
+
+    rc = ssh_connect(session);
+    assert_true(rc == SSH_OK);
+    rc = ssh_userauth_none(session, NULL);
+    if (rc != SSH_OK) {
+      rc = ssh_get_error_code(session);
+      assert_true(rc == SSH_REQUEST_DENIED);
+    }
+
+    ssh_disconnect(session);
+}
+#endif
+
+static void torture_algorithms_dh_group1(void **state) {
+    ssh_session session = *state;
+    int rc;
+
+    rc = ssh_options_set(session,SSH_OPTIONS_HOST,"localhost");
+    assert_true(rc == SSH_OK);
+
+    rc = ssh_options_set(session, SSH_OPTIONS_KEY_EXCHANGE, "diffie-hellman-group1-sha1");
+    assert_true(rc == SSH_OK);
+
+    rc = ssh_connect(session);
+    assert_true(rc == SSH_OK);
+    rc = ssh_userauth_none(session, NULL);
+    if (rc != SSH_OK) {
+      rc = ssh_get_error_code(session);
+      assert_true(rc == SSH_REQUEST_DENIED);
+    }
+
+    ssh_disconnect(session);
+}
 int torture_run_tests(void) {
     int rc;
     const UnitTest tests[] = {
@@ -161,6 +230,10 @@ int torture_run_tests(void) {
         unit_test_setup_teardown(torture_algorithms_blowfish_cbc, setup, teardown),
         unit_test_setup_teardown(torture_algorithms_zlib, setup, teardown),
         unit_test_setup_teardown(torture_algorithms_zlib_openssh, setup, teardown),
+        unit_test_setup_teardown(torture_algorithms_dh_group1,setup,teardown),
+#if defined(HAVE_LIBCRYPTO) && defined(HAVE_ECC)
+        unit_test_setup_teardown(torture_algorithms_ecdh_sha2_nistp256,setup,teardown)
+#endif
     };
 
     ssh_init();

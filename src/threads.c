@@ -27,7 +27,10 @@
  * @{
  */
 
+#include "config.h"
+
 #include "libssh/priv.h"
+#include "libssh/crypto.h"
 #include "libssh/threads.h"
 
 static int threads_noop (void **lock){
@@ -49,7 +52,7 @@ static struct ssh_threads_callbacks_struct ssh_threads_noop =
     threads_id_noop
 };
 
-struct ssh_threads_callbacks_struct *ssh_threads_get_noop(){
+struct ssh_threads_callbacks_struct *ssh_threads_get_noop(void) {
 	return &ssh_threads_noop;
 }
 
@@ -80,7 +83,7 @@ static int libgcrypt_thread_init(void){
 
 /* Libcrypto specific stuff */
 
-void **libcrypto_mutexes;
+static void **libcrypto_mutexes;
 
 static void libcrypto_lock_callback(int mode, int i, const char *file, int line){
 	(void)file;
@@ -162,7 +165,7 @@ int ssh_threads_set_callbacks(struct ssh_threads_callbacks_struct *cb){
   return SSH_OK;
 }
 
-const char *ssh_threads_get_type(){
+const char *ssh_threads_get_type(void) {
 	if(user_callbacks != NULL)
 		return user_callbacks->type;
 	return NULL;

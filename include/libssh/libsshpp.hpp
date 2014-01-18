@@ -3,20 +3,19 @@
  *
  * Copyright (c) 2010 by Aris Adamantiadis
  *
- * The SSH Library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
  *
- * The SSH Library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License
- * along with the SSH Library; see the file COPYING.  If not, write to
- * the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
- * MA 02111-1307, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef LIBSSHPP_HPP_
@@ -177,8 +176,8 @@ public:
    * @returns SSH_AUTH_SUCCESS, SSH_AUTH_PARTIAL, SSH_AUTH_DENIED
    * @see ssh_userauth_autopubkey
    */
-  int userauthAutopubkey(void){
-    int ret=ssh_userauth_autopubkey(c_session,NULL);
+  int userauthPublickeyAuto(void){
+    int ret=ssh_userauth_publickey_auto(c_session, NULL, NULL);
     ssh_throw(ret);
     return ret;
   }
@@ -206,32 +205,25 @@ public:
     return ret;
   }
   /** @brief Try to authenticate using the publickey method.
-   * @param[in] type public key type
    * @param[in] pubkey public key to use for authentication
    * @throws SshException on error
    * @returns SSH_AUTH_SUCCESS if the pubkey is accepted,
    * @returns SSH_AUTH_DENIED if the pubkey is denied
-   * @see ssh_userauth_offer_pubkey
+   * @see ssh_userauth_try_pubkey
    */
-  int userauthOfferPubkey(int type, ssh_string pubkey){
-    int ret=ssh_userauth_offer_pubkey(c_session,NULL,type,pubkey);
+  int userauthTryPublickey(ssh_key pubkey){
+    int ret=ssh_userauth_try_publickey(c_session, NULL, pubkey);
     ssh_throw(ret);
     return ret;
   }
   /** @brief Authenticates using the publickey method.
-   * @param[in] pubkey public key to use for authentication
    * @param[in] privkey private key to use for authentication
    * @throws SshException on error
    * @returns SSH_AUTH_SUCCESS, SSH_AUTH_PARTIAL, SSH_AUTH_DENIED
    * @see ssh_userauth_pubkey
    */
-  int userauthPubkey(ssh_string pubkey, ssh_private_key privkey){
-    int ret=ssh_userauth_pubkey(c_session,NULL,pubkey,privkey);
-    ssh_throw(ret);
-    return ret;
-  }
-  int userauthPubkey(ssh_private_key privkey){
-    int ret=ssh_userauth_pubkey(c_session,NULL,NULL,privkey);
+  int userauthPublickey(ssh_key privkey){
+    int ret=ssh_userauth_publickey(c_session, NULL, privkey);
     ssh_throw(ret);
     return ret;
   }
@@ -324,7 +316,7 @@ public:
     va_start(va, format);
     vsnprintf(buffer, sizeof(buffer), format, va);
     va_end(va);
-    ssh_log(c_session,priority, "%s", buffer);
+    _ssh_log(priority, "libsshpp", "%s", buffer);
   }
 
   /** @brief copies options from a session to another

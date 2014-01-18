@@ -6,6 +6,27 @@
    ...
    fun:regcomp
 }
+{
+   glibc_getaddrinfo_leak
+   Memcheck:Leak
+   fun:malloc
+   fun:make_request
+   fun:__check_pf
+   fun:getaddrinfo
+   fun:getai
+   fun:ssh_connect_host_nonblocking
+}
+
+{
+   glibc_dlopen_getdelim_selinux
+   Memcheck:Leak
+   fun:malloc
+   fun:getdelim
+   obj:/lib64/libselinux.so.1
+   fun:call_init
+   fun:_dl_init
+   obj:/lib64/ld-2.15.so
+}
 
 ### OPENSSL
 {
@@ -88,4 +109,9 @@
    Memcheck:Leak
    fun:*alloc
    fun:CRYPTO_*
+}
+{
+   openssl_CRYPTO_leak
+   Memcheck:Cond
+   fun:OPENSSL_cleanse
 }

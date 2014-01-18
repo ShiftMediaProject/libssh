@@ -85,7 +85,7 @@ this tutorial.
 
 @subsection libssh_direct Doing direct port forwarding with libssh
 
-To do direct port forwarding, call function channel_open_forward():
+To do direct port forwarding, call function ssh_channel_open_forward():
   - you need a separate channel for the tunnel as first parameter;
   - second and third parameters are the remote endpoint;
   - fourth and fifth parameters are sent to the remote server
@@ -106,11 +106,13 @@ int direct_forwarding(ssh_session session)
   int nbytes, nwritten;
 
   forwarding_channel = ssh_channel_new(session);
-  if (rc != SSH_OK) return rc;
+  if (forwarding_channel == NULL) {
+      return rc;
+  }
 
-  rc = channel_open_forward(forwarding_channel,
-                            "www.google.com", 80,
-                            "localhost", 5555);
+  rc = ssh_channel_open_forward(forwarding_channel,
+                                "www.google.com", 80,
+                                "localhost", 5555);
   if (rc != SSH_OK)
   {
     ssh_channel_free(forwarding_channel);
@@ -118,7 +120,9 @@ int direct_forwarding(ssh_session session)
   }
 
   nbytes = strlen(http_get);
-  nwritten = channel_write(forwarding_channel, http_get, nbytes);
+  nwritten = ssh_channel_write(forwarding_channel,
+                           http_get,
+                           nbytes);
   if (nbytes != nwritten)
   {
     ssh_channel_free(forwarding_channel);
@@ -140,10 +144,10 @@ or whatever use you have for it.
 
 @subsection libssh_reverse Doing reverse port forwarding with libssh
 
-To do reverse port forwarding, call ssh_channel_forward_listen(),
-then ssh_channel_forward_accept().
+To do reverse port forwarding, call ssh_forward_listen(),
+then ssh_forward_accept().
 
-When you call ssh_channel_forward_listen(), you can let the remote server
+When you call ssh_forward_listen(), you can let the remote server
 chose the non-priviledged port it should listen to. Otherwise, you can chose
 your own priviledged or non-priviledged port. Beware that you should have
 administrative priviledges on the remote server to open a priviledged port
@@ -174,17 +178,19 @@ int web_server(ssh_session session)
 "  </body>\n"
 "</html>\n";
 
-  rc = ssh_channel_forward_listen(session, NULL, 8080, NULL);
+  rc = ssh_forward_listen(session, NULL, 8080, NULL);
   if (rc != SSH_OK)
   {
-    fprintf(stderr, "Error opening remote port: %s\n", ssh_get_error(session));
+    fprintf(stderr, "Error opening remote port: %s\n",
+            ssh_get_error(session));
     return rc;
   }
 
-  channel = ssh_channel_forward_accept(session, 60000);
+  channel = ssh_forward_accept(session, 60000);
   if (channel == NULL)
   {
-    fprintf(stderr, "Error waiting for incoming connection: %s\n", ssh_get_error(session));
+    fprintf(stderr, "Error waiting for incoming connection: %s\n",
+            ssh_get_error(session));
     return SSH_ERROR;
   }
 
@@ -193,7 +199,8 @@ int web_server(ssh_session session)
     nbytes = ssh_channel_read(channel, buffer, sizeof(buffer), 0);
     if (nbytes < 0)
     {
-      fprintf(stderr, "Error reading incoming data: %s\n", ssh_get_error(session));
+      fprintf(stderr, "Error reading incoming data: %s\n",
+              ssh_get_error(session));
       ssh_channel_send_eof(channel);
       ssh_channel_free(channel);
       return SSH_ERROR;
@@ -204,7 +211,8 @@ int web_server(ssh_session session)
     nwritten = ssh_channel_write(channel, helloworld, nbytes);
     if (nwritten != nbytes)
     {
-      fprintf(stderr, "Error sending answer: %s\n", ssh_get_error(session));
+      fprintf(stderr, "Error sending answer: %s\n",
+              ssh_get_error(session));
       ssh_channel_send_eof(channel);
       ssh_channel_free(channel);
       return SSH_ERROR;

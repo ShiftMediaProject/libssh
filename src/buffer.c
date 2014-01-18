@@ -188,8 +188,9 @@ int buffer_reinit(struct ssh_buffer_struct *buffer) {
 int buffer_add_data(struct ssh_buffer_struct *buffer, const void *data, uint32_t len) {
   buffer_verify(buffer);
 
-  if (buffer->used + len < len)
+  if (buffer->used + len < len) {
     return -1;
+  }
 
   if (buffer->allocated < (buffer->used + len)) {
     if(buffer->pos > 0)
@@ -329,8 +330,10 @@ int buffer_prepend_data(struct ssh_buffer_struct *buffer, const void *data,
     return 0;
   }
   /* pos isn't high enough */
-  if (buffer->used - buffer->pos + len < len)
+  if (buffer->used - buffer->pos + len < len) {
     return -1;
+  }
+
   if (buffer->allocated < (buffer->used - buffer->pos + len)) {
     if (realloc_buffer(buffer, buffer->used - buffer->pos + len) < 0) {
       return -1;
@@ -442,8 +445,11 @@ uint32_t buffer_get_rest_len(struct ssh_buffer_struct *buffer){
  */
 uint32_t buffer_pass_bytes(struct ssh_buffer_struct *buffer, uint32_t len){
     buffer_verify(buffer);
-    if (buffer->pos + len < len || buffer->used < buffer->pos + len)
+
+    if (buffer->pos + len < len || buffer->used < buffer->pos + len) {
         return 0;
+    }
+
     buffer->pos+=len;
     /* if the buffer is empty after having passed the whole bytes into it, we can clean it */
     if(buffer->pos==buffer->used){

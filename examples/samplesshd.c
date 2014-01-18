@@ -33,11 +33,10 @@ clients must be made or how a client should react.
 #endif
 
 #ifdef WITH_PCAP
-const char *pcap_file="debug.server.pcap";
-ssh_pcap_file pcap;
+static const char *pcap_file="debug.server.pcap";
+static ssh_pcap_file pcap;
 
-void set_pcap(ssh_session session);
-void set_pcap(ssh_session session){
+static void set_pcap(ssh_session session) {
 	if(!pcap_file)
 		return;
 	pcap=ssh_pcap_file_new();
@@ -50,15 +49,14 @@ void set_pcap(ssh_session session){
 	ssh_set_pcap_file(session,pcap);
 }
 
-void cleanup_pcap(void);
-void cleanup_pcap(){
+static void cleanup_pcap(void) {
 	ssh_pcap_file_free(pcap);
 	pcap=NULL;
 }
 #endif
 
 
-static int auth_password(char *user, char *password){
+static int auth_password(const char *user, const char *password){
     if(strcmp(user,"aris"))
         return 0;
     if(strcmp(password,"lala"))
@@ -118,7 +116,7 @@ static struct argp_option options[] = {
     .doc   = "Get verbose output.",
     .group = 0
   },
-  {NULL, 0, 0, 0, NULL, 0}
+  {NULL, 0, NULL, 0, NULL, 0}
 };
 
 /* Parse a single option. */
@@ -270,7 +268,8 @@ int main(int argc, char **argv){
     do {
         message=ssh_message_get(session);
         if(message && ssh_message_type(message)==SSH_REQUEST_CHANNEL &&
-           ssh_message_subtype(message)==SSH_CHANNEL_REQUEST_SHELL){
+           (ssh_message_subtype(message)==SSH_CHANNEL_REQUEST_SHELL ||
+            ssh_message_subtype(message)==SSH_CHANNEL_REQUEST_PTY)) {
 //            if(!strcmp(ssh_message_channel_request_subsystem(message),"sftp")){
                 sftp=1;
                 ssh_message_channel_request_reply_success(message);
@@ -294,6 +293,13 @@ int main(int argc, char **argv){
             if (write(1,buf,i) < 0) {
                 printf("error writing to buffer\n");
                 return 1;
+            }
+            if (buf[0] == '\x0d') {
+                if (write(1, "\n", 1) < 0) {
+                    printf("error writing to buffer\n");
+                    return 1;
+                }
+                ssh_channel_write(chan, "\n", 1);
             }
         }
     } while (i>0);

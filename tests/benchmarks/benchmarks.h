@@ -30,16 +30,36 @@
 #define MAX_HOSTS_CONNECT 20
 
 enum libssh_benchmarks {
-    BENCHMARK_RAW_UPLOAD=1,
+    BENCHMARK_RAW_UPLOAD=0,
+    BENCHMARK_RAW_DOWNLOAD,
+    BENCHMARK_SCP_UPLOAD,
+    BENCHMARK_SCP_DOWNLOAD,
+    BENCHMARK_SYNC_SFTP_UPLOAD,
+    BENCHMARK_SYNC_SFTP_DOWNLOAD,
+    BENCHMARK_ASYNC_SFTP_DOWNLOAD,
     BENCHMARK_NUMBER
 };
 
 struct argument_s {
   const char *hosts[MAX_HOSTS_CONNECT];
-  char benchmarks[BENCHMARK_NUMBER -1];
   int verbose;
   int nhosts;
   int ntests;
+  unsigned int datasize;
+  unsigned int chunksize;
+  int concurrent_requests;
+  char *cipher;
+};
+
+extern char *buffer;
+
+typedef int (*bench_fct)(ssh_session session, struct argument_s *args,
+    float *bps);
+
+struct benchmark {
+  const char *name;
+  bench_fct fct;
+  int enabled;
 };
 
 /* latency.c */
@@ -58,5 +78,22 @@ float elapsed_time(struct timestamp_struct *ts);
 
 int benchmarks_raw_up (ssh_session session, struct argument_s *args,
     float *bps);
+int benchmarks_raw_down (ssh_session session, struct argument_s *args,
+    float *bps);
 
+/* bench_scp.c */
+
+int benchmarks_scp_up (ssh_session session, struct argument_s *args,
+    float *bps);
+int benchmarks_scp_down (ssh_session session, struct argument_s *args,
+    float *bps);
+
+/* bench_sftp.c */
+
+int benchmarks_sync_sftp_up (ssh_session session, struct argument_s *args,
+    float *bps);
+int benchmarks_sync_sftp_down (ssh_session session, struct argument_s *args,
+    float *bps);
+int benchmarks_async_sftp_down (ssh_session session, struct argument_s *args,
+    float *bps);
 #endif /* BENCHMARKS_H_ */

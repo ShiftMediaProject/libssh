@@ -3,8 +3,8 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2009-2010 by Andreas Schneider <mail@cynapses.org>
- * Copyright (c) 2003-2009 by Aris Adamantiadis
+ * Copyright (c) 2009-2013 by Andreas Schneider <asn@cryptomilk.org>
+ * Copyright (c) 2003-2013 by Aris Adamantiadis
  * Copyright (c) 2009 Aleksandar Kanchev
  *
  * The SSH Library is free software; you can redistribute it and/or modify
@@ -28,12 +28,18 @@
 #include "config.h"
 
 #include <errno.h>
+#include <stdlib.h>
 
 #include "libssh/priv.h"
 #include "libssh/libssh.h"
 #include "libssh/poll.h"
 #include "libssh/socket.h"
 #include "libssh/session.h"
+#ifdef WITH_SERVER
+#include "libssh/server.h"
+#include "libssh/misc.h"
+#endif
+
 
 #ifndef SSH_POLL_CTX_CHUNK
 #define SSH_POLL_CTX_CHUNK			5
@@ -58,11 +64,13 @@
 
 struct ssh_poll_handle_struct {
   ssh_poll_ctx ctx;
+  ssh_session session;
   union {
     socket_t fd;
     size_t idx;
   } x;
   short events;
+  int lock;
   ssh_poll_callback cb;
   void *cb_data;
 };
@@ -108,9 +116,12 @@ static poll_fn ssh_poll_emu;
 #else /* _WIN32 */
 #include <sys/select.h>
 #include <sys/socket.h>
-#include <unistd.h>
 #include <sys/time.h>
 #endif /* _WIN32 */
+
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 
 
 /*
@@ -257,7 +268,9 @@ int ssh_poll(ssh_pollfd_t *fds, nfds_t nfds, int timeout) {
  * @param  events       Poll events that will be monitored for the socket. i.e.
  *                      POLLIN, POLLPRI, POLLOUT
  * @param  cb           Function to be called if any of the events are set.
- *
+ *                      The prototype of cb is:
+ *                      int (*ssh_poll_callback)(ssh_poll_handle p, socket_t fd,
+ *                                                 int revents, void *userdata);
  * @param  userdata     Userdata to be passed to the callback function. NULL if
  *                      not needed.
  *
@@ -276,12 +289,8 @@ ssh_poll_handle ssh_poll_new(socket_t fd, short events, ssh_poll_callback cb,
 
     p->x.fd = fd;
     p->events = events;
-    if (cb != NULL) {
-        p->cb = cb;
-    }
-    if (userdata != NULL) {
-        p->cb_data = userdata;
-    }
+    p->cb = cb;
+    p->cb_data = userdata;
 
     return p;
 }
@@ -332,7 +341,7 @@ short ssh_poll_get_events(ssh_poll_handle p) {
  */
 void ssh_poll_set_events(ssh_poll_handle p, short events) {
   p->events = events;
-  if (p->ctx != NULL) {
+  if (p->ctx != NULL && !p->lock) {
     p->ctx->pollfds[p->x.idx].events = events;
   }
 }
@@ -442,7 +451,11 @@ void ssh_poll_ctx_free(ssh_poll_ctx ctx) {
   if (ctx->polls_allocated > 0) {
     while (ctx->polls_used > 0){
       ssh_poll_handle p = ctx->pollptrs[0];
-      ssh_poll_ctx_remove(ctx, p);
+      /*
+       * The free function calls ssh_poll_ctx_remove() and decrements
+       * ctx->polls_used
+       */
+      ssh_poll_free(p);
     }
 
     SAFE_FREE(ctx->pollptrs);
@@ -456,18 +469,22 @@ static int ssh_poll_ctx_resize(ssh_poll_ctx ctx, size_t new_size) {
   ssh_poll_handle *pollptrs;
   ssh_pollfd_t *pollfds;
 
-  pollptrs = realloc(ctx->pollptrs, sizeof(ssh_poll_handle *) * new_size);
+  pollptrs = realloc(ctx->pollptrs, sizeof(ssh_poll_handle) * new_size);
   if (pollptrs == NULL) {
     return -1;
   }
+  ctx->pollptrs = pollptrs;
 
   pollfds = realloc(ctx->pollfds, sizeof(ssh_pollfd_t) * new_size);
   if (pollfds == NULL) {
-    ctx->pollptrs = realloc(pollptrs, sizeof(ssh_poll_handle *) * ctx->polls_allocated);
+    pollptrs = realloc(ctx->pollptrs, sizeof(ssh_poll_handle) * ctx->polls_allocated);
+    if (pollptrs == NULL) {
+        return -1;
+    }
+    ctx->pollptrs = pollptrs;
     return -1;
   }
 
-  ctx->pollptrs = pollptrs;
   ctx->pollfds = pollfds;
   ctx->polls_allocated = new_size;
 
@@ -549,6 +566,7 @@ void ssh_poll_ctx_remove(ssh_poll_ctx ctx, ssh_poll_handle p) {
   if (ctx->polls_used > 0 && ctx->polls_used != i) {
     ctx->pollfds[i] = ctx->pollfds[ctx->polls_used];
     ctx->pollptrs[i] = ctx->pollptrs[ctx->polls_used];
+    ctx->pollptrs[i]->x.idx = i;
   }
 
   /* this will always leave at least chunk_size polls allocated */
@@ -590,7 +608,7 @@ int ssh_poll_ctx_dopoll(ssh_poll_ctx ctx, int timeout) {
     return SSH_AGAIN;
   used = ctx->polls_used;
   for (i = 0; i < used && rc > 0; ) {
-    if (!ctx->pollfds[i].revents) {
+    if (!ctx->pollfds[i].revents || ctx->pollptrs[i]->lock) {
       i++;
     } else {
       int ret;
@@ -598,7 +616,9 @@ int ssh_poll_ctx_dopoll(ssh_poll_ctx ctx, int timeout) {
       p = ctx->pollptrs[i];
       fd = ctx->pollfds[i].fd;
       revents = ctx->pollfds[i].revents;
-
+      /* avoid having any event caught during callback */
+      ctx->pollfds[i].events = 0;
+      p->lock = 1;
       if (p->cb && (ret = p->cb(p, fd, revents, p->cb_data)) < 0) {
         if (ret == -2) {
             return -1;
@@ -608,6 +628,8 @@ int ssh_poll_ctx_dopoll(ssh_poll_ctx ctx, int timeout) {
         i=0;
       } else {
         ctx->pollfds[i].revents = 0;
+        ctx->pollfds[i].events = p->events;
+        p->lock = 0;
         i++;
       }
 
@@ -631,6 +653,316 @@ ssh_poll_ctx ssh_poll_get_default_ctx(ssh_session session){
 	/* 2 is enough for the default one */
 	session->default_poll_ctx = ssh_poll_ctx_new(2);
 	return session->default_poll_ctx;
+}
+
+/* public event API */
+
+struct ssh_event_fd_wrapper {
+    ssh_event_callback cb;
+    void * userdata;
+};
+
+struct ssh_event_struct {
+    ssh_poll_ctx ctx;
+#ifdef WITH_SERVER
+    struct ssh_list *sessions;
+#endif
+};
+
+/**
+ * @brief  Create a new event context. It could be associated with many
+ *         ssh_session objects and socket fd which are going to be polled at the
+ *         same time as the event context. You would need a single event context
+ *         per thread.
+ * 
+ * @return  The ssh_event object on success, NULL on failure.
+ */
+ssh_event ssh_event_new(void) {
+    ssh_event event;
+
+    event = malloc(sizeof(struct ssh_event_struct));
+    if (event == NULL) {
+        return NULL;
+    }
+    ZERO_STRUCTP(event);
+
+    event->ctx = ssh_poll_ctx_new(2);
+    if(event->ctx == NULL) {
+        free(event);
+        return NULL;
+    }
+
+#ifdef WITH_SERVER
+    event->sessions = ssh_list_new();
+    if(event->sessions == NULL) {
+        ssh_poll_ctx_free(event->ctx);
+        free(event);
+        return NULL;
+    }
+#endif
+
+    return event;
+}
+
+static int ssh_event_fd_wrapper_callback(ssh_poll_handle p, socket_t fd, int revents,
+                                                            void *userdata) {
+    struct ssh_event_fd_wrapper *pw = (struct ssh_event_fd_wrapper *)userdata;
+
+    (void)p;
+    if(pw->cb != NULL) {
+        return pw->cb(fd, revents, pw->userdata);
+    }
+    return 0;
+}
+
+/**
+ * @brief Add a fd to the event and assign it a callback,
+ * when used in blocking mode.
+ * @param event         The ssh_event
+ * @param  fd           Socket that will be polled.
+ * @param  events       Poll events that will be monitored for the socket. i.e.
+ *                      POLLIN, POLLPRI, POLLOUT
+ * @param  cb           Function to be called if any of the events are set.
+ *                      The prototype of cb is:
+ *                      int (*ssh_event_callback)(socket_t fd, int revents,
+ *                                                          void *userdata);
+ * @param  userdata     Userdata to be passed to the callback function. NULL if
+ *                      not needed.
+ *
+ * @returns SSH_OK      on success
+ *          SSH_ERROR   on failure
+ */
+int ssh_event_add_fd(ssh_event event, socket_t fd, short events,
+                                    ssh_event_callback cb, void *userdata) {
+    ssh_poll_handle p;
+    struct ssh_event_fd_wrapper *pw;
+    
+    if(event == NULL || event->ctx == NULL || cb == NULL
+                                           || fd == SSH_INVALID_SOCKET) {
+        return SSH_ERROR;
+    }
+    pw = malloc(sizeof(struct ssh_event_fd_wrapper));
+    if(pw == NULL) {
+        return SSH_ERROR;
+    }
+
+    pw->cb = cb;
+    pw->userdata = userdata;
+
+    /* pw is freed by ssh_event_remove_fd */
+    p = ssh_poll_new(fd, events, ssh_event_fd_wrapper_callback, pw);
+    if(p == NULL) {
+        free(pw);
+        return SSH_ERROR;
+    }
+
+    if(ssh_poll_ctx_add(event->ctx, p) < 0) {
+        free(pw);
+        ssh_poll_free(p);
+        return SSH_ERROR;
+    }
+    return SSH_OK;
+}
+
+/**
+ * @brief remove the poll handle from session and assign them to a event,
+ * when used in blocking mode.
+ *
+ * @param event     The ssh_event object
+ * @param session   The session to add to the event.
+ *
+ * @returns SSH_OK      on success
+ *          SSH_ERROR   on failure
+ */
+int ssh_event_add_session(ssh_event event, ssh_session session) {
+    unsigned int i;
+    ssh_poll_handle p;
+#ifdef WITH_SERVER
+    struct ssh_iterator *iterator;
+#endif
+    
+    if(event == NULL || event->ctx == NULL || session == NULL) {
+        return SSH_ERROR;
+    }
+    if(session->default_poll_ctx == NULL) {
+        return SSH_ERROR;
+    }
+    for(i = 0; i < session->default_poll_ctx->polls_used; i++) {
+        p = session->default_poll_ctx->pollptrs[i];
+        ssh_poll_ctx_remove(session->default_poll_ctx, p);
+        ssh_poll_ctx_add(event->ctx, p);
+        /* associate the pollhandler with a session so we can put it back
+         * at ssh_event_free()
+         */
+        p->session = session;
+    }
+#ifdef WITH_SERVER
+    iterator = ssh_list_get_iterator(event->sessions);
+    while(iterator != NULL) {
+        if((ssh_session)iterator->data == session) {
+            /* allow only one instance of this session */
+            return SSH_OK;
+        }
+        iterator = iterator->next;
+    }
+    if(ssh_list_append(event->sessions, session) == SSH_ERROR) {
+        return SSH_ERROR;
+    }
+#endif
+    return SSH_OK;
+}
+
+/**
+ * @brief  Poll all the sockets and sessions associated through an event object.
+ *         If any of the events are set after the poll, the
+ *         call back functions of the sessions or sockets will be called.
+ *         This function should be called once within the programs main loop.
+ *
+ * @param  event        The ssh_event object to poll.
+ * @param  timeout      An upper limit on the time for which the poll will
+ *                      block, in milliseconds. Specifying a negative value
+ *                      means an infinite timeout. This parameter is passed to
+ *                      the poll() function.
+ * @returns SSH_OK      No error.
+ *          SSH_ERROR   Error happened during the poll.
+ */
+int ssh_event_dopoll(ssh_event event, int timeout) {
+    int rc;
+
+    if(event == NULL || event->ctx == NULL) {
+        return SSH_ERROR;
+    }
+    rc = ssh_poll_ctx_dopoll(event->ctx, timeout);
+    return rc;
+}
+
+/**
+ * @brief  Remove a socket fd from an event context.
+ *
+ * @param  event        The ssh_event object.
+ * @param  fd           The fd to remove.
+ *
+ * @returns SSH_OK      on success
+ *          SSH_ERROR   on failure
+ */
+int ssh_event_remove_fd(ssh_event event, socket_t fd) {
+    register size_t i, used;
+    int rc = SSH_ERROR;
+
+    if(event == NULL || event->ctx == NULL) {
+        return SSH_ERROR;
+    }
+
+    used = event->ctx->polls_used;
+    for (i = 0; i < used; i++) {
+        if(fd == event->ctx->pollfds[i].fd) {
+            ssh_poll_handle p = event->ctx->pollptrs[i];
+            if (p->session != NULL){
+            	/* we cannot free that handle, it's owned by its session */
+            	continue;
+            }
+            if (p->cb == ssh_event_fd_wrapper_callback) {
+                struct ssh_event_fd_wrapper *pw = p->cb_data;
+                SAFE_FREE(pw);
+            }
+
+            /*
+             * The free function calls ssh_poll_ctx_remove() and decrements
+             * event->ctx->polls_used.
+             */
+            ssh_poll_free(p);
+            rc = SSH_OK;
+
+            /* restart the loop */
+            used = event->ctx->polls_used;
+            i = 0;
+        }
+    }
+
+    return rc;
+}
+
+/**
+ * @brief  Remove a session object from an event context.
+ *
+ * @param  event        The ssh_event object.
+ * @param  session      The session to remove.
+ *
+ * @returns SSH_OK      on success
+ *          SSH_ERROR   on failure
+ */
+int ssh_event_remove_session(ssh_event event, ssh_session session) {
+    ssh_poll_handle p;
+    register size_t i, used;
+    int rc = SSH_ERROR;
+#ifdef WITH_SERVER
+    struct ssh_iterator *iterator;
+#endif
+
+    if(event == NULL || event->ctx == NULL || session == NULL) {
+        return SSH_ERROR;
+    }
+
+    used = event->ctx->polls_used;
+    for(i = 0; i < used; i++) {
+    	p = event->ctx->pollptrs[i];
+    	if(p->session == session){
+            ssh_poll_ctx_remove(event->ctx, p);
+            p->session = NULL;
+            ssh_poll_ctx_add(session->default_poll_ctx, p);
+            rc = SSH_OK;
+            used = 0;
+        }
+    }
+#ifdef WITH_SERVER
+    iterator = ssh_list_get_iterator(event->sessions);
+    while(iterator != NULL) {
+        if((ssh_session)iterator->data == session) {
+            ssh_list_remove(event->sessions, iterator);
+            /* there should be only one instance of this session */
+            break;
+        }
+        iterator = iterator->next;
+    }
+#endif
+
+    return rc;
+}
+
+/**
+ * @brief  Free an event context.
+ *
+ * @param  event        The ssh_event object to free.
+ *                      Note: you have to manually remove sessions and socket
+ *                      fds before freeing the event object.
+ *
+ */
+void ssh_event_free(ssh_event event) {
+	int used, i;
+	ssh_poll_handle p;
+	if(event == NULL) {
+        return;
+    }
+    if(event->ctx != NULL) {
+        used = event->ctx->polls_used;
+        for(i = 0; i < used; i++) {
+        	p = event->ctx->pollptrs[i];
+        	if(p->session != NULL){
+                ssh_poll_ctx_remove(event->ctx, p);
+                ssh_poll_ctx_add(p->session->default_poll_ctx, p);
+                p->session = NULL;
+                used = 0;
+            }
+        }
+
+        ssh_poll_ctx_free(event->ctx);
+    }
+#ifdef WITH_SERVER
+    if(event->sessions != NULL) {
+        ssh_list_free(event->sessions);
+    }
+#endif
+    free(event);
 }
 
 /** @} */

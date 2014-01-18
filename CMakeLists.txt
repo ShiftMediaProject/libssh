@@ -7,8 +7,8 @@ cmake_minimum_required(VERSION 2.6.0)
 set(APPLICATION_NAME ${PROJECT_NAME})
 
 set(APPLICATION_VERSION_MAJOR "0")
-set(APPLICATION_VERSION_MINOR "5")
-set(APPLICATION_VERSION_PATCH "5")
+set(APPLICATION_VERSION_MINOR "6")
+set(APPLICATION_VERSION_PATCH "0")
 
 set(APPLICATION_VERSION "${APPLICATION_VERSION_MAJOR}.${APPLICATION_VERSION_MINOR}.${APPLICATION_VERSION_PATCH}")
 
@@ -19,7 +19,7 @@ set(APPLICATION_VERSION "${APPLICATION_VERSION_MAJOR}.${APPLICATION_VERSION_MINO
 #     Increment AGE. Set REVISION to 0
 #   If the source code was changed, but there were no interface changes:
 #     Increment REVISION.
-set(LIBRARY_VERSION "4.2.5")
+set(LIBRARY_VERSION "4.3.0")
 set(LIBRARY_SOVERSION "4")
 
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
@@ -39,17 +39,13 @@ include(CPackConfig.cmake)
 include(MacroEnsureOutOfSourceBuild)
 macro_ensure_out_of_source_build("${PROJECT_NAME} requires an out of source build. Please create a separate build directory and run 'cmake /path/to/${PROJECT_NAME} [options]' there.")
 
-# add macros
-include(MacroAddPlugin)
-include(MacroCopyFile)
-
 # search for libraries
-if (WITH_LIBZ)
+if (WITH_ZLIB)
     find_package(ZLIB REQUIRED)
-endif (WITH_LIBZ)
+endif (WITH_ZLIB)
 
 if (WITH_GCRYPT)
-  find_package(GCrypt REQUIRED)
+  find_package(GCrypt 1.5.0 REQUIRED)
   if (NOT GCRYPT_FOUND)
     message(FATAL_ERROR "Could not find GCrypt")
   endif (NOT GCRYPT_FOUND)
@@ -66,6 +62,17 @@ endif(WITH_GCRYPT)
 # Find out if we have threading available
 set(CMAKE_THREAD_PREFER_PTHREADS ON)
 find_package(Threads)
+
+if (WITH_GSSAPI)
+    find_package(GSSAPI)
+endif (WITH_GSSAPI)
+
+if (WITH_NACL)
+    find_package(NaCl)
+    if (NOT NACL_FOUND)
+        set(WITH_NACL OFF)
+    endif (NOT NACL_FOUND)
+endif (WITH_NACL)
 
 # config.h checks
 include(ConfigureChecks.cmake)
@@ -89,11 +96,29 @@ install(
     pkgconfig
 )
 
-add_subdirectory(examples)
+# cmake config files
+configure_file(libssh-config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/libssh-config.cmake @ONLY)
+configure_file(libssh-config-version.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/libssh-config-version.cmake @ONLY)
+install(
+    FILES
+        ${CMAKE_CURRENT_BINARY_DIR}/libssh-config.cmake
+        ${CMAKE_CURRENT_BINARY_DIR}/libssh-config-version.cmake
+    DESTINATION
+        ${CMAKE_INSTALL_DIR}
+    COMPONENT
+        devel
+)
+
+# in tree build settings
+configure_file(libssh-build-tree-settings.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/libssh-build-tree-settings.cmake @ONLY)
+
+if (WITH_EXAMPLES)
+    add_subdirectory(examples)
+endif (WITH_EXAMPLES)
 
 if (WITH_TESTING)
-  find_package(CMockery REQUIRED)
-  include(AddCMockeryTest)
+  find_package(CMocka REQUIRED)
+  include(AddCMockaTest)
   add_subdirectory(tests)
 endif (WITH_TESTING)
 
@@ -101,12 +126,15 @@ endif (WITH_TESTING)
 message(STATUS "********************************************")
 message(STATUS "********** ${PROJECT_NAME} build options : **********")
 
-message(STATUS "zlib support: ${WITH_LIBZ}")
+message(STATUS "zlib support: ${WITH_ZLIB}")
 message(STATUS "libgcrypt support: ${WITH_GCRYPT}")
+message(STATUS "libnacl support: ${WITH_NACL}")
 message(STATUS "SSH-1 support: ${WITH_SSH1}")
 message(STATUS "SFTP support: ${WITH_SFTP}")
 message(STATUS "Server support : ${WITH_SERVER}")
+message(STATUS "GSSAPI support : ${WITH_GSSAPI}")
 message(STATUS "Pcap debugging support : ${WITH_PCAP}")
+message(STATUS "With static library: ${WITH_STATIC_LIB}")
 message(STATUS "Unit testing: ${WITH_TESTING}")
 message(STATUS "Client code Unit testing: ${WITH_CLIENT_TESTING}")
 if (WITH_INTERNAL_DOC)

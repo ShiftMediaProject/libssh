@@ -3,7 +3,7 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2003-2008 by Aris Adamantiadis
+ * Copyright (c) 2003-2013 by Aris Adamantiadis
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -46,13 +46,20 @@
 #include "libssh/pcap.h"
 #include "libssh/kex.h"
 #include "libssh/auth.h"
+#include "libssh/gssapi.h"
 
-ssh_packet_callback default_packet_handlers[]= {
+#define MACSIZE SHA_DIGEST_LEN
+
+static ssh_packet_callback default_packet_handlers[]= {
   ssh_packet_disconnect_callback,          // SSH2_MSG_DISCONNECT                 1
   ssh_packet_ignore_callback,              // SSH2_MSG_IGNORE	                    2
   ssh_packet_unimplemented,                // SSH2_MSG_UNIMPLEMENTED              3
   ssh_packet_ignore_callback,              // SSH2_MSG_DEBUG	                    4
+#if WITH_SERVER
   ssh_packet_service_request,              // SSH2_MSG_SERVICE_REQUEST	          5
+#else
+  NULL,
+#endif
   ssh_packet_service_accept,               // SSH2_MSG_SERVICE_ACCEPT             6
   NULL, NULL, NULL, NULL, NULL, NULL, NULL,
   NULL, NULL, NULL,	NULL, NULL, NULL,      //                                     7-19
@@ -74,18 +81,33 @@ ssh_packet_callback default_packet_handlers[]= {
   NULL, NULL, NULL, NULL, NULL, NULL,	NULL,
   NULL, NULL, NULL, NULL, NULL, NULL, NULL,
   NULL,                                    //                                     35-49
+#if WITH_SERVER
   ssh_packet_userauth_request,             // SSH2_MSG_USERAUTH_REQUEST           50
+#else
+  NULL,
+#endif
   ssh_packet_userauth_failure,             // SSH2_MSG_USERAUTH_FAILURE           51
   ssh_packet_userauth_success,             // SSH2_MSG_USERAUTH_SUCCESS           52
   ssh_packet_userauth_banner,              // SSH2_MSG_USERAUTH_BANNER            53
   NULL,NULL,NULL,NULL,NULL,NULL,           //                                     54-59
   ssh_packet_userauth_pk_ok,               // SSH2_MSG_USERAUTH_PK_OK             60
                                            // SSH2_MSG_USERAUTH_PASSWD_CHANGEREQ  60
-                                           // SSH2_MSG_USERAUTH_INFO_REQUEST	    60
-  NULL,                                    // SSH2_MSG_USERAUTH_INFO_RESPONSE     61
+                                           // SSH2_MSG_USERAUTH_INFO_REQUEST	  60
+                                           // SSH2_MSG_USERAUTH_GSSAPI_RESPONSE   60
+  ssh_packet_userauth_info_response,       // SSH2_MSG_USERAUTH_INFO_RESPONSE     61
+                                           // SSH2_MSG_USERAUTH_GSSAPI_TOKEN      61
+  NULL,                                    //                                     62
+  NULL,                             // SSH2_MSG_USERAUTH_GSSAPI_EXCHANGE_COMPLETE 63
+  NULL,                                    // SSH2_MSG_USERAUTH_GSSAPI_ERROR      64
+  NULL,                                    // SSH2_MSG_USERAUTH_GSSAPI_ERRTOK     65
+#if defined(WITH_GSSAPI) && defined(WITH_SERVER)
+  ssh_packet_userauth_gssapi_mic,          // SSH2_MSG_USERAUTH_GSSAPI_MIC        66
+#else /* WITH_GSSAPI && WITH_SERVER */
+  NULL,
+#endif /* WITH_GSSAPI && WITH_SERVER */
+  NULL, NULL,
   NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-  NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-  NULL, NULL, NULL, NULL,                  //                                     62-79
+  NULL, NULL, NULL, NULL,                  //                                     67-79
 #ifdef WITH_SERVER
   ssh_packet_global_request,               // SSH2_MSG_GLOBAL_REQUEST             80
 #else /* WITH_SERVER */
@@ -107,9 +129,6 @@ ssh_packet_callback default_packet_handlers[]= {
   ssh_packet_channel_failure,              // SSH2_MSG_CHANNEL_FAILURE            100
 };
 
-/* XXX include selected mac size */
-static int macsize=SHA_DIGEST_LEN;
-
 /* in nonblocking mode, socket_read will read as much as it can, and return */
 /* SSH_OK if it has read at least len bytes, otherwise, SSH_AGAIN. */
 /* in blocking mode, it will read at least len bytes and will block until it's ok. */
@@ -122,178 +141,211 @@ static int macsize=SHA_DIGEST_LEN;
  * @len length of data received. It might not be enough for a complete packet
  * @returns number of bytes read and processed.
  */
-int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user){
-  ssh_session session=(ssh_session) user;
-  unsigned int blocksize = (session->current_crypto ?
-      session->current_crypto->in_cipher->blocksize : 8);
-  int current_macsize = session->current_crypto ? macsize : 0;
-  unsigned char mac[30] = {0};
-  char buffer[16] = {0};
-  void *packet=NULL;
-  int to_be_read;
-  int rc;
-  uint32_t len;
-  uint8_t padding;
-  size_t processed=0; /* number of byte processed from the callback */
+int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
+{
+    ssh_session session= (ssh_session) user;
+    unsigned int blocksize = (session->current_crypto ?
+                              session->current_crypto->in_cipher->blocksize : 8);
+    int current_macsize = session->current_crypto ? MACSIZE : 0;
+    unsigned char mac[30] = {0};
+    char buffer[16] = {0};
+    const uint8_t *packet;
+    int to_be_read;
+    int rc;
+    uint32_t len, compsize, payloadsize;
+    uint8_t padding;
+    size_t processed = 0; /* number of byte processed from the callback */
 
-  enter_function();
-
-  switch(session->packet_state) {
-    case PACKET_STATE_INIT:
-    	if(receivedlen < blocksize){
-    		/* We didn't receive enough data to read at least one block size, give up */
-    		leave_function();
-    		return 0;
-    	}
-      memset(&session->in_packet, 0, sizeof(PACKET));
-
-      if (session->in_buffer) {
-        if (buffer_reinit(session->in_buffer) < 0) {
-          goto error;
-        }
-      } else {
-        session->in_buffer = ssh_buffer_new();
-        if (session->in_buffer == NULL) {
-          goto error;
-        }
-      }
-
-      memcpy(buffer,data,blocksize);
-      processed += blocksize;
-      len = packet_decrypt_len(session, buffer);
-
-      if (buffer_add_data(session->in_buffer, buffer, blocksize) < 0) {
+    if (data == NULL) {
         goto error;
-      }
+    }
 
-      if(len > MAX_PACKET_LEN) {
-        ssh_set_error(session, SSH_FATAL,
-            "read_packet(): Packet len too high(%u %.4x)", len, len);
+    if (session->session_state == SSH_SESSION_STATE_ERROR) {
         goto error;
-      }
+    }
 
-      to_be_read = len - blocksize + sizeof(uint32_t);
-      if (to_be_read < 0) {
-        /* remote sshd sends invalid sizes? */
-        ssh_set_error(session, SSH_FATAL,
-            "given numbers of bytes left to be read < 0 (%d)!", to_be_read);
-        goto error;
-      }
+    switch(session->packet_state) {
+        case PACKET_STATE_INIT:
+            if (receivedlen < blocksize) {
+                /*
+                 * We didn't receive enough data to read at least one
+                 * block size, give up
+                 */
+                return 0;
+            }
 
-      /* saves the status of the current operations */
-      session->in_packet.len = len;
-      session->packet_state = PACKET_STATE_SIZEREAD;
-    case PACKET_STATE_SIZEREAD:
-      len = session->in_packet.len;
-      to_be_read = len - blocksize + sizeof(uint32_t) + current_macsize;
-      /* if to_be_read is zero, the whole packet was blocksize bytes. */
-      if (to_be_read != 0) {
-        if(receivedlen - processed < (unsigned int)to_be_read){
-        	/* give up, not enough data in buffer */
-        	return processed;
-        }
+            memset(&session->in_packet, 0, sizeof(PACKET));
 
-        packet = (unsigned char *)data + processed;
-//        ssh_socket_read(session->socket,packet,to_be_read-current_macsize);
+            if (session->in_buffer) {
+                rc = buffer_reinit(session->in_buffer);
+                if (rc < 0) {
+                    goto error;
+                }
+            } else {
+                session->in_buffer = ssh_buffer_new();
+                if (session->in_buffer == NULL) {
+                    goto error;
+                }
+            }
 
-        ssh_log(session,SSH_LOG_PACKET,"Read a %d bytes packet",len);
+            memcpy(buffer, data, blocksize);
+            processed += blocksize;
+            len = packet_decrypt_len(session, buffer);
 
-        if (buffer_add_data(session->in_buffer, packet,
-              to_be_read - current_macsize) < 0) {
-          goto error;
-        }
-        processed += to_be_read - current_macsize;
-      }
+            rc = buffer_add_data(session->in_buffer, buffer, blocksize);
+            if (rc < 0) {
+                goto error;
+            }
 
-      if (session->current_crypto) {
-        /*
-         * decrypt the rest of the packet (blocksize bytes already
-         * have been decrypted)
-         */
-        if (packet_decrypt(session,
-              ((uint8_t*)buffer_get_rest(session->in_buffer) + blocksize),
-              buffer_get_rest_len(session->in_buffer) - blocksize) < 0) {
-          ssh_set_error(session, SSH_FATAL, "Decrypt error");
-          goto error;
-        }
-        /* copy the last part from the incoming buffer */
-        memcpy(mac,(unsigned char *)packet + to_be_read - current_macsize, macsize);
+            if (len > MAX_PACKET_LEN) {
+                ssh_set_error(session,
+                              SSH_FATAL,
+                              "read_packet(): Packet len too high(%u %.4x)",
+                              len, len);
+                goto error;
+            }
 
-        if (packet_hmac_verify(session, session->in_buffer, mac) < 0) {
-          ssh_set_error(session, SSH_FATAL, "HMAC error");
-          goto error;
-        }
-        processed += current_macsize;
-      }
+            to_be_read = len - blocksize + sizeof(uint32_t);
+            if (to_be_read < 0) {
+                /* remote sshd sends invalid sizes? */
+                ssh_set_error(session,
+                              SSH_FATAL,
+                              "Given numbers of bytes left to be read < 0 (%d)!",
+                              to_be_read);
+                goto error;
+            }
 
-      /* skip the size field which has been processed before */
-      buffer_pass_bytes(session->in_buffer, sizeof(uint32_t));
+            /* Saves the status of the current operations */
+            session->in_packet.len = len;
+            session->packet_state = PACKET_STATE_SIZEREAD;
+            /* FALL TROUGH */
+        case PACKET_STATE_SIZEREAD:
+            len = session->in_packet.len;
+            to_be_read = len - blocksize + sizeof(uint32_t) + current_macsize;
+            /* if to_be_read is zero, the whole packet was blocksize bytes. */
+            if (to_be_read != 0) {
+                if (receivedlen - processed < (unsigned int)to_be_read) {
+                    /* give up, not enough data in buffer */
+                    SSH_LOG(SSH_LOG_PACKET,"packet: partial packet (read len) [len=%d]",len);
+                    return processed;
+                }
 
-      if (buffer_get_u8(session->in_buffer, &padding) == 0) {
-        ssh_set_error(session, SSH_FATAL, "Packet too short to read padding");
-        goto error;
-      }
-
-      ssh_log(session, SSH_LOG_PACKET,
-          "%hhd bytes padding, %d bytes left in buffer",
-          padding, buffer_get_rest_len(session->in_buffer));
-
-      if (padding > buffer_get_rest_len(session->in_buffer)) {
-        ssh_set_error(session, SSH_FATAL,
-            "Invalid padding: %d (%d resting)",
-            padding,
-            buffer_get_rest_len(session->in_buffer));
-#ifdef DEBUG_CRYPTO
-        ssh_print_hexa("incrimined packet",
-            ssh_buffer_get_begin(session->in_buffer),
-            ssh_buffer_get_len(session->in_buffer));
+                packet = ((uint8_t*)data) + processed;
+#if 0
+                ssh_socket_read(session->socket,
+                                packet,
+                                to_be_read - current_macsize);
 #endif
-        goto error;
-      }
-      buffer_pass_bytes_end(session->in_buffer, padding);
 
-      ssh_log(session, SSH_LOG_PACKET,
-          "After padding, %d bytes left in buffer",
-          buffer_get_rest_len(session->in_buffer));
-#if defined(HAVE_LIBZ) && defined(WITH_LIBZ)
-      if (session->current_crypto
-          && session->current_crypto->do_compress_in
-          && buffer_get_rest_len(session->in_buffer)) {
-        ssh_log(session, SSH_LOG_PACKET, "Decompressing in_buffer ...");
-        if (decompress_buffer(session, session->in_buffer,MAX_PACKET_LEN) < 0) {
-          goto error;
-        }
-      }
-#endif
-      session->recv_seq++;
-      /* We don't want to rewrite a new packet while still executing the packet callbacks */
-      session->packet_state = PACKET_STATE_PROCESSING;
-      ssh_packet_parse_type(session);
-      /* execute callbacks */
-      ssh_packet_process(session, session->in_packet.type);
-      session->packet_state = PACKET_STATE_INIT;
-      if(processed < receivedlen){
-      	/* Handle a potential packet left in socket buffer */
-      	ssh_log(session,SSH_LOG_PACKET,"Processing %" PRIdS " bytes left in socket buffer",
-      			receivedlen-processed);
-      	rc = ssh_packet_socket_callback((char *)data + processed,
-      			receivedlen - processed,user);
-      	processed += rc;
-      }
-      leave_function();
-      return processed;
-    case PACKET_STATE_PROCESSING:
-    	ssh_log(session, SSH_LOG_RARE, "Nested packet processing. Delaying.");
-    	return 0;
-  }
+                rc = buffer_add_data(session->in_buffer,
+                                     packet,
+                                     to_be_read - current_macsize);
+                if (rc < 0) {
+                    goto error;
+                }
+                processed += to_be_read - current_macsize;
+            }
 
-  ssh_set_error(session, SSH_FATAL,
-      "Invalid state into packet_read2(): %d",
-      session->packet_state);
+            if (session->current_crypto) {
+                /*
+                 * Decrypt the rest of the packet (blocksize bytes already
+                 * have been decrypted)
+                 */
+                rc = packet_decrypt(session,
+                                    ((uint8_t*)buffer_get_rest(session->in_buffer) + blocksize),
+                                    buffer_get_rest_len(session->in_buffer) - blocksize);
+                if (rc < 0) {
+                    ssh_set_error(session, SSH_FATAL, "Decrypt error");
+                    goto error;
+                }
+
+                /* copy the last part from the incoming buffer */
+                packet = ((uint8_t *)data) + processed;
+                memcpy(mac, packet, MACSIZE);
+
+                rc = packet_hmac_verify(session, session->in_buffer, mac);
+                if (rc < 0) {
+                    ssh_set_error(session, SSH_FATAL, "HMAC error");
+                    goto error;
+                }
+                processed += current_macsize;
+            }
+
+            /* skip the size field which has been processed before */
+            buffer_pass_bytes(session->in_buffer, sizeof(uint32_t));
+
+            rc = buffer_get_u8(session->in_buffer, &padding);
+            if (rc == 0) {
+                ssh_set_error(session,
+                              SSH_FATAL,
+                              "Packet too short to read padding");
+                goto error;
+            }
+
+            if (padding > buffer_get_rest_len(session->in_buffer)) {
+                ssh_set_error(session,
+                              SSH_FATAL,
+                              "Invalid padding: %d (%d left)",
+                              padding,
+                              buffer_get_rest_len(session->in_buffer));
+                goto error;
+            }
+            buffer_pass_bytes_end(session->in_buffer, padding);
+            compsize = buffer_get_rest_len(session->in_buffer);
+
+#ifdef WITH_ZLIB
+            if (session->current_crypto
+                && session->current_crypto->do_compress_in
+                && buffer_get_rest_len(session->in_buffer) > 0) {
+                rc = decompress_buffer(session, session->in_buffer,MAX_PACKET_LEN);
+                if (rc < 0) {
+                    goto error;
+                }
+            }
+#endif /* WITH_ZLIB */
+            payloadsize = buffer_get_rest_len(session->in_buffer);
+            session->recv_seq++;
+
+            /*
+             * We don't want to rewrite a new packet while still executing the
+             * packet callbacks
+             */
+            session->packet_state = PACKET_STATE_PROCESSING;
+            ssh_packet_parse_type(session);
+            SSH_LOG(SSH_LOG_PACKET,
+                    "packet: read type %hhd [len=%d,padding=%hhd,comp=%d,payload=%d]",
+                    session->in_packet.type, len, padding, compsize, payloadsize);
+
+            /* Execute callbacks */
+            ssh_packet_process(session, session->in_packet.type);
+            session->packet_state = PACKET_STATE_INIT;
+            if (processed < receivedlen) {
+                /* Handle a potential packet left in socket buffer */
+                SSH_LOG(SSH_LOG_PACKET,
+                        "Processing %" PRIdS " bytes left in socket buffer",
+                        receivedlen-processed);
+
+                packet = ((uint8_t*)data) + processed;
+
+                rc = ssh_packet_socket_callback(packet, receivedlen - processed,user);
+                processed += rc;
+            }
+
+            return processed;
+        case PACKET_STATE_PROCESSING:
+            SSH_LOG(SSH_LOG_RARE, "Nested packet processing. Delaying.");
+            return 0;
+    }
+
+    ssh_set_error(session,
+                  SSH_FATAL,
+                  "Invalid state into packet_read2(): %d",
+                  session->packet_state);
 
 error:
-  leave_function();
-  return processed;
+    session->session_state= SSH_SESSION_STATE_ERROR;
+
+    return processed;
 }
 
 void ssh_packet_register_socket_callback(ssh_session session, ssh_socket s){
@@ -309,10 +361,12 @@ void ssh_packet_register_socket_callback(ssh_session session, ssh_socket s){
  * @brief sets the callbacks for the packet layer
  */
 void ssh_packet_set_callbacks(ssh_session session, ssh_packet_callbacks callbacks){
-	if(session->packet_callbacks == NULL){
-		session->packet_callbacks = ssh_list_new();
-	}
-  ssh_list_append(session->packet_callbacks, callbacks);
+  if(session->packet_callbacks == NULL){
+    session->packet_callbacks = ssh_list_new();
+  }
+  if (session->packet_callbacks != NULL) {
+    ssh_list_append(session->packet_callbacks, callbacks);
+  }
 }
 
 /** @internal
@@ -340,11 +394,12 @@ void ssh_packet_process(ssh_session session, uint8_t type){
 	struct ssh_iterator *i;
 	int r=SSH_PACKET_NOT_USED;
 	ssh_packet_callbacks cb;
-	enter_function();
-	ssh_log(session,SSH_LOG_PACKET, "Dispatching handler for packet type %d",type);
+
+	SSH_LOG(SSH_LOG_PACKET, "Dispatching handler for packet type %d",type);
 	if(session->packet_callbacks == NULL){
-		ssh_log(session,SSH_LOG_RARE,"Packet callback is not initialized !");
-		goto error;
+		SSH_LOG(SSH_LOG_RARE,"Packet callback is not initialized !");
+
+		return;
 	}
 	i=ssh_list_get_iterator(session->packet_callbacks);
 	while(i != NULL){
@@ -363,11 +418,9 @@ void ssh_packet_process(ssh_session session, uint8_t type){
 			break;
 	}
 	if(r==SSH_PACKET_NOT_USED){
-		ssh_log(session,SSH_LOG_RARE,"Couldn't do anything with packet type %d",type);
+		SSH_LOG(SSH_LOG_RARE,"Couldn't do anything with packet type %d",type);
 		ssh_packet_send_unimplemented(session, session->recv_seq-1);
 	}
-error:
-	leave_function();
 }
 
 /** @internal
@@ -378,11 +431,17 @@ error:
  */
 int ssh_packet_send_unimplemented(ssh_session session, uint32_t seqnum){
   int r;
-  enter_function();
-  buffer_add_u8(session->out_buffer, SSH2_MSG_UNIMPLEMENTED);
-  buffer_add_u32(session->out_buffer, htonl(seqnum));
+
+  r = buffer_add_u8(session->out_buffer, SSH2_MSG_UNIMPLEMENTED);
+  if (r < 0) {
+    return SSH_ERROR;
+  }
+  r = buffer_add_u32(session->out_buffer, htonl(seqnum));
+  if (r < 0) {
+    return SSH_ERROR;
+  }
   r = packet_send(session);
-  leave_function();
+
   return r;
 }
 
@@ -391,11 +450,12 @@ int ssh_packet_send_unimplemented(ssh_session session, uint32_t seqnum){
  */
 SSH_PACKET_CALLBACK(ssh_packet_unimplemented){
   uint32_t seq;
+    (void)session; /* unused */
   (void)type;
   (void)user;
   buffer_get_u32(packet,&seq);
   seq=ntohl(seq);
-  ssh_log(session,SSH_LOG_RARE,
+  SSH_LOG(SSH_LOG_RARE,
       "Received SSH_MSG_UNIMPLEMENTED (sequence number %d)",seq);
   return SSH_PACKET_USED;
 }
@@ -404,27 +464,18 @@ SSH_PACKET_CALLBACK(ssh_packet_unimplemented){
  * @parse the "Type" header field of a packet and updates the session
  */
 int ssh_packet_parse_type(ssh_session session) {
-  enter_function();
-
   memset(&session->in_packet, 0, sizeof(PACKET));
   if(session->in_buffer == NULL) {
-    leave_function();
     return SSH_ERROR;
   }
-
-  ssh_log(session, SSH_LOG_PACKET, "Final size %d",
-      buffer_get_rest_len(session->in_buffer));
 
   if(buffer_get_u8(session->in_buffer, &session->in_packet.type) == 0) {
     ssh_set_error(session, SSH_FATAL, "Packet too short to read type");
-    leave_function();
     return SSH_ERROR;
   }
 
-  ssh_log(session, SSH_LOG_PACKET, "Type %hhd", session->in_packet.type);
   session->in_packet.valid = 1;
 
-  leave_function();
   return SSH_OK;
 }
 
@@ -435,12 +486,10 @@ int ssh_packet_parse_type(ssh_session session) {
 static int ssh_packet_write(ssh_session session) {
   int rc = SSH_ERROR;
 
-  enter_function();
-
   rc=ssh_socket_write(session->socket,
       buffer_get_rest(session->out_buffer),
       buffer_get_rest_len(session->out_buffer));
-  leave_function();
+
   return rc;
 }
 
@@ -451,25 +500,21 @@ static int packet_send2(ssh_session session) {
   unsigned char *hmac = NULL;
   char padstring[32] = {0};
   int rc = SSH_ERROR;
-  uint32_t finallen;
+  uint32_t finallen,payloadsize,compsize;
   uint8_t padding;
 
-  enter_function();
-
-  ssh_log(session, SSH_LOG_PACKET,
-      "Writing on the wire a packet having %u bytes before", currentlen);
-
-#if defined(HAVE_LIBZ) && defined(WITH_LIBZ)
+  payloadsize = currentlen;
+#ifdef WITH_ZLIB
   if (session->current_crypto
       && session->current_crypto->do_compress_out
       && buffer_get_rest_len(session->out_buffer)) {
-    ssh_log(session, SSH_LOG_PACKET, "Compressing out_buffer ...");
     if (compress_buffer(session,session->out_buffer) < 0) {
       goto error;
     }
     currentlen = buffer_get_rest_len(session->out_buffer);
   }
-#endif
+#endif /* WITH_ZLIB */
+  compsize = currentlen;
   padding = (blocksize - ((currentlen +5) % blocksize));
   if(padding < 4) {
     padding += blocksize;
@@ -482,9 +527,6 @@ static int packet_send2(ssh_session session) {
   }
 
   finallen = htonl(currentlen + padding + 1);
-  ssh_log(session, SSH_LOG_PACKET,
-      "%d bytes after comp + %d padding bytes = %lu bytes packet",
-      currentlen, padding, (long unsigned int) ntohl(finallen));
 
   if (buffer_prepend_data(session->out_buffer, &padding, sizeof(uint8_t)) < 0) {
     goto error;
@@ -513,11 +555,14 @@ static int packet_send2(ssh_session session) {
   rc = ssh_packet_write(session);
   session->send_seq++;
 
+  SSH_LOG(SSH_LOG_PACKET,
+          "packet: wrote [len=%d,padding=%hhd,comp=%d,payload=%d]",
+          ntohl(finallen), padding, compsize, payloadsize);
   if (buffer_reinit(session->out_buffer) < 0) {
     rc = SSH_ERROR;
   }
 error:
-  leave_function();
+
   return rc; /* SSH_OK, AGAIN or ERROR */
 }
 
@@ -530,6 +575,3 @@ int packet_send(ssh_session session) {
 #endif
   return packet_send2(session);
 }
-
-
-/* vim: set ts=2 sw=2 et cindent: */

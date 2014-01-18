@@ -1,13 +1,14 @@
 # define system dependent compiler flags
 
 include(CheckCCompilerFlag)
-include(MacroCheckCCompilerFlagSSP)
+include(CheckCCompilerFlagSSP)
 
 if (UNIX AND NOT WIN32)
     #
     # Define GNUCC compiler flags
     #
-    if (${CMAKE_C_COMPILER_ID} MATCHES GNU)
+    if (${CMAKE_C_COMPILER_ID} MATCHES "(GNU|Clang)")
+
         # add -Wconversion ?
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -std=gnu99 -pedantic -pedantic-errors")
         set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wextra -Wshadow -Wmissing-prototypes -Wdeclaration-after-statement")
@@ -27,14 +28,14 @@ if (UNIX AND NOT WIN32)
 
         if (CMAKE_BUILD_TYPE)
             string(TOLOWER "${CMAKE_BUILD_TYPE}" CMAKE_BUILD_TYPE_LOWER)
-            if (NOT CMAKE_BUILD_TYPE_LOWER MATCHES debug)
-                check_c_compiler_flag("-D_FORTIFY_SOURCE=2" WITH_FORTIFY_SOURCE)
+            if (CMAKE_BUILD_TYPE_LOWER MATCHES (release|relwithdebinfo|minsizerel))
+                check_c_compiler_flag("-Wp,-D_FORTIFY_SOURCE=2" WITH_FORTIFY_SOURCE)
                 if (WITH_FORTIFY_SOURCE)
-                    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -D_FORTIFY_SOURCE=2")
+                    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wp,-D_FORTIFY_SOURCE=2")
                 endif (WITH_FORTIFY_SOURCE)
             endif()
         endif()
-    endif (${CMAKE_C_COMPILER_ID} MATCHES GNU)
+    endif (${CMAKE_C_COMPILER_ID} MATCHES "(GNU|Clang)")
 
     #
     # Check for large filesystem support

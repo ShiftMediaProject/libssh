@@ -18,15 +18,25 @@ optional:
 Note that these version numbers are version we know works correctly. If you
 build and run libssh successfully with an older version, please let us know.
 
+Windows binaries known to be working:
+
+- http://www.slproweb.com/products/Win32OpenSSL.html
+- http://zlib.net/ -> zlib compiled DLL
+
+We installed them in C:\Program Files
 
 ## Building
 First, you need to configure the compilation, using CMake. Go inside the
 `build` dir. Create it if it doesn't exist.
 
-GNU/Linux and MacOS X:
+GNU/Linux, MacOS X, MSYS/MinGW:
 
     cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Debug ..
     make
+
+On Windows you should choose a makefile gernerator with -G or use
+
+    cmake-gui.exe ..
 
 ### CMake standard options
 Here is a list of the most interesting options provided out of the box by
@@ -47,7 +57,7 @@ Options are defined in the following files:
 
 They can be changed with the -D option:
 
-`cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Debug -DWITH_LIBZ=OFF ..`
+`cmake -DCMAKE_INSTALL_PREFIX=/usr -DCMAKE_BUILD_TYPE=Debug -DWITH_ZLIB=OFF ..`
 
 ### Browsing/editing CMake options
 
@@ -59,6 +69,17 @@ and MacOS X).
 - On Windows: run `cmakesetup`
 - On GNU/Linux and MacOS X: run `ccmake ..`
 
+### Useful Windows options:
+
+If you have installed OpenSSL or ZLIB in non standard directories, maybe you
+want to set:
+
+OPENSSL_ROOT_DIR
+
+and
+
+ZLIB_ROOT_DIR
+
 ## Installing
 
 If you want to install libssh after compilation run:
@@ -67,7 +88,7 @@ If you want to install libssh after compilation run:
 
 ## Running
 
-The libssh binary can be found in the `build/libssh` directory.
+The libssh binary can be found in the `build/src` directory.
 You can use `build/examples/samplessh` which is a sample client to
 test libssh on UNIX.
 

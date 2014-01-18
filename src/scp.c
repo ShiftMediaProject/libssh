@@ -21,8 +21,11 @@
  * MA 02111-1307, USA.
  */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include "libssh/priv.h"
 #include "libssh/scp.h"
@@ -44,9 +47,13 @@
  * @param[in]  mode     One of SSH_SCP_WRITE or SSH_SCP_READ, depending if you
  *                      need to drop files remotely or read them.
  *                      It is not possible to combine read and write.
+ *                      SSH_SCP_RECURSIVE Flag can be or'ed to this to indicate
+ *                      that you're going to use recursion. Browsing through
+ *                      directories is not possible without this.
  *
  * @param[in]  location The directory in which write or read will be done. Any
  *                      push or pull will be relative to this place.
+ *                      This can also be a pattern of files to download (read).
  *
  * @returns             A ssh_scp handle, NULL if the creation was impossible.
  */
@@ -76,7 +83,17 @@ ssh_scp ssh_scp_new(ssh_session session, int mode, const char *location){
   return scp;
 }
 
-int ssh_scp_init(ssh_scp scp){
+/**
+ * @brief Initialize the scp channel.
+ *
+ * @param[in]  scp      The scp context to initialize.
+ *
+ * @return SSH_OK on success or an SSH error code.
+ *
+ * @see ssh_scp_new()
+ */
+int ssh_scp_init(ssh_scp scp)
+{
   int r;
   char execbuffer[1024];
   uint8_t code;
@@ -86,7 +103,7 @@ int ssh_scp_init(ssh_scp scp){
     ssh_set_error(scp->session,SSH_FATAL,"ssh_scp_init called under invalid state");
     return SSH_ERROR;
   }
-  ssh_log(scp->session,SSH_LOG_PROTOCOL,"Initializing scp session %s %son location '%s'",
+  SSH_LOG(SSH_LOG_PROTOCOL,"Initializing scp session %s %son location '%s'",
 		  scp->mode==SSH_SCP_WRITE?"write":"read",
 				  scp->recursive?"recursive ":"",
 						  scp->location);
@@ -132,7 +149,17 @@ int ssh_scp_init(ssh_scp scp){
   return SSH_OK;
 }
 
-int ssh_scp_close(ssh_scp scp){
+/**
+ * @brief Close the scp channel.
+ *
+ * @param[in]  scp      The scp context to close.
+ *
+ * @return SSH_OK on success or an SSH error code.
+ *
+ * @see ssh_scp_init()
+ */
+int ssh_scp_close(ssh_scp scp)
+{
   char buffer[128];
   int err;
   if(scp==NULL)
@@ -162,7 +189,15 @@ int ssh_scp_close(ssh_scp scp){
   return SSH_OK;
 }
 
-void ssh_scp_free(ssh_scp scp){
+/**
+ * @brief Free a scp context.
+ *
+ * @param[in]  scp      The context to free.
+ *
+ * @see ssh_scp_new()
+ */
+void ssh_scp_free(ssh_scp scp)
+{
   if(scp==NULL)
       return;
   if(scp->state != SSH_SCP_NEW)
@@ -263,7 +298,7 @@ int ssh_scp_push_directory(ssh_scp scp, const char *dirname, int mode){
 }
 
 /**
- * @brief Initialize the sending of a file to a scp in sink mode.
+ * @brief Initialize the sending of a file to a scp in sink mode, using a 64-bit size.
  *
  * @param[in]  scp      The scp handle.
  *
@@ -276,8 +311,10 @@ int ssh_scp_push_directory(ssh_scp scp, const char *dirname, int mode){
  *
  * @returns             SSH_OK if the file is ready to be sent, SSH_ERROR if an
  *                      error occured.
+ *
+ * @see ssh_scp_push_file()
  */
-int ssh_scp_push_file(ssh_scp scp, const char *filename, size_t size, int mode){
+int ssh_scp_push_file64(ssh_scp scp, const char *filename, uint64_t size, int mode){
   char buffer[1024];
   int r;
   uint8_t code;
@@ -291,8 +328,8 @@ int ssh_scp_push_file(ssh_scp scp, const char *filename, size_t size, int mode){
   }
   file=ssh_basename(filename);
   perms=ssh_scp_string_mode(mode);
-  ssh_log(scp->session,SSH_LOG_PROTOCOL,"SCP pushing file %s, size %" PRIdS " with permissions '%s'",file,size,perms);
-  snprintf(buffer, sizeof(buffer), "C%s %" PRIdS " %s\n", perms, size, file);
+  SSH_LOG(SSH_LOG_PROTOCOL,"SCP pushing file %s, size %" PRIu64 " with permissions '%s'",file,size,perms);
+  snprintf(buffer, sizeof(buffer), "C%s %" PRIu64 " %s\n", perms, size, file);
   SAFE_FREE(file);
   SAFE_FREE(perms);
   r=ssh_channel_write(scp->channel,buffer,strlen(buffer));
@@ -315,6 +352,25 @@ int ssh_scp_push_file(ssh_scp scp, const char *filename, size_t size, int mode){
   scp->processed = 0;
   scp->state=SSH_SCP_WRITE_WRITING;
   return SSH_OK;
+}
+
+/**
+ * @brief Initialize the sending of a file to a scp in sink mode.
+ *
+ * @param[in]  scp      The scp handle.
+ *
+ * @param[in]  filename The name of the file being sent. It should not contain
+ *                      any path indicator
+ *
+ * @param[in]  size     Exact size in bytes of the file being sent.
+ *
+ * @param[in]  mode     The UNIX permissions for the new file, e.g. 0644.
+ *
+ * @returns             SSH_OK if the file is ready to be sent, SSH_ERROR if an
+ *                      error occured.
+ */
+int ssh_scp_push_file(ssh_scp scp, const char *filename, size_t size, int mode){
+	return ssh_scp_push_file64(scp, filename, (uint64_t) size, mode);
 }
 
 /**
@@ -351,7 +407,7 @@ int ssh_scp_response(ssh_scp scp, char **response){
 	/* Warning */
 	if(code == 1){
 		ssh_set_error(scp->session,SSH_REQUEST_DENIED, "SCP: Warning: status code 1 received: %s", msg);
-		ssh_log(scp->session,SSH_LOG_RARE,"SCP: Warning: status code 1 received: %s", msg);
+		SSH_LOG(SSH_LOG_RARE,"SCP: Warning: status code 1 received: %s", msg);
 		if(response)
 			*response=strdup(msg);
 		return 1;
@@ -389,9 +445,13 @@ int ssh_scp_write(ssh_scp scp, const void *buffer, size_t len){
     return SSH_ERROR;
   }
   if(scp->processed + len > scp->filelen)
-    len = scp->filelen - scp->processed;
+    len = (size_t) (scp->filelen - scp->processed);
   /* hack to avoid waiting for window change */
-  ssh_channel_poll(scp->channel,0);
+  r = ssh_channel_poll(scp->channel, 0);
+  if (r == SSH_ERROR) {
+      scp->state = SSH_SCP_ERROR;
+      return SSH_ERROR;
+  }
   w=ssh_channel_write(scp->channel,buffer,len);
   if(w != SSH_ERROR)
     scp->processed += w;
@@ -485,10 +545,10 @@ int ssh_scp_read_string(ssh_scp scp, char *buffer, size_t len){
  * @see ssh_scp_request_get_warning()
  */
 int ssh_scp_pull_request(ssh_scp scp){
-  char buffer[4096];
+  char buffer[4096] = {0};
   char *mode=NULL;
   char *p,*tmp;
-  size_t size;
+  uint64_t size;
   char *name=NULL;
   int err;
   if(scp==NULL)
@@ -508,7 +568,7 @@ int ssh_scp_pull_request(ssh_scp scp){
   p=strchr(buffer,'\n');
   if(p!=NULL)
 	  *p='\0';
-  ssh_log(scp->session,SSH_LOG_PROTOCOL,"Received SCP request: '%s'",buffer);
+  SSH_LOG(SSH_LOG_PROTOCOL,"Received SCP request: '%s'",buffer);
   switch(buffer[0]){
     case 'C':
       /* File */
@@ -526,7 +586,7 @@ int ssh_scp_pull_request(ssh_scp scp){
       if(p==NULL)
         goto error;
       *p=0;
-      size = (size_t) strtoull(tmp,NULL,10);
+      size = strtoull(tmp,NULL,10);
       p++;
       name=strdup(p);
       SAFE_FREE(scp->request_name);
@@ -655,7 +715,7 @@ int ssh_scp_read(ssh_scp scp, void *buffer, size_t size){
     return SSH_ERROR;
   }
   if(scp->processed + size > scp->filelen)
-    size = scp->filelen - scp->processed;
+    size = (size_t) (scp->filelen - scp->processed);
   if(size > 65536)
     size=65536; /* avoid too large reads */
   r=ssh_channel_read(scp->channel,buffer,size,0);
@@ -712,8 +772,21 @@ int ssh_scp_request_get_permissions(ssh_scp scp){
 /** @brief Get the size of the file being pushed from the other party.
  *
  * @returns             The numeric size of the file being read.
+ * @warning             The real size may not fit in a 32 bits field and may
+ *                      be truncated.
+ * @see ssh_scp_request_get_size64()
  */
 size_t ssh_scp_request_get_size(ssh_scp scp){
+  if(scp==NULL)
+      return 0;
+  return (size_t)scp->filelen;
+}
+
+/** @brief Get the size of the file being pushed from the other party.
+ *
+ * @returns             The numeric size of the file being read.
+ */
+uint64_t ssh_scp_request_get_size64(ssh_scp scp){
   if(scp==NULL)
       return 0;
   return scp->filelen;
@@ -741,7 +814,7 @@ int ssh_scp_integer_mode(const char *mode){
  */
 char *ssh_scp_string_mode(int mode){
 	char buffer[16];
-	snprintf(buffer,sizeof(buffer),"%.4o",mode);
+	snprintf(buffer,sizeof(buffer),"%.4d",mode);
 	return strdup(buffer);
 }
 

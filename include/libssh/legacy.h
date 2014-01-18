@@ -3,20 +3,19 @@
  *
  * Copyright (c) 2010 by Aris Adamantiadis
  *
- * The SSH Library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
  *
- * The SSH Library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License
- * along with the SSH Library; see the file COPYING.  If not, write to
- * the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
- * MA 02111-1307, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /* Since libssh.h includes legacy.h, it's important that libssh.h is included
@@ -26,10 +25,23 @@
  * removed in future.
  */
 
-#include "libssh/libssh.h"
-
 #ifndef LEGACY_H_
 #define LEGACY_H_
+
+typedef struct ssh_private_key_struct* ssh_private_key;
+typedef struct ssh_public_key_struct* ssh_public_key;
+
+LIBSSH_API int ssh_auth_list(ssh_session session);
+LIBSSH_API int ssh_userauth_offer_pubkey(ssh_session session, const char *username, int type, ssh_string publickey);
+LIBSSH_API int ssh_userauth_pubkey(ssh_session session, const char *username, ssh_string publickey, ssh_private_key privatekey);
+#ifndef _WIN32
+LIBSSH_API int ssh_userauth_agent_pubkey(ssh_session session, const char *username,
+    ssh_public_key publickey);
+#endif
+LIBSSH_API int ssh_userauth_autopubkey(ssh_session session, const char *passphrase);
+LIBSSH_API int ssh_userauth_privatekey_file(ssh_session session, const char *username,
+    const char *filename, const char *passphrase);
+
 LIBSSH_API void buffer_free(ssh_buffer buffer);
 LIBSSH_API void *buffer_get(ssh_buffer buffer);
 LIBSSH_API uint32_t buffer_get_len(ssh_buffer buffer);
@@ -86,7 +98,15 @@ LIBSSH_API ssh_string publickey_from_file(ssh_session session, const char *filen
     int *type);
 LIBSSH_API ssh_public_key publickey_from_privatekey(ssh_private_key prv);
 LIBSSH_API ssh_string publickey_to_string(ssh_public_key key);
+LIBSSH_API int ssh_try_publickey_from_file(ssh_session session, const char *keyfile,
+    ssh_string *publickey, int *type);
+LIBSSH_API enum ssh_keytypes_e ssh_privatekey_type(ssh_private_key privatekey);
+
+LIBSSH_API ssh_string ssh_get_pubkey(ssh_session session);
+
 LIBSSH_API ssh_message ssh_message_retrieve(ssh_session session, uint32_t packettype);
+LIBSSH_API ssh_public_key ssh_message_auth_publickey(ssh_message msg);
+
 LIBSSH_API void string_burn(ssh_string str);
 LIBSSH_API ssh_string string_copy(ssh_string str);
 LIBSSH_API void *string_data(ssh_string str);

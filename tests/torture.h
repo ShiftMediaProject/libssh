@@ -3,7 +3,7 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2008-2009 by Andreas Schneider <mail@cynapses.org>
+ * Copyright (c) 2008-2009 by Andreas Schneider <asn@cryptomilk.org>
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -33,10 +33,11 @@
 #include <stdarg.h>
 #include <stddef.h>
 #include <setjmp.h>
-#include <google/cmockery.h>
 
 #include "libssh/priv.h"
 #include "libssh/sftp.h"
+
+#include <cmocka.h>
 
 /* Used by main to communicate with parse_opt. */
 struct argument_s {

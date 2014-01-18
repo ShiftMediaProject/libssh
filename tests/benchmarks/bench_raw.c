@@ -47,7 +47,7 @@ const char python_eater[]=
 static char *get_python_eater(unsigned long bytes){
   char *eater=malloc(sizeof(python_eater));
   char *ptr;
-  char buffer[12];
+  char buf[12];
 
   memcpy(eater,python_eater,sizeof(python_eater));
   ptr=strstr(eater,"XXXXXXXXXX");
@@ -55,8 +55,8 @@ static char *get_python_eater(unsigned long bytes){
     free(eater);
     return NULL;
   }
-  sprintf(buffer,"0x%.8lx",bytes);
-  memcpy(ptr,buffer,10);
+  sprintf(buf,"0x%.8lx",bytes);
+  memcpy(ptr,buf,10);
   return eater;
 }
 
@@ -106,17 +106,17 @@ error:
  */
 int benchmarks_raw_up (ssh_session session, struct argument_s *args,
     float *bps){
-  unsigned long bytes=0x1000000;
-  char *script=get_python_eater(bytes);
+  unsigned long bytes;
+  char *script;
   char cmd[128];
-  char buffer[1024];
   int err;
   ssh_channel channel;
   struct timestamp_struct ts;
   float ms=0.0;
   unsigned long total=0;
-  (void)bps;
 
+  bytes = args->datasize * 1024 * 1024;
+  script =get_python_eater(bytes);
   err=upload_script(session,"/tmp/eater.py",script);
   free(script);
   if(err<0)
@@ -144,8 +144,8 @@ int benchmarks_raw_up (ssh_session session, struct argument_s *args,
   while(total < bytes){
     unsigned long towrite = bytes - total;
     int w;
-    if(towrite > 0x1000)
-      towrite = 0x1000;
+    if(towrite > args->chunksize)
+      towrite = args->chunksize;
     w=ssh_channel_write(channel,buffer,towrite);
     if(w == SSH_ERROR)
       goto error;
@@ -155,7 +155,7 @@ int benchmarks_raw_up (ssh_session session, struct argument_s *args,
   if(args->verbose>0)
     fprintf(stdout,"Finished upload, now waiting the ack\n");
 
-  if((err=ssh_channel_read(channel,buffer,sizeof(buffer)-1,0))==SSH_ERROR)
+  if((err=ssh_channel_read(channel,buffer,5,0))==SSH_ERROR)
       goto error;
   buffer[err]=0;
   if(!strstr(buffer,"done")){
@@ -168,6 +168,109 @@ int benchmarks_raw_up (ssh_session session, struct argument_s *args,
   *bps=8000 * (float)bytes / ms;
   if(args->verbose > 0)
     fprintf(stdout,"Upload took %f ms for %lu bytes, at %f bps\n",ms,
+        bytes,*bps);
+  ssh_channel_close(channel);
+  ssh_channel_free(channel);
+  return 0;
+error:
+  fprintf(stderr,"Error during raw upload : %s\n",ssh_get_error(session));
+  if(channel){
+    ssh_channel_close(channel);
+    ssh_channel_free(channel);
+  }
+  return -1;
+}
+
+const char python_giver[] =
+"#!/usr/bin/python\n"
+"import sys\n"
+"r=sys.stdin.read(2)\n"
+"towrite=XXXXXXXXXX\n"
+"wrote=0\n"
+"mtu = 32786\n"
+"buf = 'A'*mtu\n"
+"while(wrote < towrite):\n"
+"    buffersize=towrite-wrote\n"
+"    if(buffersize > mtu):\n"
+"        buffersize=mtu\n"
+"    if(buffersize == mtu):\n"
+"        sys.stdout.write(buf)\n"
+"    else:\n"
+"        sys.stdout.write('A'*buffersize)\n"
+"    wrote+=buffersize\n"
+"sys.stdout.flush()\n";
+
+static char *get_python_giver(unsigned long bytes){
+  char *giver=malloc(sizeof(python_giver));
+  char *ptr;
+  char buf[12];
+
+  memcpy(giver,python_giver,sizeof(python_giver));
+  ptr=strstr(giver,"XXXXXXXXXX");
+  if(!ptr){
+    free(giver);
+    return NULL;
+  }
+  sprintf(buf,"0x%.8lx",bytes);
+  memcpy(ptr,buf,10);
+  return giver;
+}
+
+/** @internal
+ * @brief benchmarks a raw download (simple upload in a SSH channel) using an
+ * existing SSH session.
+ * @param[in] session Open SSH session
+ * @param[in] args Parsed command line arguments
+ * @param[out] bps The calculated bytes per second obtained via benchmark.
+ * @return 0 on success, -1 on error.
+ */
+int benchmarks_raw_down (ssh_session session, struct argument_s *args,
+    float *bps){
+  unsigned long bytes;
+  char *script;
+  char cmd[128];
+  int err;
+  ssh_channel channel;
+  struct timestamp_struct ts;
+  float ms=0.0;
+  unsigned long total=0;
+
+  bytes = args->datasize * 1024 * 1024;
+  script =get_python_giver(bytes);
+  err=upload_script(session,"/tmp/giver.py",script);
+  free(script);
+  if(err<0)
+    return err;
+  channel=ssh_channel_new(session);
+  if(channel == NULL)
+    goto error;
+  if(ssh_channel_open_session(channel)==SSH_ERROR)
+    goto error;
+  snprintf(cmd,sizeof(cmd),"%s /tmp/giver.py", PYTHON_PATH);
+  if(ssh_channel_request_exec(channel,cmd)==SSH_ERROR)
+    goto error;
+  if((err=ssh_channel_write(channel,"go",2))==SSH_ERROR)
+    goto error;
+  if(args->verbose>0)
+    fprintf(stdout,"Starting download of %lu bytes now\n",bytes);
+  timestamp_init(&ts);
+  while(total < bytes){
+    unsigned long toread = bytes - total;
+    int r;
+    if(toread > args->chunksize)
+      toread = args->chunksize;
+    r=ssh_channel_read(channel,buffer,toread,0);
+    if(r == SSH_ERROR)
+      goto error;
+    total += r;
+  }
+
+  if(args->verbose>0)
+    fprintf(stdout,"Finished download\n");
+  ms=elapsed_time(&ts);
+  *bps=8000 * (float)bytes / ms;
+  if(args->verbose > 0)
+    fprintf(stdout,"Download took %f ms for %lu bytes, at %f bps\n",ms,
         bytes,*bps);
   ssh_channel_close(channel);
   ssh_channel_free(channel);

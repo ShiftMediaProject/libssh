@@ -3,7 +3,7 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2003      by Aris Adamantiadis
+ * Copyright (c) 2003-2013   by Aris Adamantiadis
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -38,7 +38,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#ifdef WITH_LIBZ
+#ifdef WITH_ZLIB
 #include <zlib.h>
 #endif
 
@@ -46,12 +46,13 @@
 #include "libssh/session.h"
 #include "libssh/crypto.h"
 #include "libssh/wrapper.h"
+#include "libssh/pki.h"
 
 /* it allocates a new cipher structure based on its offset into the global table */
-static struct crypto_struct *cipher_new(int offset) {
-  struct crypto_struct *cipher = NULL;
+static struct ssh_cipher_struct *cipher_new(int offset) {
+  struct ssh_cipher_struct *cipher = NULL;
 
-  cipher = malloc(sizeof(struct crypto_struct));
+  cipher = malloc(sizeof(struct ssh_cipher_struct));
   if (cipher == NULL) {
     return NULL;
   }
@@ -62,7 +63,7 @@ static struct crypto_struct *cipher_new(int offset) {
   return cipher;
 }
 
-static void cipher_free(struct crypto_struct *cipher) {
+static void cipher_free(struct ssh_cipher_struct *cipher) {
 #ifdef HAVE_LIBGCRYPT
   unsigned int i;
 #endif
@@ -97,6 +98,7 @@ struct ssh_crypto_struct *crypto_new(void) {
 }
 
 void crypto_free(struct ssh_crypto_struct *crypto){
+  int i;
   if (crypto == NULL) {
     return;
   }
@@ -111,9 +113,19 @@ void crypto_free(struct ssh_crypto_struct *crypto){
   bignum_free(crypto->x);
   bignum_free(crypto->y);
   bignum_free(crypto->k);
-  /* lot of other things */
-
-#ifdef WITH_LIBZ
+#ifdef HAVE_ECDH
+  SAFE_FREE(crypto->ecdh_client_pubkey);
+  SAFE_FREE(crypto->ecdh_server_pubkey);
+#endif
+  if(crypto->session_id != NULL){
+    memset(crypto->session_id, '\0', crypto->digest_len);
+    SAFE_FREE(crypto->session_id);
+  }
+  if(crypto->secret_hash != NULL){
+    memset(crypto->secret_hash, '\0', crypto->digest_len);
+    SAFE_FREE(crypto->secret_hash);
+  }
+#ifdef WITH_ZLIB
   if (crypto->compress_out_ctx &&
       (deflateEnd(crypto->compress_out_ctx) != 0)) {
     inflateEnd(crypto->compress_out_ctx);
@@ -122,10 +134,31 @@ void crypto_free(struct ssh_crypto_struct *crypto){
       (deflateEnd(crypto->compress_in_ctx) != 0)) {
     inflateEnd(crypto->compress_in_ctx);
   }
-#endif
+#endif /* WITH_ZLIB */
+  if(crypto->encryptIV)
+    SAFE_FREE(crypto->encryptIV);
+  if(crypto->decryptIV)
+    SAFE_FREE(crypto->decryptIV);
+  if(crypto->encryptMAC)
+    SAFE_FREE(crypto->encryptMAC);
+  if(crypto->decryptMAC)
+    SAFE_FREE(crypto->decryptMAC);
+  if(crypto->encryptkey){
+    memset(crypto->encryptkey, 0, crypto->digest_len);
+    SAFE_FREE(crypto->encryptkey);
+  }
+  if(crypto->decryptkey){
+    memset(crypto->decryptkey, 0, crypto->digest_len);
+    SAFE_FREE(crypto->decryptkey);
+  }
 
-  /* i'm lost in my own code. good work */
-  memset(crypto,0,sizeof(*crypto));
+  for (i = 0; i < SSH_KEX_METHODS; i++) {
+      SAFE_FREE(crypto->client_kex.methods[i]);
+      SAFE_FREE(crypto->server_kex.methods[i]);
+      SAFE_FREE(crypto->kex_methods[i]);
+  }
+
+  BURN_BUFFER(crypto, sizeof(struct ssh_crypto_struct));
 
   SAFE_FREE(crypto);
 }
@@ -133,213 +166,186 @@ void crypto_free(struct ssh_crypto_struct *crypto){
 static int crypt_set_algorithms2(ssh_session session){
   const char *wanted;
   int i = 0;
-  struct crypto_struct *ssh_ciphertab=ssh_get_ciphertab();
+  struct ssh_cipher_struct *ssh_ciphertab=ssh_get_ciphertab();
+
   /* we must scan the kex entries to find crypto algorithms and set their appropriate structure */
   /* out */
-  wanted = session->client_kex.methods[SSH_CRYPT_C_S];
+  wanted = session->next_crypto->kex_methods[SSH_CRYPT_C_S];
   while (ssh_ciphertab[i].name && strcmp(wanted, ssh_ciphertab[i].name)) {
     i++;
   }
 
   if (ssh_ciphertab[i].name == NULL) {
     ssh_set_error(session, SSH_FATAL,
-        "Crypt_set_algorithms2: no crypto algorithm function found for %s",
+        "crypt_set_algorithms2: no crypto algorithm function found for %s",
         wanted);
-    return SSH_ERROR;
+      return SSH_ERROR;
   }
-  ssh_log(session, SSH_LOG_PACKET, "Set output algorithm to %s", wanted);
+  SSH_LOG(SSH_LOG_PACKET, "Set output algorithm to %s", wanted);
 
   session->next_crypto->out_cipher = cipher_new(i);
   if (session->next_crypto->out_cipher == NULL) {
-    ssh_set_error(session, SSH_FATAL, "No space left");
-    return SSH_ERROR;
+      ssh_set_error_oom(session);
+      return SSH_ERROR;
   }
   i = 0;
 
   /* in */
-  wanted = session->client_kex.methods[SSH_CRYPT_S_C];
+  wanted = session->next_crypto->kex_methods[SSH_CRYPT_S_C];
   while (ssh_ciphertab[i].name && strcmp(wanted, ssh_ciphertab[i].name)) {
     i++;
   }
 
   if (ssh_ciphertab[i].name == NULL) {
-    ssh_set_error(session, SSH_FATAL,
-        "Crypt_set_algorithms: no crypto algorithm function found for %s",
-        wanted);
-    return SSH_ERROR;
+      ssh_set_error(session, SSH_FATAL,
+          "Crypt_set_algorithms: no crypto algorithm function found for %s",
+          wanted);
+      return SSH_ERROR;
   }
-  ssh_log(session, SSH_LOG_PACKET, "Set input algorithm to %s", wanted);
+  SSH_LOG(SSH_LOG_PACKET, "Set input algorithm to %s", wanted);
 
   session->next_crypto->in_cipher = cipher_new(i);
   if (session->next_crypto->in_cipher == NULL) {
-    ssh_set_error(session, SSH_FATAL, "Not enough space");
-    return SSH_ERROR;
+      ssh_set_error_oom(session);
+      return SSH_ERROR;
   }
 
   /* compression */
-  if (strcmp(session->client_kex.methods[SSH_COMP_C_S], "zlib") == 0) {
+  if (strcmp(session->next_crypto->kex_methods[SSH_COMP_C_S], "zlib") == 0) {
     session->next_crypto->do_compress_out = 1;
   }
-  if (strcmp(session->client_kex.methods[SSH_COMP_S_C], "zlib") == 0) {
+  if (strcmp(session->next_crypto->kex_methods[SSH_COMP_S_C], "zlib") == 0) {
     session->next_crypto->do_compress_in = 1;
   }
-  if (strcmp(session->client_kex.methods[SSH_COMP_C_S], "zlib@openssh.com") == 0) {
+  if (strcmp(session->next_crypto->kex_methods[SSH_COMP_C_S], "zlib@openssh.com") == 0) {
     session->next_crypto->delayed_compress_out = 1;
   }
-  if (strcmp(session->client_kex.methods[SSH_COMP_S_C], "zlib@openssh.com") == 0) {
+  if (strcmp(session->next_crypto->kex_methods[SSH_COMP_S_C], "zlib@openssh.com") == 0) {
     session->next_crypto->delayed_compress_in = 1;
   }
+
   return SSH_OK;
 }
 
-static int crypt_set_algorithms1(ssh_session session) {
+static int crypt_set_algorithms1(ssh_session session, enum ssh_des_e des_type) {
   int i = 0;
-  struct crypto_struct *ssh_ciphertab=ssh_get_ciphertab();
+  struct ssh_cipher_struct *ssh_ciphertab=ssh_get_ciphertab();
 
   /* right now, we force 3des-cbc to be taken */
   while (ssh_ciphertab[i].name && strcmp(ssh_ciphertab[i].name,
-        "3des-cbc-ssh1")) {
+        des_type == SSH_DES ? "des-cbc-ssh1" : "3des-cbc-ssh1")) {
     i++;
   }
 
   if (ssh_ciphertab[i].name == NULL) {
-    ssh_set_error(session, SSH_FATAL, "cipher 3des-cbc-ssh1 not found!");
-    return -1;
+    ssh_set_error(session, SSH_FATAL, "cipher 3des-cbc-ssh1 or des-cbc-ssh1 not found!");
+    return SSH_ERROR;
   }
 
   session->next_crypto->out_cipher = cipher_new(i);
   if (session->next_crypto->out_cipher == NULL) {
-    ssh_set_error(session, SSH_FATAL, "No space left");
+    ssh_set_error_oom(session);
     return SSH_ERROR;
   }
 
   session->next_crypto->in_cipher = cipher_new(i);
   if (session->next_crypto->in_cipher == NULL) {
-    ssh_set_error(session, SSH_FATAL, "No space left");
+    ssh_set_error_oom(session);
     return SSH_ERROR;
   }
 
   return SSH_OK;
 }
 
-int crypt_set_algorithms(ssh_session session) {
-  return (session->version == 1) ? crypt_set_algorithms1(session) :
+int crypt_set_algorithms(ssh_session session, enum ssh_des_e des_type) {
+  return (session->version == 1) ? crypt_set_algorithms1(session, des_type) :
     crypt_set_algorithms2(session);
 }
 
-// TODO Obviously too much cut and paste here
+#ifdef WITH_SERVER
 int crypt_set_algorithms_server(ssh_session session){
-    char *server = NULL;
-    char *client = NULL;
-    char *match = NULL;
+    char *method = NULL;
     int i = 0;
-    struct crypto_struct *ssh_ciphertab=ssh_get_ciphertab();
+    struct ssh_cipher_struct *ssh_ciphertab=ssh_get_ciphertab();
 
     if (session == NULL) {
         return SSH_ERROR;
     }
 
-    /* we must scan the kex entries to find crypto algorithms and set their appropriate structure */
-    enter_function();
+    /*
+     * We must scan the kex entries to find crypto algorithms and set their
+     * appropriate structure
+     */
     /* out */
-    server = session->server_kex.methods[SSH_CRYPT_S_C];
-    if(session->client_kex.methods) {
-        client = session->client_kex.methods[SSH_CRYPT_S_C];
-    } else {
-        ssh_log(session,SSH_LOG_PROTOCOL, "Client KEX empty");
-    }
-    /* That's the client algorithms that are more important */
-    match = ssh_find_matching(server,client);
-
-
-    if(!match){
-        ssh_set_error(session,SSH_FATAL,"Crypt_set_algorithms_server : no matching algorithm function found for %s",server);
-        free(match);
-        leave_function();
-        return SSH_ERROR;
-    }
-    while(ssh_ciphertab[i].name && strcmp(match,ssh_ciphertab[i].name))
+    method = session->next_crypto->kex_methods[SSH_CRYPT_S_C];
+    while(ssh_ciphertab[i].name && strcmp(method,ssh_ciphertab[i].name))
         i++;
     if(!ssh_ciphertab[i].name){
-        ssh_set_error(session,SSH_FATAL,"Crypt_set_algorithms_server : no crypto algorithm function found for %s",server);
-        free(match);
-        leave_function();
+        ssh_set_error(session,SSH_FATAL,"crypt_set_algorithms_server : "
+                "no crypto algorithm function found for %s",method);
         return SSH_ERROR;
     }
-    ssh_log(session,SSH_LOG_PACKET,"Set output algorithm %s",match);
-    SAFE_FREE(match);
+    SSH_LOG(SSH_LOG_PACKET,"Set output algorithm %s",method);
 
     session->next_crypto->out_cipher = cipher_new(i);
     if (session->next_crypto->out_cipher == NULL) {
-      ssh_set_error(session, SSH_FATAL, "No space left");
-      leave_function();
-      return SSH_ERROR;
+        ssh_set_error_oom(session);
+        return SSH_ERROR;
     }
     i=0;
     /* in */
-    client=session->client_kex.methods[SSH_CRYPT_C_S];
-    server=session->server_kex.methods[SSH_CRYPT_S_C];
-    match=ssh_find_matching(server,client);
-    if(!match){
-        ssh_set_error(session,SSH_FATAL,"Crypt_set_algorithms_server : no matching algorithm function found for %s",server);
-        free(match);
-        leave_function();
-        return SSH_ERROR;
-    }
-    while(ssh_ciphertab[i].name && strcmp(match,ssh_ciphertab[i].name))
+    method = session->next_crypto->kex_methods[SSH_CRYPT_C_S];
+    while(ssh_ciphertab[i].name && strcmp(method,ssh_ciphertab[i].name))
         i++;
     if(!ssh_ciphertab[i].name){
-        ssh_set_error(session,SSH_FATAL,"Crypt_set_algorithms_server : no crypto algorithm function found for %s",server);
-        free(match);
-        leave_function();
+        ssh_set_error(session,SSH_FATAL,"Crypt_set_algorithms_server :"
+                "no crypto algorithm function found for %s",method);
         return SSH_ERROR;
     }
-    ssh_log(session,SSH_LOG_PACKET,"Set input algorithm %s",match);
-    SAFE_FREE(match);
+    SSH_LOG(SSH_LOG_PACKET,"Set input algorithm %s",method);
 
     session->next_crypto->in_cipher = cipher_new(i);
     if (session->next_crypto->in_cipher == NULL) {
-      ssh_set_error(session, SSH_FATAL, "No space left");
-      leave_function();
-      return SSH_ERROR;
+        ssh_set_error_oom(session);
+        return SSH_ERROR;
     }
 
     /* compression */
-    client=session->client_kex.methods[SSH_CRYPT_C_S];
-    server=session->server_kex.methods[SSH_CRYPT_C_S];
-    match=ssh_find_matching(server,client);
-    if(match && !strcmp(match,"zlib")){
-        ssh_log(session,SSH_LOG_PACKET,"enabling C->S compression");
+    method = session->next_crypto->kex_methods[SSH_COMP_C_S];
+    if(strcmp(method,"zlib") == 0){
+        SSH_LOG(SSH_LOG_PACKET,"enabling C->S compression");
         session->next_crypto->do_compress_in=1;
     }
-    SAFE_FREE(match);
+    if(strcmp(method,"zlib@openssh.com") == 0){
+        SSH_LOG(SSH_LOG_PACKET,"enabling C->S delayed compression");
 
-    client=session->client_kex.methods[SSH_CRYPT_S_C];
-    server=session->server_kex.methods[SSH_CRYPT_S_C];
-    match=ssh_find_matching(server,client);
-    if(match && !strcmp(match,"zlib")){
-        ssh_log(session,SSH_LOG_PACKET,"enabling S->C compression\n");
+        if (session->flags & SSH_SESSION_FLAG_AUTHENTICATED) {
+            session->next_crypto->do_compress_in = 1;
+        } else {
+            session->next_crypto->delayed_compress_in = 1;
+        }
+    }
+
+    method = session->next_crypto->kex_methods[SSH_COMP_S_C];
+    if(strcmp(method,"zlib") == 0){
+        SSH_LOG(SSH_LOG_PACKET, "enabling S->C compression\n");
         session->next_crypto->do_compress_out=1;
     }
-    SAFE_FREE(match);
+    if(strcmp(method,"zlib@openssh.com") == 0){
+        SSH_LOG(SSH_LOG_PACKET,"enabling S->C delayed compression\n");
 
-    server=session->server_kex.methods[SSH_HOSTKEYS];
-    client=session->client_kex.methods[SSH_HOSTKEYS];
-    match=ssh_find_matching(server,client);
-    if(match && !strcmp(match,"ssh-dss"))
-        session->hostkeys=SSH_KEYTYPE_DSS;
-    else if(match && !strcmp(match,"ssh-rsa"))
-        session->hostkeys=SSH_KEYTYPE_RSA;
-    else {
-        ssh_set_error(session, SSH_FATAL, "Cannot know what %s is into %s",
-            match ? match : NULL, server);
-        SAFE_FREE(match);
-        leave_function();
-        return SSH_ERROR;
+        if (session->flags & SSH_SESSION_FLAG_AUTHENTICATED) {
+            session->next_crypto->do_compress_out = 1;
+        } else {
+            session->next_crypto->delayed_compress_out = 1;
+        }
     }
-    SAFE_FREE(match);
-    leave_function();
+
+    method = session->next_crypto->kex_methods[SSH_HOSTKEYS];
+    session->srv.hostkey = ssh_key_type_from_name(method);
+
     return SSH_OK;
 }
 
+#endif /* WITH_SERVER */
 /* vim: set ts=2 sw=2 et cindent: */

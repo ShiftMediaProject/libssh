@@ -3,7 +3,7 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2011      by Andreas Schneider <mail@cryptomilk.org>
+ * Copyright (c) 2011-2013    by Andreas Schneider <mail@cryptomilk.org>
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -21,8 +21,11 @@
  * MA 02111-1307, USA.
  */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 
 #include <libssh/priv.h>
 
@@ -162,8 +165,12 @@ int ssh_getpass(const char *prompt,
 #else
 
 #include <fcntl.h>
+#ifdef HAVE_TERMIOS_H
 #include <termios.h>
+#endif
+#ifdef HAVE_UNISTD_H
 #include <unistd.h>
+#endif
 
 /**
  * @ingroup libssh_misc
@@ -219,31 +226,33 @@ int ssh_getpass(const char *prompt,
         return -1;
     }
 
-    ZERO_STRUCT(attr);
-    ZERO_STRUCT(old_attr);
+    if (isatty(STDIN_FILENO)) {
+        ZERO_STRUCT(attr);
+        ZERO_STRUCT(old_attr);
 
-    /* get local terminal attributes */
-    if (tcgetattr(STDIN_FILENO, &attr) < 0) {
-        perror("tcgetattr");
-        return -1;
-    }
+        /* get local terminal attributes */
+        if (tcgetattr(STDIN_FILENO, &attr) < 0) {
+            perror("tcgetattr");
+            return -1;
+        }
 
-    /* save terminal attributes */
-    memcpy(&old_attr, &attr, sizeof(attr));
-    if((fd = fcntl(0, F_GETFL, 0)) < 0) {
-        perror("fcntl");
-        return -1;
-    }
+        /* save terminal attributes */
+        memcpy(&old_attr, &attr, sizeof(attr));
+        if((fd = fcntl(0, F_GETFL, 0)) < 0) {
+            perror("fcntl");
+            return -1;
+        }
 
-    /* disable echo */
-    if (!echo) {
-        attr.c_lflag &= ~(ECHO);
-    }
+        /* disable echo */
+        if (!echo) {
+            attr.c_lflag &= ~(ECHO);
+        }
 
-    /* write attributes to terminal */
-    if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &attr) < 0) {
-        perror("tcsetattr");
-        return -1;
+        /* write attributes to terminal */
+        if (tcsetattr(STDIN_FILENO, TCSAFLUSH, &attr) < 0) {
+            perror("tcsetattr");
+            return -1;
+        }
     }
 
     /* disable nonblocking I/O */
@@ -253,8 +262,10 @@ int ssh_getpass(const char *prompt,
 
     ok = ssh_gets(prompt, buf, len, verify);
 
-    /* reset terminal */
-    tcsetattr(STDIN_FILENO, TCSANOW, &old_attr);
+    if (isatty(STDIN_FILENO)) {
+        /* reset terminal */
+        tcsetattr(STDIN_FILENO, TCSANOW, &old_attr);
+    }
 
     /* close fd */
     if (fd & O_NDELAY) {

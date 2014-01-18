@@ -3,7 +3,7 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2003-2009 by Aris Adamantiadis
+ * Copyright (c) 2003-2013 by Aris Adamantiadis
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -84,16 +84,6 @@
 #endif
 
 #ifdef _WIN32
-void ssh_sock_set_nonblocking(socket_t sock) {
-  u_long nonblocking = 1;
-  ioctlsocket(sock, FIONBIO, &nonblocking);
-}
-
-void ssh_sock_set_blocking(socket_t sock) {
-  u_long nonblocking = 0;
-  ioctlsocket(sock, FIONBIO, &nonblocking);
-}
-
 #ifndef gai_strerror
 char WSAAPI *gai_strerrorA(int code) {
   static char buf[256];
@@ -103,16 +93,6 @@ char WSAAPI *gai_strerrorA(int code) {
   return buf;
 }
 #endif /* gai_strerror */
-
-#else /* _WIN32 */
-void ssh_sock_set_nonblocking(socket_t sock) {
-  fcntl(sock, F_SETFL, O_NONBLOCK);
-}
-
-void ssh_sock_set_blocking(socket_t sock) {
-  fcntl(sock, F_SETFL, 0);
-}
-
 #endif /* _WIN32 */
 
 static int ssh_connect_socket_close(socket_t s){
@@ -124,7 +104,7 @@ static int ssh_connect_socket_close(socket_t s){
 }
 
 
-static int getai(ssh_session session, const char *host, int port, struct addrinfo **ai) {
+static int getai(const char *host, int port, struct addrinfo **ai) {
   const char *service = NULL;
   struct addrinfo hints;
   char s_port[10];
@@ -147,7 +127,7 @@ static int getai(ssh_session session, const char *host, int port, struct addrinf
 
   if (ssh_is_ipaddr(host)) {
     /* this is an IP address */
-    ssh_log(session,SSH_LOG_PACKET,"host %s matches an IP address",host);
+    SSH_LOG(SSH_LOG_PACKET,"host %s matches an IP address",host);
     hints.ai_flags |= AI_NUMERICHOST;
   }
 
@@ -159,18 +139,23 @@ static int ssh_connect_ai_timeout(ssh_session session, const char *host,
   int timeout_ms;
   ssh_pollfd_t fds;
   int rc = 0;
+  int ret;
   socklen_t len = sizeof(rc);
-
-  enter_function();
 
   /* I know we're losing some precision. But it's not like poll-like family
    * type of mechanisms are precise up to the microsecond.
    */
   timeout_ms=timeout * 1000 + usec / 1000;
 
-  ssh_sock_set_nonblocking(s);
+  rc = ssh_socket_set_nonblocking(s);
+  if (rc < 0) {
+      ssh_set_error(session, SSH_FATAL,
+          "Failed to set socket non-blocking for %s:%d", host, port);
+      ssh_connect_socket_close(s);
+      return -1;
+  }
 
-  ssh_log(session, SSH_LOG_RARE, "Trying to connect to host: %s:%d with "
+  SSH_LOG(SSH_LOG_RARE, "Trying to connect to host: %s:%d with "
       "timeout %d ms", host, port, timeout_ms);
 
   /* The return value is checked later */
@@ -190,7 +175,7 @@ static int ssh_connect_ai_timeout(ssh_session session, const char *host,
     ssh_set_error(session, SSH_FATAL,
         "Timeout while connecting to %s:%d", host, port);
     ssh_connect_socket_close(s);
-    leave_function();
+
     return -1;
   }
 
@@ -198,26 +183,32 @@ static int ssh_connect_ai_timeout(ssh_session session, const char *host,
     ssh_set_error(session, SSH_FATAL,
         "poll error: %s", strerror(errno));
     ssh_connect_socket_close(s);
-    leave_function();
+
     return -1;
   }
-  rc = 0;
+  rc = -1;
 
   /* Get connect(2) return code. Zero means no error */
-  getsockopt(s, SOL_SOCKET, SO_ERROR,(char *) &rc, &len);
-  if (rc != 0) {
+  ret = getsockopt(s, SOL_SOCKET, SO_ERROR,(char *) &rc, &len);
+  if (ret < 0 || rc != 0) {
     ssh_set_error(session, SSH_FATAL,
         "Connect to %s:%d failed: %s", host, port, strerror(rc));
     ssh_connect_socket_close(s);
-    leave_function();
+
     return -1;
   }
 
   /* s is connected ? */
-  ssh_log(session, SSH_LOG_PACKET, "Socket connected with timeout\n");
-  ssh_sock_set_blocking(s);
+  SSH_LOG(SSH_LOG_PACKET, "Socket connected with timeout\n");
+  ret = ssh_socket_set_blocking(s);
+  if (ret < 0) {
+      ssh_set_error(session, SSH_FATAL,
+          "Failed to set socket as blocking connecting to %s:%d failed: %s",
+          host, port, strerror(errno));
+      ssh_connect_socket_close(s);
+      return -1;
+  }
 
-  leave_function();
   return s;
 }
 
@@ -236,13 +227,11 @@ socket_t ssh_connect_host(ssh_session session, const char *host,
   struct addrinfo *ai;
   struct addrinfo *itr;
 
-  enter_function();
-
-  rc = getai(session,host, port, &ai);
+  rc = getai(host, port, &ai);
   if (rc != 0) {
     ssh_set_error(session, SSH_FATAL,
         "Failed to resolve hostname %s (%s)", host, gai_strerror(rc));
-    leave_function();
+
     return -1;
   }
 
@@ -259,15 +248,17 @@ socket_t ssh_connect_host(ssh_session session, const char *host,
       struct addrinfo *bind_ai;
       struct addrinfo *bind_itr;
 
-      ssh_log(session, SSH_LOG_PACKET, "Resolving %s\n", bind_addr);
+      SSH_LOG(SSH_LOG_PACKET, "Resolving %s\n", bind_addr);
 
-      rc = getai(session,bind_addr, 0, &bind_ai);
+      rc = getai(bind_addr, 0, &bind_ai);
       if (rc != 0) {
         ssh_set_error(session, SSH_FATAL,
             "Failed to resolve bind address %s (%s)",
             bind_addr,
             gai_strerror(rc));
-        leave_function();
+        freeaddrinfo(ai);
+        close(s);
+
         return -1;
       }
 
@@ -293,7 +284,7 @@ socket_t ssh_connect_host(ssh_session session, const char *host,
     if (timeout || usec) {
       socket_t ret = ssh_connect_ai_timeout(session, host, port, itr,
           timeout, usec, s);
-      leave_function();
+
       return ret;
     }
 
@@ -301,7 +292,6 @@ socket_t ssh_connect_host(ssh_session session, const char *host,
       ssh_set_error(session, SSH_FATAL, "Connect failed: %s", strerror(errno));
       ssh_connect_socket_close(s);
       s = -1;
-      leave_function();
       continue;
     } else {
       /* We are connected */
@@ -310,7 +300,6 @@ socket_t ssh_connect_host(ssh_session session, const char *host,
   }
 
   freeaddrinfo(ai);
-  leave_function();
 
   return s;
 }
@@ -331,13 +320,11 @@ socket_t ssh_connect_host_nonblocking(ssh_session session, const char *host,
   struct addrinfo *ai;
   struct addrinfo *itr;
 
-  enter_function();
-
-  rc = getai(session,host, port, &ai);
+  rc = getai(host, port, &ai);
   if (rc != 0) {
     ssh_set_error(session, SSH_FATAL,
         "Failed to resolve hostname %s (%s)", host, gai_strerror(rc));
-    leave_function();
+
     return -1;
   }
 
@@ -354,15 +341,15 @@ socket_t ssh_connect_host_nonblocking(ssh_session session, const char *host,
       struct addrinfo *bind_ai;
       struct addrinfo *bind_itr;
 
-      ssh_log(session, SSH_LOG_PACKET, "Resolving %s\n", bind_addr);
+      SSH_LOG(SSH_LOG_PACKET, "Resolving %s\n", bind_addr);
 
-      rc = getai(session,bind_addr, 0, &bind_ai);
+      rc = getai(bind_addr, 0, &bind_ai);
       if (rc != 0) {
         ssh_set_error(session, SSH_FATAL,
             "Failed to resolve bind address %s (%s)",
             bind_addr,
             gai_strerror(rc));
-        close(s);
+        ssh_connect_socket_close(s);
         s=-1;
         break;
       }
@@ -385,14 +372,21 @@ socket_t ssh_connect_host_nonblocking(ssh_session session, const char *host,
         continue;
       }
     }
-    ssh_sock_set_nonblocking(s);
+
+    rc = ssh_socket_set_nonblocking(s);
+    if (rc < 0) {
+        ssh_set_error(session, SSH_FATAL,
+            "Failed to set socket non-blocking for %s:%d", host, port);
+        ssh_connect_socket_close(s);
+        s = -1;
+        continue;
+    }
 
     connect(s, itr->ai_addr, itr->ai_addrlen);
     break;
   }
 
   freeaddrinfo(ai);
-  leave_function();
 
   return s;
 }
@@ -402,6 +396,13 @@ socket_t ssh_connect_host_nonblocking(ssh_session session, const char *host,
  *
  * @{
  */
+
+static int ssh_select_cb (socket_t fd, int revents, void *userdata){
+  fd_set *set = (fd_set *)userdata;
+  if(revents & POLLIN)
+    FD_SET(fd, set);
+  return 0;
+}
 
 /**
  * @brief A wrapper for the select syscall
@@ -422,132 +423,84 @@ socket_t ssh_connect_host_nonblocking(ssh_session session, const char *host,
  *
  * @param[in]  timeout  A timeout for the select.
  *
- * @return              -1 if an error occured. SSH_EINTR if it was interrupted, in
- *                      that case, just restart it.
+ * @return              SSH_OK on success,
+ *                      SSH_ERROR on error,
+ *                      SSH_EINTR if it was interrupted. In that case,
+ *                      just restart it.
  *
- * @warning libssh is not threadsafe here. That means that if a signal is caught
- *          during the processing of this function, you cannot call ssh
+ * @warning libssh is not reentrant here. That means that if a signal is caught
+ *          during the processing of this function, you cannot call libssh
  *          functions on sessions that are busy with ssh_select().
  *
  * @see select(2)
  */
 int ssh_select(ssh_channel *channels, ssh_channel *outchannels, socket_t maxfd,
     fd_set *readfds, struct timeval *timeout) {
-  struct timeval zerotime;
-  fd_set localset, localset2;
-  socket_t f;
-  int rep;
-  int set;
-  int i;
-  int j;
+  fd_set origfds;
+  socket_t fd;
+  int i,j;
+  int rc;
+  int base_tm, tm;
+  struct ssh_timestamp ts;
+  ssh_event event = ssh_event_new();
+  int firstround=1;
 
-  zerotime.tv_sec = 0;
-  zerotime.tv_usec = 0;
-
-  /*
-   * First, poll the maxfd file descriptors from the user with a zero-second
-   * timeout. They have the bigger priority.
-   */
-  if (maxfd > 0) {
-    memcpy(&localset, readfds, sizeof(fd_set));
-    rep = select(maxfd, &localset, NULL, NULL, &zerotime);
-    /* catch the eventual errors */
-    if (rep==-1) {
-      return -1;
-    }
+  base_tm = tm=timeout->tv_sec * 1000 + timeout->tv_usec/1000;
+  for (i=0 ; channels[i] != NULL; ++i){
+    ssh_event_add_session(event, channels[i]->session);
   }
 
-  /* Poll every channel */
-  j = 0;
-  for (i = 0; channels[i]; i++) {
-    if (channels[i]->session->alive) {
-      if(ssh_channel_poll(channels[i], 0) > 0) {
+  FD_ZERO(&origfds);
+  for (fd = 0; fd < maxfd ; fd++) {
+      if (FD_ISSET(fd, readfds)) {
+          ssh_event_add_fd(event, fd, POLLIN, ssh_select_cb, readfds);
+          FD_SET(fd, &origfds);
+      }
+  }
+  outchannels[0] = NULL;
+  FD_ZERO(readfds);
+  ssh_timestamp_init(&ts);
+  do {
+    /* Poll every channel */
+    j = 0;
+    for (i = 0; channels[i]; i++) {
+      if(ssh_channel_poll(channels[i], 0) != 0) {
         outchannels[j] = channels[i];
         j++;
-      } else {
-        if(ssh_channel_poll(channels[i], 1) > 0) {
-          outchannels[j] = channels[i];
-          j++;
+      } else if(ssh_channel_poll(channels[i], 1) != 0) {
+        outchannels[j] = channels[i];
+        j++;
+      }
+    }
+    outchannels[j] = NULL;
+    if(j != 0)
+      break;
+    /* watch if a user socket was triggered */
+    for (fd = 0; fd < maxfd; fd++) {
+        if (FD_ISSET(fd, readfds)) {
+            goto out;
         }
-      }
+    }
+
+    /* If the timeout is elapsed, we should go out */
+    if(!firstround && ssh_timeout_elapsed(&ts, base_tm))
+      goto out;
+    /* since there's nothing, let's fire the polling */
+    rc = ssh_event_dopoll(event,tm);
+    if (rc == SSH_ERROR){
+      goto out;
+    }
+    tm = ssh_timeout_update(&ts, base_tm);
+    firstround=0;
+  } while (1);
+out:
+  for (fd = 0; fd < maxfd; fd++) {
+    if (FD_ISSET(fd, &origfds)) {
+      ssh_event_remove_fd(event, fd);
     }
   }
-  outchannels[j] = NULL;
-
-  /* Look into the localset for active fd */
-  set = 0;
-  for (f = 0; (f < maxfd) && !set; f++) {
-    if (FD_ISSET(f, &localset)) {
-      set = 1;
-    }
-  }
-
-  /* j != 0 means a channel has data */
-  if( (j != 0) || (set != 0)) {
-    if(maxfd > 0) {
-      memcpy(readfds, &localset, sizeof(fd_set));
-    }
-    return 0;
-  }
-
-  /*
-   * At this point, not any channel had any data ready for reading, nor any fd
-   * had data for reading.
-   */
-  memcpy(&localset, readfds, sizeof(fd_set));
-  for (i = 0; channels[i]; i++) {
-    if (channels[i]->session->alive) {
-      ssh_socket_fd_set(channels[i]->session->socket, &localset, &maxfd);
-    }
-  }
-
-  rep = select(maxfd, &localset, NULL, NULL, timeout);
-  if (rep == -1 && errno == EINTR) {
-    /* Interrupted by a signal */
-    return SSH_EINTR;
-  }
-
-  if (rep == -1) {
-    /*
-     * Was the error due to a libssh's channel or from a closed descriptor from
-     * the user? User closed descriptors have been caught in the first select
-     * and not closed since that moment. That case shouldn't occur at all
-     */
-    return -1;
-  }
-
-  /* Set the data_to_read flag on each session */
-  for (i = 0; channels[i]; i++) {
-    if (channels[i]->session->alive &&
-        ssh_socket_fd_isset(channels[i]->session->socket,&localset)) {
-      ssh_socket_set_read_wontblock(channels[i]->session->socket);
-    }
-  }
-
-  /* Now, test each channel */
-  j = 0;
-  for (i = 0; channels[i]; i++) {
-    if (channels[i]->session->alive &&
-        ssh_socket_fd_isset(channels[i]->session->socket,&localset)) {
-      if ((ssh_channel_poll(channels[i],0) > 0) ||
-          (ssh_channel_poll(channels[i], 1) > 0)) {
-        outchannels[j] = channels[i];
-        j++;
-      }
-    }
-  }
-  outchannels[j] = NULL;
-
-  FD_ZERO(&localset2);
-  for (f = 0; f < maxfd; f++) {
-    if (FD_ISSET(f, readfds) && FD_ISSET(f, &localset)) {
-      FD_SET(f, &localset2);
-    }
-  }
-
-  memcpy(readfds, &localset2, sizeof(fd_set));
-
-  return 0;
+  ssh_event_free(event);
+  return SSH_OK;
 }
 
 /** @} */

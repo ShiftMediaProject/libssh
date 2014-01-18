@@ -226,11 +226,14 @@ int ssh_socket_pollcallback(struct ssh_poll_handle_struct *p, socket_t fd, int r
 	if(!ssh_socket_is_open(s)){
 	  return -1;
 	}
-	if(revents & POLLERR){
+	if(revents & POLLERR || revents & POLLHUP){
 		/* Check if we are in a connecting state */
 		if(s->state==SSH_SOCKET_CONNECTING){
 			s->state=SSH_SOCKET_ERROR;
-			getsockopt(fd,SOL_SOCKET,SO_ERROR,(char *)&err,&errlen);
+			r = getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *)&err, &errlen);
+            if (r < 0) {
+                err = errno;
+            }
 			s->last_errno=err;
 			ssh_socket_close(s);
 			if(s->callbacks && s->callbacks->connected)
@@ -242,7 +245,7 @@ int ssh_socket_pollcallback(struct ssh_poll_handle_struct *p, socket_t fd, int r
 		/* force a read to get an explanation */
 		revents |= POLLIN;
 	}
-	if(revents & POLLIN){
+	if((revents & POLLIN) && s->state == SSH_SOCKET_CONNECTED){
 		s->read_wontblock=1;
 		r=ssh_socket_unbuffered_read(s,buffer,sizeof(buffer));
 		if(r<0){
@@ -278,12 +281,17 @@ int ssh_socket_pollcallback(struct ssh_poll_handle_struct *p, socket_t fd, int r
 		}
 		if(r>0){
 			/* Bufferize the data and then call the callback */
-			buffer_add_data(s->in_buffer,buffer,r);
+            r = buffer_add_data(s->in_buffer,buffer,r);
+            if (r < 0) {
+                return -1;
+            }
 			if(s->callbacks && s->callbacks->data){
-				r= s->callbacks->data(buffer_get_rest(s->in_buffer),
-						buffer_get_rest_len(s->in_buffer),
-						s->callbacks->userdata);
-				buffer_pass_bytes(s->in_buffer,r);
+				do {
+					r= s->callbacks->data(buffer_get_rest(s->in_buffer),
+							buffer_get_rest_len(s->in_buffer),
+							s->callbacks->userdata);
+					buffer_pass_bytes(s->in_buffer,r);
+				} while (r > 0);
 				/* p may have been freed, so don't use it
 				* anymore in this function */
 				p = NULL;
@@ -297,10 +305,15 @@ int ssh_socket_pollcallback(struct ssh_poll_handle_struct *p, socket_t fd, int r
 #endif
 		/* First, POLLOUT is a sign we may be connected */
 		if(s->state == SSH_SOCKET_CONNECTING){
-			ssh_log(s->session,SSH_LOG_PACKET,"Received POLLOUT in connecting state");
+			SSH_LOG(SSH_LOG_PACKET,"Received POLLOUT in connecting state");
 			s->state = SSH_SOCKET_CONNECTED;
-			ssh_poll_set_events(p,POLLOUT | POLLIN);
-			ssh_sock_set_blocking(ssh_socket_get_fd_in(s));
+			if (p != NULL) {
+				ssh_poll_set_events(p,POLLOUT | POLLIN);
+			}
+			r = ssh_socket_set_blocking(ssh_socket_get_fd_in(s));
+			if (r < 0) {
+				return -1;
+			}
 			if(s->callbacks && s->callbacks->connected)
 				s->callbacks->connected(SSH_SOCKET_CONNECTED_OK,0,s->callbacks->userdata);
 			return 0;
@@ -438,9 +451,19 @@ void ssh_socket_close(ssh_socket s){
  * file descriptors
  */
 void ssh_socket_set_fd(ssh_socket s, socket_t fd) {
-  s->fd_in = s->fd_out = fd;
-  if(s->poll_in)
-  	ssh_poll_set_fd(s->poll_in,fd);
+    s->fd_in = s->fd_out = fd;
+
+    if (s->poll_in) {
+        ssh_poll_set_fd(s->poll_in,fd);
+    } else {
+        s->state = SSH_SOCKET_CONNECTING;
+
+        /* POLLOUT is the event to wait for in a nonblocking connect */
+        ssh_poll_set_events(ssh_socket_get_poll_handle_in(s), POLLOUT);
+#ifdef _WIN32
+        ssh_poll_add_events(ssh_socket_get_poll_handle_in(s), POLLWRNORM);
+#endif
+    }
 }
 
 /**
@@ -532,7 +555,7 @@ static int ssh_socket_unbuffered_write(ssh_socket s, const void *buffer,
   s->write_wontblock = 0;
   /* Reactive the POLLOUT detector in the poll multiplexer system */
   if(s->poll_out){
-  	ssh_log(s->session, SSH_LOG_PACKET, "Enabling POLLOUT for socket");
+      SSH_LOG(SSH_LOG_PACKET, "Enabling POLLOUT for socket");
   	ssh_poll_set_events(s->poll_out,ssh_poll_get_events(s->poll_out) | POLLOUT);
   }
   if (w < 0) {
@@ -582,8 +605,6 @@ void ssh_socket_fd_set(ssh_socket s, fd_set *set, socket_t *max_fd) {
  * \warning has no effect on socket before a flush
  */
 int ssh_socket_write(ssh_socket s, const void *buffer, int len) {
-  ssh_session session = s->session;
-  enter_function();
   if(len > 0) {
     if (buffer_add_data(s->out_buffer, buffer, len) < 0) {
       ssh_set_error_oom(s->session);
@@ -591,7 +612,7 @@ int ssh_socket_write(ssh_socket s, const void *buffer, int len) {
     }
     ssh_socket_nonblocking_flush(s);
   }
-  leave_function();
+
   return SSH_OK;
 }
 
@@ -605,8 +626,6 @@ int ssh_socket_nonblocking_flush(ssh_socket s) {
   uint32_t len;
   int w;
 
-  enter_function();
-
   if (!ssh_socket_is_open(s)) {
     session->alive = 0;
     /* FIXME use ssh_socket_get_errno */
@@ -614,7 +633,6 @@ int ssh_socket_nonblocking_flush(ssh_socket s) {
         "Writing packet: error on socket (or connection closed): %s",
         strerror(s->last_errno));
 
-    leave_function();
     return SSH_ERROR;
   }
 
@@ -622,7 +640,7 @@ int ssh_socket_nonblocking_flush(ssh_socket s) {
   if (!s->write_wontblock && s->poll_out && len > 0) {
       /* force the poll system to catch pollout events */
       ssh_poll_add_events(s->poll_out, POLLOUT);
-      leave_function();
+
       return SSH_AGAIN;
   }
   if (s->write_wontblock && len > 0) {
@@ -635,7 +653,7 @@ int ssh_socket_nonblocking_flush(ssh_socket s) {
       ssh_set_error(session, SSH_FATAL,
           "Writing packet: error on socket (or connection closed): %s",
           strerror(s->last_errno));
-      leave_function();
+
       return SSH_ERROR;
     }
     buffer_pass_bytes(s->out_buffer, w);
@@ -646,12 +664,11 @@ int ssh_socket_nonblocking_flush(ssh_socket s) {
   if (s->poll_out && len > 0) {
       /* force the poll system to catch pollout events */
       ssh_poll_add_events(s->poll_out, POLLOUT);
-      leave_function();
+
       return SSH_AGAIN;
   }
 
   /* all data written */
-  leave_function();
   return SSH_OK;
 }
 
@@ -690,8 +707,12 @@ int ssh_socket_buffered_write_bytes(ssh_socket s){
 int ssh_socket_get_status(ssh_socket s) {
   int r = 0;
 
-  if (s->read_wontblock) {
-    r |= SSH_READ_PENDING;
+  if (buffer_get_len(s->in_buffer) > 0) {
+      r |= SSH_READ_PENDING;
+  }
+
+  if (buffer_get_len(s->out_buffer) > 0) {
+      r |= SSH_WRITE_PENDING;
   }
 
   if (s->data_except) {
@@ -701,24 +722,37 @@ int ssh_socket_get_status(ssh_socket s) {
   return r;
 }
 
-
-/**
- * @internal
- * @brief Set a socket into the connecting state
- * @param s    socket handle
- * @param fd   file descriptor
- */
-
-void ssh_socket_set_connecting(ssh_socket s, socket_t fd){
-	ssh_socket_set_fd(s,fd);
-	s->state=SSH_SOCKET_CONNECTING;
-	/* POLLOUT is the event to wait for in a nonblocking connect */
-	ssh_poll_set_events(ssh_socket_get_poll_handle_in(s),POLLOUT);
-#ifdef _WIN32
-	ssh_poll_add_events(ssh_socket_get_poll_handle_in(s),POLLWRNORM);
-#endif
+int ssh_socket_get_poll_flags(ssh_socket s) {
+  int r = 0;
+  if (s->poll_in != NULL && (ssh_poll_get_events (s->poll_in) & POLLIN) > 0) {
+    r |= SSH_READ_PENDING;
+  }
+  if (s->poll_out != NULL && (ssh_poll_get_events (s->poll_out) & POLLOUT) > 0) {
+    r |= SSH_WRITE_PENDING;
+  }
+  return r;
 }
 
+#ifdef _WIN32
+int ssh_socket_set_nonblocking(socket_t fd) {
+  u_long nonblocking = 1;
+  return ioctlsocket(fd, FIONBIO, &nonblocking);
+}
+
+int ssh_socket_set_blocking(socket_t fd) {
+  u_long nonblocking = 0;
+  return ioctlsocket(fd, FIONBIO, &nonblocking);
+}
+
+#else /* _WIN32 */
+int ssh_socket_set_nonblocking(socket_t fd) {
+  return fcntl(fd, F_SETFL, O_NONBLOCK);
+}
+
+int ssh_socket_set_blocking(socket_t fd) {
+  return fcntl(fd, F_SETFL, 0);
+}
+#endif /* _WIN32 */
 
 /**
  * @internal
@@ -737,19 +771,18 @@ void ssh_socket_set_connecting(ssh_socket s, socket_t fd){
 
 int ssh_socket_connect(ssh_socket s, const char *host, int port, const char *bind_addr){
 	socket_t fd;
-	ssh_session session=s->session;
-	enter_function();
+
 	if(s->state != SSH_SOCKET_NONE) {
 		ssh_set_error(s->session, SSH_FATAL,
 				"ssh_socket_connect called on socket not unconnected");
 		return SSH_ERROR;
 	}
 	fd=ssh_connect_host_nonblocking(s->session,host,bind_addr,port);
-	ssh_log(session,SSH_LOG_PROTOCOL,"Nonblocking connection socket: %d",fd);
+	SSH_LOG(SSH_LOG_PROTOCOL,"Nonblocking connection socket: %d",fd);
 	if(fd == SSH_INVALID_SOCKET)
 		return SSH_ERROR;
-	ssh_socket_set_connecting(s,fd);
-	leave_function();
+	ssh_socket_set_fd(s,fd);
+
 	return SSH_OK;
 }
 
@@ -788,8 +821,7 @@ int ssh_socket_connect_proxycommand(ssh_socket s, const char *command){
   socket_t out_pipe[2];
   int pid;
   int rc;
-  ssh_session session=s->session;
-  enter_function();
+
   if(s->state != SSH_SOCKET_NONE)
     return SSH_ERROR;
 
@@ -802,14 +834,14 @@ int ssh_socket_connect_proxycommand(ssh_socket s, const char *command){
       return SSH_ERROR;
   }
 
-  ssh_log(session,SSH_LOG_PROTOCOL,"Executing proxycommand '%s'",command);
+  SSH_LOG(SSH_LOG_PROTOCOL,"Executing proxycommand '%s'",command);
   pid = fork();
   if(pid == 0){
     ssh_execute_command(command,out_pipe[0],in_pipe[1]);
   }
   close(in_pipe[1]);
   close(out_pipe[0]);
-  ssh_log(session,SSH_LOG_PROTOCOL,"ProxyCommand connection pipe: [%d,%d]",in_pipe[0],out_pipe[1]);
+  SSH_LOG(SSH_LOG_PROTOCOL,"ProxyCommand connection pipe: [%d,%d]",in_pipe[0],out_pipe[1]);
   ssh_socket_set_fd_in(s,in_pipe[0]);
   ssh_socket_set_fd_out(s,out_pipe[1]);
   s->state=SSH_SOCKET_CONNECTED;
@@ -819,7 +851,7 @@ int ssh_socket_connect_proxycommand(ssh_socket s, const char *command){
   ssh_poll_set_events(ssh_socket_get_poll_handle_out(s),POLLOUT);
   if(s->callbacks && s->callbacks->connected)
     s->callbacks->connected(SSH_SOCKET_CONNECTED_OK,0,s->callbacks->userdata);
-  leave_function();
+
   return SSH_OK;
 }
 

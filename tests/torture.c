@@ -3,7 +3,7 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2008-2009 by Andreas Schneider <mail@cynapses.org>
+ * Copyright (c) 2008-2009 by Andreas Schneider <asn@cryptomilk.org>
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -30,7 +30,10 @@
 # include <sys/stat.h>
 # include <dirent.h>
 # include <errno.h>
-# include <unistd.h>
+#endif
+
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
 #endif
 
 #include "torture.h"
@@ -49,6 +52,9 @@ static int _torture_auth_kbdint(ssh_session session,
     }
 
     err = ssh_userauth_kbdint(session, NULL, NULL);
+    if (err == SSH_AUTH_ERROR) {
+        return err;
+    }
 
     if (ssh_userauth_kbdint_getnprompts(session) != 1) {
         return SSH_AUTH_ERROR;
@@ -107,6 +113,7 @@ int torture_rmdirs(const char *path) {
                 len = strlen(path) + strlen(dp->d_name) + 2;
                 fname = malloc(len);
                 if (fname == NULL) {
+                    closedir(d);
                     return -1;
                 }
                 snprintf(fname, len, "%s/%s", path, dp->d_name);
@@ -154,6 +161,7 @@ ssh_session torture_ssh_session(const char *host,
                                 const char *user,
                                 const char *password) {
     ssh_session session;
+    int method;
     int rc;
 
     if (host == NULL) {
@@ -190,14 +198,19 @@ ssh_session torture_ssh_session(const char *host,
     if (rc == SSH_ERROR) {
         goto failed;
     }
-    if (!(ssh_auth_list(session) & SSH_AUTH_METHOD_INTERACTIVE)) {
+    method = ssh_userauth_list(session, NULL);
+    if (method == 0) {
         goto failed;
     }
 
     if (password != NULL) {
-        rc = _torture_auth_kbdint(session, password);
+        if (method & SSH_AUTH_METHOD_INTERACTIVE) {
+            rc = _torture_auth_kbdint(session, password);
+        } else if (method & SSH_AUTH_METHOD_PASSWORD) {
+            rc = ssh_userauth_password(session, NULL, password);
+        }
     } else {
-        rc = ssh_userauth_autopubkey(session, NULL);
+        rc = ssh_userauth_publickey_auto(session, NULL, NULL);
         if (rc == SSH_AUTH_ERROR) {
             goto failed;
         }

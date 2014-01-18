@@ -34,7 +34,7 @@
 #include "libssh/bind.h"
 #include "libssh/libssh.h"
 #include "libssh/server.h"
-#include "libssh/keyfiles.h"
+#include "libssh/pki.h"
 #include "libssh/buffer.h"
 #include "libssh/socket.h"
 #include "libssh/session.h"
@@ -61,17 +61,6 @@
 
 #define SOCKOPT_TYPE_ARG4 char
 
-/*
- * We need to provide hstrerror. Not we can't call the parameter h_errno
- * because it's #defined
- */
-static char *hstrerror(int h_errno_val) {
-  static char text[50] = {0};
-
-  snprintf(text, sizeof(text), "getaddrino error %d\n", h_errno_val);
-
-  return text;
-}
 #else /* _WIN32 */
 
 #include <sys/socket.h>
@@ -118,7 +107,7 @@ static socket_t bind_socket(ssh_bind sshbind, const char *hostname,
         ssh_set_error(sshbind,
                       SSH_FATAL,
                       "Setting socket options failed: %s",
-                      hstrerror(h_errno));
+                      strerror(errno));
         freeaddrinfo (ai);
         close(s);
         return -1;
@@ -158,31 +147,111 @@ ssh_bind ssh_bind_new(void) {
 int ssh_bind_listen(ssh_bind sshbind) {
   const char *host;
   socket_t fd;
+  int rc;
 
   if (ssh_init() < 0) {
     ssh_set_error(sshbind, SSH_FATAL, "ssh_init() failed");
     return -1;
   }
 
-  host = sshbind->bindaddr;
-  if (host == NULL) {
-    host = "0.0.0.0";
+  if (sshbind->ecdsakey == NULL &&
+      sshbind->dsakey == NULL &&
+      sshbind->rsakey == NULL) {
+      ssh_set_error(sshbind, SSH_FATAL,
+              "DSA or RSA host key file must be set before listen()");
+      return SSH_ERROR;
   }
 
-  fd = bind_socket(sshbind, host, sshbind->bindport);
-  if (fd == SSH_INVALID_SOCKET) {
-    return -1;
-  }
-  sshbind->bindfd = fd;
+#ifdef HAVE_ECC
+  if (sshbind->ecdsakey) {
+      rc = ssh_pki_import_privkey_file(sshbind->ecdsakey,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       &sshbind->ecdsa);
+      if (rc == SSH_ERROR || rc == SSH_EOF) {
+          ssh_set_error(sshbind, SSH_FATAL,
+                  "Failed to import private ECDSA host key");
+          return SSH_ERROR;
+      }
 
-  if (listen(fd, 10) < 0) {
-    ssh_set_error(sshbind, SSH_FATAL,
-        "Listening to socket %d: %s",
-        fd, strerror(errno));
-    close(fd);
-    return -1;
+      if (ssh_key_type(sshbind->ecdsa) != SSH_KEYTYPE_ECDSA) {
+          ssh_set_error(sshbind, SSH_FATAL,
+                  "The ECDSA host key has the wrong type");
+          ssh_key_free(sshbind->ecdsa);
+          return SSH_ERROR;
+      }
+  }
+#endif
+
+  if (sshbind->dsakey) {
+      rc = ssh_pki_import_privkey_file(sshbind->dsakey,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       &sshbind->dsa);
+      if (rc == SSH_ERROR || rc == SSH_EOF) {
+          ssh_set_error(sshbind, SSH_FATAL,
+                  "Failed to import private DSA host key");
+          return SSH_ERROR;
+      }
+
+      if (ssh_key_type(sshbind->dsa) != SSH_KEYTYPE_DSS) {
+          ssh_set_error(sshbind, SSH_FATAL,
+                  "The DSA host key has the wrong type: %d",
+                  ssh_key_type(sshbind->dsa));
+          ssh_key_free(sshbind->dsa);
+          return SSH_ERROR;
+      }
   }
 
+  if (sshbind->rsakey) {
+      rc = ssh_pki_import_privkey_file(sshbind->rsakey,
+                                       NULL,
+                                       NULL,
+                                       NULL,
+                                       &sshbind->rsa);
+      if (rc == SSH_ERROR || rc == SSH_EOF) {
+          ssh_set_error(sshbind, SSH_FATAL,
+                  "Failed to import private RSA host key");
+          return SSH_ERROR;
+      }
+
+      if (ssh_key_type(sshbind->rsa) != SSH_KEYTYPE_RSA &&
+          ssh_key_type(sshbind->rsa) != SSH_KEYTYPE_RSA1) {
+          ssh_set_error(sshbind, SSH_FATAL,
+                  "The RSA host key has the wrong type");
+          ssh_key_free(sshbind->rsa);
+          return SSH_ERROR;
+      }
+  }
+
+  if (sshbind->bindfd == SSH_INVALID_SOCKET) {
+      host = sshbind->bindaddr;
+      if (host == NULL) {
+          host = "0.0.0.0";
+      }
+
+      fd = bind_socket(sshbind, host, sshbind->bindport);
+      if (fd == SSH_INVALID_SOCKET) {
+          ssh_key_free(sshbind->dsa);
+          ssh_key_free(sshbind->rsa);
+          return -1;
+      }
+      sshbind->bindfd = fd;
+
+      if (listen(fd, 10) < 0) {
+          ssh_set_error(sshbind, SSH_FATAL,
+                  "Listening to socket %d: %s",
+                  fd, strerror(errno));
+          close(fd);
+          ssh_key_free(sshbind->dsa);
+          ssh_key_free(sshbind->rsa);
+          return -1;
+      }
+  } else {
+      SSH_LOG(SSH_LOG_INFO, "Using app-provided bind socket");
+  }
   return 0;
 }
 
@@ -192,7 +261,7 @@ int ssh_bind_set_callbacks(ssh_bind sshbind, ssh_bind_callbacks callbacks,
     return SSH_ERROR;
   }
   if (callbacks == NULL) {
-    ssh_set_error_invalid(sshbind, __FUNCTION__);
+    ssh_set_error_invalid(sshbind);
     return SSH_ERROR;
   }
   if(callbacks->size <= 0 || callbacks->size > 1024 * sizeof(void *)){
@@ -272,9 +341,15 @@ void ssh_bind_free(ssh_bind sshbind){
 
   /* options */
   SAFE_FREE(sshbind->banner);
+  SAFE_FREE(sshbind->bindaddr);
+
   SAFE_FREE(sshbind->dsakey);
   SAFE_FREE(sshbind->rsakey);
-  SAFE_FREE(sshbind->bindaddr);
+  SAFE_FREE(sshbind->ecdsakey);
+
+  ssh_key_free(sshbind->dsa);
+  ssh_key_free(sshbind->rsa);
+  ssh_key_free(sshbind->ecdsa);
 
   for (i = 0; i < 10; i++) {
     if (sshbind->wanted_methods[i]) {
@@ -285,41 +360,87 @@ void ssh_bind_free(ssh_bind sshbind){
   SAFE_FREE(sshbind);
 }
 
+int ssh_bind_accept_fd(ssh_bind sshbind, ssh_session session, socket_t fd){
+    int i;
+
+    if (session == NULL){
+        ssh_set_error(sshbind, SSH_FATAL,"session is null");
+        return SSH_ERROR;
+    }
+
+    session->server = 1;
+    session->version = 2;
+
+    /* copy options */
+    for (i = 0; i < 10; ++i) {
+      if (sshbind->wanted_methods[i]) {
+        session->opts.wanted_methods[i] = strdup(sshbind->wanted_methods[i]);
+        if (session->opts.wanted_methods[i] == NULL) {
+          return SSH_ERROR;
+        }
+      }
+    }
+
+    if (sshbind->bindaddr == NULL)
+      session->opts.bindaddr = NULL;
+    else {
+      SAFE_FREE(session->opts.bindaddr);
+      session->opts.bindaddr = strdup(sshbind->bindaddr);
+      if (session->opts.bindaddr == NULL) {
+        return SSH_ERROR;
+      }
+    }
+
+    session->common.log_verbosity = sshbind->common.log_verbosity;
+
+    ssh_socket_free(session->socket);
+    session->socket = ssh_socket_new(session);
+    if (session->socket == NULL) {
+      /* perhaps it may be better to copy the error from session to sshbind */
+      ssh_set_error_oom(sshbind);
+      return SSH_ERROR;
+    }
+    ssh_socket_set_fd(session->socket, fd);
+    ssh_socket_get_poll_handle_out(session->socket);
+
+#ifdef HAVE_ECC
+    if (sshbind->ecdsa) {
+        session->srv.ecdsa_key = ssh_key_dup(sshbind->ecdsa);
+        if (session->srv.ecdsa_key == NULL) {
+          ssh_set_error_oom(sshbind);
+          return SSH_ERROR;
+        }
+    }
+#endif
+    if (sshbind->dsa) {
+        session->srv.dsa_key = ssh_key_dup(sshbind->dsa);
+        if (session->srv.dsa_key == NULL) {
+          ssh_set_error_oom(sshbind);
+          return SSH_ERROR;
+        }
+    }
+    if (sshbind->rsa) {
+        session->srv.rsa_key = ssh_key_dup(sshbind->rsa);
+        if (session->srv.rsa_key == NULL) {
+          ssh_set_error_oom(sshbind);
+          return SSH_ERROR;
+        }
+    }
+    return SSH_OK;
+}
 
 int ssh_bind_accept(ssh_bind sshbind, ssh_session session) {
-  ssh_private_key dsa = NULL;
-  ssh_private_key rsa = NULL;
   socket_t fd = SSH_INVALID_SOCKET;
-  int i;
-
+  int rc;
   if (sshbind->bindfd == SSH_INVALID_SOCKET) {
     ssh_set_error(sshbind, SSH_FATAL,
         "Can't accept new clients on a not bound socket.");
     return SSH_ERROR;
   }
-  if(session == NULL){
-  	ssh_set_error(sshbind, SSH_FATAL,"session is null");
-  	return SSH_ERROR;
-  }
-  if (sshbind->dsakey == NULL && sshbind->rsakey == NULL) {
-    ssh_set_error(sshbind, SSH_FATAL,
-        "DSA or RSA host key file must be set before accept()");
-    return SSH_ERROR;
-  }
 
-  if (sshbind->dsakey) {
-    dsa = _privatekey_from_file(sshbind, sshbind->dsakey, SSH_KEYTYPE_DSS);
-    if (dsa == NULL) {
+  if (session == NULL){
+      ssh_set_error(sshbind, SSH_FATAL,"session is null");
       return SSH_ERROR;
-    }
-  }
-
-  if (sshbind->rsakey) {
-    rsa = _privatekey_from_file(sshbind, sshbind->rsakey, SSH_KEYTYPE_RSA);
-    if (rsa == NULL) {
-      privatekey_free(dsa);
-      return SSH_ERROR;
-    }
   }
 
   fd = accept(sshbind->bindfd, NULL, NULL);
@@ -327,55 +448,19 @@ int ssh_bind_accept(ssh_bind sshbind, ssh_session session) {
     ssh_set_error(sshbind, SSH_FATAL,
         "Accepting a new connection: %s",
         strerror(errno));
-    privatekey_free(dsa);
-    privatekey_free(rsa);
     return SSH_ERROR;
   }
+  rc = ssh_bind_accept_fd(sshbind, session, fd);
 
-  session->server = 1;
-  session->version = 2;
-
-  /* copy options */
-  for (i = 0; i < 10; ++i) {
-    if (sshbind->wanted_methods[i]) {
-      session->wanted_methods[i] = strdup(sshbind->wanted_methods[i]);
-      if (session->wanted_methods[i] == NULL) {
-        privatekey_free(dsa);
-        privatekey_free(rsa);
-        return SSH_ERROR;
-      }
-    }
+  if(rc == SSH_ERROR){
+#ifdef _WIN32
+      closesocket(fd);
+#else
+      close(fd);
+#endif
+      ssh_socket_free(session->socket);
   }
-
-  if (sshbind->bindaddr == NULL)
-    session->bindaddr = NULL;
-  else {
-    SAFE_FREE(session->bindaddr);
-    session->bindaddr = strdup(sshbind->bindaddr);
-    if (session->bindaddr == NULL) {
-      privatekey_free(dsa);
-      privatekey_free(rsa);
-      return SSH_ERROR;
-    }
-  }
-
-  session->common.log_verbosity = sshbind->common.log_verbosity;
-
-  ssh_socket_free(session->socket);
-  session->socket = ssh_socket_new(session);
-  if (session->socket == NULL) {
-    /* perhaps it may be better to copy the error from session to sshbind */
-    ssh_set_error_oom(sshbind);
-    privatekey_free(dsa);
-    privatekey_free(rsa);
-    return SSH_ERROR;
-  }
-  ssh_socket_set_fd(session->socket, fd);
-  ssh_socket_get_poll_handle_out(session->socket);
-  session->dsa_key = dsa;
-  session->rsa_key = rsa;
-
-  return SSH_OK;
+  return rc;
 }
 
 

@@ -63,6 +63,8 @@ struct ssh_string_struct *ssh_string_new(size_t size) {
   }
 
   str->size = htonl(size);
+  str->data[0] = 0;
+
   return str;
 }
 
@@ -79,11 +81,12 @@ struct ssh_string_struct *ssh_string_new(size_t size) {
  */
 int ssh_string_fill(struct ssh_string_struct *s, const void *data, size_t len) {
   if ((s == NULL) || (data == NULL) ||
-      (len == 0) || (len > s->size)) {
+      (len == 0) || (len > ssh_string_len(s))) {
     return -1;
   }
 
-  memcpy(s->string, data, len);
+  memcpy(s->data, data, len);
+
   return 0;
 }
 
@@ -108,12 +111,12 @@ struct ssh_string_struct *ssh_string_from_char(const char *what) {
 
   len = strlen(what);
 
-  ptr = malloc(4 + len);
+  ptr = ssh_string_new(len);
   if (ptr == NULL) {
     return NULL;
   }
-  ptr->size = htonl(len);
-  memcpy(ptr->string, what, len);
+
+  memcpy(ptr->data, what, len);
 
   return ptr;
 }
@@ -134,6 +137,25 @@ size_t ssh_string_len(struct ssh_string_struct *s) {
 }
 
 /**
+ * @brief Get the the string as a C nul-terminated string.
+ *
+ * This is only available as long as the SSH string exists.
+ *
+ * @param[in] s         The SSH string to get the C string from.
+ *
+ * @return              The char pointer, NULL on error.
+ */
+const char *ssh_string_get_char(struct ssh_string_struct *s)
+{
+    if (s == NULL) {
+        return NULL;
+    }
+    s->data[ssh_string_len(s)] = '\0';
+
+    return (const char *) s->data;
+}
+
+/**
  * @brief Convert a SSH string to a C nul-terminated string.
  *
  * @param[in] s         The SSH input string.
@@ -145,10 +167,11 @@ size_t ssh_string_len(struct ssh_string_struct *s) {
  * string may not be readable with regular libc functions.
  */
 char *ssh_string_to_char(struct ssh_string_struct *s) {
-	size_t len;
-	char *new;
-  if (s == NULL || s->string == NULL) {
-    return NULL;
+  size_t len;
+  char *new;
+
+  if (s == NULL) {
+      return NULL;
   }
 
   len = ssh_string_len(s);
@@ -160,7 +183,7 @@ char *ssh_string_to_char(struct ssh_string_struct *s) {
   if (new == NULL) {
     return NULL;
   }
-  memcpy(new, s->string, len);
+  memcpy(new, s->data, len);
   new[len] = '\0';
 
   return new;
@@ -185,17 +208,23 @@ void ssh_string_free_char(char *s) {
  */
 struct ssh_string_struct *ssh_string_copy(struct ssh_string_struct *s) {
   struct ssh_string_struct *new;
-  
-  if(s == NULL || s->string == NULL) {
+  size_t len;
+
+  if (s == NULL) {
       return NULL;
   }
-  new = malloc(ntohl(s->size) + 4);
 
+  len = ssh_string_len(s);
+  if (len == 0) {
+      return NULL;
+  }
+
+  new = ssh_string_new(len);
   if (new == NULL) {
     return NULL;
   }
-  new->size = s->size;
-  memcpy(new->string, s->string, ntohl(s->size));
+
+  memcpy(new->data, s->data, len);
 
   return new;
 }
@@ -209,7 +238,7 @@ void ssh_string_burn(struct ssh_string_struct *s) {
   if (s == NULL) {
     return;
   }
-  memset(s->string, 'X', ssh_string_len(s));
+  memset(s->data, 'X', ssh_string_len(s));
 }
 
 /**
@@ -224,7 +253,7 @@ void *ssh_string_data(struct ssh_string_struct *s) {
     return NULL;
   }
 
-  return s->string;
+  return s->data;
 }
 
 /**

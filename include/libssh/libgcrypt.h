@@ -3,20 +3,19 @@
  *
  * Copyright (c) 2009 by Aris Adamantiadis
  *
- * The SSH Library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
  *
- * The SSH Library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License
- * along with the SSH Library; see the file COPYING.  If not, write to
- * the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
- * MA 02111-1307, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef LIBGCRYPT_H_
@@ -30,11 +29,25 @@
 typedef gcry_md_hd_t SHACTX;
 typedef gcry_md_hd_t MD5CTX;
 typedef gcry_md_hd_t HMACCTX;
-#define SHA_DIGEST_LEN 20
+typedef void *EVPCTX;
+#define SHA_DIGEST_LENGTH 20
+#define SHA_DIGEST_LEN SHA_DIGEST_LENGTH
 #define MD5_DIGEST_LEN 16
+#define SHA256_DIGEST_LENGTH 32
+#define SHA384_DIGEST_LENGTH 48
+#define SHA512_DIGEST_LENGTH 64
+
+#ifndef EVP_MAX_MD_SIZE
 #define EVP_MAX_MD_SIZE 36
+#endif
+
+#define EVP_DIGEST_LEN EVP_MAX_MD_SIZE
 
 typedef gcry_mpi_t bignum;
+
+/* missing gcrypt functions */
+int my_gcry_dec2bn(bignum *bn, const char *data);
+char *my_gcry_bn2dec(bignum bn);
 
 #define bignum_new() gcry_mpi_new(0)
 #define bignum_free(num) gcry_mpi_release(num)
@@ -52,9 +65,8 @@ typedef gcry_mpi_t bignum;
 #define bignum_bn2bin(num,datalen,data) gcry_mpi_print(GCRYMPI_FMT_USG,data,datalen,NULL,num)
 #define bignum_cmp(num1,num2) gcry_mpi_cmp(num1,num2)
 
-
 #endif /* HAVE_LIBGCRYPT */
 
-struct crypto_struct *ssh_get_ciphertab(void);
+struct ssh_cipher_struct *ssh_get_ciphertab(void);
 
 #endif /* LIBGCRYPT_H_ */

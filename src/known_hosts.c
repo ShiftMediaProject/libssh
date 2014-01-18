@@ -4,7 +4,7 @@
  * This file is part of the SSH Library
  *
  * Copyright (c) 2003-2009 by Aris Adamantiadis
- * Copyright (c) 2009      by Andreas Schneider <mail@cynapses.org>
+ * Copyright (c) 2009      by Andreas Schneider <asn@cryptomilk.org>
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -32,7 +32,8 @@
 #include "libssh/session.h"
 #include "libssh/buffer.h"
 #include "libssh/misc.h"
-#include "libssh/keys.h"
+#include "libssh/pki.h"
+#include "libssh/options.h"
 
 /*todo: remove this include */
 #include "libssh/string.h"
@@ -105,18 +106,15 @@ static void tokens_free(char **tokens) {
  *                      free that value. NULL if no match was found or the file
  *                      was not found.
  */
-static char **ssh_get_knownhost_line(ssh_session session, FILE **file,
-    const char *filename, const char **found_type) {
+static char **ssh_get_knownhost_line(FILE **file, const char *filename,
+                                     const char **found_type) {
   char buffer[4096] = {0};
   char *ptr;
   char **tokens;
 
-  enter_function();
-
   if(*file == NULL){
     *file = fopen(filename,"r");
     if (*file == NULL) {
-      leave_function();
       return NULL;
     }
   }
@@ -132,7 +130,7 @@ static char **ssh_get_knownhost_line(ssh_session session, FILE **file,
       *ptr = '\0';
     }
 
-    if (!buffer[0] || buffer[0] == '#') {
+    if (buffer[0] == '\0' || buffer[0] == '#') {
       continue; /* skip empty lines */
     }
 
@@ -140,7 +138,7 @@ static char **ssh_get_knownhost_line(ssh_session session, FILE **file,
     if (tokens == NULL) {
       fclose(*file);
       *file = NULL;
-      leave_function();
+
       return NULL;
     }
 
@@ -167,7 +165,7 @@ static char **ssh_get_knownhost_line(ssh_session session, FILE **file,
         continue;
       }
     }
-    leave_function();
+
     return tokens;
   }
 
@@ -175,7 +173,6 @@ static char **ssh_get_knownhost_line(ssh_session session, FILE **file,
   *file = NULL;
 
   /* we did not find anything, end of file*/
-  leave_function();
   return NULL;
 }
 
@@ -242,9 +239,9 @@ static int check_public_key(ssh_session session, char **tokens) {
       /* TODO: fix the hardcoding */
       tmpstring->size = htonl(len);
 #ifdef HAVE_LIBGCRYPT
-      bignum_bn2bin(tmpbn, len, tmpstring->string);
+      bignum_bn2bin(tmpbn, len, string_data(tmpstring));
 #elif defined HAVE_LIBCRYPTO
-      bignum_bn2bin(tmpbn, tmpstring->string);
+      bignum_bn2bin(tmpbn, string_data(tmpstring));
 #endif
       bignum_free(tmpbn);
       if (buffer_add_ssh_string(pubkey_buffer, tmpstring) < 0) {
@@ -273,7 +270,7 @@ static int check_public_key(ssh_session session, char **tokens) {
   }
 
   /* now test that they are identical */
-  if (memcmp(buffer_get_rest(pubkey_buffer), pubkey->string,
+  if (memcmp(buffer_get_rest(pubkey_buffer), ssh_string_data(pubkey),
         buffer_get_rest_len(pubkey_buffer)) != 0) {
     ssh_buffer_free(pubkey_buffer);
     return 0;
@@ -292,8 +289,8 @@ static int check_public_key(ssh_session session, char **tokens) {
  *
  * @returns             1 if it matches, 0 otherwise.
  */
-static int match_hashed_host(ssh_session session, const char *host,
-    const char *sourcehash) {
+static int match_hashed_host(const char *host, const char *sourcehash)
+{
   /* Openssh hash structure :
    * |1|base64 encoded salt|base64 encoded hash
    * hash is produced that way :
@@ -308,16 +305,12 @@ static int match_hashed_host(ssh_session session, const char *host,
   int match;
   unsigned int size;
 
-  enter_function();
-
   if (strncmp(sourcehash, "|1|", 3) != 0) {
-  	leave_function();
     return 0;
   }
 
   source = strdup(sourcehash + 3);
   if (source == NULL) {
-    leave_function();
     return 0;
   }
 
@@ -325,7 +318,7 @@ static int match_hashed_host(ssh_session session, const char *host,
   if (b64hash == NULL) {
     /* Invalid hash */
     SAFE_FREE(source);
-    leave_function();
+
     return 0;
   }
 
@@ -335,7 +328,7 @@ static int match_hashed_host(ssh_session session, const char *host,
   salt = base64_to_bin(source);
   if (salt == NULL) {
     SAFE_FREE(source);
-    leave_function();
+
     return 0;
   }
 
@@ -343,15 +336,15 @@ static int match_hashed_host(ssh_session session, const char *host,
   SAFE_FREE(source);
   if (hash == NULL) {
     ssh_buffer_free(salt);
-    leave_function();
+
     return 0;
   }
 
-  mac = hmac_init(buffer_get_rest(salt), buffer_get_rest_len(salt), HMAC_SHA1);
+  mac = hmac_init(buffer_get_rest(salt), buffer_get_rest_len(salt), SSH_HMAC_SHA1);
   if (mac == NULL) {
     ssh_buffer_free(salt);
     ssh_buffer_free(hash);
-    leave_function();
+
     return 0;
   }
   size = sizeof(buffer);
@@ -368,10 +361,9 @@ static int match_hashed_host(ssh_session session, const char *host,
   ssh_buffer_free(salt);
   ssh_buffer_free(hash);
 
-  ssh_log(session, SSH_LOG_PACKET,
+  SSH_LOG(SSH_LOG_PACKET,
       "Matching a hashed host: %s match=%d", host, match);
 
-  leave_function();
   return match;
 }
 
@@ -420,49 +412,48 @@ int ssh_is_server_known(ssh_session session) {
   int match;
   int ret = SSH_SERVER_NOT_KNOWN;
 
-  enter_function();
-
-  if (session->knownhosts == NULL) {
+  if (session->opts.knownhosts == NULL) {
     if (ssh_options_apply(session) < 0) {
       ssh_set_error(session, SSH_REQUEST_DENIED,
           "Can't find a known_hosts file");
-      leave_function();
+
       return SSH_SERVER_FILE_NOT_FOUND;
     }
   }
 
-  if (session->host == NULL) {
+  if (session->opts.host == NULL) {
     ssh_set_error(session, SSH_FATAL,
         "Can't verify host in known hosts if the hostname isn't known");
-    leave_function();
+
     return SSH_SERVER_ERROR;
   }
 
   if (session->current_crypto == NULL){
   	ssh_set_error(session, SSH_FATAL,
   			"ssh_is_host_known called without cryptographic context");
-  	leave_function();
+
   	return SSH_SERVER_ERROR;
   }
-  host = ssh_lowercase(session->host);
-  hostport = ssh_hostport(host,session->port);
+  host = ssh_lowercase(session->opts.host);
+  hostport = ssh_hostport(host, session->opts.port);
   if (host == NULL || hostport == NULL) {
     ssh_set_error_oom(session);
     SAFE_FREE(host);
     SAFE_FREE(hostport);
-    leave_function();
+
     return SSH_SERVER_ERROR;
   }
 
   do {
-    tokens = ssh_get_knownhost_line(session, &file,
-        session->knownhosts, &type);
+    tokens = ssh_get_knownhost_line(&file,
+                                    session->opts.knownhosts,
+                                    &type);
 
     /* End of file, return the current state */
     if (tokens == NULL) {
       break;
     }
-    match = match_hashed_host(session, host, tokens[0]);
+    match = match_hashed_host(host, tokens[0]);
     if (match == 0){
     	match = match_hostname(hostport, tokens[0], strlen(tokens[0]));
     }
@@ -470,11 +461,16 @@ int ssh_is_server_known(ssh_session session) {
       match = match_hostname(host, tokens[0], strlen(tokens[0]));
     }
     if (match == 0) {
-      match = match_hashed_host(session, hostport, tokens[0]);
+      match = match_hashed_host(hostport, tokens[0]);
     }
     if (match) {
       /* We got a match. Now check the key type */
       if (strcmp(session->current_crypto->server_pubkey_type, type) != 0) {
+          SSH_LOG(SSH_LOG_PACKET,
+                  "ssh_is_server_known: server type [%s] doesn't match the "
+                  "type [%s] in known_hosts file",
+                  session->current_crypto->server_pubkey_type,
+                  type);
         /* Different type. We don't override the known_changed error which is
          * more important */
         if (ret != SSH_SERVER_KNOWN_CHANGED)
@@ -501,7 +497,8 @@ int ssh_is_server_known(ssh_session session) {
     }
   } while (1);
 
-  if ( (ret == SSH_SERVER_NOT_KNOWN) && (session->StrictHostKeyChecking == 0) ) {
+  if ((ret == SSH_SERVER_NOT_KNOWN) &&
+      (session->opts.StrictHostKeyChecking == 0)) {
     ssh_write_knownhost(session);
     ret = SSH_SERVER_KNOWN_OK;
   }
@@ -513,7 +510,6 @@ int ssh_is_server_known(ssh_session session) {
   }
 
   /* Return the current state at end of file */
-  leave_function();
   return ret;
 }
 
@@ -528,196 +524,127 @@ int ssh_is_server_known(ssh_session session) {
  * @return              SSH_OK on success, SSH_ERROR on error.
  */
 int ssh_write_knownhost(ssh_session session) {
-  ssh_string pubkey;
-  unsigned char *pubkey_64;
-  char buffer[4096] = {0};
-  FILE *file;
-  char *dir;
-  char *host;
-  char *hostport;
-  size_t len = 0;
+    ssh_key key;
+    ssh_string pubkey_s;
+    char *b64_key;
+    char buffer[4096] = {0};
+    FILE *file;
+    char *dir;
+    char *host;
+    char *hostport;
+    int rc;
 
-  if (session->host == NULL) {
-    ssh_set_error(session, SSH_FATAL,
-        "Can't write host in known hosts if the hostname isn't known");
-    return SSH_ERROR;
-  }
-
-  host = ssh_lowercase(session->host);
-  /* If using a nonstandard port, save the host in the [host]:port format */
-  if(session->port != 22){
-    hostport = ssh_hostport(host,session->port);
-    SAFE_FREE(host);
-    host=hostport;
-    hostport=NULL;
-  }
-
-  if (session->knownhosts == NULL) {
-    if (ssh_options_apply(session) < 0) {
-      ssh_set_error(session, SSH_FATAL, "Can't find a known_hosts file");
-      return SSH_ERROR;
-    }
-  }
-
-  if(session->current_crypto==NULL) {
-  	ssh_set_error(session, SSH_FATAL, "No current crypto context");
-  	return SSH_ERROR;
-  }
-
-  pubkey = session->current_crypto->server_pubkey;
-  if(pubkey == NULL){
-  	ssh_set_error(session, SSH_FATAL, "No public key present");
-  	return SSH_ERROR;
-  }
-
-  /* Check if ~/.ssh exists and create it if not */
-  dir = ssh_dirname(session->knownhosts);
-  if (dir == NULL) {
-    ssh_set_error(session, SSH_FATAL, "%s", strerror(errno));
-    return -1;
-  }
-  if (! ssh_file_readaccess_ok(dir)) {
-    if (ssh_mkdir(dir, 0700) < 0) {
-      ssh_set_error(session, SSH_FATAL,
-          "Cannot create %s directory.", dir);
-      SAFE_FREE(dir);
-      return -1;
-    }
-  }
-  SAFE_FREE(dir);
-
-  file = fopen(session->knownhosts, "a");
-  if (file == NULL) {
-    ssh_set_error(session, SSH_FATAL,
-        "Couldn't open known_hosts file %s for appending: %s",
-        session->knownhosts, strerror(errno));
-    SAFE_FREE(host);
-    return -1;
-  }
-
-  if (strcmp(session->current_crypto->server_pubkey_type, "ssh-rsa1") == 0) {
-    /* openssh uses a different format for ssh-rsa1 keys.
-       Be compatible --kv */
-    ssh_public_key key;
-    char *e_string = NULL;
-    char *n_string = NULL;
-    bignum e = NULL;
-    bignum n = NULL;
-    int rsa_size;
-#ifdef HAVE_LIBGCRYPT
-    gcry_sexp_t sexp;
-#endif
-
-    key = publickey_from_string(session, pubkey);
-    if (key == NULL) {
-      fclose(file);
-      SAFE_FREE(host);
-      return -1;
+    if (session->opts.host == NULL) {
+        ssh_set_error(session, SSH_FATAL,
+                "Can't write host in known hosts if the hostname isn't known");
+        return SSH_ERROR;
     }
 
-#ifdef HAVE_LIBGCRYPT
-    sexp = gcry_sexp_find_token(key->rsa_pub, "e", 0);
-    if (sexp == NULL) {
-      publickey_free(key);
-      fclose(file);
-      SAFE_FREE(host);
-      return -1;
-    }
-    e = gcry_sexp_nth_mpi(sexp, 1, GCRYMPI_FMT_USG);
-    gcry_sexp_release(sexp);
-    if (e == NULL) {
-      publickey_free(key);
-      fclose(file);
-      SAFE_FREE(host);
-      return -1;
+    host = ssh_lowercase(session->opts.host);
+    /* If using a nonstandard port, save the host in the [host]:port format */
+    if(session->opts.port != 22) {
+        hostport = ssh_hostport(host, session->opts.port);
+        SAFE_FREE(host);
+        if (hostport == NULL) {
+            return SSH_ERROR;
+        }
+        host = hostport;
+        hostport = NULL;
     }
 
-    sexp = gcry_sexp_find_token(key->rsa_pub, "n", 0);
-    if (sexp == NULL) {
-      publickey_free(key);
-      bignum_free(e);
-      fclose(file);
-      SAFE_FREE(host);
-      return -1;
-    }
-    n = gcry_sexp_nth_mpi(sexp, 1, GCRYMPI_FMT_USG);
-    gcry_sexp_release(sexp);
-    if (n == NULL) {
-      publickey_free(key);
-      bignum_free(e);
-      fclose(file);
-      SAFE_FREE(host);
-      return -1;
+    if (session->opts.knownhosts == NULL) {
+        if (ssh_options_apply(session) < 0) {
+            ssh_set_error(session, SSH_FATAL, "Can't find a known_hosts file");
+            SAFE_FREE(host);
+            return SSH_ERROR;
+        }
     }
 
-    rsa_size = (gcry_pk_get_nbits(key->rsa_pub) + 7) / 8;
-#elif defined HAVE_LIBCRYPTO
-    e = key->rsa_pub->e;
-    n = key->rsa_pub->n;
-    rsa_size = RSA_size(key->rsa_pub);
-#endif
-
-    e_string = bignum_bn2dec(e);
-    n_string = bignum_bn2dec(n);
-    if (e_string == NULL || n_string == NULL) {
-#ifdef HAVE_LIBGCRYPT
-      bignum_free(e);
-      bignum_free(n);
-      SAFE_FREE(e_string);
-      SAFE_FREE(n_string);
-#elif defined HAVE_LIBCRYPTO
-      OPENSSL_free(e_string);
-      OPENSSL_free(n_string);
-#endif
-      publickey_free(key);
-      fclose(file);
-      SAFE_FREE(host);
-      return -1;
+    if (session->current_crypto==NULL) {
+        ssh_set_error(session, SSH_FATAL, "No current crypto context");
+        SAFE_FREE(host);
+        return SSH_ERROR;
     }
 
-    snprintf(buffer, sizeof(buffer),
-        "%s %d %s %s\n",
-        host,
-        rsa_size << 3,
-        e_string,
-        n_string);
-
-#ifdef HAVE_LIBGCRYPT
-    bignum_free(e);
-    bignum_free(n);
-    SAFE_FREE(e_string);
-    SAFE_FREE(n_string);
-#elif defined HAVE_LIBCRYPTO
-    OPENSSL_free(e_string);
-    OPENSSL_free(n_string);
-#endif
-
-    publickey_free(key);
-  } else {
-    pubkey_64 = bin_to_base64(pubkey->string, ssh_string_len(pubkey));
-    if (pubkey_64 == NULL) {
-      fclose(file);
-      SAFE_FREE(host);
-      return -1;
+    pubkey_s = session->current_crypto->server_pubkey;
+    if (pubkey_s == NULL){
+        ssh_set_error(session, SSH_FATAL, "No public key present");
+        SAFE_FREE(host);
+        return SSH_ERROR;
     }
 
-    snprintf(buffer, sizeof(buffer),
-        "%s %s %s\n",
-        host,
-        session->current_crypto->server_pubkey_type,
-        pubkey_64);
+    /* Check if ~/.ssh exists and create it if not */
+    dir = ssh_dirname(session->opts.knownhosts);
+    if (dir == NULL) {
+        ssh_set_error(session, SSH_FATAL, "%s", strerror(errno));
+        SAFE_FREE(host);
+        return SSH_ERROR;
+    }
 
-    SAFE_FREE(pubkey_64);
-  }
-  SAFE_FREE(host);
-  len = strlen(buffer);
-  if (fwrite(buffer, len, 1, file) != 1 || ferror(file)) {
+    if (!ssh_file_readaccess_ok(dir)) {
+        if (ssh_mkdir(dir, 0700) < 0) {
+            ssh_set_error(session, SSH_FATAL,
+                    "Cannot create %s directory.", dir);
+            SAFE_FREE(dir);
+            SAFE_FREE(host);
+            return SSH_ERROR;
+        }
+    }
+    SAFE_FREE(dir);
+
+    file = fopen(session->opts.knownhosts, "a");
+    if (file == NULL) {
+        ssh_set_error(session, SSH_FATAL,
+                "Couldn't open known_hosts file %s for appending: %s",
+                session->opts.knownhosts, strerror(errno));
+        SAFE_FREE(host);
+        return SSH_ERROR;
+    }
+
+    rc = ssh_pki_import_pubkey_blob(pubkey_s, &key);
+    if (rc < 0) {
+        fclose(file);
+        SAFE_FREE(host);
+        return -1;
+    }
+
+    if (strcmp(session->current_crypto->server_pubkey_type, "ssh-rsa1") == 0) {
+        /* openssh uses a different format for ssh-rsa1 keys.
+           Be compatible --kv */
+        rc = ssh_pki_export_pubkey_rsa1(key, host, buffer, sizeof(buffer));
+        ssh_key_free(key);
+        SAFE_FREE(host);
+        if (rc < 0) {
+            fclose(file);
+            return -1;
+        }
+    } else {
+        rc = ssh_pki_export_pubkey_base64(key, &b64_key);
+        if (rc < 0) {
+            ssh_key_free(key);
+            fclose(file);
+            SAFE_FREE(host);
+            return -1;
+        }
+
+        snprintf(buffer, sizeof(buffer),
+                "%s %s %s\n",
+                host,
+                key->type_c,
+                b64_key);
+
+        ssh_key_free(key);
+        SAFE_FREE(host);
+        SAFE_FREE(b64_key);
+    }
+
+    if (fwrite(buffer, strlen(buffer), 1, file) != 1 || ferror(file)) {
+        fclose(file);
+        return -1;
+    }
+
     fclose(file);
-    return -1;
-  }
-
-  fclose(file);
-  return 0;
+    return 0;
 }
 
 /** @} */

@@ -3,20 +3,19 @@
  *
  * Copyright (c) 2003-2009 by Aris Adamantiadis
  *
- * The SSH Library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
  *
- * The SSH Library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License
- * along with the SSH Library; see the file COPYING.  If not, write to
- * the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
- * MA 02111-1307, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /*
@@ -32,12 +31,32 @@
 
 #include "config.h"
 
+#if !defined(HAVE_STRTOULL)
+# if defined(HAVE___STRTOULL)
+#  define strtoull __strtoull
+# elif defined(HAVE__STRTOUI64)
+#  define strtoull _strtoui64
+# elif defined(__hpux) && defined(__LP64__)
+#  define strtoull strtoul
+# else
+#  error "no strtoull function found"
+# endif
+#endif /* !defined(HAVE_STRTOULL) */
+
 #ifdef _WIN32
 
 /* Imitate define of inttypes.h */
 # ifndef PRIdS
 #  define PRIdS "Id"
 # endif
+
+# ifndef PRIu64
+#  if __WORDSIZE == 64
+#   define PRIu64 "lu"
+#  else
+#   define PRIu64 "llu"
+#  endif /* __WORDSIZE */
+# endif /* PRIu64 */
 
 # ifdef _MSC_VER
 #  include <stdio.h>
@@ -48,8 +67,9 @@
 
 #  define strcasecmp _stricmp
 #  define strncasecmp _strnicmp
-#  define strtoull _strtoui64
-#  define isblank(ch) ((ch) == ' ' || (ch) == '\t' || (ch) == '\n' || (ch) == '\r')
+#  if ! defined(HAVE_ISBLANK)
+#   define isblank(ch) ((ch) == ' ' || (ch) == '\t' || (ch) == '\n' || (ch) == '\r')
+#  endif
 
 #  define usleep(X) Sleep(((X)+1000)/1000)
 
@@ -86,6 +106,9 @@
 
 # endif /* _MSC_VER */
 
+struct timeval;
+int gettimeofday(struct timeval *__p, void *__t);
+
 #else /* _WIN32 */
 
 #include <unistd.h>
@@ -95,7 +118,6 @@
 
 #include "libssh/libssh.h"
 #include "libssh/callbacks.h"
-#include "libssh/crypto.h"
 
 /* some constants */
 #define MAX_PACKET_LEN 262144
@@ -104,92 +126,103 @@
 #define CLIENTBANNER2 "SSH-2.0-libssh-" SSH_STRINGIFY(LIBSSH_VERSION)
 #define KBDINT_MAX_PROMPT 256 /* more than openssh's :) */
 
-#ifdef __cplusplus
-extern "C" {
+#ifndef __FUNCTION__
+#if defined(__SUNPRO_C)
+#define __FUNCTION__ __func__
+#endif
 #endif
 
+#if defined(HAVE_GCC_THREAD_LOCAL_STORAGE)
+# define LIBSSH_THREAD __thread
+#elif defined(HAVE_MSC_THREAD_LOCAL_STORAGE)
+# define LIBSSH_THREAD __declspec(thread)
+#else
+# define LIBSSH_THREAD
+#endif
+
+/*
+ * This makes sure that the compiler doesn't optimize out the code
+ *
+ * Use it in a macro where the provided variable is 'x'.
+ */
+#if defined(HAVE_GCC_VOLATILE_MEMORY_PROTECTION)
+# define LIBSSH_MEM_PROTECTION __asm__ volatile("" : : "r"(&(x)) : "memory")
+#else
+# define LIBSSH_MEM_PROTECTION
+#endif
 
 #ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
 
-typedef struct kex_struct {
-	unsigned char cookie[16];
-	char **methods;
-} KEX;
+/*
+ * get rid of deprecacy warnings on OSX when using OpenSSL 
+ */
+#if defined(__APPLE__)
+    #ifdef MAC_OS_X_VERSION_MIN_REQUIRED
+        #undef MAC_OS_X_VERSION_MIN_REQUIRED
+    #endif
+    #define MAC_OS_X_VERSION_MIN_REQUIRED MAC_OS_X_VERSION_10_6
+#endif
 
+/* forward declarations */
+struct ssh_common_struct;
+struct ssh_kex_struct;
+
+int ssh_get_key_params(ssh_session session, ssh_key *privkey);
+
+/* LOGGING */
+void ssh_log_function(int verbosity,
+                      const char *function,
+                      const char *buffer);
+#define SSH_LOG(priority, ...) \
+    _ssh_log(priority, __FUNCTION__, __VA_ARGS__)
+
+/* LEGACY */
+void ssh_log_common(struct ssh_common_struct *common,
+                    int verbosity,
+                    const char *function,
+                    const char *format, ...) PRINTF_ATTRIBUTE(4, 5);
+
+
+/* ERROR HANDLING */
+
+/* error handling structure */
 struct error_struct {
-/* error handling */
     int error_code;
     char error_buffer[ERROR_BUFFERLEN];
 };
 
-/* TODO: remove that include */
-#include "libssh/wrapper.h"
+#define ssh_set_error(error, code, ...) \
+    _ssh_set_error(error, code, __FUNCTION__, __VA_ARGS__)
+void _ssh_set_error(void *error,
+                    int code,
+                    const char *function,
+                    const char *descr, ...) PRINTF_ATTRIBUTE(4, 5);
 
-struct ssh_keys_struct {
-  const char *privatekey;
-  const char *publickey;
-};
+#define ssh_set_error_oom(error) \
+    _ssh_set_error_oom(error, __FUNCTION__)
+void _ssh_set_error_oom(void *error, const char *function);
 
-struct ssh_message_struct;
-struct ssh_common_struct;
-
-/* server data */
+#define ssh_set_error_invalid(error) \
+    _ssh_set_error_invalid(error, __FUNCTION__)
+void _ssh_set_error_invalid(void *error, const char *function);
 
 
-SSH_PACKET_CALLBACK(ssh_packet_disconnect_callback);
-SSH_PACKET_CALLBACK(ssh_packet_ignore_callback);
-
+/* server.c */
+#ifdef WITH_SERVER
+int ssh_auth_reply_default(ssh_session session,int partial);
+int ssh_auth_reply_success(ssh_session session, int partial);
+#endif
 /* client.c */
 
 int ssh_send_banner(ssh_session session, int is_server);
-SSH_PACKET_CALLBACK(ssh_packet_dh_reply);
-SSH_PACKET_CALLBACK(ssh_packet_newkeys);
-SSH_PACKET_CALLBACK(ssh_packet_service_accept);
 
-/* config.c */
-int ssh_config_parse_file(ssh_session session, const char *filename);
-
-/* errors.c */
-void ssh_set_error(void *error, int code, const char *descr, ...) PRINTF_ATTRIBUTE(3, 4);
-void ssh_set_error_oom(void *);
-void ssh_set_error_invalid(void *, const char *);
-
-/* in crypt.c */
-uint32_t packet_decrypt_len(ssh_session session,char *crypted);
-int packet_decrypt(ssh_session session, void *packet,unsigned int len);
-unsigned char *packet_encrypt(ssh_session session,void *packet,unsigned int len);
- /* it returns the hmac buffer if exists*/
-struct ssh_poll_handle_struct;
-
-int packet_hmac_verify(ssh_session session,ssh_buffer buffer,unsigned char *mac);
-
-struct ssh_socket_struct;
-
-int ssh_packet_socket_callback(const void *data, size_t len, void *user);
-void ssh_packet_register_socket_callback(ssh_session session, struct ssh_socket_struct *s);
-void ssh_packet_set_callbacks(ssh_session session, ssh_packet_callbacks callbacks);
-void ssh_packet_set_default_callbacks(ssh_session session);
-void ssh_packet_process(ssh_session session, uint8_t type);
 /* connect.c */
 socket_t ssh_connect_host(ssh_session session, const char *host,const char
         *bind_addr, int port, long timeout, long usec);
 socket_t ssh_connect_host_nonblocking(ssh_session session, const char *host,
 		const char *bind_addr, int port);
-void ssh_sock_set_nonblocking(socket_t sock);
-void ssh_sock_set_blocking(socket_t sock);
-
-/* in kex.c */
-extern const char *ssh_kex_nums[];
-int ssh_send_kex(ssh_session session, int server_kex);
-void ssh_list_kex(ssh_session session, KEX *kex);
-int set_kex(ssh_session session);
-int verify_existing_algo(int algo, const char *name);
-char **space_tokenize(const char *chain);
-int ssh_get_kex1(ssh_session session);
-char *ssh_find_matching(const char *in_d, const char *what_d);
-
 
 /* in base64.c */
 ssh_buffer base64_to_bin(const char *source);
@@ -199,61 +232,11 @@ unsigned char *bin_to_base64(const unsigned char *source, int len);
 int compress_buffer(ssh_session session,ssh_buffer buf);
 int decompress_buffer(ssh_session session,ssh_buffer buf, size_t maxlen);
 
-/* crc32.c */
-uint32_t ssh_crc32(const char *buf, uint32_t len);
-
-
 /* match.c */
 int match_hostname(const char *host, const char *pattern, unsigned int len);
 
-int message_handle(ssh_session session, void *user, uint8_t type, ssh_buffer packet);
-/* log.c */
 
-void ssh_log_common(struct ssh_common_struct *common, int verbosity,
-    const char *format, ...) PRINTF_ATTRIBUTE(3, 4);
 
-/* misc.c */
-#ifdef _WIN32
-int gettimeofday(struct timeval *__p, void *__t);
-#endif /* _WIN32 */
-
-#ifndef __FUNCTION__
-#if defined(__SUNPRO_C)
-#define __FUNCTION__ __func__
-#endif
-#endif
-
-#define _enter_function(sess) \
-	do {\
-		if((sess)->common.log_verbosity >= SSH_LOG_FUNCTIONS){ \
-			ssh_log((sess),SSH_LOG_FUNCTIONS,"entering function %s line %d in " __FILE__ , __FUNCTION__,__LINE__);\
-			(sess)->common.log_indent++; \
-		} \
-	} while(0)
-
-#define _leave_function(sess) \
-	do { \
-		if((sess)->common.log_verbosity >= SSH_LOG_FUNCTIONS){ \
-			(sess)->common.log_indent--; \
-			ssh_log((sess),SSH_LOG_FUNCTIONS,"leaving function %s line %d in " __FILE__ , __FUNCTION__,__LINE__);\
-		}\
-	} while(0)
-
-#ifdef DEBUG_CALLTRACE
-#define enter_function() _enter_function(session)
-#define leave_function() _leave_function(session)
-#else
-#define enter_function() (void)session
-#define leave_function() (void)session
-#endif
-
-/* options.c  */
-
-int ssh_options_set_algo(ssh_session session, int algo, const char *list);
-int ssh_options_apply(ssh_session session);
-
-/* server.c */
-SSH_PACKET_CALLBACK(ssh_packet_kexdh_init);
 
 /** Free memory space */
 #define SAFE_FREE(x) do { if ((x) != NULL) {free(x); x=NULL;} } while(0)
@@ -267,18 +250,52 @@ SSH_PACKET_CALLBACK(ssh_packet_kexdh_init);
 /** Get the size of an array */
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof(a[0]))
 
-/** Overwrite the complete string with 'X' */
-#define BURN_STRING(x) do { if ((x) != NULL) memset((x), 'X', strlen((x))); } while(0)
+/*
+ * See http://llvm.org/bugs/show_bug.cgi?id=15495
+ */
+#if defined(HAVE_GCC_VOLATILE_MEMORY_PROTECTION)
+/** Overwrite a string with '\0' */
+# define BURN_STRING(x) do { \
+    if ((x) != NULL) \
+        memset((x), '\0', strlen((x))); __asm__ volatile("" : : "r"(&(x)) : "memory"); \
+  } while(0)
 
-#ifdef HAVE_LIBGCRYPT
-/* gcrypt_missing.c */
-int my_gcry_dec2bn(bignum *bn, const char *data);
-char *my_gcry_bn2dec(bignum bn);
-#endif /* !HAVE_LIBGCRYPT */
+/** Overwrite the buffer with '\0' */
+# define BURN_BUFFER(x, size) do { \
+    if ((x) != NULL) \
+        memset((x), '\0', (size)); __asm__ volatile("" : : "r"(&(x)) : "memory"); \
+  } while(0)
+#else /* HAVE_GCC_VOLATILE_MEMORY_PROTECTION */
+/** Overwrite a string with '\0' */
+# define BURN_STRING(x) do { \
+    if ((x) != NULL) memset((x), '\0', strlen((x))); \
+  } while(0)
 
-#ifdef __cplusplus
-}
-#endif
+/** Overwrite the buffer with '\0' */
+# define BURN_BUFFER(x, size) do { \
+    if ((x) != NULL) \
+        memset((x), '\0', (size)); \
+  } while(0)
+#endif /* HAVE_GCC_VOLATILE_MEMORY_PROTECTION */
+
+/**
+ * This is a hack to fix warnings. The idea is to use this everywhere that we
+ * get the "discarding const" warning by the compiler. That doesn't actually
+ * fix the real issue, but marks the place and you can search the code for
+ * discard_const.
+ *
+ * Please use this macro only when there is no other way to fix the warning.
+ * We should use this function in only in a very few places.
+ *
+ * Also, please call this via the discard_const_p() macro interface, as that
+ * makes the return type safe.
+ */
+#define discard_const(ptr) ((void *)((uintptr_t)(ptr)))
+
+/**
+ * Type-safe version of discard_const
+ */
+#define discard_const_p(type, ptr) ((type *)discard_const(ptr))
 
 #endif /* _LIBSSH_PRIV_H */
-/* vim: set ts=2 sw=2 et cindent: */
+/* vim: set ts=4 sw=4 et cindent: */

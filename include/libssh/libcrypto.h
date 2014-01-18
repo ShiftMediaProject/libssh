@@ -3,20 +3,19 @@
  *
  * Copyright (c) 2009 by Aris Adamantiadis
  *
- * The SSH Library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
  *
- * The SSH Library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License
- * along with the SSH Library; see the file COPYING.  If not, write to
- * the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
- * MA 02111-1307, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef LIBCRYPTO_H_
@@ -31,15 +30,29 @@
 #include <openssl/sha.h>
 #include <openssl/md5.h>
 #include <openssl/hmac.h>
+#ifdef HAVE_OPENSSL_ECC
+#include <openssl/evp.h>
+#endif
+
 typedef SHA_CTX* SHACTX;
+typedef SHA256_CTX* SHA256CTX;
 typedef MD5_CTX*  MD5CTX;
 typedef HMAC_CTX* HMACCTX;
+#ifdef HAVE_ECC
+typedef EVP_MD_CTX *EVPCTX;
+#else
+typedef void *EVPCTX;
+#endif
 
 #define SHA_DIGEST_LEN SHA_DIGEST_LENGTH
 #ifdef MD5_DIGEST_LEN
     #undef MD5_DIGEST_LEN
 #endif
 #define MD5_DIGEST_LEN MD5_DIGEST_LENGTH
+
+#ifdef HAVE_OPENSSL_ECC
+#define EVP_DIGEST_LEN EVP_MAX_MD_SIZE
+#endif
 
 #include <openssl/bn.h>
 #include <openssl/opensslv.h>
@@ -67,7 +80,11 @@ typedef BN_CTX* bignum_CTX;
 #define bignum_bn2bin(num,ptr) BN_bn2bin(num,ptr)
 #define bignum_cmp(num1,num2) BN_cmp(num1,num2)
 
-struct crypto_struct *ssh_get_ciphertab(void);
+SHA256CTX sha256_init(void);
+void sha256_update(SHA256CTX c, const void *data, unsigned long len);
+void sha256_final(unsigned char *md, SHA256CTX c);
+
+struct ssh_cipher_struct *ssh_get_ciphertab(void);
 
 #endif /* HAVE_LIBCRYPTO */
 

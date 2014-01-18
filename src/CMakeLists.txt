@@ -8,25 +8,10 @@ set(LIBSSH_PUBLIC_INCLUDE_DIRS
 set(LIBSSH_PRIVATE_INCLUDE_DIRS
   ${CMAKE_BINARY_DIR}
   ${OPENSSL_INCLUDE_DIRS}
-  ${GCRYPT_INCLUDE_DIRS}
-  ${ZLIB_INCLUDE_DIRS}
 )
-
-set(LIBSSH_SHARED_LIBRARY
-  ssh_shared
-  CACHE INTERNAL "libssh shared library"
-)
-
-if (WITH_STATIC_LIB)
-  set(LIBSSH_STATIC_LIBRARY
-    ssh_static
-    CACHE INTERNAL "libssh static library"
-  )
-endif (WITH_STATIC_LIB)
 
 set(LIBSSH_LINK_LIBRARIES
   ${LIBSSH_REQUIRED_LIBRARIES}
-  ${ZLIB_LIBRARIES}
 )
 
 if (WIN32)
@@ -58,7 +43,7 @@ endif (OPENSSL_LIBRARIES)
 if (GCRYPT_LIBRARY)
   set(LIBSSH_PRIVATE_INCLUDE_DIRS
     ${LIBSSH_PRIVATE_INCLUDE_DIRS}
-    ${GCRYPT_INCLUDE_DIRS}
+    ${GCRYPT_INCLUDE_DIR}
   )
 
   set(LIBSSH_LINK_LIBRARIES
@@ -67,10 +52,58 @@ if (GCRYPT_LIBRARY)
   )
 endif (GCRYPT_LIBRARY)
 
+if (WITH_ZLIB)
+  set(LIBSSH_PRIVATE_INCLUDE_DIRS
+    ${LIBSSH_PRIVATE_INCLUDE_DIRS}
+    ${ZLIB_INCLUDE_DIRS}
+  )
+
+  set(LIBSSH_LINK_LIBRARIES
+    ${LIBSSH_LINK_LIBRARIES}
+    ${ZLIB_LIBRARY}
+  )
+endif (WITH_ZLIB)
+
+if (WITH_GSSAPI AND GSSAPI_FOUND)
+  set(LIBSSH_PRIVATE_INCLUDE_DIRS
+    ${LIBSSH_PRIVATE_INCLUDE_DIRS}
+    ${GSSAPI_INCLUDE_DIR}
+  )
+
+  set(LIBSSH_LINK_LIBRARIES
+    ${LIBSSH_LINK_LIBRARIES}
+    ${GSSAPI_LIBRARIES}
+  )
+endif (WITH_GSSAPI AND GSSAPI_FOUND)
+
+if (WITH_NACL AND NACL_FOUND)
+  set(LIBSSH_PRIVATE_INCLUDE_DIRS
+    ${LIBSSH_PRIVATE_INCLUDE_DIRS}
+    ${NACL_INCLUDE_DIR}
+  )
+
+  set(LIBSSH_LINK_LIBRARIES
+    ${LIBSSH_LINK_LIBRARIES}
+    ${NACL_LIBRARY}
+  )
+endif (WITH_NACL AND NACL_FOUND)
+
 set(LIBSSH_LINK_LIBRARIES
   ${LIBSSH_LINK_LIBRARIES}
   CACHE INTERNAL "libssh link libraries"
 )
+
+set(LIBSSH_SHARED_LIBRARY
+  ssh_shared
+  CACHE INTERNAL "libssh shared library"
+)
+
+if (WITH_STATIC_LIB)
+  set(LIBSSH_STATIC_LIBRARY
+    ssh_static
+    CACHE INTERNAL "libssh static library"
+  )
+endif (WITH_STATIC_LIB)
 
 set(libssh_SRCS
   agent.c
@@ -82,27 +115,24 @@ set(libssh_SRCS
   client.c
   config.c
   connect.c
-  crc32.c
-  crypt.c
+  curve25519.c
   dh.c
+  ecdh.c
   error.c
   getpass.c
-  gcrypt_missing.c
-  gzip.c
   init.c
   kex.c
-  keyfiles.c
-  keys.c
   known_hosts.c
   legacy.c
   libcrypto.c
-  libgcrypt.c
   log.c
   match.c
   messages.c
   misc.c
   options.c
   packet.c
+  packet_cb.c
+  packet_crypt.c
   pcap.c
   pki.c
   poll.c
@@ -113,6 +143,20 @@ set(libssh_SRCS
   threads.c
   wrapper.c
 )
+
+if (WITH_GCRYPT)
+    set(libssh_SRCS
+        ${libssh_SRCS}
+        libgcrypt.c
+        gcrypt_missing.c
+        pki_gcrypt.c
+       )
+else (WITH_GCRYPT)
+    set(libssh_SRCS
+        ${libssh_SRCS}
+        pki_crypto.c
+       )
+endif (WITH_GCRYPT)
 
 if (WITH_SFTP)
   set(libssh_SRCS
@@ -133,6 +177,8 @@ if (WITH_SSH1)
     ${libssh_SRCS}
     auth1.c
     channels1.c
+    crc32.c
+    kex1.c
     packet1.c
   )
 endif (WITH_SSH1)
@@ -144,6 +190,27 @@ if (WITH_SERVER)
     bind.c
   )
 endif (WITH_SERVER)
+
+if (WITH_ZLIB)
+  set(libssh_SRCS
+    ${libssh_SRCS}
+    gzip.c
+  )
+endif(WITH_ZLIB)
+
+if (WITH_GSSAPI AND GSSAPI_FOUND)
+  set(libssh_SRCS
+    ${libssh_SRCS}
+    gssapi.c
+  )
+endif (WITH_GSSAPI AND GSSAPI_FOUND)
+
+if (NOT WITH_NACL)
+  set(libssh_SRCS
+    ${libssh_SRCS}
+    curve25519_ref.c
+  )
+endif (NOT WITH_NACL)
 
 include_directories(
   ${LIBSSH_PUBLIC_INCLUDE_DIRS}

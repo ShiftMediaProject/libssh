@@ -13,12 +13,15 @@ set(CTEST_CMAKE_GENERATOR "Unix Makefiles")
 set(CTEST_BUILD_CONFIGURATION "Debug")
 
 ## The build options for the project
-set(CTEST_BUILD_OPTIONS "-DWITH_TESTING=ON -DWITH_SSH1=ON -WITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON -DWITH_PCAP=ON -DWITH_GCRYPT=OFF")
+set(CTEST_BUILD_OPTIONS "-DWITH_TESTING=ON -DWITH_SSH1=ON -WITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON -DWITH_PCAP=ON -DDEBUG_CRYPTO=ON -DWITH_GCRYPT=OFF")
 
 #set(CTEST_CUSTOM_MEMCHECK_IGNORE torture_rand)
 
 ## The Model to set: Nightly, Continous, Experimental
 set(CTEST_MODEL "Experimental")
+
+## The branch
+#set(CTEST_GIT_BRANCH "--branch v0-5")
 
 ## Wether to enable memory checking.
 set(WITH_MEMCHECK FALSE)
@@ -42,7 +45,7 @@ find_program(CTEST_COVERAGE_COMMAND NAMES gcov)
 find_program(CTEST_MEMORYCHECK_COMMAND NAMES valgrind)
 
 if(NOT EXISTS "${CTEST_SOURCE_DIRECTORY}")
-  set(CTEST_CHECKOUT_COMMAND "${CTEST_GIT_COMMAND} clone git://git.libssh.org/projects/libssh.git ${CTEST_SOURCE_DIRECTORY}")
+    set(CTEST_CHECKOUT_COMMAND "${CTEST_GIT_COMMAND} clone ${CTEST_GIT_BRANCH} git://git.libssh.org/projects/libssh.git ${CTEST_SOURCE_DIRECTORY}")
 endif()
 
 set(CTEST_UPDATE_COMMAND "${CTEST_GIT_COMMAND}")
@@ -55,14 +58,14 @@ set(CTEST_CONFIGURE_COMMAND "${CTEST_CONFIGURE_COMMAND} \"${CTEST_SOURCE_DIRECTO
 ctest_empty_binary_directory(${CTEST_BINARY_DIRECTORY})
 
 ctest_start(${CTEST_MODEL} TRACK ${CTEST_MODEL})
-ctest_update()
-ctest_configure()
-ctest_build()
-ctest_test()
+ctest_update(SOURCE ${CTEST_SOURCE_DIRECTORY})
+ctest_configure(BUILD ${CTEST_BINARY_DIRECTORY})
+ctest_build(BUILD ${CTEST_BINARY_DIRECTORY})
+ctest_test(BUILD ${CTEST_BINARY_DIRECTORY})
 if (WITH_MEMCHECK AND CTEST_COVERAGE_COMMAND)
-  ctest_coverage()
+  ctest_coverage(BUILD ${CTEST_BINARY_DIRECTORY})
 endif (WITH_MEMCHECK AND CTEST_COVERAGE_COMMAND)
 if (WITH_MEMCHECK AND CTEST_MEMORYCHECK_COMMAND)
-  ctest_memcheck()
+  ctest_memcheck(BUILD ${CTEST_BINARY_DIRECTORY})
 endif (WITH_MEMCHECK AND CTEST_MEMORYCHECK_COMMAND)
 ctest_submit()

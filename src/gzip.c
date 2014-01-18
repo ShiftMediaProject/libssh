@@ -4,7 +4,7 @@
  * This file is part of the SSH Library
  *
  * Copyright (c) 2003      by Aris Adamantiadis
- * Copyright (c) 2009      by Andreas Schneider <mail@cynapses.org>
+ * Copyright (c) 2009      by Andreas Schneider <asn@cryptomilk.org>
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -23,15 +23,15 @@
  */
 
 #include "config.h"
-#include "libssh/priv.h"
-#include "libssh/buffer.h"
-#include "libssh/session.h"
 
-#if defined(HAVE_LIBZ) && defined(WITH_LIBZ)
-
-#include <zlib.h>
 #include <string.h>
 #include <stdlib.h>
+#include <zlib.h>
+
+#include "libssh/priv.h"
+#include "libssh/buffer.h"
+#include "libssh/crypto.h"
+#include "libssh/session.h"
 
 #define BLOCKSIZE 4092
 
@@ -103,7 +103,7 @@ static ssh_buffer gzip_compress(ssh_session session,ssh_buffer source,int level)
 int compress_buffer(ssh_session session, ssh_buffer buf) {
   ssh_buffer dest = NULL;
 
-  dest = gzip_compress(session, buf, session->compressionlevel);
+  dest = gzip_compress(session, buf, session->opts.compressionlevel);
   if (dest == NULL) {
     return -1;
   }
@@ -218,5 +218,4 @@ int decompress_buffer(ssh_session session,ssh_buffer buf, size_t maxlen){
   return 0;
 }
 
-#endif /* HAVE_LIBZ && WITH_LIBZ */
 /* vim: set ts=2 sw=2 et cindent: */

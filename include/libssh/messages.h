@@ -3,20 +3,19 @@
  *
  * Copyright (c) 2009 by Aris Adamantiadis
  *
- * The SSH Library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
  *
- * The SSH Library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License
- * along with the SSH Library; see the file COPYING.  If not, write to
- * the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
- * MA 02111-1307, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef MESSAGES_H_
@@ -28,8 +27,9 @@ struct ssh_auth_request {
     char *username;
     int method;
     char *password;
-    struct ssh_public_key_struct *public_key;
+    struct ssh_key_struct *pubkey;
     char signature_state;
+    char kbdint_response;
 };
 
 struct ssh_channel_request_open {
@@ -73,6 +73,12 @@ struct ssh_channel_request {
     char *command;
     /* subsystem */
     char *subsystem;
+
+    /* X11 */
+    uint8_t x11_single_connection;
+    const char *x11_auth_protocol;
+    const char *x11_auth_cookie;
+    uint32_t x11_screen_number;
 };
 
 struct ssh_message_struct {
@@ -86,13 +92,17 @@ struct ssh_message_struct {
 };
 
 SSH_PACKET_CALLBACK(ssh_packet_channel_open);
+SSH_PACKET_CALLBACK(ssh_packet_global_request);
+
+#ifdef WITH_SERVER
 SSH_PACKET_CALLBACK(ssh_packet_service_request);
 SSH_PACKET_CALLBACK(ssh_packet_userauth_request);
-SSH_PACKET_CALLBACK(ssh_packet_global_request);
+#endif /* WITH_SERVER */
 
 int ssh_message_handle_channel_request(ssh_session session, ssh_channel channel, ssh_buffer packet,
     const char *request, uint8_t want_reply);
 void ssh_message_queue(ssh_session session, ssh_message message);
 ssh_message ssh_message_pop_head(ssh_session session);
+int ssh_message_channel_request_open_reply_accept_channel(ssh_message msg, ssh_channel chan);
 
 #endif /* MESSAGES_H_ */

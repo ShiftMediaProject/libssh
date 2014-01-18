@@ -4,7 +4,7 @@
  * This file is part of the SSH Library
  *
  * Copyright (c) 2003-2009 by Aris Adamantiadis
- * Copyright (c) 2008-2009 by Andreas Schneider <mail@cynapses.org>
+ * Copyright (c) 2008-2009 by Andreas Schneider <asn@cryptomilk.org>
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -80,10 +80,10 @@
 #define CRYPTO_STRING ""
 #endif
 
-#if defined(HAVE_LIBZ) && defined(WITH_LIBZ)
-#define LIBZ_STRING "/zlib"
+#ifdef WITH_ZLIB
+#define ZLIB_STRING "/zlib"
 #else
-#define LIBZ_STRING ""
+#define ZLIB_STRING ""
 #endif
 
 /**
@@ -138,24 +138,66 @@ int gettimeofday(struct timeval *__p, void *__t) {
   return (0);
 }
 
-char *ssh_get_local_username(ssh_session session) {
-  DWORD size = 0;
-  char *user;
+char *ssh_get_local_username(void) {
+    DWORD size = 0;
+    char *user;
 
-  /* get the size */
-  GetUserName(NULL, &size);
+    /* get the size */
+    GetUserName(NULL, &size);
 
-  user = (char *) malloc(size);
-  if (user == NULL) {
-    ssh_set_error_oom(session);
+    user = (char *) malloc(size);
+    if (user == NULL) {
+        return NULL;
+    }
+
+    if (GetUserName(user, &size)) {
+        return user;
+    }
+
     return NULL;
-  }
+}
 
-  if (GetUserName(user, &size)) {
-    return user;
-  }
+int ssh_is_ipaddr_v4(const char *str) {
+    struct sockaddr_storage ss;
+    int sslen = sizeof(ss);
+    int rc = SOCKET_ERROR;
 
-  return NULL;
+    /* WSAStringToAddressA thinks that 0.0.0 is a valid IP */
+    if (strlen(str) < 7) {
+        return 0;
+    }
+
+    rc = WSAStringToAddressA((LPSTR) str,
+                             AF_INET,
+                             NULL,
+                             (struct sockaddr*)&ss,
+                             &sslen);
+    if (rc == 0) {
+        return 1;
+    }
+
+    return 0;
+}
+
+int ssh_is_ipaddr(const char *str) {
+    int rc = SOCKET_ERROR;
+
+    if (strchr(str, ':')) {
+        struct sockaddr_storage ss;
+        int sslen = sizeof(ss);
+
+        /* TODO link-local (IP:v6:addr%ifname). */
+        rc = WSAStringToAddressA((LPSTR) str,
+                                 AF_INET6,
+                                 NULL,
+                                 (struct sockaddr*)&ss,
+                                 &sslen);
+        if (rc == 0) {
+            return 1;
+        }
+    }
+
+    return ssh_is_ipaddr_v4(str);
 }
 
 int ssh_is_ipaddr_v4(const char *str) {
@@ -215,8 +257,14 @@ char *ssh_get_user_home_dir(void) {
 
   rc = getpwuid_r(getuid(), &pwd, buf, NSS_BUFLEN_PASSWD, &pwdbuf);
   if (rc != 0) {
-    szPath=getenv("HOME");
-    return szPath ? strdup(szPath) : NULL;
+      szPath = getenv("HOME");
+      if (szPath == NULL) {
+          return NULL;
+      }
+      memset(buf, 0, sizeof(buf));
+      snprintf(buf, sizeof(buf), "%s", szPath);
+
+      return strdup(buf);
   }
 
   szPath = strdup(pwd.pw_dir);
@@ -233,7 +281,7 @@ int ssh_file_readaccess_ok(const char *file) {
   return 1;
 }
 
-char *ssh_get_local_username(ssh_session session) {
+char *ssh_get_local_username(void) {
     struct passwd pwd;
     struct passwd *pwdbuf;
     char buf[NSS_BUFLEN_PASSWD];
@@ -242,16 +290,13 @@ char *ssh_get_local_username(ssh_session session) {
 
     rc = getpwuid_r(getuid(), &pwd, buf, NSS_BUFLEN_PASSWD, &pwdbuf);
     if (rc != 0) {
-        ssh_set_error(session, SSH_FATAL,
-            "Couldn't retrieve information for current user!");
         return NULL;
     }
 
     name = strdup(pwd.pw_name);
 
     if (name == NULL) {
-      ssh_set_error_oom(session);
-      return NULL;
+        return NULL;
     }
 
     return name;
@@ -292,12 +337,14 @@ uint64_t ntohll(uint64_t a) {
 #ifdef WORDS_BIGENDIAN
   return a;
 #else /* WORDS_BIGENDIAN */
-  uint32_t low = (uint32_t)(a & 0xffffffff);
-  uint32_t high = (uint32_t)(a >> 32);
-  low = ntohl(low);
-  high = ntohl(high);
-
-  return ((((uint64_t) low) << 32) | ( high));
+  return (((uint64_t)(a) << 56) | \
+         (((uint64_t)(a) << 40) & 0xff000000000000ULL) | \
+         (((uint64_t)(a) << 24) & 0xff0000000000ULL) | \
+         (((uint64_t)(a) << 8)  & 0xff00000000ULL) | \
+         (((uint64_t)(a) >> 8)  & 0xff000000ULL) | \
+         (((uint64_t)(a) >> 24) & 0xff0000ULL) | \
+         (((uint64_t)(a) >> 40) & 0xff00ULL) | \
+         ((uint64_t)(a)  >> 56));
 #endif /* WORDS_BIGENDIAN */
 }
 #endif /* HAVE_NTOHLL */
@@ -361,13 +408,13 @@ char *ssh_hostport(const char *host, int port){
 const char *ssh_version(int req_version) {
   if (req_version <= LIBSSH_VERSION_INT) {
     return SSH_STRINGIFY(LIBSSH_VERSION) GCRYPT_STRING CRYPTO_STRING
-      LIBZ_STRING;
+      ZLIB_STRING;
   }
 
   return NULL;
 }
 
-struct ssh_list *ssh_list_new(){
+struct ssh_list *ssh_list_new(void) {
   struct ssh_list *ret=malloc(sizeof(struct ssh_list));
   if(!ret)
     return NULL;
@@ -511,7 +558,7 @@ const void *_ssh_list_pop_head(struct ssh_list *list){
  */
 char *ssh_dirname (const char *path) {
   char *new = NULL;
-  unsigned int len;
+  size_t len;
 
   if (path == NULL || *path == '\0') {
     return strdup(".");
@@ -567,7 +614,7 @@ char *ssh_dirname (const char *path) {
 char *ssh_basename (const char *path) {
   char *new = NULL;
   const char *s;
-  unsigned int len;
+  size_t len;
 
   if (path == NULL || *path == '\0') {
     return strdup(".");
@@ -734,10 +781,10 @@ char *ssh_path_expand_escape(ssh_session session, const char *s) {
 
         switch (*p) {
             case 'd':
-                x = strdup(session->sshdir);
+                x = strdup(session->opts.sshdir);
                 break;
             case 'u':
-                x = ssh_get_local_username(session);
+                x = ssh_get_local_username();
                 break;
             case 'l':
                 if (gethostname(host, sizeof(host) == 0)) {
@@ -745,16 +792,16 @@ char *ssh_path_expand_escape(ssh_session session, const char *s) {
                 }
                 break;
             case 'h':
-                x = strdup(session->host);
+                x = strdup(session->opts.host);
                 break;
             case 'r':
-                x = strdup(session->username);
+                x = strdup(session->opts.username);
                 break;
             case 'p':
-                if (session->port < 65536) {
+                if (session->opts.port < 65536) {
                     char tmp[6];
 
-                    snprintf(tmp, sizeof(tmp), "%u", session->port);
+                    snprintf(tmp, sizeof(tmp), "%u", session->opts.port);
                     x = strdup(tmp);
                 }
                 break;
@@ -780,7 +827,7 @@ char *ssh_path_expand_escape(ssh_session session, const char *s) {
             return NULL;
         }
         l = strlen(buf);
-        strcat(buf + l, x);
+        strncpy(buf + l, x, sizeof(buf) - l - 1);
         buf[i] = '\0';
         SAFE_FREE(x);
     }
@@ -835,7 +882,7 @@ int ssh_analyze_banner(ssh_session session, int server, int *ssh1, int *ssh2) {
     return -1;
   }
 
-  ssh_log(session, SSH_LOG_RARE, "Analyzing banner: %s", banner);
+  SSH_LOG(SSH_LOG_RARE, "Analyzing banner: %s", banner);
 
   switch(banner[4]) {
     case '1':
@@ -870,7 +917,7 @@ int ssh_analyze_banner(ssh_session session, int server, int *ssh1, int *ssh2) {
           major = strtol(openssh + 8, (char **) NULL, 10);
           minor = strtol(openssh + 10, (char **) NULL, 10);
           session->openssh = SSH_VERSION_INT(major, minor, 0);
-          ssh_log(session, SSH_LOG_RARE,
+          SSH_LOG(SSH_LOG_RARE,
                   "We are talking to an OpenSSH client version: %d.%d (%x)",
                   major, minor, session->openssh);
       }
@@ -957,20 +1004,27 @@ int ssh_make_milliseconds(long sec, long usec) {
  *          0 otherwise
  */
 int ssh_timeout_elapsed(struct ssh_timestamp *ts, int timeout) {
-	struct ssh_timestamp now;
-	switch(timeout) {
-		case -2: // -2 means user-defined timeout as available in session->timeout, session->timeout_usec.
-			fprintf(stderr, "ssh_timeout_elapsed called with -2. this needs to be fixed. "
-			"please set a breakpoint on %s:%d and fix the caller\n", __FILE__, __LINE__);
-		case -1: // -1 means infinite timeout
-			return 0;
-		case 0: // 0 means no timeout
-			return 1;
-		default:
-			break;
-	}
-	ssh_timestamp_init(&now);
-	return (ssh_timestamp_difference(ts,&now) >= timeout);
+    struct ssh_timestamp now;
+
+    switch(timeout) {
+        case -2: /*
+                  * -2 means user-defined timeout as available in
+                  * session->timeout, session->timeout_usec.
+                  */
+            fprintf(stderr, "ssh_timeout_elapsed called with -2. this needs to "
+                            "be fixed. please set a breakpoint on %s:%d and "
+                            "fix the caller\n", __FILE__, __LINE__);
+        case -1: /* -1 means infinite timeout */
+            return 0;
+        case 0: /* 0 means no timeout */
+            return 1;
+        default:
+            break;
+    }
+
+    ssh_timestamp_init(&now);
+
+    return (ssh_timestamp_difference(ts,&now) >= timeout);
 }
 
 /**
@@ -978,8 +1032,7 @@ int ssh_timeout_elapsed(struct ssh_timestamp *ts, int timeout) {
  * @param[in] ts pointer to an existing timestamp
  * @param[in] timeout timeout in milliseconds. Negative values mean infinite
  *             timeout
- * @returns   remaining time in milliseconds, 0 if elapsed, -1 if never,
- *            -2 if option-set-timeout.
+ * @returns   remaining time in milliseconds, 0 if elapsed, -1 if never.
  */
 int ssh_timeout_update(struct ssh_timestamp *ts, int timeout){
   struct ssh_timestamp now;
@@ -994,6 +1047,33 @@ int ssh_timeout_update(struct ssh_timestamp *ts, int timeout){
   ret = timeout - ms;
   return ret >= 0 ? ret: 0;
 }
+
+
+int ssh_match_group(const char *group, const char *object)
+{
+    const char *a;
+    const char *z;
+
+    z = group;
+    do {
+        a = strchr(z, ',');
+        if (a == NULL) {
+            if (strcmp(z, object) == 0) {
+                return 1;
+            }
+            return 0;
+        } else {
+            if (strncmp(z, object, a - z) == 0) {
+                return 1;
+            }
+        }
+        z = a + 1;
+    } while(1);
+
+    /* not reached */
+    return 0;
+}
+
 /** @} */
 
 /* vim: set ts=4 sw=4 et cindent: */

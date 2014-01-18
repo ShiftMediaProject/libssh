@@ -3,20 +3,19 @@
  *
  * Copyright (c) 2009 by Aris Adamantiadis
  *
- * The SSH Library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
  *
- * The SSH Library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License
- * along with the SSH Library; see the file COPYING.  If not, write to
- * the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
- * MA 02111-1307, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef AUTH_H_
@@ -29,6 +28,27 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_failure);
 SSH_PACKET_CALLBACK(ssh_packet_userauth_success);
 SSH_PACKET_CALLBACK(ssh_packet_userauth_pk_ok);
 SSH_PACKET_CALLBACK(ssh_packet_userauth_info_request);
+SSH_PACKET_CALLBACK(ssh_packet_userauth_info_response);
+
+/** @internal
+ * kdbint structure must be shared with message.c
+ * and server.c
+ */
+struct ssh_kbdint_struct {
+    uint32_t nprompts;
+    uint32_t nanswers;
+    char *name;
+    char *instruction;
+    char **prompts;
+    unsigned char *echo; /* bool array */
+    char **answers;
+};
+typedef struct ssh_kbdint_struct* ssh_kbdint;
+
+ssh_kbdint ssh_kbdint_new(void);
+void ssh_kbdint_clean(ssh_kbdint kbd);
+void ssh_kbdint_free(ssh_kbdint kbd);
+
 
 #ifdef WITH_SSH1
 void ssh_auth1_handler(ssh_session session, uint8_t type);
@@ -63,8 +83,13 @@ enum ssh_auth_state_e {
   /** Last state was a public key accepted for authentication */
   SSH_AUTH_STATE_PK_OK,
   /** We asked for a keyboard-interactive authentication */
-  SSH_AUTH_STATE_KBDINT_SENT
-
+  SSH_AUTH_STATE_KBDINT_SENT,
+  /** We have sent an userauth request with gssapi-with-mic */
+  SSH_AUTH_STATE_GSSAPI_REQUEST_SENT,
+  /** We are exchanging tokens until authentication */
+  SSH_AUTH_STATE_GSSAPI_TOKEN,
+  /** We have sent the MIC and expecting to be authenticated */
+  SSH_AUTH_STATE_GSSAPI_MIC_SENT,
 };
 
 /** @internal

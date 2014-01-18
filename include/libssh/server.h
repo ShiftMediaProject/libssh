@@ -4,20 +4,19 @@
  *
  * Copyright (c) 2003-2008 by Aris Adamantiadis
  *
- * The SSH Library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
  *
- * The SSH Library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License
- * along with the SSH Library; see the file COPYING.  If not, write to
- * the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
- * MA 02111-1307, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 /**
@@ -56,7 +55,6 @@ typedef struct ssh_bind_struct* ssh_bind;
  * @brief Incoming connection callback. This callback is called when a ssh_bind
  *        has a new incoming connection.
  * @param sshbind Current sshbind session handler
- * @param message the actual message
  * @param userdata Userdata to be passed to the callback function.
  */
 typedef void (*ssh_bind_incoming_connection_callback) (ssh_bind sshbind,
@@ -225,6 +223,23 @@ LIBSSH_API void ssh_bind_fd_toaccept(ssh_bind ssh_bind_o);
 LIBSSH_API int ssh_bind_accept(ssh_bind ssh_bind_o, ssh_session session);
 
 /**
+ * @brief Accept an incoming ssh connection on the given file descriptor
+ *        and initialize the session.
+ *
+ * @param  ssh_bind_o     The ssh server bind to accept a connection.
+ * @param  session        A preallocated ssh session
+ * @param  fd             A file descriptor of an already established TCP
+ *                          inbound connection
+ * @see ssh_new
+ * @see ssh_bind_accept
+ * @return SSH_OK when a connection is established
+ */
+LIBSSH_API int ssh_bind_accept_fd(ssh_bind ssh_bind_o, ssh_session session,
+        socket_t fd);
+
+LIBSSH_API ssh_gssapi_creds ssh_gssapi_get_creds(ssh_session session);
+
+/**
  * @brief Handles the key exchange and set up encryption
  *
  * @param  session			A connected ssh session
@@ -240,12 +255,67 @@ LIBSSH_API int ssh_handle_key_exchange(ssh_session session);
  */
 LIBSSH_API void ssh_bind_free(ssh_bind ssh_bind_o);
 
-/* messages.c */
+LIBSSH_API void ssh_set_auth_methods(ssh_session session, int auth_methods);
+
+/**********************************************************
+ * SERVER MESSAGING
+ **********************************************************/
+
+/**
+ * @brief Reply with a standard reject message.
+ *
+ * Use this function if you don't know what to respond or if you want to reject
+ * a request.
+ *
+ * @param[in] msg       The message to use for the reply.
+ *
+ * @return              0 on success, -1 on error.
+ *
+ * @see ssh_message_get()
+ */
 LIBSSH_API int ssh_message_reply_default(ssh_message msg);
 
-LIBSSH_API char *ssh_message_auth_user(ssh_message msg);
-LIBSSH_API char *ssh_message_auth_password(ssh_message msg);
-LIBSSH_API ssh_public_key ssh_message_auth_publickey(ssh_message msg);
+/**
+ * @brief Get the name of the authenticated user.
+ *
+ * @param[in] msg       The message to get the username from.
+ *
+ * @return              The username or NULL if an error occured.
+ *
+ * @see ssh_message_get()
+ * @see ssh_message_type()
+ */
+LIBSSH_API const char *ssh_message_auth_user(ssh_message msg);
+
+/**
+ * @brief Get the password of the authenticated user.
+ *
+ * @param[in] msg       The message to get the password from.
+ *
+ * @return              The username or NULL if an error occured.
+ *
+ * @see ssh_message_get()
+ * @see ssh_message_type()
+ */
+LIBSSH_API const char *ssh_message_auth_password(ssh_message msg);
+
+/**
+ * @brief Get the publickey of the authenticated user.
+ *
+ * If you need the key for later user you should duplicate it.
+ *
+ * @param[in] msg       The message to get the public key from.
+ *
+ * @return              The public key or NULL.
+ *
+ * @see ssh_key_dup()
+ * @see ssh_key_cmp()
+ * @see ssh_message_get()
+ * @see ssh_message_type()
+ */
+LIBSSH_API ssh_key ssh_message_auth_pubkey(ssh_message msg);
+
+LIBSSH_API int ssh_message_auth_kbdint_is_response(ssh_message msg);
 LIBSSH_API enum ssh_publickey_state_e ssh_message_auth_publickey_state(ssh_message msg);
 LIBSSH_API int ssh_message_auth_reply_success(ssh_message msg,int partial);
 LIBSSH_API int ssh_message_auth_reply_pk_ok(ssh_message msg, ssh_string algo, ssh_string pubkey);
@@ -253,8 +323,12 @@ LIBSSH_API int ssh_message_auth_reply_pk_ok_simple(ssh_message msg);
 
 LIBSSH_API int ssh_message_auth_set_methods(ssh_message msg, int methods);
 
+LIBSSH_API int ssh_message_auth_interactive_request(ssh_message msg,
+                    const char *name, const char *instruction,
+                    unsigned int num_prompts, const char **prompts, char *echo);
+
 LIBSSH_API int ssh_message_service_reply_success(ssh_message msg);
-LIBSSH_API char *ssh_message_service_service(ssh_message msg);
+LIBSSH_API const char *ssh_message_service_service(ssh_message msg);
 
 LIBSSH_API int ssh_message_global_request_reply_success(ssh_message msg,
                                                         uint16_t bound_port);
@@ -264,31 +338,38 @@ LIBSSH_API void ssh_set_message_callback(ssh_session session,
     void *data);
 LIBSSH_API int ssh_execute_message_callbacks(ssh_session session);
 
-LIBSSH_API char *ssh_message_channel_request_open_originator(ssh_message msg);
+LIBSSH_API const char *ssh_message_channel_request_open_originator(ssh_message msg);
 LIBSSH_API int ssh_message_channel_request_open_originator_port(ssh_message msg);
-LIBSSH_API char *ssh_message_channel_request_open_destination(ssh_message msg);
+LIBSSH_API const char *ssh_message_channel_request_open_destination(ssh_message msg);
 LIBSSH_API int ssh_message_channel_request_open_destination_port(ssh_message msg);
 
 LIBSSH_API ssh_channel ssh_message_channel_request_channel(ssh_message msg);
 
-LIBSSH_API char *ssh_message_channel_request_pty_term(ssh_message msg);
+LIBSSH_API const char *ssh_message_channel_request_pty_term(ssh_message msg);
 LIBSSH_API int ssh_message_channel_request_pty_width(ssh_message msg);
 LIBSSH_API int ssh_message_channel_request_pty_height(ssh_message msg);
 LIBSSH_API int ssh_message_channel_request_pty_pxwidth(ssh_message msg);
 LIBSSH_API int ssh_message_channel_request_pty_pxheight(ssh_message msg);
 
-LIBSSH_API char *ssh_message_channel_request_env_name(ssh_message msg);
-LIBSSH_API char *ssh_message_channel_request_env_value(ssh_message msg);
+LIBSSH_API const char *ssh_message_channel_request_env_name(ssh_message msg);
+LIBSSH_API const char *ssh_message_channel_request_env_value(ssh_message msg);
 
-LIBSSH_API char *ssh_message_channel_request_command(ssh_message msg);
+LIBSSH_API const char *ssh_message_channel_request_command(ssh_message msg);
 
-LIBSSH_API char *ssh_message_channel_request_subsystem(ssh_message msg);
+LIBSSH_API const char *ssh_message_channel_request_subsystem(ssh_message msg);
 
-LIBSSH_API char *ssh_message_global_request_address(ssh_message msg);
+LIBSSH_API int ssh_message_channel_request_x11_single_connection(ssh_message msg);
+LIBSSH_API const char *ssh_message_channel_request_x11_auth_protocol(ssh_message msg);
+LIBSSH_API const char *ssh_message_channel_request_x11_auth_cookie(ssh_message msg);
+LIBSSH_API int ssh_message_channel_request_x11_screen_number(ssh_message msg);
+
+LIBSSH_API const char *ssh_message_global_request_address(ssh_message msg);
 LIBSSH_API int ssh_message_global_request_port(ssh_message msg);
 
 LIBSSH_API int ssh_channel_open_reverse_forward(ssh_channel channel, const char *remotehost,
     int remoteport, const char *sourcehost, int localport);
+LIBSSH_API int ssh_channel_open_x11(ssh_channel channel, 
+                                        const char *orig_addr, int orig_port);
 
 LIBSSH_API int ssh_channel_request_send_exit_status(ssh_channel channel,
                                                 int exit_status);
@@ -300,6 +381,8 @@ LIBSSH_API int ssh_channel_request_send_exit_signal(ssh_channel channel,
 LIBSSH_API int ssh_channel_write_stderr(ssh_channel channel,
                                                 const void *data,
                                                 uint32_t len);
+
+LIBSSH_API int ssh_send_keepalive(ssh_session session);
 
 /* deprecated functions */
 SSH_DEPRECATED LIBSSH_API int ssh_accept(ssh_session session);

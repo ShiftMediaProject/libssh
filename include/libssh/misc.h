@@ -3,20 +3,19 @@
  *
  * Copyright (c) 2009 by Aris Adamantiadis
  *
- * The SSH Library is free software; you can redistribute it and/or modify
- * it under the terms of the GNU Lesser General Public License as published by
- * the Free Software Foundation; either version 2.1 of the License, or (at your
- * option) any later version.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Lesser General Public
+ * License as published by the Free Software Foundation; either
+ * version 2.1 of the License, or (at your option) any later version.
  *
- * The SSH Library is distributed in the hope that it will be useful, but
- * WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY
- * or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU Lesser General Public
- * License for more details.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Lesser General Public License for more details.
  *
- * You should have received a copy of the GNU Lesser General Public License
- * along with the SSH Library; see the file COPYING.  If not, write to
- * the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
- * MA 02111-1307, USA.
+ * You should have received a copy of the GNU Lesser General Public
+ * License along with this library; if not, write to the Free Software
+ * Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA
  */
 
 #ifndef MISC_H_
@@ -25,7 +24,7 @@
 /* in misc.c */
 /* gets the user home dir. */
 char *ssh_get_user_home_dir(void);
-char *ssh_get_local_username(ssh_session session);
+char *ssh_get_local_username(void);
 int ssh_file_readaccess_ok(const char *file);
 
 char *ssh_path_expand_tilde(const char *d);
@@ -34,9 +33,14 @@ int ssh_analyze_banner(ssh_session session, int server, int *ssh1, int *ssh2);
 int ssh_is_ipaddr_v4(const char *str);
 int ssh_is_ipaddr(const char *str);
 
+#ifndef HAVE_NTOHLL
 /* macro for byte ordering */
 uint64_t ntohll(uint64_t);
-#define htonll(x) ntohll(x)
+#endif
+
+#ifndef HAVE_HTONLL
+#define htonll(x) ntohll((x))
+#endif
 
 /* list processing */
 
@@ -82,5 +86,7 @@ int ssh_make_milliseconds(long sec, long usec);
 void ssh_timestamp_init(struct ssh_timestamp *ts);
 int ssh_timeout_elapsed(struct ssh_timestamp *ts, int timeout);
 int ssh_timeout_update(struct ssh_timestamp *ts, int timeout);
+
+int ssh_match_group(const char *group, const char *object);
 
 #endif /* MISC_H_ */

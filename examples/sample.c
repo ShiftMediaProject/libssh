@@ -14,63 +14,50 @@ clients must be made or how a client should react.
 
 #include "config.h"
 #include <stdio.h>
-#include <unistd.h>
 #include <stdlib.h>
 #include <string.h>
-#include <termios.h>
 
 #include <sys/select.h>
 #include <sys/time.h>
+
+#ifdef HAVE_TERMIOS_H
+#include <termios.h>
+#endif
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 #ifdef HAVE_PTY_H
 #include <pty.h>
 #endif
+
 #include <sys/ioctl.h>
 #include <signal.h>
 #include <errno.h>
+#include <fcntl.h>
+
 #include <libssh/callbacks.h>
 #include <libssh/libssh.h>
 #include <libssh/sftp.h>
 
-#include <fcntl.h>
 
 #include "examples_common.h"
 #define MAXCMD 10
-char *host;
-char *user;
-char *cmds[MAXCMD];
-struct termios terminal;
 
-char *pcap_file=NULL;
+static char *host;
+static char *user;
+static char *cmds[MAXCMD];
+static struct termios terminal;
 
-char *proxycommand;
+static char *pcap_file=NULL;
+
+static char *proxycommand;
 
 static int auth_callback(const char *prompt, char *buf, size_t len,
     int echo, int verify, void *userdata) {
-  char *answer = NULL;
-  char *ptr;
+    (void) verify;
+    (void) userdata;
 
-  (void) verify;
-  (void) userdata;
-
-  if (echo) {
-    while ((answer = fgets(buf, len, stdin)) == NULL);
-    if ((ptr = strchr(buf, '\n'))) {
-      *ptr = '\0';
-    }
-  } else {
-    if (ssh_getpass(prompt, buf, len, 0, 0) < 0) {
-        return -1;
-    }
-    return 0;
-  }
-
-  if (answer == NULL) {
-    return -1;
-  }
-
-  strncpy(buf, answer, len);
-
-  return 0;
+    return ssh_getpass(prompt, buf, len, echo, verify);
 }
 
 struct ssh_callbacks_struct cb = {
@@ -80,9 +67,12 @@ struct ssh_callbacks_struct cb = {
 
 static void add_cmd(char *cmd){
     int n;
-    for(n=0;cmds[n] && (n<MAXCMD);n++);
-    if(n==MAXCMD)
+
+    for (n = 0; (n < MAXCMD) && cmds[n] != NULL; n++);
+
+    if (n == MAXCMD) {
         return;
+    }
     cmds[n]=strdup(cmd);
 }
 
@@ -246,8 +236,6 @@ static void select_loop(ssh_session session,ssh_channel channel){
         // we already looked for input from stdin. Now, we are looking for input from the channel
 
         if(channel && ssh_channel_is_closed(channel)){
-            ssh_log(session,SSH_LOG_RARE,"exit-status : %d",ssh_channel_get_exit_status(channel));
-
             ssh_channel_free(channel);
             channel=NULL;
             channels[0]=NULL;
@@ -261,9 +249,6 @@ static void select_loop(ssh_session session,ssh_channel channel){
                     return;
                 }
                 if(lus==0){
-                    ssh_log(session,SSH_LOG_RARE,"EOF received");
-                    ssh_log(session,SSH_LOG_RARE,"exit-status : %d",ssh_channel_get_exit_status(channel));
-
                     ssh_channel_free(channel);
                     channel=channels[0]=NULL;
                 } else
@@ -280,8 +265,6 @@ static void select_loop(ssh_session session,ssh_channel channel){
                     return;
                 }
                 if(lus==0){
-                    ssh_log(session,SSH_LOG_RARE,"EOF received");
-                    ssh_log(session,SSH_LOG_RARE,"exit-status : %d",ssh_channel_get_exit_status(channel));
                     ssh_channel_free(channel);
                     channel=channels[0]=NULL;
                 } else
@@ -311,6 +294,7 @@ static void select_loop(ssh_session session,ssh_channel channel){
 	int lus;
 	int eof=0;
 	int maxfd;
+	unsigned int r;
 	int ret;
 	while(channel){
 		do{
@@ -338,24 +322,19 @@ static void select_loop(ssh_session session,ssh_channel channel){
 				}
 			}
 			if(channel && ssh_channel_is_closed(channel)){
-				ssh_log(session,SSH_LOG_RARE,"exit-status : %d",ssh_channel_get_exit_status(channel));
-
 				ssh_channel_free(channel);
 				channel=NULL;
 				channels[0]=NULL;
 			}
 			if(outchannels[0]){
-				while(channel && ssh_channel_is_open(channel) && ssh_channel_poll(channel,0)!=0){
-					lus=ssh_channel_read(channel,buffer,sizeof(buffer),0);
+				while(channel && ssh_channel_is_open(channel) && (r = ssh_channel_poll(channel,0))!=0){
+					lus=ssh_channel_read(channel,buffer,sizeof(buffer) > r ? r : sizeof(buffer),0);
 					if(lus==-1){
 						fprintf(stderr, "Error reading channel: %s\n",
 								ssh_get_error(session));
 						return;
 					}
 					if(lus==0){
-						ssh_log(session,SSH_LOG_RARE,"EOF received");
-						ssh_log(session,SSH_LOG_RARE,"exit-status : %d",ssh_channel_get_exit_status(channel));
-
 						ssh_channel_free(channel);
 						channel=channels[0]=NULL;
 					} else
@@ -364,16 +343,14 @@ static void select_loop(ssh_session session,ssh_channel channel){
 					    return;
 					  }
 				}
-				while(channel && ssh_channel_is_open(channel) && ssh_channel_poll(channel,1)!=0){ /* stderr */
-					lus=ssh_channel_read(channel,buffer,sizeof(buffer),1);
+				while(channel && ssh_channel_is_open(channel) && (r = ssh_channel_poll(channel,1))!=0){ /* stderr */
+					lus=ssh_channel_read(channel,buffer,sizeof(buffer) > r ? r : sizeof(buffer),1);
 					if(lus==-1){
 						fprintf(stderr, "Error reading channel: %s\n",
 								ssh_get_error(session));
 						return;
 					}
 					if(lus==0){
-						ssh_log(session,SSH_LOG_RARE,"EOF received");
-						ssh_log(session,SSH_LOG_RARE,"exit-status : %d",ssh_channel_get_exit_status(channel));
 						ssh_channel_free(channel);
 						channel=channels[0]=NULL;
 					} else
@@ -477,7 +454,6 @@ static int client(ssh_session session){
   if(auth != SSH_AUTH_SUCCESS){
   	return -1;
   }
-  ssh_log(session, SSH_LOG_FUNCTIONS, "Authentication success");
   if(!cmds[0])
   	shell(session);
   else

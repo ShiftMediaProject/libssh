@@ -3,7 +3,7 @@
  *
  * This file is part of the SSH Library
  *
- * Copyright (c) 2008      by Aris Adamantiadis
+ * Copyright (c) 2008-2013   by Aris Adamantiadis
  *
  * The SSH Library is free software; you can redistribute it and/or modify
  * it under the terms of the GNU Lesser General Public License as published by
@@ -24,9 +24,20 @@
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
+#ifndef _WIN32
+#include <sys/time.h>
+#else
+#include <sys/utime.h>
+#endif
+#include <time.h>
 
 #include "libssh/priv.h"
+#include "libssh/misc.h"
 #include "libssh/session.h"
+
+LIBSSH_THREAD int ssh_log_level;
+LIBSSH_THREAD ssh_logging_callback ssh_log_cb;
+LIBSSH_THREAD void *ssh_log_userdata;
 
 /**
  * @defgroup libssh_log The SSH logging functions.
@@ -37,43 +48,90 @@
  * @{
  */
 
-/** @internal
- * @brief do the actual work of logging an event
- */
+static int current_timestring(int hires, char *buf, size_t len)
+{
+    char tbuf[64];
+    struct timeval tv;
+    struct tm *tm;
+    time_t t;
 
-static void do_ssh_log(struct ssh_common_struct *common, int verbosity,
-    const char *buffer){
-  char indent[256];
-  int min;
-  if (common->callbacks && common->callbacks->log_function) {
-    common->callbacks->log_function((ssh_session)common, verbosity, buffer,
-        common->callbacks->userdata);
-  } else if (verbosity == SSH_LOG_FUNCTIONS) {
-    if (common->log_indent > 255) {
-      min = 255;
-    } else {
-      min = common->log_indent;
+    gettimeofday(&tv, NULL);
+    t = (time_t) tv.tv_sec;
+
+    tm = localtime(&t);
+    if (tm == NULL) {
+        return -1;
     }
 
-    memset(indent, ' ', min);
-    indent[min] = '\0';
+    if (hires) {
+        strftime(tbuf, sizeof(tbuf) - 1, "%Y/%m/%d %H:%M:%S", tm);
+        snprintf(buf, len, "%s.%06ld", tbuf, (long)tv.tv_usec);
+    } else {
+        strftime(tbuf, sizeof(tbuf) - 1, "%Y/%m/%d %H:%M:%S", tm);
+        snprintf(buf, len, "%s", tbuf);
+    }
 
-    fprintf(stderr, "[func] %s%s\n", indent, buffer);
-  } else {
-    fprintf(stderr, "[%d] %s\n", verbosity, buffer);
-  }
+    return 0;
 }
 
-/**
- * @brief Log a SSH event.
- *
- * @param session       The SSH session.
- *
- * @param verbosity     The verbosity of the event.
- *
- * @param format        The format string of the log entry.
- */
-void ssh_log(ssh_session session, int verbosity, const char *format, ...) {
+static void ssh_log_stderr(int verbosity,
+                           const char *function,
+                           const char *buffer)
+{
+    char date[64] = {0};
+    int rc;
+
+    rc = current_timestring(1, date, sizeof(date));
+    if (rc == 0) {
+        fprintf(stderr, "[%s, %d] %s:", date, verbosity, function);
+    } else {
+        fprintf(stderr, "[%d] %s", verbosity, function);
+    }
+
+    fprintf(stderr, "  %s\n", buffer);
+}
+
+void ssh_log_function(int verbosity,
+                      const char *function,
+                      const char *buffer)
+{
+    ssh_logging_callback log_fn = ssh_get_log_callback();
+    if (log_fn) {
+        char buf[1024];
+
+        snprintf(buf, sizeof(buf), "%s: %s", function, buffer);
+
+        log_fn(verbosity,
+               function,
+               buf,
+               ssh_get_log_userdata());
+        return;
+    }
+
+    ssh_log_stderr(verbosity, function, buffer);
+}
+
+void _ssh_log(int verbosity,
+              const char *function,
+              const char *format, ...)
+{
+    char buffer[1024];
+    va_list va;
+
+    if (verbosity <= ssh_get_log_level()) {
+        va_start(va, format);
+        vsnprintf(buffer, sizeof(buffer), format, va);
+        va_end(va);
+        ssh_log_function(verbosity, function, buffer);
+    }
+}
+
+/* LEGACY */
+
+void ssh_log(ssh_session session,
+             int verbosity,
+             const char *format, ...)
+{
   char buffer[1024];
   va_list va;
 
@@ -81,7 +139,7 @@ void ssh_log(ssh_session session, int verbosity, const char *format, ...) {
     va_start(va, format);
     vsnprintf(buffer, sizeof(buffer), format, va);
     va_end(va);
-    do_ssh_log(&session->common, verbosity, buffer);
+    ssh_log_function(verbosity, "", buffer);
   }
 }
 
@@ -91,16 +149,87 @@ void ssh_log(ssh_session session, int verbosity, const char *format, ...) {
  * @param verbosity     The verbosity of the event.
  * @param format        The format string of the log entry.
  */
-void ssh_log_common(struct ssh_common_struct *common, int verbosity, const char *format, ...){
-  char buffer[1024];
-  va_list va;
+void ssh_log_common(struct ssh_common_struct *common,
+                    int verbosity,
+                    const char *function,
+                    const char *format, ...)
+{
+    char buffer[1024];
+    va_list va;
 
-  if (verbosity <= common->log_verbosity) {
-    va_start(va, format);
-    vsnprintf(buffer, sizeof(buffer), format, va);
-    va_end(va);
-    do_ssh_log(common, verbosity, buffer);
+    if (verbosity <= common->log_verbosity) {
+        va_start(va, format);
+        vsnprintf(buffer, sizeof(buffer), format, va);
+        va_end(va);
+        ssh_log_function(verbosity, function, buffer);
+    }
+}
+
+
+/* PUBLIC */
+
+/**
+ * @brief Set the log level of the library.
+ *
+ * @param[in]  level    The level to set.
+ *
+ * @return              SSH_OK on success, SSH_ERROR on error.
+ */
+int ssh_set_log_level(int level) {
+  if (level < 0) {
+    return SSH_ERROR;
   }
+
+  ssh_log_level = level;
+
+  return SSH_OK;
+}
+
+/**
+ * @brief Get the log level of the library.
+ *
+ * @return    The value of the log level.
+ */
+int ssh_get_log_level(void) {
+  return ssh_log_level;
+}
+
+int ssh_set_log_callback(ssh_logging_callback cb) {
+  if (cb == NULL) {
+    return SSH_ERROR;
+  }
+
+  ssh_log_cb = cb;
+
+  return SSH_OK;
+}
+
+ssh_logging_callback ssh_get_log_callback(void) {
+  return ssh_log_cb;
+}
+
+/**
+ * @brief Get the userdata of the logging function.
+ *
+ * @return    The userdata if set or NULL.
+ */
+void *ssh_get_log_userdata(void)
+{
+    return ssh_log_userdata;
+}
+
+/**
+ * @brief Set the userdata for the logging function.
+ *
+ * @param[in]  data     The userdata to set.
+ *
+ * @return              SSH_OK on success.
+ */
+int ssh_set_log_userdata(void *data)
+{
+    ssh_log_userdata = data;
+
+    return 0;
 }
 
 /** @} */
