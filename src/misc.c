@@ -199,49 +199,6 @@ int ssh_is_ipaddr(const char *str) {
 
     return ssh_is_ipaddr_v4(str);
 }
-
-int ssh_is_ipaddr_v4(const char *str) {
-    struct sockaddr_storage ss;
-    int sslen = sizeof(ss);
-    int rc = SOCKET_ERROR;
-
-    /* WSAStringToAddressA thinks that 0.0.0 is a valid IP */
-    if (strlen(str) < 7) {
-        return 0;
-    }
-
-    rc = WSAStringToAddressA((LPSTR) str,
-                             AF_INET,
-                             NULL,
-                             (struct sockaddr*)&ss,
-                             &sslen);
-    if (rc == 0) {
-        return 1;
-    }
-
-    return 0;
-}
-
-int ssh_is_ipaddr(const char *str) {
-    int rc = SOCKET_ERROR;
-
-    if (strchr(str, ':')) {
-        struct sockaddr_storage ss;
-        int sslen = sizeof(ss);
-
-        /* TODO link-local (IP:v6:addr%ifname). */
-        rc = WSAStringToAddressA((LPSTR) str,
-                                 AF_INET6,
-                                 NULL,
-                                 (struct sockaddr*)&ss,
-                                 &sslen);
-        if (rc == 0) {
-            return 1;
-        }
-    }
-
-    return ssh_is_ipaddr_v4(str);
-}
 #else /* _WIN32 */
 
 #ifndef NSS_BUFLEN_PASSWD

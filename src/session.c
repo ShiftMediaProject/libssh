@@ -245,7 +245,7 @@ void ssh_free(ssh_session session) {
 
   SAFE_FREE(session->serverbanner);
   SAFE_FREE(session->clientbanner);
-  SAFE_FREE(session->bindaddr);
+  SAFE_FREE(session->opts.bindaddr);
   SAFE_FREE(session->banner);
 
   /* options */
@@ -393,32 +393,6 @@ int ssh_blocking_flush(ssh_session session, int timeout){
     }
 
     return rc;
-}
-
-/**
- * @brief Blocking flush of the outgoing buffer
- * @param[in] session The SSH session
- * @param[in] timeout Set an upper limit on the time for which this function
- *                    will block, in milliseconds. Specifying -1
- *                    means an infinite timeout. This parameter is passed to
- *                    the poll() function.
- * @returns           SSH_OK on success, SSH_AGAIN if timeout occurred,
- *                    SSH_ERROR otherwise.
- */
-
-int ssh_blocking_flush(ssh_session session, int timeout){
-	ssh_socket s;
-	int rc = SSH_OK;
-	if(session==NULL)
-		return SSH_ERROR;
-
-	s=session->socket;
-	while (ssh_socket_buffered_write_bytes(s) > 0 && session->alive) {
-		rc = ssh_handle_packets(session, timeout);
-		if(rc == SSH_AGAIN || rc == SSH_ERROR) break;
-	}
-
-	return rc;
 }
 
 /**
