@@ -2,7 +2,7 @@
 #define PACKAGE "libssh"
 
 /* Version number of package */
-#define VERSION "0.5.5"
+#define VERSION "0.6.0"
 
 /* #undef LOCALEDIR */
 /* #undef DATADIR */
@@ -20,14 +20,20 @@
 /* Define to 1 if you have the <pty.h> header file. */
 /* #undef HAVE_PTY_H */
 
+/* Define to 1 if you have the <util.h> header file. */
+/* #undef HAVE_UTIL_H */
+
 /* Define to 1 if you have the <termios.h> header file. */
 /* #undef HAVE_TERMIOS_H */
+
+/* Define to 1 if you have the <unistd.h> header file. */
+/* #undef HAVE_UNISTD_H */
 
 /* Define to 1 if you have the <openssl/aes.h> header file. */
 #define HAVE_OPENSSL_AES_H 1
 
 /* Define to 1 if you have the <wspiapi.h> header file. */
-/* #undef HAVE_WSPIAPI_H */
+#define HAVE_WSPIAPI_H 1
 
 /* Define to 1 if you have the <openssl/blowfish.h> header file. */
 #define HAVE_OPENSSL_BLOWFISH_H 1
@@ -35,9 +41,26 @@
 /* Define to 1 if you have the <openssl/des.h> header file. */
 #define HAVE_OPENSSL_DES_H 1
 
+/* Define to 1 if you have the <openssl/ecdh.h> header file. */
+#define HAVE_OPENSSL_ECDH_H 1
+
+/* Define to 1 if you have the <openssl/ec.h> header file. */
+#define HAVE_OPENSSL_EC_H 1
+
+/* Define to 1 if you have the <openssl/ecdsa.h> header file. */
+#define HAVE_OPENSSL_ECDSA_H 1
+
 /* Define to 1 if you have the <pthread.h> header file. */
 /* #undef HAVE_PTHREAD_H */
 
+/* Define to 1 if you have eliptic curve cryptography in openssl */
+#define HAVE_OPENSSL_ECC 1
+
+/* Define to 1 if you have eliptic curve cryptography in gcrypt */
+/* #undef HAVE_GCRYPT_ECC */
+
+/* Define to 1 if you have eliptic curve cryptography */
+#define HAVE_ECC 1
 
 /*************************** FUNCTIONS ***************************/
 
@@ -59,6 +82,9 @@
 /* Define to 1 if you have the `_vsnprintf_s' function. */
 #define HAVE__VSNPRINTF_S 1
 
+/* Define to 1 if you have the `isblank' function. */
+/* #undef HAVE_ISBLANK */
+
 /* Define to 1 if you have the `strncpy' function. */
 #define HAVE_STRNCPY 1
 
@@ -74,8 +100,23 @@
 /* Define to 1 if you have the `select' function. */
 #define HAVE_SELECT 1
 
-/* Define to 1 if you have the `regcomp' function. */
-/* #undef HAVE_REGCOMP */
+/* Define to 1 if you have the `clock_gettime' function. */
+/* #undef HAVE_CLOCK_GETTIME */
+
+/* Define to 1 if you have the `ntohll' function. */
+#define HAVE_NTOHLL 1
+
+/* Define to 1 if you have the `htonll' function. */
+#define HAVE_HTONLL 1
+
+/* Define to 1 if you have the `strtoull' function. */
+/* #undef HAVE_STRTOULL */
+
+/* Define to 1 if you have the `__strtoull' function. */
+/* #undef HAVE___STRTOULL */
+
+/* Define to 1 if you have the `_strtoui64' function. */
+#define HAVE__STRTOUI64 1
 
 /* Define to 1 if you have the `clock_gettime' function. */
 /* #undef HAVE_CLOCK_GETTIME */
@@ -91,17 +132,21 @@
 /* Define to 1 if you have the `gcrypt' library (-lgcrypt). */
 /* #undef HAVE_LIBGCRYPT */
 
-/* Define to 1 if you have the `z' library (-lz). */
-#define HAVE_LIBZ 1
-
 /* Define to 1 if you have the `pthread' library (-lpthread). */
 /* #undef HAVE_PTHREAD */
 
-
 /**************************** OPTIONS ****************************/
 
+/* #undef HAVE_GCC_THREAD_LOCAL_STORAGE */
+#define HAVE_MSC_THREAD_LOCAL_STORAGE 1
+
+/* #undef HAVE_GCC_VOLATILE_MEMORY_PROTECTION */
+
+/* Define to 1 if you want to enable GSSAPI */
+/* #undef WITH_GSSAPI */
+
 /* Define to 1 if you want to enable ZLIB */
-#define WITH_LIBZ 1
+#define WITH_ZLIB 1
 
 /* Define to 1 if you want to enable SFTP */
 #define WITH_SFTP 1
@@ -120,6 +165,9 @@
 
 /* Define to 1 if you want to enable calltrace debug output */
 /* #undef DEBUG_CALLTRACE */
+
+/* Define to 1 if you want to enable NaCl support */
+/* #undef WITH_NACL */
 
 /*************************** ENDIAN *****************************/
 

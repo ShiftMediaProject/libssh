@@ -33,16 +33,10 @@
     <ClCompile Include="..\src\crc32.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\crypt.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\dh.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\error.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\gcrypt_missing.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\getpass.c">
@@ -57,12 +51,6 @@
     <ClCompile Include="..\src\kex.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\keyfiles.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\keys.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\known_hosts.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -70,9 +58,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\libcrypto.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\libgcrypt.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\log.c">
@@ -150,6 +135,27 @@
     <ClCompile Include="..\src\buffer.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\ecdh.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\kex1.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\curve25519.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\curve25519_ref.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\packet_cb.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\packet_crypt.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\pki_crypto.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\libssh\keyfiles.h">
@@ -162,9 +168,6 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\libcrypto.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\libgcrypt.h">
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\libssh.h">
@@ -246,6 +249,21 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\kex.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\options.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\pki_priv.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\crc32.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\curve25519.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\ecdh.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

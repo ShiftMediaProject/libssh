@@ -48,20 +48,19 @@
     <ClCompile Include="..\src\config.c" />
     <ClCompile Include="..\src\connect.c" />
     <ClCompile Include="..\src\crc32.c" />
-    <ClCompile Include="..\src\crypt.c" />
+    <ClCompile Include="..\src\curve25519.c" />
+    <ClCompile Include="..\src\curve25519_ref.c" />
     <ClCompile Include="..\src\dh.c" />
+    <ClCompile Include="..\src\ecdh.c" />
     <ClCompile Include="..\src\error.c" />
-    <ClCompile Include="..\src\gcrypt_missing.c" />
     <ClCompile Include="..\src\getpass.c" />
     <ClCompile Include="..\src\gzip.c" />
     <ClCompile Include="..\src\init.c" />
     <ClCompile Include="..\src\kex.c" />
-    <ClCompile Include="..\src\keyfiles.c" />
-    <ClCompile Include="..\src\keys.c" />
+    <ClCompile Include="..\src\kex1.c" />
     <ClCompile Include="..\src\known_hosts.c" />
     <ClCompile Include="..\src\legacy.c" />
     <ClCompile Include="..\src\libcrypto.c" />
-    <ClCompile Include="..\src\libgcrypt.c" />
     <ClCompile Include="..\src\log.c" />
     <ClCompile Include="..\src\match.c" />
     <ClCompile Include="..\src\messages.c" />
@@ -69,8 +68,11 @@
     <ClCompile Include="..\src\options.c" />
     <ClCompile Include="..\src\packet.c" />
     <ClCompile Include="..\src\packet1.c" />
+    <ClCompile Include="..\src\packet_cb.c" />
+    <ClCompile Include="..\src\packet_crypt.c" />
     <ClCompile Include="..\src\pcap.c" />
     <ClCompile Include="..\src\pki.c" />
+    <ClCompile Include="..\src\pki_crypto.c" />
     <ClCompile Include="..\src\poll.c" />
     <ClCompile Include="..\src\scp.c" />
     <ClCompile Include="..\src\server.c" />
@@ -89,20 +91,24 @@
     <ClInclude Include="..\include\libssh\buffer.h" />
     <ClInclude Include="..\include\libssh\callbacks.h" />
     <ClInclude Include="..\include\libssh\channels.h" />
+    <ClInclude Include="..\include\libssh\crc32.h" />
     <ClInclude Include="..\include\libssh\crypto.h" />
+    <ClInclude Include="..\include\libssh\curve25519.h" />
     <ClInclude Include="..\include\libssh\dh.h" />
+    <ClInclude Include="..\include\libssh\ecdh.h" />
     <ClInclude Include="..\include\libssh\kex.h" />
     <ClInclude Include="..\include\libssh\keyfiles.h" />
     <ClInclude Include="..\include\libssh\keys.h" />
     <ClInclude Include="..\include\libssh\legacy.h" />
     <ClInclude Include="..\include\libssh\libcrypto.h" />
-    <ClInclude Include="..\include\libssh\libgcrypt.h" />
     <ClInclude Include="..\include\libssh\libssh.h" />
     <ClInclude Include="..\include\libssh\messages.h" />
     <ClInclude Include="..\include\libssh\misc.h" />
+    <ClInclude Include="..\include\libssh\options.h" />
     <ClInclude Include="..\include\libssh\packet.h" />
     <ClInclude Include="..\include\libssh\pcap.h" />
     <ClInclude Include="..\include\libssh\pki.h" />
+    <ClInclude Include="..\include\libssh\pki_priv.h" />
     <ClInclude Include="..\include\libssh\poll.h" />
     <ClInclude Include="..\include\libssh\priv.h" />
     <ClInclude Include="..\include\libssh\scp.h" />
@@ -241,7 +247,7 @@
       <PreprocessorDefinitions>WIN32;_WINDOWS;_LIB;_DEBUG;LIBSSH_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>..\include;.\;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\include;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4267;4244;%(DisableSpecificWarnings)</DisableSpecificWarnings>
@@ -288,7 +294,7 @@ cd $(ProjectDir)
       <PreprocessorDefinitions>WIN32;_WINDOWS;_LIB;_DEBUG;LIBSSH_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>..\include;.\;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\include;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4267;4244;%(DisableSpecificWarnings)</DisableSpecificWarnings>
@@ -335,7 +341,7 @@ cd $(ProjectDir)
       <PreprocessorDefinitions>WIN32;_WINDOWS;_USRDLL;_DEBUG;LIBSSH_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>..\include;.\;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\include;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4267;4244;%(DisableSpecificWarnings)</DisableSpecificWarnings>
@@ -384,7 +390,7 @@ cd $(ProjectDir)
       <PreprocessorDefinitions>WIN32;_WINDOWS;_USRDLL;_DEBUG;LIBSSH_EXPORTS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
-      <AdditionalIncludeDirectories>..\include;.\;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\include;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4267;4244;%(DisableSpecificWarnings)</DisableSpecificWarnings>
@@ -444,7 +450,7 @@ cd $(ProjectDir)
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>..\include;.\;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\include;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4267;4244;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
@@ -504,7 +510,7 @@ cd $(ProjectDir)
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>..\include;.\;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\include;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4267;4244;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
@@ -564,7 +570,7 @@ cd $(ProjectDir)
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>..\include;.\;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\include;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4267;4244;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
@@ -623,7 +629,7 @@ cd $(ProjectDir)
       <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
       <OmitFramePointers>true</OmitFramePointers>
       <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
-      <AdditionalIncludeDirectories>..\include;.\;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>.\;..\include;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <ExceptionHandling>false</ExceptionHandling>
       <DisableSpecificWarnings>4996;4267;4244;%(DisableSpecificWarnings)</DisableSpecificWarnings>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
