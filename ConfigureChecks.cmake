@@ -1,4 +1,5 @@
 include(CheckIncludeFile)
+include(CheckIncludeFiles)
 include(CheckSymbolExists)
 include(CheckFunctionExists)
 include(CheckLibraryExists)
@@ -106,6 +107,8 @@ check_function_exists(htonll HAVE_HTONLL)
 
 if (WIN32)
     check_function_exists(_strtoui64 HAVE__STRTOUI64)
+    check_function_exists(strtoull HAVE_STRTOULL)
+    check_function_exists(__strtoull HAVE___STRTOULL)
 
     check_function_exists(_vsnprintf_s HAVE__VSNPRINTF_S)
     check_function_exists(_vsnprintf HAVE__VSNPRINTF)
