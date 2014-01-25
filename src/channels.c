@@ -1017,7 +1017,7 @@ int ssh_channel_open_forward(ssh_channel channel, const char *remotehost,
   }
 
   if(remotehost == NULL || sourcehost == NULL) {
-      ssh_set_error_invalid(session, __FUNCTION__);
+      ssh_set_error_invalid(session);
       return rc;
   }
 
