@@ -315,6 +315,38 @@ const char* ssh_get_serverbanner(ssh_session session) {
 }
 
 /**
+ * @brief get the name of the input for the given session.
+ *
+ * @param[in] session The SSH session.
+ *
+ * @return Returns cipher name or NULL.
+ */
+const char* ssh_get_cipher_in(ssh_session session) {
+    if ((session != NULL) &&
+        (session->current_crypto != NULL) &&
+        (session->current_crypto->in_cipher != NULL)) {
+        return session->current_crypto->in_cipher->name;
+    }
+    return NULL;
+}
+
+/**
+ * @brief get the name of the output cipher for the given session.
+ *
+ * @param[in] session The SSH session.
+ *
+ * @return Returns cipher name or NULL.
+ */
+const char* ssh_get_cipher_out(ssh_session session) {
+    if ((session != NULL) &&
+        (session->current_crypto != NULL) &&
+        (session->current_crypto->out_cipher != NULL)) {
+        return session->current_crypto->out_cipher->name;
+    }
+    return NULL;
+}
+
+/**
  * @brief Disconnect impolitely from a remote host by closing the socket.
  *
  * Suitable if you forked and want to destroy this session.
@@ -572,7 +604,11 @@ int ssh_handle_packets_termination(ssh_session session,
         }
     }
 
-    ssh_timestamp_init(&ts);
+    /* avoid unnecessary syscall for the SSH_TIMEOUT_NONBLOCKING case */
+    if (timeout != SSH_TIMEOUT_NONBLOCKING) {
+        ssh_timestamp_init(&ts);
+    }
+
     tm = timeout;
     while(!fct(user)) {
         ret = ssh_handle_packets(session, tm);
@@ -700,8 +736,13 @@ void ssh_socket_exception_callback(int code, int errno_code, void *user){
     ssh_session session=(ssh_session)user;
 
     SSH_LOG(SSH_LOG_RARE,"Socket exception callback: %d (%d)",code, errno_code);
-    session->session_state=SSH_SESSION_STATE_ERROR;
-    ssh_set_error(session,SSH_FATAL,"Socket error: %s",strerror(errno_code));
+    session->session_state = SSH_SESSION_STATE_ERROR;
+    if (errno_code == 0 && code == SSH_SOCKET_EXCEPTION_EOF) {
+        ssh_set_error(session, SSH_FATAL, "Socket error: disconnected");
+    } else {
+        ssh_set_error(session, SSH_FATAL, "Socket error: %s", strerror(errno_code));
+    }
+
     session->ssh_connection_callback(session);
 }
 

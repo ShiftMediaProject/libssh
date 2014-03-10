@@ -152,18 +152,26 @@ int ssh_send_banner(ssh_session session, int server) {
   banner = session->version == 1 ? CLIENTBANNER1 : CLIENTBANNER2;
 
   if (server) {
-    session->serverbanner = strdup(banner);
+    if(session->opts.custombanner == NULL){
+    	session->serverbanner = strdup(banner);
+    } else {
+    	session->serverbanner = malloc(strlen(session->opts.custombanner) + 9);
+    	if(!session->serverbanner)
+    		goto end;
+    	strcpy(session->serverbanner, "SSH-2.0-");
+    	strcat(session->serverbanner, session->opts.custombanner);
+    }
     if (session->serverbanner == NULL) {
       goto end;
     }
+    snprintf(buffer, 128, "%s\n", session->serverbanner);
   } else {
     session->clientbanner = strdup(banner);
     if (session->clientbanner == NULL) {
       goto end;
     }
+    snprintf(buffer, 128, "%s\n", session->clientbanner);
   }
-
-  snprintf(buffer, 128, "%s\n", banner);
 
   if (ssh_socket_write(session->socket, buffer, strlen(buffer)) == SSH_ERROR) {
     goto end;
@@ -536,7 +544,8 @@ pending:
       }
       SSH_LOG(SSH_LOG_PACKET,"ssh_connect: Actual timeout : %d", timeout);
       ret = ssh_handle_packets_termination(session, timeout, ssh_connect_termination, session);
-      if (ret == SSH_ERROR || !ssh_connect_termination(session)) {
+      if (session->session_state != SSH_SESSION_STATE_ERROR &&
+          (ret == SSH_ERROR || !ssh_connect_termination(session))) {
           ssh_set_error(session, SSH_FATAL,
                         "Timeout connecting to %s", session->opts.host);
           session->session_state = SSH_SESSION_STATE_ERROR;

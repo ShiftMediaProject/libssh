@@ -35,6 +35,7 @@
 #include "libssh/ssh2.h"
 #include "libssh/string.h"
 #include "libssh/curve25519.h"
+#include "libssh/knownhosts.h"
 
 #ifdef HAVE_LIBGCRYPT
 # define BLOWFISH "blowfish-cbc,"
@@ -374,6 +375,53 @@ void ssh_list_kex(struct ssh_kex_struct *kex) {
 }
 
 /**
+ * @internal
+ * @brief selects the hostkey mechanisms to be chosen for the key exchange,
+ * as some hostkey mechanisms may be present in known_hosts file and preferred
+ * @returns a cstring containing a comma-separated list of hostkey methods.
+ *          NULL if no method matches
+ */
+static char *ssh_client_select_hostkeys(ssh_session session){
+    char methods_buffer[128]={0};
+    static const char *preferred_hostkeys[]={"ecdsa-sha2-nistp521","ecdsa-sha2-nistp384",
+    		"ecdsa-sha2-nistp256", "ssh-rsa", "ssh-dss", "ssh-rsa1", NULL};
+    char **methods;
+    int i,j;
+    int needcoma=0;
+
+    methods = ssh_knownhosts_algorithms(session);
+	if (methods == NULL || methods[0] == NULL){
+		SAFE_FREE(methods);
+		return NULL;
+	}
+
+	for (i=0;preferred_hostkeys[i] != NULL; ++i){
+		for (j=0; methods[j] != NULL; ++j){
+			if(strcmp(preferred_hostkeys[i], methods[j]) == 0){
+				if (verify_existing_algo(SSH_HOSTKEYS, methods[j])){
+					if(needcoma)
+						strncat(methods_buffer,",",sizeof(methods_buffer)-strlen(methods_buffer)-1);
+					strncat(methods_buffer, methods[j], sizeof(methods_buffer)-strlen(methods_buffer)-1);
+					needcoma = 1;
+				}
+			}
+		}
+	}
+	for(i=0;methods[i]!= NULL; ++i){
+		SAFE_FREE(methods[i]);
+	}
+	SAFE_FREE(methods);
+
+	if(strlen(methods_buffer) > 0){
+		SSH_LOG(SSH_LOG_DEBUG, "Changing host key method to \"%s\"", methods_buffer);
+		return strdup(methods_buffer);
+	} else {
+		SSH_LOG(SSH_LOG_DEBUG, "No supported kex method for existing key in known_hosts file");
+		return NULL;
+	}
+
+}
+/**
  * @brief sets the key exchange parameters to be sent to the server,
  *        in function of the options and available methods.
  */
@@ -385,6 +433,13 @@ int set_client_kex(ssh_session session){
     ssh_get_random(client->cookie, 16, 0);
 
     memset(client->methods, 0, KEX_METHODS_SIZE * sizeof(char **));
+    /* first check if we have specific host key methods */
+    if(session->opts.wanted_methods[SSH_HOSTKEYS] == NULL){
+    	/* Only if no override */
+    	session->opts.wanted_methods[SSH_HOSTKEYS] =
+    			ssh_client_select_hostkeys(session);
+    }
+
     for (i = 0; i < KEX_METHODS_SIZE; i++) {
         wanted = session->opts.wanted_methods[i];
         if (wanted == NULL)

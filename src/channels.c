@@ -916,10 +916,10 @@ int channel_default_bufferize(ssh_channel channel, void *data, int len,
  *                      SSH_AGAIN if in nonblocking mode and call has
  *                      to be done again.
  *
- * @see channel_open_forward()
- * @see channel_request_env()
- * @see channel_request_shell()
- * @see channel_request_exec()
+ * @see ssh_channel_open_forward()
+ * @see ssh_channel_request_env()
+ * @see ssh_channel_request_shell()
+ * @see ssh_channel_request_exec()
  */
 int ssh_channel_open_session(ssh_channel channel) {
   if(channel == NULL) {
@@ -952,7 +952,7 @@ int ssh_channel_open_session(ssh_channel channel) {
  *                      SSH_AGAIN if in nonblocking mode and call has
  *                      to be done again.
  *
- * @see channel_open_forward()
+ * @see ssh_channel_open_forward()
  */
 int ssh_channel_open_auth_agent(ssh_channel channel){
   if(channel == NULL) {
@@ -1125,8 +1125,24 @@ void ssh_channel_do_free(ssh_channel channel){
  *
  * @return              SSH_OK on success, SSH_ERROR if an error occurred.
  *
- * @see channel_close()
- * @see channel_free()
+ * Example:
+@code
+   rc = ssh_channel_send_eof(channel);
+   if (rc == SSH_ERROR) {
+       return -1;
+   }
+   while(!ssh_channel_is_eof(channel)) {
+       rc = ssh_channel_read(channel, buf, sizeof(buf), 0);
+       if (rc == SSH_ERROR) {
+           return -1;
+       }
+   }
+   ssh_channel_close(channel);
+@endcode
+ *
+ * @see ssh_channel_close()
+ * @see ssh_channel_free()
+ * @see ssh_channel_is_eof()
  */
 int ssh_channel_send_eof(ssh_channel channel){
   ssh_session session;
@@ -1175,8 +1191,8 @@ error:
  *
  * @return              SSH_OK on success, SSH_ERROR if an error occurred.
  *
- * @see channel_free()
- * @see channel_eof()
+ * @see ssh_channel_free()
+ * @see ssh_channel_is_eof()
  */
 int ssh_channel_close(ssh_channel channel){
   ssh_session session;
@@ -1402,7 +1418,7 @@ uint32_t ssh_channel_window_size(ssh_channel channel) {
  *
  * @return              The number of bytes written, SSH_ERROR on error.
  *
- * @see channel_read()
+ * @see ssh_channel_read()
  */
 int ssh_channel_write(ssh_channel channel, const void *data, uint32_t len) {
   return channel_write_common(channel, data, len, 0);
@@ -1415,7 +1431,7 @@ int ssh_channel_write(ssh_channel channel, const void *data, uint32_t len) {
  *
  * @return              0 if channel is closed, nonzero otherwise.
  *
- * @see channel_is_closed()
+ * @see ssh_channel_is_closed()
  */
 int ssh_channel_is_open(ssh_channel channel) {
     if(channel == NULL) {
@@ -1431,7 +1447,7 @@ int ssh_channel_is_open(ssh_channel channel) {
  *
  * @return              0 if channel is opened, nonzero otherwise.
  *
- * @see channel_is_open()
+ * @see ssh_channel_is_open()
  */
 int ssh_channel_is_closed(ssh_channel channel) {
     if(channel == NULL) {
@@ -1730,7 +1746,7 @@ error:
  *                      SSH_AGAIN if in nonblocking mode and call has
  *                      to be done again.
  *
- * @see channel_request_pty_size()
+ * @see ssh_channel_request_pty_size()
  */
 int ssh_channel_request_pty(ssh_channel channel) {
   return ssh_channel_request_pty_size(channel, "xterm", 80, 24);
@@ -1969,7 +1985,7 @@ error:
 }
 
 static ssh_channel ssh_channel_accept(ssh_session session, int channeltype,
-    int timeout_ms) {
+    int timeout_ms, int *destination_port) {
 #ifndef _WIN32
   static const struct timespec ts = {
     .tv_sec = 0,
@@ -1986,7 +2002,11 @@ static ssh_channel ssh_channel_accept(ssh_session session, int channeltype,
    * 50 ms. So we need to decrement by 100 ms.
    */
   for (t = timeout_ms; t >= 0; t -= 100) {
-    ssh_handle_packets(session, 50);
+    if (timeout_ms == 0) {
+        ssh_handle_packets(session, 0);
+    } else {
+        ssh_handle_packets(session, 50);
+    }
 
     if (session->ssh_message_list) {
       iterator = ssh_list_get_iterator(session->ssh_message_list);
@@ -1996,6 +2016,10 @@ static ssh_channel ssh_channel_accept(ssh_session session, int channeltype,
             ssh_message_subtype(msg) == channeltype) {
           ssh_list_remove(session->ssh_message_list, iterator);
           channel = ssh_message_channel_request_open_reply_accept(msg);
+          if(destination_port) {
+            *destination_port=msg->channel_request_open.destination_port;
+          }
+
           ssh_message_free(msg);
           return channel;
         }
@@ -2026,7 +2050,7 @@ static ssh_channel ssh_channel_accept(ssh_session session, int channeltype,
  *                      the server.
  */
 ssh_channel ssh_channel_accept_x11(ssh_channel channel, int timeout_ms) {
-  return ssh_channel_accept(channel->session, SSH_CHANNEL_X11, timeout_ms);
+  return ssh_channel_accept(channel->session, SSH_CHANNEL_X11, timeout_ms, NULL);
 }
 
 /**
@@ -2280,7 +2304,23 @@ error:
  *         the server
  */
 ssh_channel ssh_forward_accept(ssh_session session, int timeout_ms) {
-  return ssh_channel_accept(session, SSH_CHANNEL_FORWARDED_TCPIP, timeout_ms);
+  return ssh_channel_accept(session, SSH_CHANNEL_FORWARDED_TCPIP, timeout_ms, NULL);
+}
+
+/**
+ * @brief Accept an incoming TCP/IP forwarding channel and get information
+ * about incomming connection
+ * @param[in]  session    The ssh session to use.
+ *
+ * @param[in]  timeout_ms A timeout in milliseconds.
+ *
+ * @param[in]  destination_port A pointer to destination port or NULL.
+ *
+ * @return Newly created channel, or NULL if no incoming channel request from
+ *         the server
+ */
+ssh_channel ssh_channel_accept_forward(ssh_session session, int timeout_ms, int* destination_port) {
+  return ssh_channel_accept(session, SSH_CHANNEL_FORWARDED_TCPIP, timeout_ms, destination_port);
 }
 
 /**
@@ -2416,20 +2456,22 @@ error:
  *                      SSH_ERROR if an error occurred,
  *                      SSH_AGAIN if in nonblocking mode and call has
  *                      to be done again.
- * @code
- *   rc = channel_request_exec(channel, "ps aux");
- *   if (rc > 0) {
- *     return -1;
- *   }
  *
- *   while ((rc = channel_read(channel, buffer, sizeof(buffer), 0)) > 0) {
- *     if (fwrite(buffer, 1, rc, stdout) != (unsigned int) rc) {
- *       return -1;
- *     }
- *   }
- * @endcode
+ * Example:
+@code
+   rc = channel_request_exec(channel, "ps aux");
+   if (rc > 0) {
+       return -1;
+   }
+
+   while ((rc = channel_read(channel, buffer, sizeof(buffer), 0)) > 0) {
+       if (fwrite(buffer, 1, rc, stdout) != (unsigned int) rc) {
+           return -1;
+       }
+   }
+@endcode
  *
- * @see channel_request_shell()
+ * @see ssh_channel_request_shell()
  */
 int ssh_channel_request_exec(ssh_channel channel, const char *cmd) {
   ssh_buffer buffer = NULL;
@@ -2683,16 +2725,16 @@ int ssh_channel_read(ssh_channel channel, void *dest, uint32_t count, int is_std
 /**
  * @brief Reads data from a channel.
  *
- * @param[in]  channel  The channel to read from.
+ * @param[in]  channel     The channel to read from.
  *
- * @param[in]  dest     The destination buffer which will get the data.
+ * @param[in]  dest        The destination buffer which will get the data.
  *
- * @param[in]  count    The count of bytes to be read.
+ * @param[in]  count       The count of bytes to be read.
  *
- * @param[in]  is_stderr A boolean value to mark reading from the stderr flow.
+ * @param[in]  is_stderr   A boolean value to mark reading from the stderr flow.
  *
- * @param[in]  timeout  A timeout in seconds. A value of -1 means infinite
- *                      timeout.
+ * @param[in]  timeout_ms  A timeout in milliseconds. A value of -1 means
+ *                         infinite timeout.
  *
  * @return              The number of bytes read, 0 on end of file or SSH_ERROR
  *                      on error. In nonblocking mode it Can return 0 if no data
@@ -2808,7 +2850,7 @@ int ssh_channel_read_timeout(ssh_channel channel,
  *
  * @warning Don't forget to check for EOF as it would return 0 here.
  *
- * @see channel_is_eof()
+ * @see ssh_channel_is_eof()
  */
 int ssh_channel_read_nonblocking(ssh_channel channel, void *dest, uint32_t count,
     int is_stderr) {
@@ -2860,7 +2902,7 @@ int ssh_channel_read_nonblocking(ssh_channel channel, void *dest, uint32_t count
  *
  * @warning When the channel is in EOF state, the function returns SSH_EOF.
  *
- * @see channel_is_eof()
+ * @see ssh_channel_is_eof()
  */
 int ssh_channel_poll(ssh_channel channel, int is_stderr){
   ssh_buffer stdbuf;
@@ -2912,7 +2954,7 @@ int ssh_channel_poll(ssh_channel channel, int is_stderr){
  *
  * @warning When the channel is in EOF state, the function returns SSH_EOF.
  *
- * @see channel_is_eof()
+ * @see ssh_channel_is_eof()
  */
 int ssh_channel_poll_timeout(ssh_channel channel, int timeout, int is_stderr){
   ssh_session session;
@@ -3217,7 +3259,7 @@ int ssh_channel_select(ssh_channel *readchans, ssh_channel *writechans,
  *
  * @return              The number of bytes written, SSH_ERROR on error.
  *
- * @see channel_read()
+ * @see ssh_channel_read()
  */
 int ssh_channel_write_stderr(ssh_channel channel, const void *data, uint32_t len) {
   return channel_write_common(channel, data, len, 1);
