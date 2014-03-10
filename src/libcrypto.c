@@ -23,7 +23,9 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#if !WIN32
 #include <sys/time.h>
+#endif
 
 #include "libssh/priv.h"
 #include "libssh/session.h"
