@@ -10,6 +10,9 @@
     <Filter Include="Resource Files">
       <UniqueIdentifier>{e05e69ea-955c-4c2c-83f8-ff30c0007387}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Header Files\libssh">
+      <UniqueIdentifier>{50a94cac-8683-4916-8f43-8df5dd505148}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\callbacks.c">
@@ -158,112 +161,118 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\include\libssh\keyfiles.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\keys.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\legacy.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\libcrypto.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\libssh.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\messages.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\misc.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\packet.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\pcap.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\pki.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\poll.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\priv.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\scp.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\server.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\session.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\sftp.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\socket.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\ssh1.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\ssh2.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\string.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\threads.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\wrapper.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\libssh\agent.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\libssh</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\auth.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\libssh</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\bind.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\libssh</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\buffer.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\libssh</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\callbacks.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\libssh</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\channels.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\crypto.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\dh.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\kex.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\options.h">
-      <Filter>Header Files</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\pki_priv.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\libssh</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\crc32.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\crypto.h">
+      <Filter>Header Files\libssh</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\curve25519.h">
-      <Filter>Header Files</Filter>
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\dh.h">
+      <Filter>Header Files\libssh</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\ecdh.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\kex.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\keyfiles.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\keys.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\legacy.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\libcrypto.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\libssh.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\messages.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\misc.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\options.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\packet.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\pcap.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\pki.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\pki_priv.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\poll.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\priv.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\scp.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\server.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\session.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\sftp.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\socket.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\ssh1.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\ssh2.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\string.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\threads.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\wrapper.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="config.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="version.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

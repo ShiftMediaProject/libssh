@@ -137,6 +137,8 @@
     <ClInclude Include="..\include\libssh\string.h" />
     <ClInclude Include="..\include\libssh\threads.h" />
     <ClInclude Include="..\include\libssh\wrapper.h" />
+    <ClInclude Include="config.h" />
+    <ClInclude Include="version.h" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{17D28A05-3CF7-4F15-B19C-6495EC7579B8}</ProjectGuid>

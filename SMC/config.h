@@ -1,16 +1,15 @@
 /* Name of package */
 #define PACKAGE "libssh"
 
-/* Version number of package */
-#define VERSION "0.6.0"
+#include "version.h"
 
 /* #undef LOCALEDIR */
 /* #undef DATADIR */
 #define LIBDIR "lib"
 #define PLUGINDIR "plugins-4"
 /* #undef SYSCONFDIR */
-#define BINARYDIR "D:/Code_Files/ShiftMediaCenter/dependencies/source/bullshit"
-#define SOURCEDIR "D:/Code_Files/ShiftMediaCenter/dependencies/source/libssh"
+#define BINARYDIR ""
+#define SOURCEDIR ""
 
 /************************** HEADER FILES *************************/
 
@@ -83,7 +82,7 @@
 #define HAVE__VSNPRINTF_S 1
 
 /* Define to 1 if you have the `isblank' function. */
-/* #undef HAVE_ISBLANK */
+#define HAVE_ISBLANK 1
 
 /* Define to 1 if you have the `strncpy' function. */
 #define HAVE_STRNCPY 1
@@ -117,9 +116,6 @@
 
 /* Define to 1 if you have the `_strtoui64' function. */
 #define HAVE__STRTOUI64 1
-
-/* Define to 1 if you have the `clock_gettime' function. */
-/* #undef HAVE_CLOCK_GETTIME */
 
 /* Define to 1 if you have the `ntohll' function. */
 #define HAVE_NTOHLL 1
