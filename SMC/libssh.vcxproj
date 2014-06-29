@@ -1,12 +1,12 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
-    <ProjectConfiguration Include="DebugDLLs|Win32">
-      <Configuration>DebugDLLs</Configuration>
+    <ProjectConfiguration Include="DebugDLLSharedDeps|Win32">
+      <Configuration>DebugDLLSharedDeps</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="DebugDLLs|x64">
-      <Configuration>DebugDLLs</Configuration>
+    <ProjectConfiguration Include="DebugDLLSharedDeps|x64">
+      <Configuration>DebugDLLSharedDeps</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="DebugDLL|Win32">
@@ -25,12 +25,12 @@
       <Configuration>Debug</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="ReleaseDLLs|Win32">
-      <Configuration>ReleaseDLLs</Configuration>
+    <ProjectConfiguration Include="ReleaseDLLSharedDeps|Win32">
+      <Configuration>ReleaseDLLSharedDeps</Configuration>
       <Platform>Win32</Platform>
     </ProjectConfiguration>
-    <ProjectConfiguration Include="ReleaseDLLs|x64">
-      <Configuration>ReleaseDLLs</Configuration>
+    <ProjectConfiguration Include="ReleaseDLLSharedDeps|x64">
+      <Configuration>ReleaseDLLSharedDeps</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="ReleaseDLL|Win32">
@@ -39,6 +39,14 @@
     </ProjectConfiguration>
     <ProjectConfiguration Include="ReleaseDLL|x64">
       <Configuration>ReleaseDLL</Configuration>
+      <Platform>x64</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseLTO|Win32">
+      <Configuration>ReleaseLTO</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="ReleaseLTO|x64">
+      <Configuration>ReleaseLTO</Configuration>
       <Platform>x64</Platform>
     </ProjectConfiguration>
     <ProjectConfiguration Include="Release|Win32">
@@ -163,7 +171,7 @@
     <PlatformToolset>v120</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLs|Win32'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLSharedDeps|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v120</PlatformToolset>
@@ -175,7 +183,7 @@
     <PlatformToolset>v120</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLs|x64'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLSharedDeps|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>true</UseDebugLibraries>
     <PlatformToolset>v120</PlatformToolset>
@@ -187,11 +195,25 @@
     <PlatformToolset>v120</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="Configuration">
     <ConfigurationType>StaticLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v120</PlatformToolset>
     <CharacterSet>MultiByte</CharacterSet>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|x64'" Label="Configuration">
+    <ConfigurationType>StaticLibrary</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+    <PlatformToolset>v120</PlatformToolset>
+    <CharacterSet>MultiByte</CharacterSet>
+    <WholeProgramOptimization>true</WholeProgramOptimization>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
@@ -200,7 +222,7 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLs|Win32'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLSharedDeps|Win32'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v120</PlatformToolset>
@@ -214,7 +236,7 @@
     <WholeProgramOptimization>true</WholeProgramOptimization>
     <CharacterSet>MultiByte</CharacterSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLs|x64'" Label="Configuration">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLSharedDeps|x64'" Label="Configuration">
     <ConfigurationType>DynamicLibrary</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
     <PlatformToolset>v120</PlatformToolset>
@@ -233,31 +255,37 @@
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLs|Win32'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLSharedDeps|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLs|x64'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLSharedDeps|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Label="PropertySheets">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLs|Win32'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLSharedDeps|Win32'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
-  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLs|x64'" Label="PropertySheets">
+  <ImportGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLSharedDeps|x64'" Label="PropertySheets">
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
@@ -266,7 +294,7 @@
     <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>..\..\..\msvc32\</OutDir>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLs|Win32'">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLSharedDeps|Win32'">
     <TargetName>libsshd</TargetName>
     <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>..\..\..\msvc32\</OutDir>
@@ -276,7 +304,7 @@
     <OutDir>..\..\..\msvc64\</OutDir>
     <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLs|x64'">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLSharedDeps|x64'">
     <TargetName>libsshd</TargetName>
     <OutDir>..\..\..\msvc64\</OutDir>
     <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
@@ -286,7 +314,7 @@
     <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>..\..\..\msvc32\</OutDir>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLs|Win32'">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLSharedDeps|Win32'">
     <TargetName>libssh</TargetName>
     <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>..\..\..\msvc32\</OutDir>
@@ -296,7 +324,7 @@
     <OutDir>..\..\..\msvc64\</OutDir>
     <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLs|x64'">
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLSharedDeps|x64'">
     <TargetName>libssh</TargetName>
     <OutDir>..\..\..\msvc64\</OutDir>
     <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
@@ -316,7 +344,17 @@
     <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
     <OutDir>..\..\..\msvc32\</OutDir>
   </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">
+    <TargetName>libssh</TargetName>
+    <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
+    <OutDir>..\..\..\msvc32\</OutDir>
+  </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+    <TargetName>libssh</TargetName>
+    <OutDir>..\..\..\msvc64\</OutDir>
+    <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|x64'">
     <TargetName>libssh</TargetName>
     <OutDir>..\..\..\msvc64\</OutDir>
     <IntDir>$(SolutionDir)\obj\$(Configuration)\$(Platform)\$(ProjectName)\</IntDir>
@@ -342,7 +380,7 @@
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalDependencies>libzd.lib;libopenssld.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
     <PostBuildEvent>
       <Command>mkdir $(OutDir)\include
@@ -389,7 +427,7 @@ cd $(ProjectDir)
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalDependencies>libzd.lib;libopenssld.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
     <PostBuildEvent>
       <Command>mkdir $(OutDir)\include
@@ -432,13 +470,13 @@ cd $(ProjectDir)
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)\lib\$(TargetName).dll.lib</ImportLibrary>
-      <ProgramDatabaseFile>$(OutDir)\lib\$(TargetName).pdb</ProgramDatabaseFile>
+      <ImportLibrary>$(OutDir)\bin\$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
       <AdditionalDependencies>libzd.lib;libopenssld.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\bin\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>mkdir $(OutDir)\include
@@ -464,7 +502,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLs|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLSharedDeps|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
@@ -481,13 +519,13 @@ cd $(ProjectDir)
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)\lib\$(TargetName).dll.lib</ImportLibrary>
-      <ProgramDatabaseFile>$(OutDir)\lib\$(TargetName).pdb</ProgramDatabaseFile>
+      <ImportLibrary>$(OutDir)\bin\$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalDependencies>libzd.dll.lib;libopenssld.dll.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libzd.lib;libopenssld.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>mkdir $(OutDir)\include
@@ -530,13 +568,13 @@ cd $(ProjectDir)
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)\lib\$(TargetName).dll.lib</ImportLibrary>
-      <ProgramDatabaseFile>$(OutDir)\lib\$(TargetName).pdb</ProgramDatabaseFile>
+      <ImportLibrary>$(OutDir)\bin\$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
       <AdditionalDependencies>libzd.lib;libopenssld.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\bin\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>mkdir $(OutDir)\include
@@ -562,7 +600,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLs|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLSharedDeps|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>Disabled</Optimization>
@@ -579,13 +617,13 @@ cd $(ProjectDir)
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)\lib\$(TargetName).dll.lib</ImportLibrary>
-      <ProgramDatabaseFile>$(OutDir)\lib\$(TargetName).pdb</ProgramDatabaseFile>
+      <ImportLibrary>$(OutDir)\bin\$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalDependencies>libzd.dll.lib;libopenssld.dll.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libzd.lib;libopenssld.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>mkdir $(OutDir)\include
@@ -646,7 +684,68 @@ cd $(ProjectDir)
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalDependencies>libz.lib;libopenssl.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+    <PostBuildEvent>
+      <Command>mkdir $(OutDir)\include
+mkdir $(OutDir)\include\libssh
+copy ..\include\libssh\callbacks.h $(OutDir)\include\libssh
+copy ..\include\libssh\legacy.h $(OutDir)\include\libssh
+copy ..\include\libssh\libssh.h $(OutDir)\include\libssh
+copy ..\include\libssh\server.h $(OutDir)\include\libssh
+copy ..\include\libssh\sftp.h $(OutDir)\include\libssh
+copy ..\include\libssh\ssh1.h $(OutDir)\include\libssh
+copy ..\include\libssh\ssh2.h $(OutDir)\include\libssh
+mkdir $(OutDir)\licenses
+copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if exist ..\libssh_config.h (
+del ..\libssh_config.h
+)
+if exist $(OutDir)\include\libssh (
+rd /s /q $(OutDir)\include\libssh
+cd ../
+cd $(ProjectDir)
+)</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|Win32'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>false</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_LIB;NDEBUG;LIBSSH_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>true</StringPooling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <FloatingPointExceptions>false</FloatingPointExceptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <AdditionalIncludeDirectories>.\;..\include;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ExceptionHandling>false</ExceptionHandling>
+      <DisableSpecificWarnings>4996;4267;4244;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+    <Lib>
+      <TargetMachine>MachineX86</TargetMachine>
+    </Lib>
+    <Lib>
+      <SubSystem>Windows</SubSystem>
+      <OutputFile>$(OutDir)\lib\$(TargetName)$(TargetExt)</OutputFile>
+      <AdditionalDependencies>libz.lib;libopenssl.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
     <PostBuildEvent>
       <Command>mkdir $(OutDir)\include
@@ -707,7 +806,68 @@ cd $(ProjectDir)
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\lib\$(TargetName)$(TargetExt)</OutputFile>
       <AdditionalDependencies>libz.lib;libopenssl.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+    </Lib>
+    <PostBuildEvent>
+      <Command>mkdir $(OutDir)\include
+mkdir $(OutDir)\include\libssh
+copy ..\include\libssh\callbacks.h $(OutDir)\include\libssh
+copy ..\include\libssh\legacy.h $(OutDir)\include\libssh
+copy ..\include\libssh\libssh.h $(OutDir)\include\libssh
+copy ..\include\libssh\server.h $(OutDir)\include\libssh
+copy ..\include\libssh\sftp.h $(OutDir)\include\libssh
+copy ..\include\libssh\ssh1.h $(OutDir)\include\libssh
+copy ..\include\libssh\ssh2.h $(OutDir)\include\libssh
+mkdir $(OutDir)\licenses
+copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if exist ..\libssh_config.h (
+del ..\libssh_config.h
+)
+if exist $(OutDir)\include\libssh (
+rd /s /q $(OutDir)\include\libssh
+cd ../
+cd $(ProjectDir)
+)</Command>
+    </PreBuildEvent>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseLTO|x64'">
+    <ClCompile>
+      <WarningLevel>Level3</WarningLevel>
+      <Optimization>MaxSpeed</Optimization>
+      <FunctionLevelLinking>true</FunctionLevelLinking>
+      <IntrinsicFunctions>true</IntrinsicFunctions>
+      <SDLCheck>false</SDLCheck>
+      <PreprocessorDefinitions>WIN32;_WINDOWS;_LIB;NDEBUG;LIBSSH_STATIC;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <StringPooling>true</StringPooling>
+      <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
+      <BufferSecurityCheck>false</BufferSecurityCheck>
+      <EnableEnhancedInstructionSet>StreamingSIMDExtensions2</EnableEnhancedInstructionSet>
+      <FloatingPointModel>Fast</FloatingPointModel>
+      <FloatingPointExceptions>false</FloatingPointExceptions>
+      <MultiProcessorCompilation>true</MultiProcessorCompilation>
+      <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
+      <FavorSizeOrSpeed>Speed</FavorSizeOrSpeed>
+      <OmitFramePointers>true</OmitFramePointers>
+      <EnableFiberSafeOptimizations>true</EnableFiberSafeOptimizations>
+      <AdditionalIncludeDirectories>.\;..\include;$(OutDir)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <ExceptionHandling>false</ExceptionHandling>
+      <DisableSpecificWarnings>4996;4267;4244;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+      <InterproceduralOptimization>SingleFile</InterproceduralOptimization>
+    </ClCompile>
+    <Link>
+      <EnableCOMDATFolding>true</EnableCOMDATFolding>
+      <OptimizeReferences>true</OptimizeReferences>
+    </Link>
+    <Lib>
+      <TargetMachine>MachineX64</TargetMachine>
+    </Lib>
+    <Lib>
+      <SubSystem>Windows</SubSystem>
+      <OutputFile>$(OutDir)\lib\$(TargetName)$(TargetExt)</OutputFile>
+      <AdditionalDependencies>libz.lib;libopenssl.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Lib>
     <PostBuildEvent>
       <Command>mkdir $(OutDir)\include
@@ -761,13 +921,13 @@ cd $(ProjectDir)
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)\lib\$(TargetName).dll.lib</ImportLibrary>
-      <ProgramDatabaseFile>$(OutDir)\lib\$(TargetName).pdb</ProgramDatabaseFile>
+      <ImportLibrary>$(OutDir)\bin\$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
       <AdditionalDependencies>libz.lib;libopenssl.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\bin\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>mkdir $(OutDir)\include
@@ -793,7 +953,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLs|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLSharedDeps|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>MaxSpeed</Optimization>
@@ -821,13 +981,13 @@ cd $(ProjectDir)
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)\lib\$(TargetName).dll.lib</ImportLibrary>
-      <ProgramDatabaseFile>$(OutDir)\lib\$(TargetName).pdb</ProgramDatabaseFile>
+      <ImportLibrary>$(OutDir)\bin\$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalDependencies>libz.dll.lib;libopenssl.dll.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libz.lib;libopenssl.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>mkdir $(OutDir)\include
@@ -881,13 +1041,13 @@ cd $(ProjectDir)
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)\lib\$(TargetName).dll.lib</ImportLibrary>
-      <ProgramDatabaseFile>$(OutDir)\lib\$(TargetName).pdb</ProgramDatabaseFile>
+      <ImportLibrary>$(OutDir)\bin\$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
       <AdditionalDependencies>libz.lib;libopenssl.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalLibraryDirectories>$(OutDir)\bin\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>mkdir $(OutDir)\include
@@ -913,7 +1073,7 @@ cd $(ProjectDir)
 )</Command>
     </PreBuildEvent>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLs|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLSharedDeps|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <Optimization>MaxSpeed</Optimization>
@@ -941,13 +1101,13 @@ cd $(ProjectDir)
       <OptimizeReferences>true</OptimizeReferences>
       <SubSystem>Windows</SubSystem>
       <OutputFile>$(OutDir)\bin\$(TargetName)$(TargetExt)</OutputFile>
-      <ImportLibrary>$(OutDir)\lib\$(TargetName).dll.lib</ImportLibrary>
-      <ProgramDatabaseFile>$(OutDir)\lib\$(TargetName).pdb</ProgramDatabaseFile>
+      <ImportLibrary>$(OutDir)\bin\$(TargetName).lib</ImportLibrary>
+      <ProgramDatabaseFile>$(OutDir)\bin\$(TargetName).pdb</ProgramDatabaseFile>
       <ModuleDefinitionFile>
       </ModuleDefinitionFile>
       <ProfileGuidedDatabase>$(OutDir)\bin\$(TargetName).pgd</ProfileGuidedDatabase>
-      <AdditionalDependencies>libz.dll.lib;libopenssl.dll.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalLibraryDirectories>$(OutDir)\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libz.lib;libopenssl.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalLibraryDirectories>$(OutDir)\lib\;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
     </Link>
     <PostBuildEvent>
       <Command>mkdir $(OutDir)\include
