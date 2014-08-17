@@ -60,9 +60,6 @@
     <ClCompile Include="..\src\legacy.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\libcrypto.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\log.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -156,7 +153,16 @@
     <ClCompile Include="..\src\packet_crypt.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\pki_crypto.c">
+    <ClCompile Include="..\src\pki_gcrypt.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\libgcrypt.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\gcrypt_missing.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\libcrypto.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>

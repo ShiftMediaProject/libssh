@@ -29,37 +29,37 @@
 /* #undef HAVE_UNISTD_H */
 
 /* Define to 1 if you have the <openssl/aes.h> header file. */
-#define HAVE_OPENSSL_AES_H 1
+/* #undef HAVE_OPENSSL_AES_H */
 
 /* Define to 1 if you have the <wspiapi.h> header file. */
 #define HAVE_WSPIAPI_H 1
 
 /* Define to 1 if you have the <openssl/blowfish.h> header file. */
-#define HAVE_OPENSSL_BLOWFISH_H 1
+/* #undef HAVE_OPENSSL_BLOWFISH_H */
 
 /* Define to 1 if you have the <openssl/des.h> header file. */
-#define HAVE_OPENSSL_DES_H 1
+/* #undef HAVE_OPENSSL_DES_H */
 
 /* Define to 1 if you have the <openssl/ecdh.h> header file. */
-#define HAVE_OPENSSL_ECDH_H 1
+/* #undef HAVE_OPENSSL_ECDH_H */
 
 /* Define to 1 if you have the <openssl/ec.h> header file. */
-#define HAVE_OPENSSL_EC_H 1
+/* #undef HAVE_OPENSSL_EC_H */
 
 /* Define to 1 if you have the <openssl/ecdsa.h> header file. */
-#define HAVE_OPENSSL_ECDSA_H 1
+/* #undef HAVE_OPENSSL_ECDSA_H */
 
 /* Define to 1 if you have the <pthread.h> header file. */
 /* #undef HAVE_PTHREAD_H */
 
 /* Define to 1 if you have eliptic curve cryptography in openssl */
-#define HAVE_OPENSSL_ECC 1
+/* #undef HAVE_OPENSSL_ECC */
 
 /* Define to 1 if you have eliptic curve cryptography in gcrypt */
-/* #undef HAVE_GCRYPT_ECC */
+#define HAVE_GCRYPT_ECC 1
 
 /* Define to 1 if you have eliptic curve cryptography */
-#define HAVE_ECC 1
+/* #undef HAVE_ECC */
 
 /*************************** FUNCTIONS ***************************/
 
@@ -109,7 +109,7 @@
 #define HAVE_HTONLL 1
 
 /* Define to 1 if you have the `strtoull' function. */
-/* #undef HAVE_STRTOULL */
+#define HAVE_STRTOULL */
 
 /* Define to 1 if you have the `__strtoull' function. */
 /* #undef HAVE___STRTOULL */
@@ -123,10 +123,10 @@
 /*************************** LIBRARIES ***************************/
 
 /* Define to 1 if you have the `crypto' library (-lcrypto). */
-#define HAVE_LIBCRYPTO 1
+/* #undef HAVE_LIBCRYPTO */
 
 /* Define to 1 if you have the `gcrypt' library (-lgcrypt). */
-/* #undef HAVE_LIBGCRYPT */
+#define HAVE_LIBGCRYPT 1
 
 /* Define to 1 if you have the `pthread' library (-lpthread). */
 /* #undef HAVE_PTHREAD */
