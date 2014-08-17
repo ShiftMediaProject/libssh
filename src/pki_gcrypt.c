@@ -1508,7 +1508,11 @@ int pki_signature_verify(ssh_session session,
                          const unsigned char *hash,
                          size_t hlen)
 {
+#ifdef _MSC_VER
+    unsigned char * ghash = (char *)_alloca( sizeof( char )*( hlen + 1 ) );
+#else
     unsigned char ghash[hlen + 1];
+#endif
     gcry_sexp_t sexp;
     gcry_error_t err;
 
@@ -1580,7 +1584,11 @@ int pki_signature_verify(ssh_session session,
 ssh_signature pki_do_sign(const ssh_key privkey,
                           const unsigned char *hash,
                           size_t hlen) {
+#ifdef _MSC_VER
+    unsigned char * ghash = (char *)_alloca( sizeof( char )*( hlen + 1 ) );
+#else
     unsigned char ghash[hlen + 1];
+#endif
     ssh_signature sig;
     gcry_sexp_t sexp;
     gcry_error_t err;
@@ -1647,7 +1655,11 @@ ssh_signature pki_do_sign_sessionid(const ssh_key key,
                                     const unsigned char *hash,
                                     size_t hlen)
 {
+#ifdef _MSC_VER
+    unsigned char * ghash = (char *)_alloca( sizeof( char )*( hlen + 1 ) );
+#else
     unsigned char ghash[hlen + 1];
+#endif
     ssh_signature sig;
     gcry_sexp_t sexp;
     gcry_error_t err;
