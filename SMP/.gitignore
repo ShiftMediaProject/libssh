@@ -18,3 +18,5 @@
 !*.asm
 !*.def
 !*.rc
+!.gitignore
+!.gitattributes

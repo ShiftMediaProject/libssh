@@ -6,5 +6,3 @@
 build
 cscope.*
 tags
-
-!.gitignore
