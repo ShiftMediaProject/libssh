@@ -1,15 +1,3 @@
-/* Name of package */
-#define PACKAGE "libssh"
-
-#include "version.h"
-
-/* #undef LOCALEDIR */
-/* #undef DATADIR */
-#define LIBDIR "lib"
-#define PLUGINDIR "plugins-4"
-/* #undef SYSCONFDIR */
-#define BINARYDIR ""
-#define SOURCEDIR ""
 
 /************************** HEADER FILES *************************/
 
