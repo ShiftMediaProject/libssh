@@ -78,7 +78,7 @@
 /* libssh version */
 #define LIBSSH_VERSION_MAJOR  0
 #define LIBSSH_VERSION_MINOR  6
-#define LIBSSH_VERSION_MICRO  3
+#define LIBSSH_VERSION_MICRO  4
 
 #define LIBSSH_VERSION_INT SSH_VERSION_INT(LIBSSH_VERSION_MAJOR, \
                                            LIBSSH_VERSION_MINOR, \
@@ -533,6 +533,8 @@ LIBSSH_API int ssh_pki_export_pubkey_base64(const ssh_key key,
                                             char **b64_key);
 LIBSSH_API int ssh_pki_export_pubkey_file(const ssh_key key,
                                           const char *filename);
+
+LIBSSH_API const char *ssh_pki_key_ecdsa_name(const ssh_key key);
 
 LIBSSH_API void ssh_print_hexa(const char *descr, const unsigned char *what, size_t len);
 LIBSSH_API int ssh_send_ignore (ssh_session session, const char *data);

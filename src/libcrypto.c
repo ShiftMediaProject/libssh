@@ -19,11 +19,12 @@
  * MA 02111-1307, USA.
  */
 
+#include "config.h"
 
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#if !WIN32
+#ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
 #endif
 
@@ -80,9 +81,11 @@ static int alloc_key(struct ssh_cipher_struct *cipher) {
 }
 
 void ssh_reseed(void){
+#ifndef _WIN32
     struct timeval tv;
     gettimeofday(&tv, NULL);
     RAND_add(&tv, sizeof(tv), 0.0);
+#endif
 }
 
 SHACTX sha1_init(void) {
@@ -204,7 +207,11 @@ void md5_final(unsigned char *md, MD5CTX c) {
 }
 
 ssh_mac_ctx ssh_mac_ctx_init(enum ssh_mac_e type){
-  ssh_mac_ctx ctx=malloc(sizeof(struct ssh_mac_ctx_struct));
+  ssh_mac_ctx ctx = malloc(sizeof(struct ssh_mac_ctx_struct));
+  if (ctx == NULL) {
+    return NULL;
+  }
+
   ctx->mac_type=type;
   switch(type){
     case SSH_MAC_SHA1:

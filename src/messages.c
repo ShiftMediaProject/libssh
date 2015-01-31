@@ -508,8 +508,7 @@ void ssh_message_free(ssh_message msg){
     case SSH_REQUEST_AUTH:
       SAFE_FREE(msg->auth_request.username);
       if (msg->auth_request.password) {
-        memset(msg->auth_request.password, 0,
-            strlen(msg->auth_request.password));
+        BURN_STRING(msg->auth_request.password);
         SAFE_FREE(msg->auth_request.password);
       }
       ssh_key_free(msg->auth_request.pubkey);
@@ -1372,6 +1371,7 @@ int ssh_message_handle_channel_request(ssh_session session, ssh_channel channel,
     msg->channel_request.pxheight = ntohl(msg->channel_request.pxheight);
     msg->channel_request.modes = buffer_get_ssh_string(packet);
     if (msg->channel_request.modes == NULL) {
+      msg->channel_request.TERM = NULL;
       SAFE_FREE(term_c);
       goto error;
     }
@@ -1470,6 +1470,7 @@ int ssh_message_handle_channel_request(ssh_session session, ssh_channel channel,
   if (strcmp(request, "x11-req") == 0) {
     ssh_string auth_protocol = NULL;
     ssh_string auth_cookie = NULL;
+    uint32_t screen_number;
 
     buffer_get_u8(packet, &msg->channel_request.x11_single_connection);
 
@@ -1497,7 +1498,8 @@ int ssh_message_handle_channel_request(ssh_session session, ssh_channel channel,
     ssh_string_free(auth_protocol);
     ssh_string_free(auth_cookie);
 
-    buffer_get_u32(packet, &msg->channel_request.x11_screen_number);
+    buffer_get_u32(packet, &screen_number);
+    msg->channel_request.x11_screen_number = ntohl(screen_number);
 
     goto end;
   }

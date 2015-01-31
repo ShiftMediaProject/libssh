@@ -99,6 +99,25 @@ enum ssh_keytypes_e pki_privatekey_type_from_string(const char *privkey) {
 }
 
 /**
+ * @brief returns the ECDSA key name ("ecdsa-sha2-nistp256" for example)
+ *
+ * @param[in] key the ssh_key whose ECDSA name to get
+ *
+ * @returns the ECDSA key name ("ecdsa-sha2-nistp256" for example)
+ *
+ * @returns "unknown" if the ECDSA key name is not known
+ */
+const char *ssh_pki_key_ecdsa_name(const ssh_key key)
+{
+#ifdef HAVE_OPENSSL_ECC /* FIXME Better ECC check needed */
+    return pki_key_ecdsa_nid_to_name(key->ecdsa_nid);
+#else
+    (void) key; /* unused */
+    return NULL;
+#endif
+}
+
+/**
  * @brief creates a new empty SSH key
  * @returns an empty ssh_key handle, or NULL on error.
  */
@@ -724,6 +743,9 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
                 if (rc < 0) {
                     goto fail;
                 }
+
+                /* Update key type */
+                key->type_c = ssh_pki_key_ecdsa_name(key);
             }
             break;
 #endif
@@ -980,8 +1002,12 @@ int ssh_pki_generate(enum ssh_keytypes_e type, int parameter,
         case SSH_KEYTYPE_ECDSA:
 #ifdef HAVE_ECC
             rc = pki_key_generate_ecdsa(key, parameter);
-            if(rc == SSH_ERROR)
+            if (rc == SSH_ERROR) {
                 goto error;
+            }
+
+            /* Update key type */
+            key->type_c = ssh_pki_key_ecdsa_name(key);
             break;
 #endif
         case SSH_KEYTYPE_UNKNOWN:
@@ -1299,6 +1325,11 @@ int ssh_pki_signature_verify_blob(ssh_session session,
 
         evp(key->ecdsa_nid, digest, dlen, ehash, &elen);
 
+#ifdef DEBUG_CRYPTO
+        ssh_print_hexa("Hash to be verified with ecdsa",
+                       ehash, elen);
+#endif
+
         rc = pki_signature_verify(session,
                                   sig,
                                   key,
@@ -1364,6 +1395,10 @@ ssh_string ssh_pki_do_sign(ssh_session session,
         evp_update(ctx, session_id, ssh_string_len(session_id) + 4);
         evp_update(ctx, buffer_get_rest(sigbuf), buffer_get_rest_len(sigbuf));
         evp_final(ctx, ehash, &elen);
+
+#ifdef DEBUG_CRYPTO
+        ssh_print_hexa("Hash being signed", ehash, elen);
+#endif
 
         sig = pki_do_sign(privkey, ehash, elen);
 #endif
@@ -1458,10 +1493,8 @@ ssh_string ssh_srv_pki_do_sign_sessionid(ssh_session session,
                                          const ssh_key privkey)
 {
     struct ssh_crypto_struct *crypto;
-    unsigned char hash[SHA_DIGEST_LEN] = {0};
     ssh_signature sig;
     ssh_string sig_blob;
-    SHACTX ctx;
     int rc;
 
     if (session == NULL || privkey == NULL || !ssh_key_is_private(privkey)) {
@@ -1470,24 +1503,47 @@ ssh_string ssh_srv_pki_do_sign_sessionid(ssh_session session,
     crypto = session->next_crypto ? session->next_crypto :
                                        session->current_crypto;
 
-    ctx = sha1_init();
-    if (ctx == NULL) {
-        return NULL;
-    }
     if (crypto->secret_hash == NULL){
         ssh_set_error(session,SSH_FATAL,"Missing secret_hash");
         return NULL;
     }
-    sha1_update(ctx, crypto->secret_hash, crypto->digest_len);
-    sha1_final(hash, ctx);
+
+    if (privkey->type == SSH_KEYTYPE_ECDSA) {
+#ifdef HAVE_ECC
+        unsigned char ehash[EVP_DIGEST_LEN] = {0};
+        uint32_t elen;
+
+        evp(privkey->ecdsa_nid, crypto->secret_hash, crypto->digest_len,
+            ehash, &elen);
 
 #ifdef DEBUG_CRYPTO
-    ssh_print_hexa("Hash being signed", hash, SHA_DIGEST_LEN);
+        ssh_print_hexa("Hash being signed", ehash, elen);
 #endif
 
-    sig = pki_do_sign_sessionid(privkey, hash, SHA_DIGEST_LEN);
-    if (sig == NULL) {
-        return NULL;
+        sig = pki_do_sign_sessionid(privkey, ehash, elen);
+        if (sig == NULL) {
+            return NULL;
+        }
+#endif
+    } else {
+        unsigned char hash[SHA_DIGEST_LEN] = {0};
+        SHACTX ctx;
+
+        ctx = sha1_init();
+        if (ctx == NULL) {
+            return NULL;
+        }
+        sha1_update(ctx, crypto->secret_hash, crypto->digest_len);
+        sha1_final(hash, ctx);
+
+#ifdef DEBUG_CRYPTO
+        ssh_print_hexa("Hash being signed", hash, SHA_DIGEST_LEN);
+#endif
+
+        sig = pki_do_sign_sessionid(privkey, hash, SHA_DIGEST_LEN);
+        if (sig == NULL) {
+            return NULL;
+        }
     }
 
     rc = ssh_pki_export_signature_blob(sig, &sig_blob);

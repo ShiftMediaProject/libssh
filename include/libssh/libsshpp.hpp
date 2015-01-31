@@ -361,8 +361,8 @@ public:
    * @see ssh_channel_forward_accept
    * @see Session::listenForward
    */
-  Channel *acceptForward(int timeout_ms);
-  /* acceptForward is implemented later in this file */
+  inline Channel *acceptForward(int timeout_ms);
+  /* implemented outside the class due Channel references */
 
   void_throwable cancelForward(const char *address, int port){
     int err=ssh_forward_cancel(c_session, address, port);
@@ -480,12 +480,30 @@ public:
     ssh_throw(err);
     return err;
   }
-  int read(void *dest, size_t count, bool is_stderr=false){
+  int read(void *dest, size_t count, bool is_stderr){
     int err;
     /* handle int overflow */
     if(count > 0x7fffffff)
       count = 0x7fffffff;
-    err=ssh_channel_read(channel,dest,count,is_stderr);
+    err=ssh_channel_read_timeout(channel,dest,count,is_stderr,-1);
+    ssh_throw(err);
+    return err;
+  }
+  int read(void *dest, size_t count, int timeout){
+    int err;
+    /* handle int overflow */
+    if(count > 0x7fffffff)
+      count = 0x7fffffff;
+    err=ssh_channel_read_timeout(channel,dest,count,false,timeout);
+    ssh_throw(err);
+    return err;
+  }
+  int read(void *dest, size_t count, bool is_stderr=false, int timeout=-1){
+    int err;
+    /* handle int overflow */
+    if(count > 0x7fffffff)
+      count = 0x7fffffff;
+    err=ssh_channel_read_timeout(channel,dest,count,is_stderr,timeout);
     ssh_throw(err);
     return err;
   }

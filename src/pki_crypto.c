@@ -89,7 +89,7 @@ static int pki_key_ecdsa_to_nid(EC_KEY *k)
     return -1;
 }
 
-static const char *pki_key_ecdsa_nid_to_name(int nid)
+const char *pki_key_ecdsa_nid_to_name(int nid)
 {
     switch (nid) {
         case NID_X9_62_prime256v1:
@@ -345,12 +345,12 @@ ssh_key pki_key_dup(const ssh_key key, int demote)
         break;
     case SSH_KEYTYPE_ECDSA:
 #ifdef HAVE_OPENSSL_ECC
+        new->ecdsa_nid = key->ecdsa_nid;
+
         /* privkey -> pubkey */
         if (demote && ssh_key_is_private(key)) {
             const EC_POINT *p;
             int ok;
-
-            new->ecdsa_nid = key->ecdsa_nid;
 
             new->ecdsa = EC_KEY_new_by_curve_name(key->ecdsa_nid);
             if (new->ecdsa == NULL) {
@@ -383,10 +383,20 @@ fail:
 }
 
 int pki_key_generate_rsa(ssh_key key, int parameter){
-    key->rsa = RSA_generate_key(parameter, 65537, NULL, NULL);
-    if(key->rsa == NULL)
-        return SSH_ERROR;
-    return SSH_OK;
+	BIGNUM *e;
+	int rc;
+
+	e = BN_new();
+	key->rsa = RSA_new();
+
+	BN_set_word(e, 65537);
+	rc = RSA_generate_key_ex(key->rsa, parameter, e, NULL);
+
+	BN_free(e);
+
+	if (rc == -1 || key->rsa == NULL)
+		return SSH_ERROR;
+	return SSH_OK;
 }
 
 int pki_key_generate_dss(ssh_key key, int parameter){
@@ -1223,9 +1233,15 @@ static ssh_signature pki_signature_from_rsa_blob(const ssh_key pubkey,
     char *blob_padded_data;
     ssh_string sig_blob_padded;
 
+    size_t rsalen = 0;
     size_t len = ssh_string_len(sig_blob);
-    size_t rsalen= RSA_size(pubkey->rsa);
 
+    if (pubkey->rsa == NULL) {
+        ssh_pki_log("Pubkey RSA field NULL");
+        goto errout;
+    }
+
+    rsalen = RSA_size(pubkey->rsa);
     if (len > rsalen) {
         ssh_pki_log("Signature is too big: %lu > %lu",
                     (unsigned long)len, (unsigned long)rsalen);
@@ -1381,7 +1397,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
                 ssh_print_hexa("r", ssh_string_data(r), ssh_string_len(r));
 #endif
 
-                sig->ecdsa_sig->r = make_string_bn(r);
+                make_string_bn_inplace(r, sig->ecdsa_sig->r);
                 ssh_string_burn(r);
                 ssh_string_free(r);
                 if (sig->ecdsa_sig->r == NULL) {
@@ -1402,7 +1418,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
                 ssh_print_hexa("s", ssh_string_data(s), ssh_string_len(s));
 #endif
 
-                sig->ecdsa_sig->s = make_string_bn(s);
+                make_string_bn_inplace(s, sig->ecdsa_sig->s);
                 ssh_string_burn(s);
                 ssh_string_free(s);
                 if (sig->ecdsa_sig->s == NULL) {

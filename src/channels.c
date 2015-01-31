@@ -1243,7 +1243,8 @@ error:
 static int ssh_channel_waitwindow_termination(void *c){
   ssh_channel channel = (ssh_channel) c;
   if (channel->remote_window > 0 ||
-      channel->session->session_state == SSH_SESSION_STATE_ERROR)
+      channel->session->session_state == SSH_SESSION_STATE_ERROR ||
+      channel->state == SSH_CHANNEL_STATE_CLOSED)
     return 1;
   else
     return 0;
@@ -1350,7 +1351,8 @@ int channel_write_common(ssh_channel channel, const void *data,
               ssh_channel_waitwindow_termination,channel);
           if (rc == SSH_ERROR ||
               !ssh_channel_waitwindow_termination(channel) ||
-              channel->session->session_state == SSH_SESSION_STATE_ERROR)
+              channel->session->session_state == SSH_SESSION_STATE_ERROR ||
+              channel->state == SSH_CHANNEL_STATE_CLOSED)
             goto out;
           continue;
       }
@@ -3027,6 +3029,11 @@ static int ssh_channel_exit_status_termination(void *c){
  *                      (yet).
  * @warning             This function may block until a timeout (or never)
  *                      if the other side is not willing to close the channel.
+ *
+ * If you're looking for an async handling of this register a callback for the
+ * exit status.
+ *
+ * @see ssh_channel_exit_status_callback
  */
 int ssh_channel_get_exit_status(ssh_channel channel) {
   int rc;
@@ -3465,9 +3472,9 @@ error:
 }
 
 /**
- * @brief Send an exit signal to remote process (as described in RFC 4254, section 6.10).
+ * @brief Send an exit signal to remote process (RFC 4254, section 6.10).
  *
- * Sends a signal 'sig' to the remote process.
+ * This sends the exit status of the remote process.
  * Note, that remote system may not support signals concept.
  * In such a case this request will be silently ignored.
  * Only SSH-v2 is supported (I'm not sure about SSH-v1).
@@ -3545,7 +3552,7 @@ int ssh_channel_request_send_exit_signal(ssh_channel channel, const char *sig,
     goto error;
   }
 
-  rc = channel_request(channel, "signal", buffer, 0);
+  rc = channel_request(channel, "exit-signal", buffer, 0);
 error:
   ssh_buffer_free(buffer);
   if(tmp)
