@@ -10,6 +10,9 @@
 /* Define to 1 if you have the <util.h> header file. */
 /* #undef HAVE_UTIL_H */
 
+/* Define to 1 if you have the <sys/time.h> header file. */
+/* #undef HAVE_SYS_TIME_H */
+
 /* Define to 1 if you have the <termios.h> header file. */
 /* #undef HAVE_TERMIOS_H */
 
