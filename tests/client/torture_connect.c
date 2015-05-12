@@ -25,7 +25,9 @@
 #include <libssh/libssh.h>
 #include <sys/time.h>
 #include <arpa/inet.h>
-
+#include <netinet/in.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #define HOST "localhost"
 /* Should work until Apnic decides to assign it :) */
 #define BLACKHOLE "1.1.1.1"
@@ -128,7 +130,7 @@ static void torture_connect_socket(void **state) {
     server_addr.sin_port = htons(22);
     server_addr.sin_addr.s_addr = inet_addr("127.0.0.1");
 
-    rc = connect(sock_fd, &server_addr, sizeof(server_addr));
+    rc = connect(sock_fd, (struct sockaddr *)&server_addr, sizeof(server_addr));
     assert_true(rc == 0);
 
     ssh_options_set(session, SSH_OPTIONS_FD, &sock_fd);
