@@ -4,11 +4,20 @@
 /* Define to 1 if you have the <argp.h> header file. */
 /* #undef HAVE_ARGP_H */
 
+/* Define to 1 if you have the <aprpa/inet.h> header file. */
+/* #undef HAVE_ARPA_INET_H */
+
 /* Define to 1 if you have the <pty.h> header file. */
 /* #undef HAVE_PTY_H */
 
+/* Define to 1 if you have the <utmp.h> header file. */
+/* #undef HAVE_UTMP_H */
+
 /* Define to 1 if you have the <util.h> header file. */
 /* #undef HAVE_UTIL_H */
+
+/* Define to 1 if you have the <libutil.h> header file. */
+/* #undef HAVE_LIBUTIL_H */
 
 /* Define to 1 if you have the <sys/time.h> header file. */
 /* #undef HAVE_SYS_TIME_H */
@@ -128,6 +137,7 @@
 #define HAVE_MSC_THREAD_LOCAL_STORAGE 1
 
 /* #undef HAVE_GCC_VOLATILE_MEMORY_PROTECTION */
+#define HAVE_GCC_NARG_MACRO 1
 
 /* #undef HAVE_COMPILER__FUNC__ */
 #define HAVE_COMPILER__FUNCTION__ 1

@@ -13,6 +13,9 @@
     <Filter Include="Header Files\libssh">
       <UniqueIdentifier>{50a94cac-8683-4916-8f43-8df5dd505148}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\external">
+      <UniqueIdentifier>{1ac7443e-89b4-4171-b791-b6dae493a625}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\callbacks.c">
@@ -144,9 +147,6 @@
     <ClCompile Include="..\src\curve25519.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\curve25519_ref.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\packet_cb.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -164,6 +164,36 @@
     </ClCompile>
     <ClCompile Include="..\src\libcrypto.c">
       <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\bignum.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\pki_ed25519.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\pki_container_openssh.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\external\ge25519.c">
+      <Filter>Source Files\external</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\external\sc25519.c">
+      <Filter>Source Files\external</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\external\bcrypt_pbkdf.c">
+      <Filter>Source Files\external</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\external\blowfish.c">
+      <Filter>Source Files\external</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\external\curve25519_ref.c">
+      <Filter>Source Files\external</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\external\ed25519.c">
+      <Filter>Source Files\external</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\external\fe25519.c">
+      <Filter>Source Files\external</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
@@ -277,6 +307,24 @@
     </ClInclude>
     <ClInclude Include="config.h">
       <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\ed25519.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\fe25519.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\ge25519.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\sc25519.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\bignum.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\blf.h">
+      <Filter>Header Files\libssh</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>

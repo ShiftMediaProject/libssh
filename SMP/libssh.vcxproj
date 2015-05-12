@@ -63,6 +63,7 @@
     <ClCompile Include="..\src\auth.c" />
     <ClCompile Include="..\src\auth1.c" />
     <ClCompile Include="..\src\base64.c" />
+    <ClCompile Include="..\src\bignum.c" />
     <ClCompile Include="..\src\bind.c" />
     <ClCompile Include="..\src\buffer.c" />
     <ClCompile Include="..\src\callbacks.c" />
@@ -73,10 +74,16 @@
     <ClCompile Include="..\src\connect.c" />
     <ClCompile Include="..\src\crc32.c" />
     <ClCompile Include="..\src\curve25519.c" />
-    <ClCompile Include="..\src\curve25519_ref.c" />
     <ClCompile Include="..\src\dh.c" />
     <ClCompile Include="..\src\ecdh.c" />
     <ClCompile Include="..\src\error.c" />
+    <ClCompile Include="..\src\external\bcrypt_pbkdf.c" />
+    <ClCompile Include="..\src\external\blowfish.c" />
+    <ClCompile Include="..\src\external\curve25519_ref.c" />
+    <ClCompile Include="..\src\external\ed25519.c" />
+    <ClCompile Include="..\src\external\fe25519.c" />
+    <ClCompile Include="..\src\external\ge25519.c" />
+    <ClCompile Include="..\src\external\sc25519.c" />
     <ClCompile Include="..\src\gcrypt_missing.c" />
     <ClCompile Include="..\src\getpass.c" />
     <ClCompile Include="..\src\gzip.c" />
@@ -98,6 +105,8 @@
     <ClCompile Include="..\src\packet_crypt.c" />
     <ClCompile Include="..\src\pcap.c" />
     <ClCompile Include="..\src\pki.c" />
+    <ClCompile Include="..\src\pki_container_openssh.c" />
+    <ClCompile Include="..\src\pki_ed25519.c" />
     <ClCompile Include="..\src\pki_gcrypt.c" />
     <ClCompile Include="..\src\poll.c" />
     <ClCompile Include="..\src\scp.c" />
@@ -113,7 +122,9 @@
   <ItemGroup>
     <ClInclude Include="..\include\libssh\agent.h" />
     <ClInclude Include="..\include\libssh\auth.h" />
+    <ClInclude Include="..\include\libssh\bignum.h" />
     <ClInclude Include="..\include\libssh\bind.h" />
+    <ClInclude Include="..\include\libssh\blf.h" />
     <ClInclude Include="..\include\libssh\buffer.h" />
     <ClInclude Include="..\include\libssh\callbacks.h" />
     <ClInclude Include="..\include\libssh\channels.h" />
@@ -122,6 +133,9 @@
     <ClInclude Include="..\include\libssh\curve25519.h" />
     <ClInclude Include="..\include\libssh\dh.h" />
     <ClInclude Include="..\include\libssh\ecdh.h" />
+    <ClInclude Include="..\include\libssh\ed25519.h" />
+    <ClInclude Include="..\include\libssh\fe25519.h" />
+    <ClInclude Include="..\include\libssh\ge25519.h" />
     <ClInclude Include="..\include\libssh\kex.h" />
     <ClInclude Include="..\include\libssh\keyfiles.h" />
     <ClInclude Include="..\include\libssh\keys.h" />
@@ -137,6 +151,7 @@
     <ClInclude Include="..\include\libssh\pki_priv.h" />
     <ClInclude Include="..\include\libssh\poll.h" />
     <ClInclude Include="..\include\libssh\priv.h" />
+    <ClInclude Include="..\include\libssh\sc25519.h" />
     <ClInclude Include="..\include\libssh\scp.h" />
     <ClInclude Include="..\include\libssh\server.h" />
     <ClInclude Include="..\include\libssh\session.h" />
