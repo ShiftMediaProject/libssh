@@ -1323,22 +1323,6 @@ static int ssh_bind_set_key(ssh_bind sshbind, char **key_loc,
     return 0;
 }
 
-static int ssh_bind_set_key(ssh_bind sshbind, char **key_loc,
-                            const void *value) {
-    if (value == NULL) {
-        ssh_set_error_invalid(sshbind);
-        return -1;
-    } else {
-        SAFE_FREE(*key_loc);
-        *key_loc = strdup(value);
-        if (*key_loc == NULL) {
-            ssh_set_error_oom(sshbind);
-            return -1;
-        }
-    }
-    return 0;
-}
-
 /**
  * @brief Set options for an SSH server bind.
  *
