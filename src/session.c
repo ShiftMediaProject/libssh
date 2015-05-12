@@ -231,6 +231,8 @@ void ssh_free(ssh_session session) {
   session->srv.rsa_key = NULL;
   ssh_key_free(session->srv.ecdsa_key);
   session->srv.ecdsa_key = NULL;
+  ssh_key_free(session->srv.ed25519_key);
+  session->srv.ed25519_key = NULL;
 
   if (session->ssh_message_list) {
       ssh_message msg;
@@ -320,7 +322,36 @@ const char* ssh_get_serverbanner(ssh_session session) {
 }
 
 /**
- * @brief get the name of the input for the given session.
+ * @brief get the name of the current key exchange algorithm.
+ *
+ * @param[in] session   The SSH session
+ *
+ * @return Returns the key exchange algorithm string or NULL.
+ */
+const char* ssh_get_kex_algo(ssh_session session) {
+    if ((session == NULL) ||
+        (session->current_crypto == NULL)) {
+        return NULL;
+    }
+
+    switch (session->current_crypto->kex_type) {
+        case SSH_KEX_DH_GROUP1_SHA1:
+            return "diffie-hellman-group1-sha1";
+        case SSH_KEX_DH_GROUP14_SHA1:
+            return "diffie-hellman-group14-sha1";
+        case SSH_KEX_ECDH_SHA2_NISTP256:
+            return "ecdh-sha2-nistp256";
+        case SSH_KEX_CURVE25519_SHA256_LIBSSH_ORG:
+            return "curve25519-sha256@libssh.org";
+        default:
+            break;
+    }
+
+    return NULL;
+}
+
+/**
+ * @brief get the name of the input cipher for the given session.
  *
  * @param[in] session The SSH session.
  *
@@ -347,6 +378,36 @@ const char* ssh_get_cipher_out(ssh_session session) {
         (session->current_crypto != NULL) &&
         (session->current_crypto->out_cipher != NULL)) {
         return session->current_crypto->out_cipher->name;
+    }
+    return NULL;
+}
+
+/**
+ * @brief get the name of the input HMAC algorithm for the given session.
+ *
+ * @param[in] session The SSH session.
+ *
+ * @return Returns HMAC algorithm name or NULL if unknown.
+ */
+const char* ssh_get_hmac_in(ssh_session session) {
+    if ((session != NULL) &&
+        (session->current_crypto != NULL)) {
+        return ssh_hmac_type_to_string(session->current_crypto->in_hmac);
+    }
+    return NULL;
+}
+
+/**
+ * @brief get the name of the output HMAC algorithm for the given session.
+ *
+ * @param[in] session The SSH session.
+ *
+ * @return Returns HMAC algorithm name or NULL if unknown.
+ */
+const char* ssh_get_hmac_out(ssh_session session) {
+    if ((session != NULL) &&
+        (session->current_crypto != NULL)) {
+        return ssh_hmac_type_to_string(session->current_crypto->out_hmac);
     }
     return NULL;
 }
@@ -760,33 +821,26 @@ void ssh_socket_exception_callback(int code, int errno_code, void *user){
  * @return              SSH_OK on success, SSH_ERROR otherwise.
  */
 int ssh_send_ignore (ssh_session session, const char *data) {
-    ssh_string str;
+    int rc;
 
     if (ssh_socket_is_open(session->socket)) {
-        if (buffer_add_u8(session->out_buffer, SSH2_MSG_IGNORE) < 0) {
+
+        rc = ssh_buffer_pack(session->out_buffer,
+                             "bs",
+                             SSH2_MSG_IGNORE,
+                             data);
+        if (rc != SSH_OK){
+            ssh_set_error_oom(session);
             goto error;
         }
-
-        str = ssh_string_from_char(data);
-        if (str == NULL) {
-            goto error;
-        }
-
-        if (buffer_add_ssh_string(session->out_buffer, str) < 0) {
-            ssh_string_free(str);
-            goto error;
-        }
-
         packet_send(session);
         ssh_handle_packets(session, 0);
-
-        ssh_string_free(str);
     }
 
     return SSH_OK;
 
 error:
-    buffer_reinit(session->out_buffer);
+    ssh_buffer_reinit(session->out_buffer);
     return SSH_ERROR;
 }
 
@@ -802,34 +856,19 @@ error:
  * @return                     SSH_OK on success, SSH_ERROR otherwise.
  */
 int ssh_send_debug (ssh_session session, const char *message, int always_display) {
-    ssh_string str;
     int rc;
 
     if (ssh_socket_is_open(session->socket)) {
-        if (buffer_add_u8(session->out_buffer, SSH2_MSG_DEBUG) < 0) {
+        rc = ssh_buffer_pack(session->out_buffer,
+                             "bbsd",
+                             SSH2_MSG_DEBUG,
+                             always_display != 0 ? 1 : 0,
+                             message,
+                             0); /* empty language tag */
+        if (rc != SSH_OK) {
+            ssh_set_error_oom(session);
             goto error;
         }
-
-        if (buffer_add_u8(session->out_buffer, always_display) < 0) {
-            goto error;
-        }
-
-        str = ssh_string_from_char(message);
-        if (str == NULL) {
-            goto error;
-        }
-
-        rc = buffer_add_ssh_string(session->out_buffer, str);
-        ssh_string_free(str);
-        if (rc < 0) {
-            goto error;
-        }
-
-        /* Empty language tag */
-        if (buffer_add_u32(session->out_buffer, 0) < 0) {
-            goto error;
-        }
-
         packet_send(session);
         ssh_handle_packets(session, 0);
     }
@@ -837,8 +876,47 @@ int ssh_send_debug (ssh_session session, const char *message, int always_display
     return SSH_OK;
 
 error:
-    buffer_reinit(session->out_buffer);
+    ssh_buffer_reinit(session->out_buffer);
     return SSH_ERROR;
+}
+
+ /**
+ * @brief Set the session data counters.
+ *
+ * This functions sets the counter structures to be used to calculate data
+ * which comes in and goes out through the session at different levels.
+ *
+ * @code
+ * struct ssh_counter_struct scounter = {
+ *     .in_bytes = 0,
+ *     .out_bytes = 0,
+ *     .in_packets = 0,
+ *     .out_packets = 0
+ * };
+ *
+ * struct ssh_counter_struct rcounter = {
+ *     .in_bytes = 0,
+ *     .out_bytes = 0,
+ *     .in_packets = 0,
+ *     .out_packets = 0
+ * };
+ *
+ * ssh_set_counters(session, &scounter, &rcounter);
+ * @endcode
+ *
+ * @param[in] session   The SSH session.
+ *
+ * @param[in] scounter  Counter for byte data handled by the session sockets.
+ *
+ * @param[in] rcounter  Counter for byte and packet data handled by the session,
+ *                      prior compression and SSH overhead.
+ */
+void ssh_set_counters(ssh_session session, ssh_counter scounter,
+                              ssh_counter rcounter) {
+    if (session != NULL) {
+        session->socket_counter = scounter;
+        session->raw_counter = rcounter;
+    }
 }
 
 /** @} */

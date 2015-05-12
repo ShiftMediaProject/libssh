@@ -7,7 +7,6 @@ set(LIBSSH_PUBLIC_INCLUDE_DIRS
 
 set(LIBSSH_PRIVATE_INCLUDE_DIRS
   ${CMAKE_BINARY_DIR}
-  ${OPENSSL_INCLUDE_DIRS}
 )
 
 set(LIBSSH_LINK_LIBRARIES
@@ -28,17 +27,17 @@ if (HAVE_LIBSOCKET)
   )
 endif (HAVE_LIBSOCKET)
 
-if (OPENSSL_LIBRARIES)
+if (OPENSSL_CRYPTO_LIBRARY)
   set(LIBSSH_PRIVATE_INCLUDE_DIRS
     ${LIBSSH_PRIVATE_INCLUDE_DIRS}
-    ${OPENSSL_INCLUDE_DIRS}
+    ${OPENSSL_INCLUDE_DIR}
   )
 
   set(LIBSSH_LINK_LIBRARIES
     ${LIBSSH_LINK_LIBRARIES}
-    ${OPENSSL_LIBRARIES}
+    ${OPENSSL_CRYPTO_LIBRARY}
   )
-endif (OPENSSL_LIBRARIES)
+endif (OPENSSL_CRYPTO_LIBRARY)
 
 if (GCRYPT_LIBRARY)
   set(LIBSSH_PRIVATE_INCLUDE_DIRS
@@ -109,6 +108,7 @@ set(libssh_SRCS
   agent.c
   auth.c
   base64.c
+  bignum.c
   buffer.c
   callbacks.c
   channels.c
@@ -135,6 +135,8 @@ set(libssh_SRCS
   packet_crypt.c
   pcap.c
   pki.c
+  pki_container_openssh.c
+  pki_ed25519.c
   poll.c
   session.c
   scp.c
@@ -142,6 +144,12 @@ set(libssh_SRCS
   string.c
   threads.c
   wrapper.c
+  external/bcrypt_pbkdf.c
+  external/blowfish.c
+  external/ed25519.c
+  external/fe25519.c
+  external/ge25519.c
+  external/sc25519.c
 )
 
 if (WITH_GCRYPT)
@@ -208,7 +216,7 @@ endif (WITH_GSSAPI AND GSSAPI_FOUND)
 if (NOT WITH_NACL)
   set(libssh_SRCS
     ${libssh_SRCS}
-    curve25519_ref.c
+    external/curve25519_ref.c
   )
 endif (NOT WITH_NACL)
 
@@ -237,6 +245,10 @@ set_target_properties(
 if (WITH_VISIBILITY_HIDDEN)
   set_target_properties(${LIBSSH_SHARED_LIBRARY} PROPERTIES COMPILE_FLAGS "-fvisibility=hidden")
 endif (WITH_VISIBILITY_HIDDEN)
+
+if (MINGW)
+    set_target_properties(${LIBSSH_SHARED_LIBRARY} PROPERTIES LINK_FLAGS "-Wl,--enable-stdcall-fixup")
+endif ()
 
 
 install(

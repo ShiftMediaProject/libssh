@@ -136,7 +136,7 @@ int ssh_options_copy(ssh_session src, ssh_session *dest) {
         }
     }
 
-    for (i = 0; i < 10; ++i) {
+    for (i = 0; i < 10; i++) {
         if (src->opts.wanted_methods[i]) {
             new->opts.wanted_methods[i] = strdup(src->opts.wanted_methods[i]);
             if (new->opts.wanted_methods[i] == NULL) {
@@ -716,6 +716,26 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                     return -1;
             }
             break;
+        case SSH_OPTIONS_HMAC_C_S:
+            v = value;
+            if (v == NULL || v[0] == '\0') {
+                ssh_set_error_invalid(session);
+                return -1;
+            } else {
+                if (ssh_options_set_algo(session, SSH_MAC_C_S, v) < 0)
+                    return -1;
+            }
+            break;
+         case SSH_OPTIONS_HMAC_S_C:
+            v = value;
+            if (v == NULL || v[0] == '\0') {
+                ssh_set_error_invalid(session);
+                return -1;
+            } else {
+                if (ssh_options_set_algo(session, SSH_MAC_S_C, v) < 0)
+                    return -1;
+            }
+            break;
         case SSH_OPTIONS_COMPRESSION_C_S:
             v = value;
             if (v == NULL || v[0] == '\0') {
@@ -1287,23 +1307,20 @@ int ssh_options_apply(ssh_session session) {
  * @addtogroup libssh_server
  * @{
  */
-static int ssh_bind_options_set_algo(ssh_bind sshbind, int algo,
-    const char *list) {
-  if (!verify_existing_algo(algo, list)) {
-    ssh_set_error(sshbind, SSH_REQUEST_DENIED,
-        "Setting method: no algorithm for method \"%s\" (%s)\n",
-        ssh_kex_get_description(algo), list);
-    return -1;
-  }
-
-  SAFE_FREE(sshbind->wanted_methods[algo]);
-  sshbind->wanted_methods[algo] = strdup(list);
-  if (sshbind->wanted_methods[algo] == NULL) {
-    ssh_set_error_oom(sshbind);
-    return -1;
-  }
-
-  return 0;
+static int ssh_bind_set_key(ssh_bind sshbind, char **key_loc,
+                            const void *value) {
+    if (value == NULL) {
+        ssh_set_error_invalid(sshbind);
+        return -1;
+    } else {
+        SAFE_FREE(*key_loc);
+        *key_loc = strdup(value);
+        if (*key_loc == NULL) {
+            ssh_set_error_oom(sshbind);
+            return -1;
+        }
+    }
+    return 0;
 }
 
 static int ssh_bind_set_key(ssh_bind sshbind, char **key_loc,
@@ -1331,8 +1348,12 @@ static int ssh_bind_set_key(ssh_bind sshbind, char **key_loc,
  *                      following:
  *
  *                      - SSH_BIND_OPTIONS_HOSTKEY:
- *                        Set the server public key type: ssh-rsa or ssh-dss
- *                        (const char *).
+ *                        Set the path to an ssh host key, regardless
+ *                        of type.  Only one key from per key type
+ *                        (RSA, DSA, ECDSA) is allowed in an ssh_bind
+ *                        at a time, and later calls to this function
+ *                        with this option for the same key type will
+ *                        override prior calls (const char *).
  *
  *                      - SSH_BIND_OPTIONS_BINDADDR:
  *                        Set the IP address to bind (const char *).
@@ -1400,8 +1421,61 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
         ssh_set_error_invalid(sshbind);
         return -1;
       } else {
-        if (ssh_bind_options_set_algo(sshbind, SSH_HOSTKEYS, value) < 0)
-          return -1;
+          int key_type;
+          ssh_key key;
+          ssh_key *bind_key_loc = NULL;
+          char **bind_key_path_loc;
+
+          rc = ssh_pki_import_privkey_file(value, NULL, NULL, NULL, &key);
+          if (rc != SSH_OK) {
+              return -1;
+          }
+          key_type = ssh_key_type(key);
+          switch (key_type) {
+          case SSH_KEYTYPE_DSS:
+              bind_key_loc = &sshbind->dsa;
+              bind_key_path_loc = &sshbind->dsakey;
+              break;
+          case SSH_KEYTYPE_ECDSA:
+#ifdef HAVE_ECC
+              bind_key_loc = &sshbind->ecdsa;
+              bind_key_path_loc = &sshbind->ecdsakey;
+#else
+              ssh_set_error(sshbind,
+                            SSH_FATAL,
+                            "ECDSA key used and libssh compiled "
+                            "without ECDSA support");
+#endif
+              break;
+          case SSH_KEYTYPE_RSA:
+          case SSH_KEYTYPE_RSA1:
+              bind_key_loc = &sshbind->rsa;
+              bind_key_path_loc = &sshbind->rsakey;
+              break;
+          case SSH_KEYTYPE_ED25519:
+		  bind_key_loc = &sshbind->ed25519;
+		  bind_key_path_loc = &sshbind->ed25519key;
+		  break;
+          default:
+              ssh_set_error(sshbind,
+                            SSH_FATAL,
+                            "Unsupported key type %d", key_type);
+          }
+
+          if (bind_key_loc == NULL) {
+              ssh_key_free(key);
+              return -1;
+          }
+
+          /* Set the location of the key on disk even though we don't
+             need it in case some other function wants it */
+          rc = ssh_bind_set_key(sshbind, bind_key_path_loc, value);
+          if (rc < 0) {
+              ssh_key_free(key);
+              return -1;
+          }
+          ssh_key_free(*bind_key_loc);
+          *bind_key_loc = key;
       }
       break;
     case SSH_BIND_OPTIONS_BINDADDR:

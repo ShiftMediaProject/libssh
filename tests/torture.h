@@ -35,6 +35,7 @@
 #include <setjmp.h>
 
 #include "libssh/priv.h"
+#include "libssh/server.h"
 #include "libssh/sftp.h"
 
 #include <cmocka.h>
@@ -45,9 +46,11 @@
     assert_true(code >= 0)
 #endif /* assert_return_code */
 
+#define TORTURE_TESTKEY_PASSWORD "libssh-rocks"
+
 /* Used by main to communicate with parse_opt. */
 struct argument_s {
-  char *args[2];
+  const char *pattern;
   int verbose;
 };
 
@@ -68,11 +71,28 @@ int torture_isdir(const char *path);
 int torture_libssh_verbosity(void);
 
 ssh_session torture_ssh_session(const char *host,
+                                const unsigned int *port,
                                 const char *user,
                                 const char *password);
 
+ssh_bind torture_ssh_bind(const char *addr,
+                          const unsigned int port,
+                          enum ssh_keytypes_e key_type,
+                          const char *private_key_file);
+
 struct torture_sftp *torture_sftp_session(ssh_session session);
 void torture_sftp_close(struct torture_sftp *t);
+
+const char *torture_get_testkey(enum ssh_keytypes_e type,
+                                int ecdsa_bits,
+                                int with_passphrase);
+const char *torture_get_testkey_pub(enum ssh_keytypes_e type, int ecdsa_bits);
+const char *torture_get_testkey_passphrase(void);
+
+void torture_write_file(const char *filename, const char *data);
+
+#define torture_filter_tests(tests) _torture_filter_tests(tests, sizeof(tests) / sizeof(tests)[0])
+void _torture_filter_tests(UnitTest *tests, size_t ntests);
 
 /*
  * This function must be defined in every unit test file.

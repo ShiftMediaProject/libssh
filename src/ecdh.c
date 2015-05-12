@@ -26,6 +26,7 @@
 #include "libssh/buffer.h"
 #include "libssh/ssh2.h"
 #include "libssh/pki.h"
+#include "libssh/bignum.h"
 
 #ifdef HAVE_ECDH
 #include <openssl/ecdh.h>
@@ -99,6 +100,7 @@ static int ecdh_build_k(ssh_session session) {
   const EC_GROUP *group = EC_KEY_get0_group(session->next_crypto->ecdh_privkey);
   EC_POINT *pubkey;
   void *buffer;
+  int rc;
   int len = (EC_GROUP_get_degree(group) + 7) / 8;
   int rc;
   bignum_CTX ctx = bignum_ctx_new();
@@ -118,12 +120,25 @@ static int ecdh_build_k(ssh_session session) {
     return -1;
   }
 
-  if (session->server)
-      EC_POINT_oct2point(group,pubkey,ssh_string_data(session->next_crypto->ecdh_client_pubkey),
-              ssh_string_len(session->next_crypto->ecdh_client_pubkey),ctx);
-  else
-      EC_POINT_oct2point(group,pubkey,ssh_string_data(session->next_crypto->ecdh_server_pubkey),
-              ssh_string_len(session->next_crypto->ecdh_server_pubkey),ctx);
+  if (session->server) {
+      rc = EC_POINT_oct2point(group,
+                              pubkey,
+                              ssh_string_data(session->next_crypto->ecdh_client_pubkey),
+                              ssh_string_len(session->next_crypto->ecdh_client_pubkey),
+                              ctx);
+  } else {
+      rc = EC_POINT_oct2point(group,
+                              pubkey,
+                              ssh_string_data(session->next_crypto->ecdh_server_pubkey),
+                              ssh_string_len(session->next_crypto->ecdh_server_pubkey),
+                              ctx);
+  }
+  bignum_ctx_free(ctx);
+  if (rc <= 0) {
+      EC_POINT_clear_free(pubkey);
+      return -1;
+  }
+
   buffer = malloc(len);
   if (buffer == NULL) {
       EC_POINT_clear_free(pubkey);
@@ -143,18 +158,16 @@ static int ecdh_build_k(ssh_session session) {
 
   bignum_bin2bn(buffer, len, session->next_crypto->k);
   free(buffer);
+
   EC_KEY_free(session->next_crypto->ecdh_privkey);
-  session->next_crypto->ecdh_privkey=NULL;
+  session->next_crypto->ecdh_privkey = NULL;
+
 #ifdef DEBUG_CRYPTO
     ssh_print_hexa("Session server cookie",
                    session->next_crypto->server_kex.cookie, 16);
     ssh_print_hexa("Session client cookie",
                    session->next_crypto->client_kex.cookie, 16);
     ssh_print_bignum("Shared secret key", session->next_crypto->k);
-#endif
-
-#ifdef HAVE_LIBCRYPTO
-  bignum_ctx_free(ctx);
 #endif
 
   return 0;
@@ -274,12 +287,6 @@ int ssh_server_ecdh_init(ssh_session session, ssh_buffer packet){
     session->next_crypto->ecdh_privkey = ecdh_key;
     session->next_crypto->ecdh_server_pubkey = q_s_string;
 
-    rc = buffer_add_u8(session->out_buffer, SSH2_MSG_KEXDH_REPLY);
-    if (rc < 0) {
-        ssh_set_error_oom(session);
-        return SSH_ERROR;
-    }
-
     /* build k and session_id */
     rc = ecdh_build_k(session);
     if (rc < 0) {
@@ -299,30 +306,22 @@ int ssh_server_ecdh_init(ssh_session session, ssh_buffer packet){
         return SSH_ERROR;
     }
 
-    /* add host's public key */
-    rc = buffer_add_ssh_string(session->out_buffer,
-                               session->next_crypto->server_pubkey);
-    if (rc < 0) {
-        ssh_set_error_oom(session);
-        return SSH_ERROR;
-    }
-
-    /* add ecdh public key */
-    rc = buffer_add_ssh_string(session->out_buffer, q_s_string);
-    if (rc < 0) {
-        ssh_set_error_oom(session);
-        return SSH_ERROR;
-    }
-    /* add signature blob */
     sig_blob = ssh_srv_pki_do_sign_sessionid(session, privkey);
     if (sig_blob == NULL) {
         ssh_set_error(session, SSH_FATAL, "Could not sign the session id");
         return SSH_ERROR;
     }
 
-    rc = buffer_add_ssh_string(session->out_buffer, sig_blob);
+    rc = ssh_buffer_pack(session->out_buffer,
+                         "bSSS",
+                         SSH2_MSG_KEXDH_REPLY,
+                         session->next_crypto->server_pubkey, /* host's pubkey */
+                         q_s_string, /* ecdh public key */
+                         sig_blob); /* signature blob */
+
     ssh_string_free(sig_blob);
-    if (rc < 0) {
+
+    if (rc != SSH_OK) {
         ssh_set_error_oom(session);
         return SSH_ERROR;
     }

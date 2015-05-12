@@ -40,7 +40,8 @@
 #ifdef HAVE_LIBGCRYPT
 # define BLOWFISH "blowfish-cbc,"
 # define AES "aes256-ctr,aes192-ctr,aes128-ctr,aes256-cbc,aes192-cbc,aes128-cbc,"
-# define DES "3des-cbc,des-cbc-ssh1"
+# define DES "3des-cbc"
+# define DES_SUPPORTED "3des-cbc,des-cbc-ssh1"
 #elif defined(HAVE_LIBCRYPTO)
 # ifdef HAVE_OPENSSL_BLOWFISH_H
 #  define BLOWFISH "blowfish-cbc,"
@@ -56,7 +57,8 @@
 # else
 #  define AES ""
 #  endif
-# define DES "3des-cbc,des-cbc-ssh1"
+# define DES "3des-cbc"
+# define DES_SUPPORTED "3des-cbc,des-cbc-ssh1"
 #endif
 
 #ifdef WITH_ZLIB
@@ -73,9 +75,9 @@
 
 #ifdef HAVE_ECDH
 #define ECDH "ecdh-sha2-nistp256,"
-#define HOSTKEYS "ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,ssh-rsa,ssh-dss"
+#define HOSTKEYS "ssh-ed25519,ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521,ssh-rsa,ssh-dss"
 #else
-#define HOSTKEYS "ssh-rsa,ssh-dss"
+#define HOSTKEYS "ssh-ed25519,ssh-rsa,ssh-dss"
 #define ECDH ""
 #endif
 
@@ -88,8 +90,8 @@ static const char *default_methods[] = {
   HOSTKEYS,
   AES BLOWFISH DES,
   AES BLOWFISH DES,
-  "hmac-sha1",
-  "hmac-sha1",
+  "hmac-sha1,hmac-sha2-256,hmac-sha2-512",
+  "hmac-sha1,hmac-sha2-256,hmac-sha2-512",
   "none",
   "none",
   "",
@@ -101,10 +103,10 @@ static const char *default_methods[] = {
 static const char *supported_methods[] = {
   KEY_EXCHANGE,
   HOSTKEYS,
-  AES BLOWFISH DES,
-  AES BLOWFISH DES,
-  "hmac-sha1",
-  "hmac-sha1",
+  AES BLOWFISH DES_SUPPORTED,
+  AES BLOWFISH DES_SUPPORTED,
+  "hmac-sha1,hmac-sha2-256,hmac-sha2-512",
+  "hmac-sha1,hmac-sha2-256,hmac-sha2-512",
   ZLIB,
   ZLIB,
   "",
@@ -275,92 +277,187 @@ char *ssh_find_matching(const char *available_d, const char *preferred_d){
     return NULL;
 }
 
+/**
+ * @internal
+ * @brief returns whether the first client key exchange algorithm or
+ *        hostkey type matches its server counterpart
+ * @returns whether the first client key exchange algorithm or hostkey type
+ *          matches its server counterpart
+ */
+static int cmp_first_kex_algo(const char *client_str,
+                              const char *server_str) {
+    int is_wrong = 1;
+    char **server_str_tokens = NULL;
+    char **client_str_tokens = NULL;
+
+    if ((client_str == NULL) || (server_str == NULL)) {
+        goto out;
+    }
+
+    client_str_tokens = tokenize(client_str);
+
+    if (client_str_tokens == NULL) {
+        goto out;
+    }
+
+    if (client_str_tokens[0] == NULL) {
+        goto freeout;
+    }
+
+    server_str_tokens = tokenize(server_str);
+    if (server_str_tokens == NULL) {
+        goto freeout;
+    }
+
+    is_wrong = (strcmp(client_str_tokens[0], server_str_tokens[0]) != 0);
+
+    SAFE_FREE(server_str_tokens[0]);
+    SAFE_FREE(server_str_tokens);
+freeout:
+    SAFE_FREE(client_str_tokens[0]);
+    SAFE_FREE(client_str_tokens);
+out:
+    return is_wrong;
+}
+
 SSH_PACKET_CALLBACK(ssh_packet_kexinit){
-	int server_kex=session->server;
-  ssh_string str = NULL;
-  char *strings[KEX_METHODS_SIZE];
-  int i;
+    int i;
+    int server_kex=session->server;
+    ssh_string str = NULL;
+    char *strings[KEX_METHODS_SIZE];
+    int rc = SSH_ERROR;
 
-  (void)type;
-  (void)user;
-  memset(strings, 0, sizeof(strings));
-  if (session->session_state == SSH_SESSION_STATE_AUTHENTICATED){
-      SSH_LOG(SSH_LOG_WARNING, "Other side initiating key re-exchange");
-  } else if(session->session_state != SSH_SESSION_STATE_INITIAL_KEX){
-  	ssh_set_error(session,SSH_FATAL,"SSH_KEXINIT received in wrong state");
-  	goto error;
-  }
-  if (server_kex) {
-      if (buffer_get_data(packet,session->next_crypto->client_kex.cookie,16) != 16) {
-        ssh_set_error(session, SSH_FATAL, "ssh_packet_kexinit: no cookie in packet");
+    uint8_t first_kex_packet_follows = 0;
+    uint32_t kexinit_reserved = 0;
+
+    (void)type;
+    (void)user;
+
+    memset(strings, 0, sizeof(strings));
+    if (session->session_state == SSH_SESSION_STATE_AUTHENTICATED){
+        SSH_LOG(SSH_LOG_WARNING, "Other side initiating key re-exchange");
+    } else if(session->session_state != SSH_SESSION_STATE_INITIAL_KEX){
+        ssh_set_error(session,SSH_FATAL,"SSH_KEXINIT received in wrong state");
         goto error;
-      }
-
-      if (hashbufin_add_cookie(session, session->next_crypto->client_kex.cookie) < 0) {
-        ssh_set_error(session, SSH_FATAL, "ssh_packet_kexinit: adding cookie failed");
-        goto error;
-      }
-  } else {
-      if (buffer_get_data(packet,session->next_crypto->server_kex.cookie,16) != 16) {
-        ssh_set_error(session, SSH_FATAL, "ssh_packet_kexinit: no cookie in packet");
-        goto error;
-      }
-
-      if (hashbufin_add_cookie(session, session->next_crypto->server_kex.cookie) < 0) {
-        ssh_set_error(session, SSH_FATAL, "ssh_packet_kexinit: adding cookie failed");
-        goto error;
-      }
-  }
-
-  for (i = 0; i < KEX_METHODS_SIZE; i++) {
-    str = buffer_get_ssh_string(packet);
-    if (str == NULL) {
-      goto error;
     }
 
-    if (buffer_add_ssh_string(session->in_hashbuf, str) < 0) {
-    	ssh_set_error(session, SSH_FATAL, "Error adding string in hash buffer");
-      goto error;
-    }
-
-    strings[i] = ssh_string_to_char(str);
-    if (strings[i] == NULL) {
-    	ssh_set_error_oom(session);
-      goto error;
-    }
-    ssh_string_free(str);
-    str = NULL;
-  }
-
-  /* copy the server kex info into an array of strings */
-  if (server_kex) {
-    for (i = 0; i < SSH_KEX_METHODS; i++) {
-      session->next_crypto->client_kex.methods[i] = strings[i];
-    }
-  } else { /* client */
-    for (i = 0; i < SSH_KEX_METHODS; i++) {
-      session->next_crypto->server_kex.methods[i] = strings[i];
-    }
-  }
-
-  session->session_state=SSH_SESSION_STATE_KEXINIT_RECEIVED;
-  session->dh_handshake_state=DH_STATE_INIT;
-  session->ssh_connection_callback(session);
-  return SSH_PACKET_USED;
-error:
-  ssh_string_free(str);
-  for (i = 0; i < SSH_KEX_METHODS; i++) {
     if (server_kex) {
-        session->next_crypto->client_kex.methods[i] = NULL;
-    } else { /* client */
-        session->next_crypto->server_kex.methods[i] = NULL;
+        rc = buffer_get_data(packet,session->next_crypto->client_kex.cookie, 16);
+        if (rc != 16) {
+            ssh_set_error(session, SSH_FATAL, "ssh_packet_kexinit: no cookie in packet");
+            goto error;
+        }
+
+        rc = hashbufin_add_cookie(session, session->next_crypto->client_kex.cookie);
+        if (rc < 0) {
+            ssh_set_error(session, SSH_FATAL, "ssh_packet_kexinit: adding cookie failed");
+            goto error;
+        }
+    } else {
+        rc = buffer_get_data(packet,session->next_crypto->server_kex.cookie, 16);
+        if (rc != 16) {
+            ssh_set_error(session, SSH_FATAL, "ssh_packet_kexinit: no cookie in packet");
+            goto error;
+        }
+
+        rc = hashbufin_add_cookie(session, session->next_crypto->server_kex.cookie);
+        if (rc < 0) {
+            ssh_set_error(session, SSH_FATAL, "ssh_packet_kexinit: adding cookie failed");
+            goto error;
+        }
     }
-    SAFE_FREE(strings[i]);
-  }
 
-  session->session_state = SSH_SESSION_STATE_ERROR;
+    for (i = 0; i < KEX_METHODS_SIZE; i++) {
+        str = buffer_get_ssh_string(packet);
+        if (str == NULL) {
+          goto error;
+        }
 
-  return SSH_PACKET_USED;
+        rc = buffer_add_ssh_string(session->in_hashbuf, str);
+        if (rc < 0) {
+            ssh_set_error(session, SSH_FATAL, "Error adding string in hash buffer");
+            goto error;
+        }
+
+        strings[i] = ssh_string_to_char(str);
+        if (strings[i] == NULL) {
+            ssh_set_error_oom(session);
+            goto error;
+        }
+        ssh_string_free(str);
+        str = NULL;
+    }
+
+    /* copy the server kex info into an array of strings */
+    if (server_kex) {
+        for (i = 0; i < SSH_KEX_METHODS; i++) {
+            session->next_crypto->client_kex.methods[i] = strings[i];
+        }
+    } else { /* client */
+        for (i = 0; i < SSH_KEX_METHODS; i++) {
+            session->next_crypto->server_kex.methods[i] = strings[i];
+        }
+    }
+
+    /*
+     * Handle the two final fields for the KEXINIT message (RFC 4253 7.1):
+     *
+     *      boolean      first_kex_packet_follows
+     *      uint32       0 (reserved for future extension)
+     *
+     * Notably if clients set 'first_kex_packet_follows', it is expected
+     * that its value is included when computing the session ID (see
+     * 'make_sessionid').
+     */
+    if (server_kex) {
+        rc = buffer_get_u8(packet, &first_kex_packet_follows);
+        if (rc != 1) {
+            goto error;
+        }
+
+        rc = buffer_add_u8(session->in_hashbuf, first_kex_packet_follows);
+        if (rc < 0) {
+            goto error;
+        }
+
+        rc = buffer_add_u32(session->in_hashbuf, kexinit_reserved);
+        if (rc < 0) {
+            goto error;
+        }
+
+        /*
+         * Remember whether 'first_kex_packet_follows' was set and the client
+         * guess was wrong: in this case the next SSH_MSG_KEXDH_INIT message
+         * must be ignored.
+         */
+        if (first_kex_packet_follows) {
+          session->first_kex_follows_guess_wrong =
+            cmp_first_kex_algo(session->next_crypto->client_kex.methods[SSH_KEX],
+                               session->next_crypto->server_kex.methods[SSH_KEX]) ||
+            cmp_first_kex_algo(session->next_crypto->client_kex.methods[SSH_HOSTKEYS],
+                               session->next_crypto->server_kex.methods[SSH_HOSTKEYS]);
+        }
+    }
+
+    session->session_state = SSH_SESSION_STATE_KEXINIT_RECEIVED;
+    session->dh_handshake_state = DH_STATE_INIT;
+    session->ssh_connection_callback(session);
+    return SSH_PACKET_USED;
+
+error:
+    ssh_string_free(str);
+    for (i = 0; i < SSH_KEX_METHODS; i++) {
+        if (server_kex) {
+            session->next_crypto->client_kex.methods[i] = NULL;
+        } else { /* client */
+            session->next_crypto->server_kex.methods[i] = NULL;
+        }
+        SAFE_FREE(strings[i]);
+    }
+
+    session->session_state = SSH_SESSION_STATE_ERROR;
+
+    return SSH_PACKET_USED;
 }
 
 void ssh_list_kex(struct ssh_kex_struct *kex) {
@@ -388,8 +485,16 @@ void ssh_list_kex(struct ssh_kex_struct *kex) {
  */
 static char *ssh_client_select_hostkeys(ssh_session session){
     char methods_buffer[128]={0};
-    static const char *preferred_hostkeys[]={"ecdsa-sha2-nistp521","ecdsa-sha2-nistp384",
-    		"ecdsa-sha2-nistp256", "ssh-rsa", "ssh-dss", "ssh-rsa1", NULL};
+    static const char *preferred_hostkeys[] = {
+        "ssh-ed25519",
+        "ecdsa-sha2-nistp521",
+        "ecdsa-sha2-nistp384",
+        "ecdsa-sha2-nistp256",
+        "ssh-rsa",
+        "ssh-dss",
+        "ssh-rsa1",
+        NULL
+    };
     char **methods;
     int i,j;
     int needcoma=0;
@@ -494,14 +599,15 @@ int ssh_send_kex(ssh_session session, int server_kex) {
       &session->next_crypto->client_kex);
   ssh_string str = NULL;
   int i;
+  int rc;
 
-  if (buffer_add_u8(session->out_buffer, SSH2_MSG_KEXINIT) < 0) {
+  rc = ssh_buffer_pack(session->out_buffer,
+                       "bP",
+                       SSH2_MSG_KEXINIT,
+                       16,
+                       kex->cookie); /* cookie */
+  if (rc != SSH_OK)
     goto error;
-  }
-  if (buffer_add_data(session->out_buffer, kex->cookie, 16) < 0) {
-    goto error;
-  }
-
   if (hashbufout_add_cookie(session) < 0) {
     goto error;
   }
@@ -524,10 +630,11 @@ int ssh_send_kex(ssh_session session, int server_kex) {
     str = NULL;
   }
 
-  if (buffer_add_u8(session->out_buffer, 0) < 0) {
-    goto error;
-  }
-  if (buffer_add_u32(session->out_buffer, 0) < 0) {
+  rc = ssh_buffer_pack(session->out_buffer,
+                       "bd",
+                       0,
+                       0);
+  if (rc != SSH_OK) {
     goto error;
   }
 
@@ -537,8 +644,8 @@ int ssh_send_kex(ssh_session session, int server_kex) {
 
   return 0;
 error:
-  buffer_reinit(session->out_buffer);
-  buffer_reinit(session->out_hashbuf);
+  ssh_buffer_reinit(session->out_buffer);
+  ssh_buffer_reinit(session->out_hashbuf);
   ssh_string_free(str);
 
   return -1;

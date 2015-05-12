@@ -21,12 +21,27 @@
 #ifndef PKI_PRIV_H_
 #define PKI_PRIV_H_
 
+#include "libssh/pki.h"
+
+/* defined in bcrypt_pbkdf.c */
+int bcrypt_pbkdf(const char *pass,
+                 size_t passlen,
+                 const uint8_t *salt,
+                 size_t saltlen,
+                 uint8_t *key,
+                 size_t keylen,
+                 unsigned int rounds);
+
 #define RSA_HEADER_BEGIN "-----BEGIN RSA PRIVATE KEY-----"
 #define RSA_HEADER_END "-----END RSA PRIVATE KEY-----"
 #define DSA_HEADER_BEGIN "-----BEGIN DSA PRIVATE KEY-----"
 #define DSA_HEADER_END "-----END DSA PRIVATE KEY-----"
 #define ECDSA_HEADER_BEGIN "-----BEGIN EC PRIVATE KEY-----"
 #define ECDSA_HEADER_END "-----END EC PRIVATE KEY-----"
+#define OPENSSH_HEADER_BEGIN "-----BEGIN OPENSSH PRIVATE KEY-----"
+#define OPENSSH_HEADER_END "-----END OPENSSH PRIVATE KEY-----"
+/* Magic defined in OpenSSH/PROTOCOL.key */
+#define OPENSSH_AUTH_MAGIC      "openssh-key-v1"
 
 #define ssh_pki_log(...) \
     _ssh_log(SSH_LOG_FUNCTIONS, __func__, __VA_ARGS__)
@@ -41,6 +56,8 @@ ssh_key pki_key_dup(const ssh_key key, int demote);
 int pki_key_generate_rsa(ssh_key key, int parameter);
 int pki_key_generate_dss(ssh_key key, int parameter);
 int pki_key_generate_ecdsa(ssh_key key, int parameter);
+int pki_key_generate_ed25519(ssh_key key);
+
 int pki_key_compare(const ssh_key k1,
                     const ssh_key k2,
                     enum ssh_keycmp_e what);
@@ -91,4 +108,22 @@ ssh_signature pki_do_sign(const ssh_key privkey,
 ssh_signature pki_do_sign_sessionid(const ssh_key key,
                                     const unsigned char *hash,
                                     size_t hlen);
+int pki_ed25519_sign(const ssh_key privkey, ssh_signature sig,
+        const unsigned char *hash, size_t hlen);
+int pki_ed25519_verify(const ssh_key pubkey, ssh_signature sig,
+        const unsigned char *hash, size_t hlen);
+int pki_ed25519_key_cmp(const ssh_key k1,
+                const ssh_key k2,
+                enum ssh_keycmp_e what);
+int pki_ed25519_key_dup(ssh_key new, const ssh_key key);
+int pki_ed25519_public_key_to_blob(ssh_buffer buffer, ssh_key key);
+ssh_string pki_ed25519_sig_to_blob(ssh_signature sig);
+int pki_ed25519_sig_from_blob(ssh_signature sig, ssh_string sig_blob);
+
+/* PKI Container OpenSSH */
+ssh_key ssh_pki_openssh_privkey_import(const char *text_key,
+        const char *passphrase, ssh_auth_callback auth_fn, void *auth_data);
+ssh_string ssh_pki_openssh_privkey_export(const ssh_key privkey,
+        const char *passphrase, ssh_auth_callback auth_fn, void *auth_data);
+
 #endif /* PKI_PRIV_H_ */

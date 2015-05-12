@@ -269,24 +269,19 @@ static int ssh_service_request_termination(void *s){
  * @bug actually only works with ssh-userauth
  */
 int ssh_service_request(ssh_session session, const char *service) {
-  ssh_string service_s = NULL;
   int rc=SSH_ERROR;
 
   if(session->auth_service_state != SSH_AUTH_SERVICE_NONE)
     goto pending;
-  if (buffer_add_u8(session->out_buffer, SSH2_MSG_SERVICE_REQUEST) < 0) {
-      return SSH_ERROR;
-  }
-  service_s = ssh_string_from_char(service);
-  if (service_s == NULL) {
-      return SSH_ERROR;
-  }
 
-  if (buffer_add_ssh_string(session->out_buffer,service_s) < 0) {
-    ssh_string_free(service_s);
+  rc = ssh_buffer_pack(session->out_buffer,
+                       "bs",
+                       SSH2_MSG_SERVICE_REQUEST,
+                       service);
+  if (rc != SSH_OK){
+      ssh_set_error_oom(session);
       return SSH_ERROR;
   }
-  ssh_string_free(service_s);
   session->auth_service_state=SSH_AUTH_SERVICE_SENT;
   if (packet_send(session) == SSH_ERROR) {
     ssh_set_error(session, SSH_FATAL,
@@ -506,7 +501,12 @@ int ssh_connect(ssh_session session) {
       ssh_set_error(session, SSH_FATAL, "Couldn't apply options");
       return SSH_ERROR;
   }
-  SSH_LOG(SSH_LOG_RARE,"libssh %s, using threading %s", ssh_copyright(), ssh_threads_get_type());
+
+  SSH_LOG(SSH_LOG_PROTOCOL,
+          "libssh %s, using threading %s",
+          ssh_copyright(),
+          ssh_threads_get_type());
+
   session->ssh_connection_callback = ssh_client_connection_callback;
   session->session_state=SSH_SESSION_STATE_CONNECTING;
   ssh_socket_set_callbacks(session->socket,&session->socket_callbacks);
@@ -545,7 +545,7 @@ pending:
       if (timeout == 0) {
           timeout = 10 * 1000;
       }
-      SSH_LOG(SSH_LOG_PACKET,"ssh_connect: Actual timeout : %d", timeout);
+      SSH_LOG(SSH_LOG_PACKET,"Actual timeout : %d", timeout);
       ret = ssh_handle_packets_termination(session, timeout, ssh_connect_termination, session);
       if (session->session_state != SSH_SESSION_STATE_ERROR &&
           (ret == SSH_ERROR || !ssh_connect_termination(session))) {
@@ -563,7 +563,7 @@ pending:
           session->session_state = SSH_SESSION_STATE_ERROR;
       }
   }
-  SSH_LOG(SSH_LOG_PACKET,"ssh_connect: Actual state : %d",session->session_state);
+  SSH_LOG(SSH_LOG_PACKET,"current state : %d",session->session_state);
   if(!ssh_is_blocking(session) && !ssh_connect_termination(session)){
     return SSH_AGAIN;
   }
@@ -625,32 +625,23 @@ int ssh_get_openssh_version(ssh_session session) {
  * @param[in]  session  The SSH session to use.
  */
 void ssh_disconnect(ssh_session session) {
-  ssh_string str = NULL;
   struct ssh_iterator *it;
+  int rc;
 
   if (session == NULL) {
     return;
   }
 
   if (session->socket != NULL && ssh_socket_is_open(session->socket)) {
-    if (buffer_add_u8(session->out_buffer, SSH2_MSG_DISCONNECT) < 0) {
+    rc = ssh_buffer_pack(session->out_buffer,
+                         "bds",
+                         SSH2_MSG_DISCONNECT,
+                         SSH2_DISCONNECT_BY_APPLICATION,
+                         "Bye Bye");
+    if (rc != SSH_OK){
+      ssh_set_error_oom(session);
       goto error;
     }
-    if (buffer_add_u32(session->out_buffer,
-          htonl(SSH2_DISCONNECT_BY_APPLICATION)) < 0) {
-      goto error;
-    }
-
-    str = ssh_string_from_char("Bye Bye");
-    if (str == NULL) {
-      goto error;
-    }
-
-    if (buffer_add_ssh_string(session->out_buffer,str) < 0) {
-      ssh_string_free(str);
-      goto error;
-    }
-    ssh_string_free(str);
 
     packet_send(session);
     ssh_socket_close(session->socket);
@@ -671,14 +662,18 @@ error:
     crypto_free(session->current_crypto);
     session->current_crypto=NULL;
   }
-  if(session->in_buffer)
-    buffer_reinit(session->in_buffer);
-  if(session->out_buffer)
-    buffer_reinit(session->out_buffer);
-  if(session->in_hashbuf)
-    buffer_reinit(session->in_hashbuf);
-  if(session->out_hashbuf)
-    buffer_reinit(session->out_hashbuf);
+  if (session->in_buffer) {
+    ssh_buffer_reinit(session->in_buffer);
+  }
+  if (session->out_buffer) {
+    ssh_buffer_reinit(session->out_buffer);
+  }
+  if (session->in_hashbuf) {
+    ssh_buffer_reinit(session->in_hashbuf);
+  }
+  if (session->out_hashbuf) {
+    ssh_buffer_reinit(session->out_hashbuf);
+  }
   session->auth_methods = 0;
   SAFE_FREE(session->serverbanner);
   SAFE_FREE(session->clientbanner);

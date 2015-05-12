@@ -357,7 +357,7 @@ int channel_write1(ssh_channel channel, const void *data, int len) {
     effectivelen = len > 32000 ? 32000 : len;
 
     if (buffer_add_u32(session->out_buffer, htonl(effectivelen)) < 0 ||
-        buffer_add_data(session->out_buffer, ptr, effectivelen) < 0) {
+        ssh_buffer_add_data(session->out_buffer, ptr, effectivelen) < 0) {
       return -1;
     }
 
@@ -368,6 +368,9 @@ int channel_write1(ssh_channel channel, const void *data, int len) {
       return -1;
     }
     ssh_handle_packets(session, SSH_TIMEOUT_NONBLOCKING);
+    if (channel->counter != NULL) {
+        channel->counter->out_bytes += effectivelen;
+    }
   }
   if (ssh_blocking_flush(session,SSH_TIMEOUT_USER) == SSH_ERROR)
       return -1;

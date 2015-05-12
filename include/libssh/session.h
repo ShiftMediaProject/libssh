@@ -127,6 +127,15 @@ struct ssh_session_struct {
     struct ssh_agent_state_struct *agent_state;
     struct ssh_auth_auto_state_struct *auth_auto_state;
 
+    /*
+     * RFC 4253, 7.1: if the first_kex_packet_follows flag was set in
+     * the received SSH_MSG_KEXINIT, but the guess was wrong, this
+     * field will be set such that the following guessed packet will
+     * be ignored.  Once that packet has been received and ignored,
+     * this field is cleared.
+     */
+    int first_kex_follows_guess_wrong;
+
     ssh_buffer in_hashbuf;
     ssh_buffer out_hashbuf;
     struct ssh_crypto_struct *current_crypto;
@@ -147,7 +156,7 @@ struct ssh_session_struct {
         ssh_key rsa_key;
         ssh_key dsa_key;
         ssh_key ecdsa_key;
-
+        ssh_key ed25519_key;
         /* The type of host key wanted by client */
         enum ssh_keytypes_e hostkey;
     } srv;
@@ -188,6 +197,9 @@ struct ssh_session_struct {
         char *gss_client_identity;
         int gss_delegate_creds;
     } opts;
+    /* counters */
+    ssh_counter socket_counter;
+    ssh_counter raw_counter;
 };
 
 /** @internal

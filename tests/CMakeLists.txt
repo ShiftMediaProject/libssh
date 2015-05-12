@@ -1,8 +1,8 @@
 project(tests C)
 
-if (BSD OR SOLARIS)
+if (BSD OR SOLARIS OR OSX)
     find_package(Argp)
-endif (BSD OR SOLARIS)
+endif (BSD OR SOLARIS OR OSX)
 
 set(TORTURE_LIBRARY torture)
 
@@ -17,27 +17,32 @@ include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
+set(TORTURE_LINK_LIBRARIES
+    ${CMOCKA_LIBRARY}
+    ${LIBSSH_STATIC_LIBRARY}
+    ${LIBSSH_LINK_LIBRARIES})
+
+if (Threads_FOUND)
+    set(TORTURE_LINK_LIBRARIES
+        ${TORTURE_LINK_LIBRARIES}
+        ${LIBSSH_THREADS_STATIC_LIBRARY}
+        ${LIBSSH_THREADS_LINK_LIBRARIES})
+endif ()
+
 # create test library
 add_library(${TORTURE_LIBRARY} STATIC cmdline.c torture.c)
 target_link_libraries(${TORTURE_LIBRARY}
-    ${CMOCKA_LIBRARY}
-    ${LIBSSH_STATIC_LIBRARY}
-    ${LIBSSH_LINK_LIBRARIES}
-    ${LIBSSH_THREADS_STATIC_LIBRARY}
-    ${LIBSSH_THREADS_LINK_LIBRARIES}
+    ${TORTURE_LINK_LIBRARIES}
     ${ARGP_LIBRARIES}
 )
 
 set(TEST_TARGET_LIBRARIES
     ${TORTURE_LIBRARY}
-    ${CMOCKA_LIBRARY}
-    ${LIBSSH_STATIC_LIBRARY}
-    ${LIBSSH_LINK_LIBRARIES}
-    ${LIBSSH_THREADS_STATIC_LIBRARY}
-    ${LIBSSH_THREADS_LINK_LIBRARIES}
+    ${TORTURE_LINK_LIBRARIES}
 )
 
 add_subdirectory(unittests)
+
 if (WITH_CLIENT_TESTING)
     add_subdirectory(client)
 endif (WITH_CLIENT_TESTING)
@@ -46,3 +51,6 @@ if (WITH_BENCHMARKS)
     add_subdirectory(benchmarks)
 endif (WITH_BENCHMARKS)
 
+if (WITH_SERVER)
+    add_subdirectory(pkd)
+endif (WITH_SERVER)

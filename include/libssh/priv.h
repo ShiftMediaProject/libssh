@@ -109,10 +109,14 @@
 struct timeval;
 int gettimeofday(struct timeval *__p, void *__t);
 
+#define _XCLOSESOCKET closesocket
+
 #else /* _WIN32 */
 
 #include <unistd.h>
 #define PRIdS "zd"
+
+#define _XCLOSESOCKET close
 
 #endif /* _WIN32 */
 
@@ -240,8 +244,9 @@ int decompress_buffer(ssh_session session,ssh_buffer buf, size_t maxlen);
 /* match.c */
 int match_hostname(const char *host, const char *pattern, unsigned int len);
 
-
-
+#ifndef MIN
+#define MIN(a,b) ((a) < (b) ? (a) : (b))
+#endif
 
 /** Free memory space */
 #define SAFE_FREE(x) do { if ((x) != NULL) {free(x); x=NULL;} } while(0)
@@ -301,6 +306,45 @@ int match_hostname(const char *host, const char *pattern, unsigned int len);
  * Type-safe version of discard_const
  */
 #define discard_const_p(type, ptr) ((type *)discard_const(ptr))
+
+/**
+ * Get the argument cound of variadic arguments
+ */
+#ifdef HAVE_GCC_NARG_MACRO
+/*
+ * Since MSVC 2010 there is a bug in passing __VA_ARGS__ to subsequent
+ * macros as a single token, which results in:
+ *    warning C4003: not enough actual parameters for macro '_VA_ARG_N'
+ *  and incorrect behavior. This fixes issue.
+ */
+#define VA_APPLY_VARIADIC_MACRO(macro, tuple) macro tuple
+
+#define __VA_NARG__(...) \
+        (__VA_NARG_(_0, ## __VA_ARGS__, __RSEQ_N()) - 1)
+#define __VA_NARG_(...) \
+        VA_APPLY_VARIADIC_MACRO(__VA_ARG_N, (__VA_ARGS__))
+#define __VA_ARG_N( \
+         _1, _2, _3, _4, _5, _6, _7, _8, _9,_10, \
+        _11,_12,_13,_14,_15,_16,_17,_18,_19,_20, \
+        _21,_22,_23,_24,_25,_26,_27,_28,_29,_30, \
+        _31,_32,_33,_34,_35,_36,_37,_38,_39,_40, \
+        _41,_42,_43,_44,_45,_46,_47,_48,_49,_50, \
+        _51,_52,_53,_54,_55,_56,_57,_58,_59,_60, \
+        _61,_62,_63,N,...) N
+#define __RSEQ_N() \
+        63, 62, 61, 60,                         \
+        59, 58, 57, 56, 55, 54, 53, 52, 51, 50, \
+        49, 48, 47, 46, 45, 44, 43, 42, 41, 40, \
+        39, 38, 37, 36, 35, 34, 33, 32, 31, 30, \
+        29, 28, 27, 26, 25, 24, 23, 22, 21, 20, \
+        19, 18, 17, 16, 15, 14, 13, 12, 11, 10, \
+         9,  8,  7,  6,  5,  4,  3,  2,  1,  0
+#else
+/* clang does not support the above construction */
+#define __VA_NARG__(...) (-1)
+#endif
+
+#define CLOSE_SOCKET(s) do { if ((s) != SSH_INVALID_SOCKET) { _XCLOSESOCKET(s); (s) = SSH_INVALID_SOCKET;} } while(0)
 
 #endif /* _LIBSSH_PRIV_H */
 /* vim: set ts=4 sw=4 et cindent: */

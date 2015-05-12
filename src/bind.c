@@ -109,7 +109,7 @@ static socket_t bind_socket(ssh_bind sshbind, const char *hostname,
                       "Setting socket options failed: %s",
                       strerror(errno));
         freeaddrinfo (ai);
-        close(s);
+        CLOSE_SOCKET(s);
         return -1;
     }
 
@@ -121,7 +121,7 @@ static socket_t bind_socket(ssh_bind sshbind, const char *hostname,
                       port,
                       strerror(errno));
         freeaddrinfo (ai);
-        close(s);
+        CLOSE_SOCKET(s);
         return -1;
     }
 
@@ -259,7 +259,7 @@ int ssh_bind_listen(ssh_bind sshbind) {
           ssh_set_error(sshbind, SSH_FATAL,
                   "Listening to socket %d: %s",
                   fd, strerror(errno));
-          close(fd);
+          CLOSE_SOCKET(fd);
           ssh_key_free(sshbind->dsa);
           sshbind->dsa = NULL;
           ssh_key_free(sshbind->rsa);
@@ -350,11 +350,7 @@ void ssh_bind_free(ssh_bind sshbind){
   }
 
   if (sshbind->bindfd >= 0) {
-#ifdef _WIN32
-    closesocket(sshbind->bindfd);
-#else
-    close(sshbind->bindfd);
-#endif
+      CLOSE_SOCKET(sshbind->bindfd);
   }
   sshbind->bindfd = SSH_INVALID_SOCKET;
 
@@ -365,6 +361,7 @@ void ssh_bind_free(ssh_bind sshbind){
   SAFE_FREE(sshbind->dsakey);
   SAFE_FREE(sshbind->rsakey);
   SAFE_FREE(sshbind->ecdsakey);
+  SAFE_FREE(sshbind->ed25519key);
 
   ssh_key_free(sshbind->dsa);
   sshbind->dsa = NULL;
@@ -372,6 +369,8 @@ void ssh_bind_free(ssh_bind sshbind){
   sshbind->rsa = NULL;
   ssh_key_free(sshbind->ecdsa);
   sshbind->ecdsa = NULL;
+  ssh_key_free(sshbind->ed25519);
+  sshbind->ed25519 = NULL;
 
   for (i = 0; i < 10; i++) {
     if (sshbind->wanted_methods[i]) {
@@ -394,7 +393,7 @@ int ssh_bind_accept_fd(ssh_bind sshbind, ssh_session session, socket_t fd){
     session->version = 2;
 
     /* copy options */
-    for (i = 0; i < 10; ++i) {
+    for (i = 0; i < 10; i++) {
       if (sshbind->wanted_methods[i]) {
         session->opts.wanted_methods[i] = strdup(sshbind->wanted_methods[i]);
         if (session->opts.wanted_methods[i] == NULL) {
@@ -459,6 +458,14 @@ int ssh_bind_accept_fd(ssh_bind sshbind, ssh_session session, socket_t fd){
           return SSH_ERROR;
         }
     }
+    if (sshbind->ed25519 != NULL) {
+        session->srv.ed25519_key = ssh_key_dup(sshbind->ed25519);
+        if (session->srv.ed25519_key == NULL){
+            ssh_set_error_oom(sshbind);
+            return SSH_ERROR;
+        }
+    }
+
     /* force PRNG to change state in case we fork after ssh_bind_accept */
     ssh_reseed();
     return SSH_OK;
@@ -488,11 +495,7 @@ int ssh_bind_accept(ssh_bind sshbind, ssh_session session) {
   rc = ssh_bind_accept_fd(sshbind, session, fd);
 
   if(rc == SSH_ERROR){
-#ifdef _WIN32
-      closesocket(fd);
-#else
-      close(fd);
-#endif
+      CLOSE_SOCKET(fd);
       ssh_socket_free(session->socket);
   }
   return rc;

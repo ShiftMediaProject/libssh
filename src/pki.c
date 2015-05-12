@@ -1,5 +1,5 @@
 /*
- * known_hosts.c
+ * pki.c
  * This file is part of the SSH Library
  *
  * Copyright (c) 2010 by Aris Adamantiadis
@@ -157,6 +157,11 @@ void ssh_key_clean (ssh_key key){
     if(key->ecdsa) EC_KEY_free(key->ecdsa);
 #endif /* HAVE_OPENSSL_ECC */
 #endif
+    if (key->ed25519_privkey != NULL){
+        BURN_BUFFER(key->ed25519_privkey, sizeof(ed25519_privkey));
+        SAFE_FREE(key->ed25519_privkey);
+    }
+    SAFE_FREE(key->ed25519_pubkey);
     key->flags=SSH_KEY_FLAG_EMPTY;
     key->type=SSH_KEYTYPE_UNKNOWN;
     key->ecdsa_nid = 0;
@@ -207,6 +212,8 @@ const char *ssh_key_type_to_char(enum ssh_keytypes_e type) {
       return "ssh-rsa1";
     case SSH_KEYTYPE_ECDSA:
       return "ssh-ecdsa";
+    case SSH_KEYTYPE_ED25519:
+      return "ssh-ed25519";
     case SSH_KEYTYPE_UNKNOWN:
       return NULL;
   }
@@ -245,6 +252,8 @@ enum ssh_keytypes_e ssh_key_type_from_name(const char *name) {
             || strcmp(name, "ecdsa-sha2-nistp384") == 0
             || strcmp(name, "ecdsa-sha2-nistp521") == 0) {
         return SSH_KEYTYPE_ECDSA;
+    } else if (strcmp(name, "ssh-ed25519") == 0){
+        return SSH_KEYTYPE_ED25519;
     }
 
     return SSH_KEYTYPE_UNKNOWN;
@@ -300,7 +309,7 @@ int ssh_key_cmp(const ssh_key k1,
     }
 
     if (k1->type != k2->type) {
-        ssh_pki_log("key types don't macth!");
+        ssh_pki_log("key types don't match!");
         return 1;
     }
 
@@ -309,6 +318,10 @@ int ssh_key_cmp(const ssh_key k1,
             !ssh_key_is_private(k2)) {
             return 1;
         }
+    }
+
+    if (k1->type == SSH_KEYTYPE_ED25519) {
+        return pki_ed25519_key_cmp(k1, k2, what);
     }
 
     return pki_key_compare(k1, k2, what);
@@ -354,6 +367,9 @@ void ssh_signature_free(ssh_signature sig)
             ECDSA_SIG_free(sig->ecdsa_sig);
 #endif
             break;
+        case SSH_KEYTYPE_ED25519:
+            SAFE_FREE(sig->ed25519_sig);
+            break;
         case SSH_KEYTYPE_UNKNOWN:
             break;
     }
@@ -386,6 +402,7 @@ int ssh_pki_import_privkey_base64(const char *b64_key,
                                   ssh_key *pkey)
 {
     ssh_key key;
+    int cmp;
 
     if (b64_key == NULL || pkey == NULL) {
         return SSH_ERROR;
@@ -398,7 +415,20 @@ int ssh_pki_import_privkey_base64(const char *b64_key,
     ssh_pki_log("Trying to decode privkey passphrase=%s",
                 passphrase ? "true" : "false");
 
-    key = pki_private_key_from_base64(b64_key, passphrase, auth_fn, auth_data);
+    /* Test for OpenSSH key format first */
+    cmp = strncmp(b64_key, OPENSSH_HEADER_BEGIN, strlen(OPENSSH_HEADER_BEGIN));
+    if (cmp == 0) {
+        key = ssh_pki_openssh_privkey_import(b64_key,
+                                             passphrase,
+                                             auth_fn,
+                                             auth_data);
+    } else {
+        /* fallback on PEM decoder */
+        key = pki_private_key_from_base64(b64_key,
+                                          passphrase,
+                                          auth_fn,
+                                          auth_data);
+    }
     if (key == NULL) {
         return SSH_ERROR;
     }
@@ -435,7 +465,6 @@ int ssh_pki_import_privkey_file(const char *filename,
                                 ssh_key *pkey) {
     struct stat sb;
     char *key_buf;
-    ssh_key key;
     FILE *file;
     off_t size;
     int rc;
@@ -489,13 +518,79 @@ int ssh_pki_import_privkey_file(const char *filename,
     }
     key_buf[size] = 0;
 
-    key = pki_private_key_from_base64(key_buf, passphrase, auth_fn, auth_data);
+    rc = ssh_pki_import_privkey_base64(key_buf,
+                                       passphrase,
+                                       auth_fn,
+                                       auth_data,
+                                       pkey);
+
     SAFE_FREE(key_buf);
-    if (key == NULL) {
+    return rc;
+}
+
+/**
+ * @brief Export a private key to a pem file on disk, or OpenSSH format for
+ *        keytype ssh-ed25519
+ *
+ * @param[in]  privkey  The private key to export.
+ *
+ * @param[in]  passphrase The passphrase to use to encrypt the key with or
+ *             NULL. An empty string means no passphrase.
+ *
+ * @param[in]  auth_fn  An auth function you may want to use or NULL.
+ *
+ * @param[in]  auth_data Private data passed to the auth function.
+ *
+ * @param[in]  filename  The path where to store the pem file.
+ *
+ * @return     SSH_OK on success, SSH_ERROR on error.
+ */
+int ssh_pki_export_privkey_file(const ssh_key privkey,
+                                const char *passphrase,
+                                ssh_auth_callback auth_fn,
+                                void *auth_data,
+                                const char *filename)
+{
+    ssh_string blob;
+    FILE *fp;
+    int rc;
+
+    if (privkey == NULL || !ssh_key_is_private(privkey)) {
         return SSH_ERROR;
     }
 
-    *pkey = key;
+    fp = fopen(filename, "wb");
+    if (fp == NULL) {
+        SSH_LOG(SSH_LOG_FUNCTIONS, "Error opening %s: %s",
+                filename, strerror(errno));
+        return SSH_EOF;
+    }
+
+    if (privkey->type == SSH_KEYTYPE_ED25519){
+        blob = ssh_pki_openssh_privkey_export(privkey,
+                                              passphrase,
+                                              auth_fn,
+                                              auth_data);
+    } else {
+        blob = pki_private_key_to_pem(privkey,
+                                      passphrase,
+                                      auth_fn,
+                                      auth_data);
+    }
+    if (blob == NULL) {
+        fclose(fp);
+        return -1;
+    }
+
+    rc = fwrite(ssh_string_data(blob), ssh_string_len(blob), 1, fp);
+    ssh_string_free(blob);
+    if (rc != 1 || ferror(fp)) {
+        fclose(fp);
+        unlink(filename);
+        return SSH_ERROR;
+    }
+    fclose(fp);
+
     return SSH_OK;
 }
 
@@ -749,7 +844,30 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
             }
             break;
 #endif
+        case SSH_KEYTYPE_ED25519:
+        {
+            ssh_string pubkey = buffer_get_ssh_string(buffer);
+            if (ssh_string_len(pubkey) != ED25519_PK_LEN) {
+                ssh_pki_log("Invalid public key length");
+                ssh_string_burn(pubkey);
+                ssh_string_free(pubkey);
+                goto fail;
+            }
+
+            key->ed25519_pubkey = malloc(ED25519_PK_LEN);
+            if (key->ed25519_pubkey == NULL) {
+                ssh_string_burn(pubkey);
+                ssh_string_free(pubkey);
+                goto fail;
+            }
+
+            memcpy(key->ed25519_pubkey, ssh_string_data(pubkey), ED25519_PK_LEN);
+            ssh_string_burn(pubkey);
+            ssh_string_free(pubkey);
+        }
+        break;
         case SSH_KEYTYPE_UNKNOWN:
+        default:
             ssh_pki_log("Unknown public key protocol %d", type);
             goto fail;
     }
@@ -837,7 +955,7 @@ int ssh_pki_import_pubkey_blob(const ssh_string key_blob,
         return SSH_ERROR;
     }
 
-    rc = buffer_add_data(buffer, ssh_string_data(key_blob),
+    rc = ssh_buffer_add_data(buffer, ssh_string_data(key_blob),
             ssh_string_len(key_blob));
     if (rc < 0) {
         ssh_pki_log("Out of memory!");
@@ -1010,6 +1128,12 @@ int ssh_pki_generate(enum ssh_keytypes_e type, int parameter,
             key->type_c = ssh_pki_key_ecdsa_name(key);
             break;
 #endif
+        case SSH_KEYTYPE_ED25519:
+            rc = pki_key_generate_ed25519(key);
+            if (rc == SSH_ERROR) {
+                goto error;
+            }
+            break;
         case SSH_KEYTYPE_UNKNOWN:
             goto error;
     }
@@ -1088,11 +1212,11 @@ int ssh_pki_export_pubkey_blob(const ssh_key key,
 }
 
 /**
- * @brief Convert a public key to a base64 hased key.
+ * @brief Convert a public key to a base64 encoded key.
  *
  * @param[in] key       The key to hash
  *
- * @param[out] b64_key  A pointer to store the allocated base64 hashed key. You
+ * @param[out] b64_key  A pointer to store the allocated base64 encoded key. You
  *                      need to free the buffer.
  *
  * @return              SSH_OK on success, SSH_ERROR on error.
@@ -1266,9 +1390,9 @@ int ssh_pki_import_signature_blob(const ssh_string sig_blob,
         return SSH_ERROR;
     }
 
-    rc = buffer_add_data(buf,
-                         ssh_string_data(sig_blob),
-                         ssh_string_len(sig_blob));
+    rc = ssh_buffer_add_data(buf,
+                             ssh_string_data(sig_blob),
+                             ssh_string_len(sig_blob));
     if (rc < 0) {
         ssh_buffer_free(buf);
         return SSH_ERROR;
@@ -1336,6 +1460,8 @@ int ssh_pki_signature_verify_blob(ssh_session session,
                                   ehash,
                                   elen);
 #endif
+    } else if (key->type == SSH_KEYTYPE_ED25519) {
+        rc = pki_signature_verify(session, sig, key, digest, dlen);
     } else {
         unsigned char hash[SHA_DIGEST_LEN] = {0};
 
@@ -1402,6 +1528,30 @@ ssh_string ssh_pki_do_sign(ssh_session session,
 
         sig = pki_do_sign(privkey, ehash, elen);
 #endif
+    } else if (privkey->type == SSH_KEYTYPE_ED25519){
+        ssh_buffer buf;
+
+        buf = ssh_buffer_new();
+        if (buf == NULL) {
+            ssh_string_free(session_id);
+            return NULL;
+        }
+
+        ssh_buffer_set_secure(buf);
+        rc = ssh_buffer_pack(buf,
+                             "SP",
+                             session_id,
+                             buffer_get_rest_len(sigbuf), buffer_get_rest(sigbuf));
+        if (rc != SSH_OK) {
+            ssh_string_free(session_id);
+            ssh_buffer_free(buf);
+            return NULL;
+        }
+
+        sig = pki_do_sign(privkey,
+                          ssh_buffer_get_begin(buf),
+                          ssh_buffer_get_len(buf));
+        ssh_buffer_free(buf);
     } else {
         unsigned char hash[SHA_DIGEST_LEN] = {0};
         SHACTX ctx;
@@ -1525,6 +1675,23 @@ ssh_string ssh_srv_pki_do_sign_sessionid(ssh_session session,
             return NULL;
         }
 #endif
+    } else if (privkey->type == SSH_KEYTYPE_ED25519) {
+        sig = ssh_signature_new();
+        if (sig == NULL){
+            return NULL;
+        }
+
+        sig->type = privkey->type;
+        sig->type_c = privkey->type_c;
+
+        rc = pki_ed25519_sign(privkey,
+                              sig,
+                              crypto->secret_hash,
+                              crypto->digest_len);
+        if (rc != SSH_OK){
+            ssh_signature_free(sig);
+            sig = NULL;
+        }
     } else {
         unsigned char hash[SHA_DIGEST_LEN] = {0};
         SHACTX ctx;

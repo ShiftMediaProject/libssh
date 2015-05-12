@@ -48,8 +48,6 @@
 #include "libssh/auth.h"
 #include "libssh/gssapi.h"
 
-#define MACSIZE SHA_DIGEST_LEN
-
 static ssh_packet_callback default_packet_handlers[]= {
   ssh_packet_disconnect_callback,          // SSH2_MSG_DISCONNECT                 1
   ssh_packet_ignore_callback,              // SSH2_MSG_IGNORE	                    2
@@ -146,15 +144,19 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
     ssh_session session= (ssh_session) user;
     unsigned int blocksize = (session->current_crypto ?
                               session->current_crypto->in_cipher->blocksize : 8);
-    int current_macsize = session->current_crypto ? MACSIZE : 0;
-    unsigned char mac[30] = {0};
+    unsigned char mac[DIGEST_MAX_LEN] = {0};
     char buffer[16] = {0};
+    size_t current_macsize = 0;
     const uint8_t *packet;
     int to_be_read;
     int rc;
     uint32_t len, compsize, payloadsize;
     uint8_t padding;
     size_t processed = 0; /* number of byte processed from the callback */
+
+    if(session->current_crypto != NULL) {
+      current_macsize = hmac_digest_len(session->current_crypto->in_hmac);
+    }
 
     if (data == NULL) {
         goto error;
@@ -177,7 +179,7 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
             memset(&session->in_packet, 0, sizeof(PACKET));
 
             if (session->in_buffer) {
-                rc = buffer_reinit(session->in_buffer);
+                rc = ssh_buffer_reinit(session->in_buffer);
                 if (rc < 0) {
                     goto error;
                 }
@@ -192,7 +194,7 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
             processed += blocksize;
             len = packet_decrypt_len(session, buffer);
 
-            rc = buffer_add_data(session->in_buffer, buffer, blocksize);
+            rc = ssh_buffer_add_data(session->in_buffer, buffer, blocksize);
             if (rc < 0) {
                 goto error;
             }
@@ -237,7 +239,7 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
                                 to_be_read - current_macsize);
 #endif
 
-                rc = buffer_add_data(session->in_buffer,
+                rc = ssh_buffer_add_data(session->in_buffer,
                                      packet,
                                      to_be_read - current_macsize);
                 if (rc < 0) {
@@ -267,9 +269,9 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
 
                 /* copy the last part from the incoming buffer */
                 packet = ((uint8_t *)data) + processed;
-                memcpy(mac, packet, MACSIZE);
+                memcpy(mac, packet, current_macsize);
 
-                rc = packet_hmac_verify(session, session->in_buffer, mac);
+                rc = packet_hmac_verify(session, session->in_buffer, mac, session->current_crypto->in_hmac);
                 if (rc < 0) {
                     ssh_set_error(session, SSH_FATAL, "HMAC error");
                     goto error;
@@ -311,6 +313,10 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
 #endif /* WITH_ZLIB */
             payloadsize = buffer_get_rest_len(session->in_buffer);
             session->recv_seq++;
+            if (session->raw_counter != NULL) {
+                session->raw_counter->in_bytes += payloadsize;
+                session->raw_counter->in_packets++;
+            }
 
             /*
              * We don't want to rewrite a new packet while still executing the
@@ -339,7 +345,7 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
 
             return processed;
         case PACKET_STATE_PROCESSING:
-            SSH_LOG(SSH_LOG_RARE, "Nested packet processing. Delaying.");
+            SSH_LOG(SSH_LOG_PACKET, "Nested packet processing. Delaying.");
             return 0;
     }
 
@@ -436,34 +442,42 @@ void ssh_packet_process(ssh_session session, uint8_t type){
  * @return SSH_ERROR on error, else SSH_OK
  */
 int ssh_packet_send_unimplemented(ssh_session session, uint32_t seqnum){
-  int r;
+    int rc;
 
-  r = buffer_add_u8(session->out_buffer, SSH2_MSG_UNIMPLEMENTED);
-  if (r < 0) {
-    return SSH_ERROR;
-  }
-  r = buffer_add_u32(session->out_buffer, htonl(seqnum));
-  if (r < 0) {
-    return SSH_ERROR;
-  }
-  r = packet_send(session);
+    rc = ssh_buffer_pack(session->out_buffer,
+                         "bd",
+                         SSH2_MSG_UNIMPLEMENTED,
+                         seqnum);
+    if (rc != SSH_OK) {
+        ssh_set_error_oom(session);
+        return SSH_ERROR;
+    }
+    rc = packet_send(session);
 
-  return r;
+    return rc;
 }
 
 /** @internal
  * @brief handles a SSH_MSG_UNIMPLEMENTED packet
  */
 SSH_PACKET_CALLBACK(ssh_packet_unimplemented){
-  uint32_t seq;
+    uint32_t seq;
+    int rc;
+
     (void)session; /* unused */
-  (void)type;
-  (void)user;
-  buffer_get_u32(packet,&seq);
-  seq=ntohl(seq);
-  SSH_LOG(SSH_LOG_RARE,
-      "Received SSH_MSG_UNIMPLEMENTED (sequence number %d)",seq);
-  return SSH_PACKET_USED;
+    (void)type;
+    (void)user;
+
+    rc = ssh_buffer_unpack(packet, "d", &seq);
+    if (rc != SSH_OK) {
+        SSH_LOG(SSH_LOG_WARNING,
+                "Could not unpack SSH_MSG_UNIMPLEMENTED packet");
+    }
+
+    SSH_LOG(SSH_LOG_RARE,
+            "Received SSH_MSG_UNIMPLEMENTED (sequence number %d)",seq);
+
+    return SSH_PACKET_USED;
 }
 
 /** @internal
@@ -502,6 +516,8 @@ static int ssh_packet_write(ssh_session session) {
 static int packet_send2(ssh_session session) {
   unsigned int blocksize = (session->current_crypto ?
       session->current_crypto->out_cipher->blocksize : 8);
+  enum ssh_hmac_e hmac_type = (session->current_crypto ?
+      session->current_crypto->out_hmac : session->next_crypto->out_hmac);
   uint32_t currentlen = buffer_get_rest_len(session->out_buffer);
   unsigned char *hmac = NULL;
   char padstring[32] = { 0 };
@@ -540,7 +556,7 @@ static int packet_send2(ssh_session session) {
   if (rc < 0) {
     goto error;
   }
-  rc = buffer_add_data(session->out_buffer, padstring, padding);
+  rc = ssh_buffer_add_data(session->out_buffer, padstring, padding);
   if (rc < 0) {
     goto error;
   }
@@ -554,18 +570,23 @@ static int packet_send2(ssh_session session) {
   hmac = packet_encrypt(session, buffer_get_rest(session->out_buffer),
       buffer_get_rest_len(session->out_buffer));
   if (hmac) {
-    if (buffer_add_data(session->out_buffer, hmac, 20) < 0) {
+    rc = ssh_buffer_add_data(session->out_buffer, hmac, hmac_digest_len(hmac_type));
+    if (rc < 0) {
       goto error;
     }
   }
 
   rc = ssh_packet_write(session);
   session->send_seq++;
+  if (session->raw_counter != NULL) {
+      session->raw_counter->out_bytes += payloadsize;
+      session->raw_counter->out_packets++;
+  }
 
   SSH_LOG(SSH_LOG_PACKET,
           "packet: wrote [len=%d,padding=%hhd,comp=%d,payload=%d]",
           ntohl(finallen), padding, compsize, payloadsize);
-  if (buffer_reinit(session->out_buffer) < 0) {
+  if (ssh_buffer_reinit(session->out_buffer) < 0) {
     rc = SSH_ERROR;
   }
 error:

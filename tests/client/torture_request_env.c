@@ -39,7 +39,7 @@ static void setup(void **state)
     user = getenv("TORTURE_USER");
     password = getenv("TORTURE_PASSWORD");
 
-    session = torture_ssh_session(host, user, password);
+    session = torture_ssh_session(host, NULL, user, password);
 
     assert_false(session == NULL);
     *state = session;
@@ -100,12 +100,13 @@ static void torture_request_env(void **state)
 int torture_run_tests(void) {
     int rc;
 
-    const UnitTest tests[] = {
+    UnitTest tests[] = {
         unit_test_setup_teardown(torture_request_env, setup, teardown),
     };
 
     ssh_init();
 
+    torture_filter_tests(tests);
     rc = run_tests(tests);
 
     ssh_finalize();

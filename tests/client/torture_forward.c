@@ -39,7 +39,7 @@ static void setup(void **state)
     user = getenv("TORTURE_USER");
     password = getenv("TORTURE_PASSWORD");
 
-    session = torture_ssh_session(host, user, password);
+    session = torture_ssh_session(host, NULL, user, password);
 
     assert_non_null(session);
     *state = session;
@@ -66,7 +66,7 @@ static void torture_ssh_forward(void **state)
     int bound_port;
     int rc;
 
-    rc = ssh_forward_listen(session, "127.0.0.1", 8080, &bound_port);
+    rc = ssh_channel_listen_forward(session, "127.0.0.1", 8080, &bound_port);
     assert_int_equal(rc, SSH_OK);
 
 #if 0
@@ -81,12 +81,13 @@ static void torture_ssh_forward(void **state)
 int torture_run_tests(void) {
     int rc;
 
-    const UnitTest tests[] = {
+    UnitTest tests[] = {
         unit_test_setup_teardown(torture_ssh_forward, setup, teardown),
     };
 
     ssh_init();
 
+    torture_filter_tests(tests);
     rc = run_tests(tests);
 
     ssh_finalize();

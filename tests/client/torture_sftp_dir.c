@@ -18,7 +18,7 @@ static void setup(void **state) {
     user = getenv("TORTURE_USER");
     password = getenv("TORTURE_PASSWORD");
 
-    session = torture_ssh_session(host, user, password);
+    session = torture_ssh_session(host, NULL, user, password);
     assert_false(session == NULL);
     t = torture_sftp_session(session);
     assert_false(t == NULL);
@@ -61,12 +61,13 @@ static void torture_sftp_mkdir(void **state) {
 
 int torture_run_tests(void) {
     int rc;
-    const UnitTest tests[] = {
+    UnitTest tests[] = {
         unit_test_setup_teardown(torture_sftp_mkdir, setup, teardown)
     };
 
     ssh_init();
 
+    torture_filter_tests(tests);
     rc = run_tests(tests);
     ssh_finalize();
 
