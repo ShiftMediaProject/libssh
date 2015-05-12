@@ -129,6 +129,9 @@
 
 /* #undef HAVE_GCC_VOLATILE_MEMORY_PROTECTION */
 
+/* #undef HAVE_COMPILER__FUNC__ */
+#define HAVE_COMPILER__FUNCTION__ 1
+
 /* Define to 1 if you want to enable GSSAPI */
 /* #undef WITH_GSSAPI */
 
