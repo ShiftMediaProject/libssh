@@ -664,11 +664,9 @@ SSH_PACKET_CALLBACK(channel_rcv_request) {
 	}
 
 	if (strcmp(request,"exit-status") == 0) {
-        uint32_t exit_status = 0;
-
-		SAFE_FREE(request);
-        rc = ssh_buffer_unpack(packet, "d", &exit_status);
-		SSH_LOG(SSH_LOG_PACKET, "received exit-status %d", channel->exit_status);
+        SAFE_FREE(request);
+        rc = ssh_buffer_unpack(packet, "d", &channel->exit_status);
+        SSH_LOG(SSH_LOG_PACKET, "received exit-status %d", channel->exit_status);
 
         if(ssh_callbacks_exists(channel->callbacks, channel_exit_status_function)) {
             channel->callbacks->channel_exit_status_function(channel->session,
@@ -714,7 +712,7 @@ SSH_PACKET_CALLBACK(channel_rcv_request) {
 
 		SAFE_FREE(request);
 
-		rc = ssh_buffer_unpack(packet, "sbs",
+		rc = ssh_buffer_unpack(packet, "sbss",
 		        &sig, /* signal name */
 		        &core_dumped,    /* core dumped */
 		        &errmsg, /* error message */
@@ -2211,6 +2209,11 @@ error:
 }
 
 /* DEPRECATED */
+int ssh_forward_listen(ssh_session session, const char *address, int port, int *bound_port) {
+  return ssh_channel_listen_forward(session, address, port, bound_port);
+}
+
+/* DEPRECATED */
 ssh_channel ssh_forward_accept(ssh_session session, int timeout_ms) {
   return ssh_channel_accept(session, SSH_CHANNEL_FORWARDED_TCPIP, timeout_ms, NULL);
 }
@@ -2277,6 +2280,7 @@ error:
   return rc;
 }
 
+/* DEPRECATED */
 int ssh_forward_cancel(ssh_session session, const char *address, int port) {
     return ssh_channel_cancel_forward(session, address, port);
 }

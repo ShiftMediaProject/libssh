@@ -209,8 +209,8 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_failure){
             "Access denied. Authentication that can continue: %s",
             auth_methods);
 
-    session->auth_methods = 0;
   }
+  session->auth_methods = 0;
   if (strstr(auth_methods, "password") != NULL) {
     session->auth_methods |= SSH_AUTH_METHOD_PASSWORD;
   }
@@ -1045,15 +1045,14 @@ int ssh_userauth_publickey_auto(ssh_session session,
                 ssh_key_free(state->privkey);
                 ssh_key_free(state->pubkey);
                 SAFE_FREE(session->auth_auto_state);
+                if (rc == SSH_AUTH_SUCCESS) {
+                    SSH_LOG(SSH_LOG_INFO,
+                            "Successfully authenticated using %s",
+                            privkey_file);
+                }
+                return rc;
             }
-            if (rc == SSH_AUTH_ERROR) {
-                return rc;
-            } else if (rc == SSH_AUTH_SUCCESS) {
-                SSH_LOG(SSH_LOG_INFO,
-                        "Successfully authenticated using %s",
-                        privkey_file);
-                return rc;
-            } else if (rc == SSH_AUTH_AGAIN){
+            if (rc == SSH_AUTH_AGAIN){
                 return rc;
             }
 
