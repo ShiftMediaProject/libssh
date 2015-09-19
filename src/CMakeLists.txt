@@ -54,7 +54,7 @@ endif (GCRYPT_LIBRARY)
 if (WITH_ZLIB)
   set(LIBSSH_PRIVATE_INCLUDE_DIRS
     ${LIBSSH_PRIVATE_INCLUDE_DIRS}
-    ${ZLIB_INCLUDE_DIRS}
+    ${ZLIB_INCLUDE_DIR}
   )
 
   set(LIBSSH_LINK_LIBRARIES
@@ -300,6 +300,7 @@ if (WITH_STATIC_LIB)
   )
 endif (WITH_STATIC_LIB)
 
+message(STATUS "Threads_FOUND=${Threads_FOUND}")
 if (Threads_FOUND)
     add_subdirectory(threads)
 endif (Threads_FOUND)
