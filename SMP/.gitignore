@@ -18,5 +18,9 @@
 !*.asm
 !*.def
 !*.rc
+*.sbr
+*.iobj
+*.ipdb
+.vs/
 !.gitignore
 !.gitattributes
