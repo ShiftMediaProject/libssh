@@ -103,10 +103,14 @@
 /* #undef HAVE_CLOCK_GETTIME */
 
 /* Define to 1 if you have the `ntohll' function. */
+#if !defined(_WIN32_WINNT) || _WIN32_WINNT >= 0x0602
 #define HAVE_NTOHLL 1
+#endif
 
 /* Define to 1 if you have the `htonll' function. */
+#if !defined(_WIN32_WINNT) || _WIN32_WINNT >= 0x0602
 #define HAVE_HTONLL 1
+#endif
 
 /* Define to 1 if you have the `strtoull' function. */
 #define HAVE_STRTOULL */
@@ -116,9 +120,6 @@
 
 /* Define to 1 if you have the `_strtoui64' function. */
 #define HAVE__STRTOUI64 1
-
-/* Define to 1 if you have the `ntohll' function. */
-#define HAVE_NTOHLL 1
 
 /*************************** LIBRARIES ***************************/
 
