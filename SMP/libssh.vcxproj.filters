@@ -233,9 +233,6 @@
     <ClInclude Include="..\include\libssh\kex.h">
       <Filter>Header Files\libssh</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\libssh\keyfiles.h">
-      <Filter>Header Files\libssh</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\libssh\keys.h">
       <Filter>Header Files\libssh</Filter>
     </ClInclude>

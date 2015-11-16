@@ -137,7 +137,6 @@
     <ClInclude Include="..\include\libssh\fe25519.h" />
     <ClInclude Include="..\include\libssh\ge25519.h" />
     <ClInclude Include="..\include\libssh\kex.h" />
-    <ClInclude Include="..\include\libssh\keyfiles.h" />
     <ClInclude Include="..\include\libssh\keys.h" />
     <ClInclude Include="..\include\libssh\legacy.h" />
     <ClInclude Include="..\include\libssh\libcrypto.h" />
