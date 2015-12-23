@@ -22,5 +22,5 @@
 *.iobj
 *.ipdb
 .vs/
-!.gitignore
-!.gitattributes
+*.VC.db
+*.opendb
