@@ -1094,7 +1094,7 @@ error:
  * @param[out] pkey     A pointer to store the newly allocated public key. You
  *                      NEED to free the key.
  *
- * @return              A public key, NULL on error.
+ * @return              SSH_OK on success, SSH_ERROR on error.
  *
  * @see ssh_key_free()
  */
@@ -1584,7 +1584,7 @@ ssh_string ssh_srv_pki_do_sign_sessionid(ssh_session session,
                                          const ssh_key privkey)
 {
     struct ssh_crypto_struct *crypto;
-    ssh_signature sig;
+    ssh_signature sig = NULL;
     ssh_string sig_blob;
     int rc;
 

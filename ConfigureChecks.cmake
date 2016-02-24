@@ -57,6 +57,7 @@ check_include_file(libutil.h HAVE_LIBUTIL_H)
 check_include_file(sys/time.h HAVE_SYS_TIME_H)
 check_include_file(sys/param.h HAVE_SYS_PARAM_H)
 check_include_file(arpa/inet.h HAVE_ARPA_INET_H)
+check_include_file(byteswap.h HAVE_BYTESWAP_H)
 
 if (WIN32)
   check_include_files("winsock2.h;ws2tcpip.h;wspiapi.h" HAVE_WSPIAPI_H)
@@ -110,8 +111,9 @@ endif (NOT WITH_GCRYPT)
 
 check_function_exists(isblank HAVE_ISBLANK)
 check_function_exists(strncpy HAVE_STRNCPY)
-check_function_exists(vsnprintf HAVE_VSNPRINTF)
-check_function_exists(snprintf HAVE_SNPRINTF)
+
+check_symbol_exists(vsnprintf "stdio.h" HAVE_VSNPRINTF)
+check_symbol_exists(snprintf "stdio.h" HAVE_SNPRINTF)
 
 if (WIN32)
     check_function_exists(_strtoui64 HAVE__STRTOUI64)
