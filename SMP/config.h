@@ -7,6 +7,9 @@
 /* Define to 1 if you have the <aprpa/inet.h> header file. */
 /* #undef HAVE_ARPA_INET_H */
 
+/* Define to 1 if you have the <byteswap.h> header file. */
+/* #undef HAVE_BYTESWAP_H */
+
 /* Define to 1 if you have the <pty.h> header file. */
 /* #undef HAVE_PTY_H */
 
