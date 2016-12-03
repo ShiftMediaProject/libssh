@@ -7,3 +7,4 @@ cscope.*
 tags
 /build
 /obj*
+!.github
