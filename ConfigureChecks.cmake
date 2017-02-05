@@ -111,19 +111,21 @@ endif (NOT WITH_GCRYPT)
 
 check_function_exists(isblank HAVE_ISBLANK)
 check_function_exists(strncpy HAVE_STRNCPY)
+check_function_exists(strtoull HAVE_STRTOULL)
 
-check_symbol_exists(vsnprintf "stdio.h" HAVE_VSNPRINTF)
-check_symbol_exists(snprintf "stdio.h" HAVE_SNPRINTF)
+if (NOT WIN32)
+  check_function_exists(vsnprintf HAVE_VSNPRINTF)
+  check_function_exists(snprintf HAVE_SNPRINTF)
+endif (NOT WIN32)
 
 if (WIN32)
-    check_function_exists(_strtoui64 HAVE__STRTOUI64)
-    check_function_exists(strtoull HAVE_STRTOULL)
-    check_function_exists(__strtoull HAVE___STRTOULL)
+    check_symbol_exists(vsnprintf "stdio.h" HAVE_VSNPRINTF)
+    check_symbol_exists(snprintf "stdio.h" HAVE_SNPRINTF)
 
-    check_function_exists(_vsnprintf_s HAVE__VSNPRINTF_S)
-    check_function_exists(_vsnprintf HAVE__VSNPRINTF)
-    check_function_exists(_snprintf HAVE__SNPRINTF)
-    check_function_exists(_snprintf_s HAVE__SNPRINTF_S)
+    check_symbol_exists(_vsnprintf_s "stdio.h" HAVE__VSNPRINTF_S)
+    check_symbol_exists(_vsnprintf "stdio.h" HAVE__VSNPRINTF)
+    check_symbol_exists(_snprintf "stdio.h" HAVE__SNPRINTF)
+    check_symbol_exists(_snprintf_s "stdio.h" HAVE__SNPRINTF_S)
 
     if (HAVE_WSPIAPI_H OR HAVE_WS2TCPIP_H)
         check_symbol_exists(ntohll winsock2.h HAVE_NTOHLL)
@@ -136,6 +138,8 @@ if (WIN32)
         check_symbol_exists(getaddrinfo "winsock2.h;ws2tcpip.h" HAVE_GETADDRINFO)
         set(CMAKE_REQUIRED_LIBRARIES)
     endif (HAVE_WSPIAPI_H OR HAVE_WS2TCPIP_H)
+
+    check_function_exists(_strtoui64 HAVE__STRTOUI64)
 
     set(HAVE_SELECT TRUE)
 else (WIN32)
@@ -174,7 +178,6 @@ if (UNIX)
 
     check_library_exists(util forkpty "" HAVE_LIBUTIL)
     check_function_exists(cfmakeraw HAVE_CFMAKERAW)
-    check_function_exists(strtoull HAVE_STRTOULL)
     check_function_exists(__strtoull HAVE___STRTOULL)
 endif (UNIX)
 

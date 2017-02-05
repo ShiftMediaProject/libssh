@@ -146,10 +146,10 @@ int gettimeofday(struct timeval *__p, void *__t);
 #define ERROR_BUFFERLEN 1024
 #endif
 #ifndef CLIENTBANNER1
-#define CLIENTBANNER1 "SSH-1.5-libssh-" SSH_STRINGIFY(LIBSSH_VERSION)
+#define CLIENTBANNER1 "SSH-1.5-libssh_" SSH_STRINGIFY(LIBSSH_VERSION)
 #endif
 #ifndef CLIENTBANNER2
-#define CLIENTBANNER2 "SSH-2.0-libssh-" SSH_STRINGIFY(LIBSSH_VERSION)
+#define CLIENTBANNER2 "SSH-2.0-libssh_" SSH_STRINGIFY(LIBSSH_VERSION)
 #endif
 #ifndef KBDINT_MAX_PROMPT
 #define KBDINT_MAX_PROMPT 256 /* more than openssh's :) */
@@ -360,6 +360,26 @@ int match_hostname(const char *host, const char *pattern, unsigned int len);
 #endif
 
 #define CLOSE_SOCKET(s) do { if ((s) != SSH_INVALID_SOCKET) { _XCLOSESOCKET(s); (s) = SSH_INVALID_SOCKET;} } while(0)
+
+#ifndef HAVE_HTONLL
+# ifdef WORDS_BIGENDIAN
+#  define htonll(x) (x)
+# else
+#  define htonll(x) \
+    (((uint64_t)htonl((x) & 0xFFFFFFFF) << 32) | htonl((x) >> 32))
+# endif
+#endif
+
+#ifndef HAVE_NTOHLL
+# ifdef WORDS_BIGENDIAN
+#  define ntohll(x) (x)
+# else
+#  define ntohll(x) \
+    (((uint64_t)ntohl((x) & 0xFFFFFFFF) << 32) | ntohl((x) >> 32))
+# endif
+#endif
+
+void ssh_agent_state_free(void *data);
 
 #endif /* _LIBSSH_PRIV_H */
 /* vim: set ts=4 sw=4 et cindent: */
