@@ -16,15 +16,15 @@
     <Filter Include="Source Files\external">
       <UniqueIdentifier>{1ac7443e-89b4-4171-b791-b6dae493a625}</UniqueIdentifier>
     </Filter>
+    <Filter Include="Source Files\threads">
+      <UniqueIdentifier>{c96b86d0-62be-4a12-a8a6-e1dcdf853d65}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="..\src\callbacks.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\channels.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\channels1.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\client.c">
@@ -34,9 +34,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\connect.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\crc32.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\dh.c">
@@ -81,9 +78,6 @@
     <ClCompile Include="..\src\packet.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\packet1.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\pcap.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -126,9 +120,6 @@
     <ClCompile Include="..\src\auth.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\auth1.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\base64.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -139,9 +130,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\ecdh.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\kex1.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\curve25519.c">
@@ -160,9 +148,6 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\gcrypt_missing.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\libcrypto.c">
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\bignum.c">
@@ -193,6 +178,33 @@
       <Filter>Source Files\external</Filter>
     </ClCompile>
     <ClCompile Include="..\src\external\fe25519.c">
+      <Filter>Source Files\external</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\connector.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\knownhosts.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\external\chacha.c">
+      <Filter>Source Files\external</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\external\poly1305.c">
+      <Filter>Source Files\external</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\chachapoly.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\ecdh_gcrypt.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\threads\noop.c">
+      <Filter>Source Files\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\threads\winlocks.c">
+      <Filter>Source Files\threads</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\threads\libgcrypt.c">
       <Filter>Source Files\external</Filter>
     </ClCompile>
   </ItemGroup>
@@ -287,9 +299,6 @@
     <ClInclude Include="..\include\libssh\socket.h">
       <Filter>Header Files\libssh</Filter>
     </ClInclude>
-    <ClInclude Include="..\include\libssh\ssh1.h">
-      <Filter>Header Files\libssh</Filter>
-    </ClInclude>
     <ClInclude Include="..\include\libssh\ssh2.h">
       <Filter>Header Files\libssh</Filter>
     </ClInclude>
@@ -321,6 +330,12 @@
       <Filter>Header Files\libssh</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\blf.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\chacha.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\poly1305.h">
       <Filter>Header Files\libssh</Filter>
     </ClInclude>
   </ItemGroup>
