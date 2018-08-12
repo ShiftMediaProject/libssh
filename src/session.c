@@ -31,9 +31,6 @@
 #include "libssh/crypto.h"
 #include "libssh/server.h"
 #include "libssh/socket.h"
-#ifdef WITH_SSH1
-#include "libssh/ssh1.h"
-#endif /* WITH_SSH1 */
 #include "libssh/ssh2.h"
 #include "libssh/agent.h"
 #include "libssh/packet.h"
@@ -253,11 +250,6 @@ void ssh_free(ssh_session session) {
   if (session->packet_callbacks) {
     ssh_list_free(session->packet_callbacks);
   }
-
-  SAFE_FREE(session->serverbanner);
-  SAFE_FREE(session->clientbanner);
-  SAFE_FREE(session->opts.bindaddr);
-  SAFE_FREE(session->banner);
 
   /* options */
   if (session->opts.identity) {
@@ -876,22 +868,12 @@ int ssh_send_debug (ssh_session session, const char *message, int always_display
     int rc;
 
     if (ssh_socket_is_open(session->socket)) {
-#ifdef WITH_SSH1
-        if (session->version == 1) {
-            rc = ssh_buffer_pack(session->out_buffer,
-                                 "bs",
-                                 SSH_MSG_DEBUG,
-                                 message);
-        } else
-#endif /* WITH_SSH1 */
-        {
-            rc = ssh_buffer_pack(session->out_buffer,
-                                 "bbsd",
-                                 SSH2_MSG_DEBUG,
-                                 always_display != 0 ? 1 : 0,
-                                 message,
-                                 0); /* empty language tag */
-        }
+        rc = ssh_buffer_pack(session->out_buffer,
+                             "bbsd",
+                             SSH2_MSG_DEBUG,
+                             always_display != 0 ? 1 : 0,
+                             message,
+                             0); /* empty language tag */
         if (rc != SSH_OK) {
             ssh_set_error_oom(session);
             goto error;

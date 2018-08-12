@@ -110,19 +110,6 @@ install(
 )
 endif (UNIX)
 
-    if (LIBSSH_THREADS)
-        configure_file(libssh_threads.pc.cmake ${CMAKE_CURRENT_BINARY_DIR}/libssh_threads.pc)
-        install(
-          FILES
-            ${CMAKE_CURRENT_BINARY_DIR}/libssh_threads.pc
-          DESTINATION
-            ${LIB_INSTALL_DIR}/pkgconfig
-          COMPONENT
-            pkgconfig
-        )
-    endif (LIBSSH_THREADS)
-endif (CMAKE_GENERATOR MATCHES "Makefiles")
-
 # cmake config files
 set(LIBSSH_LIBRARY_NAME ${CMAKE_SHARED_LIBRARY_PREFIX}ssh${CMAKE_SHARED_LIBRARY_SUFFIX})
 

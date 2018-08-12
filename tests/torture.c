@@ -168,7 +168,6 @@ int torture_rmdirs(const char *path) {
             rewinddir(d);
         }
     } else {
-        closedir(d);
         return -1;
     }
 

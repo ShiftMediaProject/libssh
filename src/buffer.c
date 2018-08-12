@@ -675,24 +675,6 @@ int ssh_buffer_validate_length(struct ssh_buffer_struct *buffer, size_t len)
 }
 
 /**
- * @brief Valdiates that the given length can be obtained from the buffer.
- *
- * @param[in]  buffer  The buffer to read from.
- *
- * @param[in]  len     The length to be checked.
- *
- * @return             SSH_OK if the length is valid, SSH_ERROR otherwise.
- */
-int ssh_buffer_validate_length(struct ssh_buffer_struct *buffer, size_t len)
-{
-    if (buffer->pos + len < len || buffer->pos + len > buffer->used) {
-        return SSH_ERROR;
-    }
-
-    return SSH_OK;
-}
-
-/**
  * @internal
  *
  * @brief Get a SSH String out of the buffer and adjusts the read pointer.

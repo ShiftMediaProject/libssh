@@ -836,7 +836,6 @@ static int generate_one_key(ssh_string k,
 int ssh_generate_session_keys(ssh_session session) {
   ssh_string k_string = NULL;
   struct ssh_crypto_struct *crypto = session->next_crypto;
-  unsigned char *tmp;
   int rc = -1;
 
   k_string = ssh_make_bignum_string(crypto->k);

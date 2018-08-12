@@ -938,11 +938,6 @@ int ssh_channel_open_forward(ssh_channel channel, const char *remotehost,
       return rc;
   }
 
-  if(remotehost == NULL || sourcehost == NULL) {
-      ssh_set_error_invalid(session);
-      return rc;
-  }
-
   payload = ssh_buffer_new();
   if (payload == NULL) {
     ssh_set_error_oom(session);

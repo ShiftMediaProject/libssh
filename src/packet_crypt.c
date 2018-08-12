@@ -131,8 +131,6 @@ unsigned char *ssh_packet_encrypt(ssh_session session, void *data, uint32_t len)
 
   assert(len);
 
-  assert(len);
-
   if (!session->current_crypto) {
     return NULL; /* nothing to do here */
   }
