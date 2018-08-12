@@ -32,8 +32,19 @@
 #include <winsock2.h>
 #endif
 
-#define CONSTRUCTOR_ATTRIBUTE __attribute__((constructor))
-#define DESTRUCTOR_ATTRIBUTE __attribute__((destructor))
+#ifdef _MSC_VER
+#define CONSTRUCTOR_ATTRIBUTE(_func) static void _func(void); \
+    static int _func ## _wrapper(void) { _func(); return 0; } \
+    __pragma(section(".CRT$XCU",read)) \
+    __declspec(allocate(".CRT$XCU")) static int (* _array ## _func)(void) = _func ## _wrapper;
+#define DESTRUCTOR_ATTRIBUTE(_func) static void _func(void); \
+    static int _func ## _constructor(void) { atexit (_func); return 0; } \
+    __pragma(section(".CRT$XCU",read)) \
+    __declspec(allocate(".CRT$XCU")) static int (* _array ## _func)(void) = _func ## _constructor;
+#else
+#define CONSTRUCTOR_ATTRIBUTE(_func) void _func(void) __attribute__((constructor))
+#define DESTRUCTOR_ATTRIBUTE(_func) void _func(void) __attribute__((destructor))
+#endif
 
 /* Declare static mutex */
 static SSH_MUTEX ssh_init_mutex = SSH_MUTEX_STATIC_INIT;
@@ -44,8 +55,8 @@ static int _ssh_initialized = 0;
 /* Cache the returned value */
 static int _ssh_init_ret = 0;
 
-void libssh_constructor(void) CONSTRUCTOR_ATTRIBUTE;
-void libssh_destructor(void) DESTRUCTOR_ATTRIBUTE;
+CONSTRUCTOR_ATTRIBUTE(libssh_constructor);
+DESTRUCTOR_ATTRIBUTE(libssh_destructor);
 
 static int _ssh_init(unsigned constructor) {
 
