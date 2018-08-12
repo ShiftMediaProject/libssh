@@ -143,7 +143,7 @@ static size_t atomicio(struct ssh_agent_struct *agent, void *buf, size_t n, int 
     }
 }
 
-ssh_agent agent_new(struct ssh_session_struct *session) {
+ssh_agent ssh_agent_new(struct ssh_session_struct *session) {
   ssh_agent agent = NULL;
 
   agent = malloc(sizeof(struct ssh_agent_struct));
@@ -205,7 +205,7 @@ int ssh_set_agent_socket(ssh_session session, socket_t fd){
   return SSH_OK;
 }
 
-void agent_close(struct ssh_agent_struct *agent) {
+void ssh_agent_close(struct ssh_agent_struct *agent) {
   if (agent == NULL) {
     return;
   }
@@ -213,13 +213,13 @@ void agent_close(struct ssh_agent_struct *agent) {
   ssh_socket_close(agent->sock);
 }
 
-void agent_free(ssh_agent agent) {
+void ssh_agent_free(ssh_agent agent) {
   if (agent) {
     if (agent->ident) {
       ssh_buffer_free(agent->ident);
     }
     if (agent->sock) {
-      agent_close(agent);
+      ssh_agent_close(agent);
       ssh_socket_free(agent->sock);
     }
     SAFE_FREE(agent);
@@ -273,13 +273,13 @@ static int agent_talk(struct ssh_session_struct *session,
   uint32_t len = 0;
   uint8_t payload[1024] = {0};
 
-  len = buffer_get_rest_len(request);
+  len = ssh_buffer_get_len(request);
   SSH_LOG(SSH_LOG_TRACE, "Request length: %u", len);
   agent_put_u32(payload, len);
 
   /* send length and then the request packet */
   if (atomicio(session->agent, payload, 4, 0) == 4) {
-    if (atomicio(session->agent, buffer_get_rest(request), len, 0)
+    if (atomicio(session->agent, ssh_buffer_get(request), len, 0)
         != len) {
       SSH_LOG(SSH_LOG_WARN, "atomicio sending request failed: %s",
           strerror(errno));
@@ -331,22 +331,8 @@ int ssh_agent_get_ident_count(struct ssh_session_struct *session) {
   ssh_buffer request = NULL;
   ssh_buffer reply = NULL;
   unsigned int type = 0;
-  unsigned int c1 = 0, c2 = 0;
   uint8_t buf[4] = {0};
   int rc;
-
-  switch (session->version) {
-    case 1:
-      c1 = SSH_AGENTC_REQUEST_RSA_IDENTITIES;
-      c2 = SSH_AGENT_RSA_IDENTITIES_ANSWER;
-      break;
-    case 2:
-      c1 = SSH2_AGENTC_REQUEST_IDENTITIES;
-      c2 = SSH2_AGENT_IDENTITIES_ANSWER;
-      break;
-    default:
-      return 0;
-  }
 
   /* send message to the agent requesting the list of identities */
   request = ssh_buffer_new();
@@ -354,7 +340,7 @@ int ssh_agent_get_ident_count(struct ssh_session_struct *session) {
       ssh_set_error_oom(session);
       return -1;
   }
-  if (buffer_add_u8(request, c1) < 0) {
+  if (ssh_buffer_add_u8(request, SSH2_AGENTC_REQUEST_IDENTITIES) < 0) {
       ssh_set_error_oom(session);
       ssh_buffer_free(request);
       return -1;
@@ -375,7 +361,7 @@ int ssh_agent_get_ident_count(struct ssh_session_struct *session) {
   ssh_buffer_free(request);
 
   /* get message type and verify the answer */
-  rc = buffer_get_u8(reply, (uint8_t *) &type);
+  rc = ssh_buffer_get_u8(reply, (uint8_t *) &type);
   if (rc != sizeof(uint8_t)) {
     ssh_set_error(session, SSH_FATAL,
         "Bad authentication reply size: %d", rc);
@@ -388,19 +374,19 @@ int ssh_agent_get_ident_count(struct ssh_session_struct *session) {
 
   SSH_LOG(SSH_LOG_WARN,
       "Answer type: %d, expected answer: %d",
-      type, c2);
+      type, SSH2_AGENT_IDENTITIES_ANSWER);
 
   if (agent_failed(type)) {
       ssh_buffer_free(reply);
       return 0;
-  } else if (type != c2) {
+  } else if (type != SSH2_AGENT_IDENTITIES_ANSWER) {
       ssh_set_error(session, SSH_FATAL,
           "Bad authentication reply message type: %u", type);
       ssh_buffer_free(reply);
       return -1;
   }
 
-  buffer_get_u32(reply, (uint32_t *) buf);
+  ssh_buffer_get_u32(reply, (uint32_t *) buf);
   session->agent->count = agent_get_u32(buf);
   SSH_LOG(SSH_LOG_DEBUG, "Agent count: %d",
       session->agent->count);
@@ -442,49 +428,45 @@ ssh_key ssh_agent_get_next_ident(struct ssh_session_struct *session,
         return NULL;
     }
 
-    switch(session->version) {
-        case 1:
-            return NULL;
-        case 2:
-            /* get the blob */
-            blob = buffer_get_ssh_string(session->agent->ident);
-            if (blob == NULL) {
-                return NULL;
-            }
+    /* get the blob */
+    blob = ssh_buffer_get_ssh_string(session->agent->ident);
+    if (blob == NULL) {
+        return NULL;
+    }
 
-            /* get the comment */
-            tmp = buffer_get_ssh_string(session->agent->ident);
-            if (tmp == NULL) {
-                ssh_string_free(blob);
+    /* get the comment */
+    tmp = ssh_buffer_get_ssh_string(session->agent->ident);
+    if (tmp == NULL) {
+        ssh_string_free(blob);
 
-                return NULL;
-            }
+        return NULL;
+    }
 
-            if (comment) {
-                *comment = ssh_string_to_char(tmp);
-            } else {
-                ssh_string_free(blob);
-                ssh_string_free(tmp);
+    if (comment) {
+        *comment = ssh_string_to_char(tmp);
+    } else {
+        ssh_string_free(blob);
+        ssh_string_free(tmp);
 
-                return NULL;
-            }
-            ssh_string_free(tmp);
+        return NULL;
+    }
+    ssh_string_free(tmp);
 
-            /* get key from blob */
-            rc = ssh_pki_import_pubkey_blob(blob, &key);
-            ssh_string_free(blob);
-            if (rc == SSH_ERROR) {
-                return NULL;
-            }
-            break;
-        default:
-            return NULL;
+    /* get key from blob */
+    rc = ssh_pki_import_pubkey_blob(blob, &key);
+    if (rc == SSH_ERROR) {
+        /* Try again as a cert. */
+        rc = ssh_pki_import_cert_blob(blob, &key);
+    }
+    ssh_string_free(blob);
+    if (rc == SSH_ERROR) {
+        return NULL;
     }
 
     return key;
 }
 
-int agent_is_running(ssh_session session) {
+int ssh_agent_is_running(ssh_session session) {
   if (session == NULL || session->agent == NULL) {
     return 0;
   }
@@ -521,7 +503,7 @@ ssh_string ssh_agent_sign_data(ssh_session session,
     }
 
     /* create request */
-    if (buffer_add_u8(request, SSH2_AGENTC_SIGN_REQUEST) < 0) {
+    if (ssh_buffer_add_u8(request, SSH2_AGENTC_SIGN_REQUEST) < 0) {
         ssh_buffer_free(request);
         return NULL;
     }
@@ -532,8 +514,23 @@ ssh_string ssh_agent_sign_data(ssh_session session,
         return NULL;
     }
 
+    /*
+     * make sure it already can contain all the expected content:
+     * - 1 x uint8_t
+     * - 2 x uint32_t
+     * - 1 x ssh_string (uint8_t + data)
+     */
+    rc = ssh_buffer_allocate_size(request,
+                                  sizeof(uint8_t) * 2 +
+                                  sizeof(uint32_t) * 2 +
+                                  ssh_string_len(key_blob));
+    if (rc < 0) {
+        ssh_buffer_free(request);
+        return NULL;
+    }
+
     /* adds len + blob */
-    rc = buffer_add_ssh_string(request, key_blob);
+    rc = ssh_buffer_add_ssh_string(request, key_blob);
     ssh_string_free(key_blob);
     if (rc < 0) {
         ssh_buffer_free(request);
@@ -541,17 +538,17 @@ ssh_string ssh_agent_sign_data(ssh_session session,
     }
 
     /* Add data */
-    dlen = buffer_get_rest_len(data);
-    if (buffer_add_u32(request, htonl(dlen)) < 0) {
+    dlen = ssh_buffer_get_len(data);
+    if (ssh_buffer_add_u32(request, htonl(dlen)) < 0) {
         ssh_buffer_free(request);
         return NULL;
     }
-    if (ssh_buffer_add_data(request, buffer_get_rest(data), dlen) < 0) {
+    if (ssh_buffer_add_data(request, ssh_buffer_get(data), dlen) < 0) {
         ssh_buffer_free(request);
         return NULL;
     }
 
-    if (buffer_add_u32(request, htonl(flags)) < 0) {
+    if (ssh_buffer_add_u32(request, htonl(flags)) < 0) {
         ssh_buffer_free(request);
         return NULL;
     }
@@ -571,7 +568,7 @@ ssh_string ssh_agent_sign_data(ssh_session session,
     ssh_buffer_free(request);
 
     /* check if reply is valid */
-    if (buffer_get_u8(reply, (uint8_t *) &type) != sizeof(uint8_t)) {
+    if (ssh_buffer_get_u8(reply, (uint8_t *) &type) != sizeof(uint8_t)) {
         ssh_buffer_free(reply);
         return NULL;
     }
@@ -592,12 +589,10 @@ ssh_string ssh_agent_sign_data(ssh_session session,
         return NULL;
     }
 
-    sig_blob = buffer_get_ssh_string(reply);
+    sig_blob = ssh_buffer_get_ssh_string(reply);
     ssh_buffer_free(reply);
 
     return sig_blob;
 }
 
 #endif /* _WIN32 */
-
-/* vim: set ts=4 sw=4 et cindent: */

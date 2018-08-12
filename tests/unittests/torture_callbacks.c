@@ -1,8 +1,11 @@
+#include "config.h"
+
 #define LIBSSH_STATIC
 
 #include "torture.h"
 #include <libssh/priv.h>
 #include <libssh/callbacks.h>
+#include <libssh/misc.h>
 
 static int myauthcallback (const char *prompt, char *buf, size_t len,
     int echo, int verify, void *userdata) {
@@ -15,7 +18,8 @@ static int myauthcallback (const char *prompt, char *buf, size_t len,
     return 0;
 }
 
-static void setup(void **state) {
+static int setup(void **state)
+{
     struct ssh_callbacks_struct *cb;
 
     cb = malloc(sizeof(struct ssh_callbacks_struct));
@@ -27,10 +31,15 @@ static void setup(void **state) {
 
     ssh_callbacks_init(cb);
     *state = cb;
+
+    return 0;
 }
 
-static void teardown(void **state) {
+static int teardown(void **state)
+{
     free(*state);
+
+    return 0;
 }
 
 static void torture_callbacks_size(void **state) {
@@ -96,17 +105,155 @@ static void torture_log_callback(void **state)
     assert_int_equal(t.executed, 1);
 }
 
+static void cb1(ssh_session session, ssh_channel channel, void *userdata){
+    int *v = userdata;
+    (void) session;
+    (void) channel;
+    *v += 1;
+}
+
+static void cb2(ssh_session session, ssh_channel channel, int status, void *userdata){
+    int *v = userdata;
+    (void) session;
+    (void) channel;
+    (void) status;
+    *v += 10;
+}
+
+static void torture_callbacks_execute_list(void **state){
+    struct ssh_list *list = ssh_list_new();
+    int v = 0, w = 0;
+    struct ssh_channel_callbacks_struct c1 = {
+            .channel_eof_function = cb1,
+            .userdata = &v
+    };
+    struct ssh_channel_callbacks_struct c2 = {
+            .channel_exit_status_function = cb2,
+            .userdata = &v
+    };
+    struct ssh_channel_callbacks_struct c3 = {
+            .channel_eof_function = cb1,
+            .channel_exit_status_function = cb2,
+            .userdata = &w
+    };
+
+    (void)state;
+    ssh_callbacks_init(&c1);
+    ssh_callbacks_init(&c2);
+    ssh_callbacks_init(&c3);
+
+    ssh_list_append(list, &c1);
+    ssh_callbacks_execute_list(list,
+                               ssh_channel_callbacks,
+                               channel_eof_function,
+                               NULL,
+                               NULL);
+    assert_int_equal(v, 1);
+
+    v = 0;
+    ssh_list_append(list, &c2);
+    ssh_callbacks_execute_list(list,
+                               ssh_channel_callbacks,
+                               channel_eof_function,
+                               NULL,
+                               NULL);
+    assert_int_equal(v, 1);
+    ssh_callbacks_execute_list(list,
+                               ssh_channel_callbacks,
+                               channel_exit_status_function,
+                               NULL,
+                               NULL,
+                               0);
+    assert_int_equal(v, 11);
+
+    v = 0;
+    w = 0;
+    ssh_list_append(list, &c3);
+    ssh_callbacks_execute_list(list,
+                               ssh_channel_callbacks,
+                               channel_eof_function,
+                               NULL,
+                               NULL);
+    assert_int_equal(v, 1);
+    assert_int_equal(w, 1);
+    ssh_callbacks_execute_list(list,
+                               ssh_channel_callbacks,
+                               channel_exit_status_function,
+                               NULL,
+                               NULL,
+                               0);
+    assert_int_equal(v, 11);
+    assert_int_equal(w, 11);
+
+    ssh_list_free(list);
+
+}
+
+static int cb3(ssh_session session, ssh_channel channel, void *userdata){
+    int *v = userdata;
+    (void)session;
+    (void)channel;
+    *v = 1;
+    return 10;
+}
+
+static void torture_callbacks_iterate(void **state){
+    struct ssh_list *list = ssh_list_new();
+    int v = 0, w = 0;
+    struct ssh_channel_callbacks_struct c1 = {
+            .channel_eof_function = cb1,
+            .channel_shell_request_function = cb3,
+            .userdata = &v
+    };
+    struct ssh_channel_callbacks_struct c2 = {
+            .channel_eof_function = cb1,
+            .channel_shell_request_function = cb3,
+            .userdata = &v
+    };
+
+    (void)state; /* unused */
+
+    ssh_callbacks_init(&c1);
+    ssh_callbacks_init(&c2);
+
+    ssh_list_append(list, &c1);
+    ssh_list_append(list, &c2);
+
+    ssh_callbacks_iterate(list, ssh_channel_callbacks, channel_eof_function){
+        ssh_callbacks_iterate_exec(channel_eof_function, NULL, NULL);
+    }
+    ssh_callbacks_iterate_end();
+
+    assert_int_equal(v, 2);
+
+    v = 0;
+    ssh_callbacks_iterate(list, ssh_channel_callbacks, channel_shell_request_function){
+        w = ssh_callbacks_iterate_exec(channel_shell_request_function, NULL, NULL);
+        if (w) {
+            break;
+        }
+    }
+    ssh_callbacks_iterate_end();
+
+    assert_int_equal(w, 10);
+    assert_int_equal(v, 1);
+
+    ssh_list_free(list);
+}
+
 int torture_run_tests(void) {
     int rc;
-    UnitTest tests[] = {
-        unit_test_setup_teardown(torture_callbacks_size, setup, teardown),
-        unit_test_setup_teardown(torture_callbacks_exists, setup, teardown),
-        unit_test(torture_log_callback),
+    struct CMUnitTest tests[] = {
+        cmocka_unit_test_setup_teardown(torture_callbacks_size, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_callbacks_exists, setup, teardown),
+        cmocka_unit_test(torture_log_callback),
+        cmocka_unit_test(torture_callbacks_execute_list),
+        cmocka_unit_test(torture_callbacks_iterate)
     };
 
     ssh_init();
     torture_filter_tests(tests);
-    rc=run_tests(tests);
+    rc = cmocka_run_group_tests(tests, NULL, NULL);
     ssh_finalize();
     return rc;
 }

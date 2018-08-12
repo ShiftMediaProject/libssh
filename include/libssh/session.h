@@ -79,6 +79,13 @@ enum ssh_pending_call_e {
 /* Don't block at all */
 #define SSH_TIMEOUT_NONBLOCKING 0
 
+/* options flags */
+/* Authentication with *** allowed */
+#define SSH_OPT_FLAG_PASSWORD_AUTH 0x1
+#define SSH_OPT_FLAG_PUBKEY_AUTH 0x2
+#define SSH_OPT_FLAG_KBDINT_AUTH 0x4
+#define SSH_OPT_FLAG_GSSAPI_AUTH 0x8
+
 /* members that are common to ssh_session and ssh_bind */
 struct ssh_common_struct {
     struct error_struct error;
@@ -150,7 +157,7 @@ struct ssh_session_struct {
 /* keyb interactive data */
     struct ssh_kbdint_struct *kbdint;
     struct ssh_gssapi_struct *gssapi;
-    int version; /* 1 or 2 */
+
     /* server host keys */
     struct {
         ssh_key rsa_key;
@@ -182,6 +189,7 @@ struct ssh_session_struct {
         char *bindaddr; /* bind the client to an ip addr */
         char *sshdir;
         char *knownhosts;
+        char *global_knownhosts;
         char *wanted_methods[10];
         char *ProxyCommand;
         char *custombanner;
@@ -190,12 +198,12 @@ struct ssh_session_struct {
         unsigned int port;
         socket_t fd;
         int StrictHostKeyChecking;
-        int ssh2;
-        int ssh1;
         char compressionlevel;
         char *gss_server_identity;
         char *gss_client_identity;
         int gss_delegate_creds;
+        int flags;
+        int nodelay;
     } opts;
     /* counters */
     ssh_counter socket_counter;

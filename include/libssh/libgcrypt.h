@@ -32,7 +32,7 @@ typedef gcry_md_hd_t SHA384CTX;
 typedef gcry_md_hd_t SHA512CTX;
 typedef gcry_md_hd_t MD5CTX;
 typedef gcry_md_hd_t HMACCTX;
-typedef void *EVPCTX;
+typedef gcry_md_hd_t EVPCTX;
 #define SHA_DIGEST_LENGTH 20
 #define SHA_DIGEST_LEN SHA_DIGEST_LENGTH
 #define MD5_DIGEST_LEN 16
@@ -51,16 +51,26 @@ typedef void *EVPCTX;
 
 typedef gcry_mpi_t bignum;
 
+/* Constants for curves.  */
+#define NID_gcrypt_nistp256 0
+#define NID_gcrypt_nistp384 1
+#define NID_gcrypt_nistp521 2
+
 /* missing gcrypt functions */
-int my_gcry_dec2bn(bignum *bn, const char *data);
-char *my_gcry_bn2dec(bignum bn);
+int ssh_gcry_dec2bn(bignum *bn, const char *data);
+char *ssh_gcry_bn2dec(bignum bn);
 
 #define bignum_new() gcry_mpi_new(0)
-#define bignum_free(num) gcry_mpi_release(num)
+#define bignum_safe_free(num) do { \
+    if ((num) != NULL) { \
+        gcry_mpi_release((num)); \
+        (num)=NULL; \
+    } \
+    } while (0)
 #define bignum_set_word(bn,n) gcry_mpi_set_ui(bn,n)
 #define bignum_bin2bn(bn,datalen,data) gcry_mpi_scan(data,GCRYMPI_FMT_USG,bn,datalen,NULL)
-#define bignum_bn2dec(num) my_gcry_bn2dec(num)
-#define bignum_dec2bn(num, data) my_gcry_dec2bn(data, num)
+#define bignum_bn2dec(num) ssh_gcry_bn2dec(num)
+#define bignum_dec2bn(num, data) ssh_gcry_dec2bn(data, num)
 #define bignum_bn2hex(num,data) gcry_mpi_aprint(GCRYMPI_FMT_HEX,data,NULL,num)
 #define bignum_hex2bn(num,datalen,data) gcry_mpi_scan(num,GCRYMPI_FMT_HEX,data,datalen,NULL)
 #define bignum_rand(num,bits) gcry_mpi_randomize(num,bits,GCRY_STRONG_RANDOM),gcry_mpi_set_bit(num,bits-1),gcry_mpi_set_bit(num,0)
@@ -71,8 +81,16 @@ char *my_gcry_bn2dec(bignum bn);
 #define bignum_bn2bin(num,datalen,data) gcry_mpi_print(GCRYMPI_FMT_USG,data,datalen,NULL,num)
 #define bignum_cmp(num1,num2) gcry_mpi_cmp(num1,num2)
 
-#endif /* HAVE_LIBGCRYPT */
+/* Helper functions for data conversions.  */
 
-struct ssh_cipher_struct *ssh_get_ciphertab(void);
+/* Extract an MPI from the given s-expression SEXP named NAME which is
+   encoded using INFORMAT and store it in a newly allocated ssh_string
+   encoded using OUTFORMAT.  */
+ssh_string ssh_sexp_extract_mpi(const gcry_sexp_t sexp,
+                                const char *name,
+                                enum gcry_mpi_format informat,
+                                enum gcry_mpi_format outformat);
+
+#endif /* HAVE_LIBGCRYPT */
 
 #endif /* LIBGCRYPT_H_ */

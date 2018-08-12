@@ -1,3 +1,5 @@
+#include "config.h"
+
 #define LIBSSH_STATIC
 
 #ifndef _WIN32
@@ -6,16 +8,23 @@
 #endif
 
 #include "torture.h"
+#include "torture_key.h"
 #include <libssh/session.h>
 #include <libssh/misc.h>
 
-static void setup(void **state) {
+static int setup(void **state)
+{
     ssh_session session = ssh_new();
     *state = session;
+
+    return 0;
 }
 
-static void teardown(void **state) {
+static int teardown(void **state)
+{
     ssh_free(*state);
+
+    return 0;
 }
 
 static void torture_options_set_host(void **state) {
@@ -30,6 +39,107 @@ static void torture_options_set_host(void **state) {
     assert_true(rc == 0);
     assert_string_equal(session->opts.host, "meditation");
     assert_string_equal(session->opts.username, "guru");
+}
+
+static void torture_options_set_ciphers(void **state) {
+    ssh_session session = *state;
+    int rc;
+
+    /* Test known ciphers */
+    rc = ssh_options_set(session, SSH_OPTIONS_CIPHERS_C_S, "aes128-ctr,aes192-ctr,aes256-ctr");
+    assert_true(rc == 0);
+    assert_string_equal(session->opts.wanted_methods[SSH_CRYPT_C_S], "aes128-ctr,aes192-ctr,aes256-ctr");
+
+    /* Test one unknown cipher */
+    rc = ssh_options_set(session, SSH_OPTIONS_CIPHERS_C_S, "aes128-ctr,unknown-crap@example.com,aes192-ctr,aes256-ctr");
+    assert_true(rc == 0);
+    assert_string_equal(session->opts.wanted_methods[SSH_CRYPT_C_S], "aes128-ctr,aes192-ctr,aes256-ctr");
+
+    /* Test all unknown ciphers */
+    rc = ssh_options_set(session, SSH_OPTIONS_CIPHERS_C_S, "unknown-crap@example.com,more-crap@example.com");
+    assert_false(rc == 0);
+}
+
+static void torture_options_set_key_exchange(void **state)
+{
+    ssh_session session = *state;
+    int rc;
+
+    /* Test known kexes */
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_KEY_EXCHANGE,
+                         "curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,diffie-hellman-group14-sha1");
+    assert_true(rc == 0);
+    assert_string_equal(session->opts.wanted_methods[SSH_KEX],
+                        "curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,diffie-hellman-group14-sha1");
+
+    /* Test one unknown kex */
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_KEY_EXCHANGE,
+                         "curve25519-sha256,curve25519-sha256@libssh.org,unknown-crap@example.com,diffie-hellman-group14-sha1");
+    assert_true(rc == 0);
+    assert_string_equal(session->opts.wanted_methods[SSH_KEX],
+                        "curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group14-sha1");
+
+    /* Test all unknown kexes */
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_KEY_EXCHANGE,
+                         "unknown-crap@example.com,more-crap@example.com");
+    assert_false(rc == 0);
+}
+
+static void torture_options_set_hostkey(void **state) {
+    ssh_session session = *state;
+    int rc;
+
+    /* Test known host keys */
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_HOSTKEYS,
+                         "ssh-ed25519,ecdsa-sha2-nistp384,ssh-rsa");
+    assert_true(rc == 0);
+    assert_string_equal(session->opts.wanted_methods[SSH_HOSTKEYS],
+                        "ssh-ed25519,ecdsa-sha2-nistp384,ssh-rsa");
+
+    /* Test one unknown host key */
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_HOSTKEYS,
+                         "ssh-ed25519,unknown-crap@example.com,ssh-rsa");
+    assert_true(rc == 0);
+    assert_string_equal(session->opts.wanted_methods[SSH_HOSTKEYS],
+                        "ssh-ed25519,ssh-rsa");
+
+    /* Test all unknown host keys */
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_HOSTKEYS,
+                         "unknown-crap@example.com,more-crap@example.com");
+    assert_false(rc == 0);
+}
+
+static void torture_options_set_macs(void **state) {
+    ssh_session session = *state;
+    int rc;
+
+    /* Test known MACs */
+    rc = ssh_options_set(session, SSH_OPTIONS_HMAC_S_C, "hmac-sha1");
+    assert_true(rc == 0);
+    assert_string_equal(session->opts.wanted_methods[SSH_MAC_S_C], "hmac-sha1");
+
+    /* Test multiple known MACs */
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_HMAC_S_C,
+                         "hmac-sha1,hmac-sha2-256");
+    assert_true(rc == 0);
+    assert_string_equal(session->opts.wanted_methods[SSH_MAC_S_C],
+                        "hmac-sha1,hmac-sha2-256");
+
+    /* Test unknown MACs */
+    rc = ssh_options_set(session, SSH_OPTIONS_HMAC_S_C, "unknown-crap@example.com,hmac-sha1,unknown@example.com");
+    assert_true(rc == 0);
+    assert_string_equal(session->opts.wanted_methods[SSH_MAC_S_C], "hmac-sha1");
+
+    /* Test all unknown MACs */
+    rc = ssh_options_set(session, SSH_OPTIONS_HMAC_S_C, "unknown-crap@example.com");
+    assert_false(rc == 0);
 }
 
 static void torture_options_get_host(void **state) {
@@ -193,41 +303,120 @@ static void torture_options_proxycommand(void **state) {
     assert_null(session->opts.ProxyCommand);
 }
 
-static void torture_options_proxycommand(void **state) {
+static void torture_options_config_host(void **state) {
     ssh_session session = *state;
-    int rc;
+    FILE *config = NULL;
 
-    /* Enable ProxyCommand */
-    rc = ssh_options_set(session, SSH_OPTIONS_PROXYCOMMAND, "ssh -q -A -X -W %h:%p JUMPHOST");
-    assert_int_equal(rc, 0);
+    /* create a new config file */
+    config = fopen("test_config", "w");
+    assert_non_null(config);
+    fputs("Host testhost1\nPort 42\nHost testhost2,testhost3\nPort 43\n", config);
+    fclose(config);
 
-    assert_string_equal(session->ProxyCommand, "ssh -q -A -X -W %h:%p JUMPHOST");
+    ssh_options_set(session, SSH_OPTIONS_HOST, "testhost1");
+    ssh_options_parse_config(session, "test_config");
 
-    /* Disable ProxyCommand */
-    rc = ssh_options_set(session, SSH_OPTIONS_PROXYCOMMAND, "none");
-    assert_int_equal(rc, 0);
+    assert_int_equal(session->opts.port, 42);
 
-    assert_true(session->ProxyCommand == NULL);
+    ssh_options_set(session, SSH_OPTIONS_HOST, "testhost2");
+    ssh_options_parse_config(session, "test_config");
+    assert_int_equal(session->opts.port, 43);
+
+    session->opts.port = 0;
+
+    ssh_options_set(session, SSH_OPTIONS_HOST, "testhost3");
+    ssh_options_parse_config(session, "test_config");
+    assert_int_equal(session->opts.port, 43);
+
+    unlink("test_config");
 }
+
+
+#ifdef WITH_SERVER
+/* sshbind options */
+static int sshbind_setup(void **state)
+{
+    ssh_bind bind = ssh_bind_new();
+    *state = bind;
+    return 0;
+}
+
+static int sshbind_teardown(void **state)
+{
+    ssh_bind_free(*state);
+    return 0;
+}
+
+static void torture_bind_options_import_key(void **state)
+{
+    ssh_bind bind = *state;
+    int rc;
+    const char *base64_key;
+    ssh_key key = ssh_key_new();
+
+    /* set null */
+    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY, NULL);
+    assert_int_equal(rc, -1);
+    /* set invalid key */
+    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY, key);
+    assert_int_equal(rc, -1);
+    ssh_key_free(key);
+
+    /* set rsa key */
+    base64_key = torture_get_testkey(SSH_KEYTYPE_RSA, 0, 0);
+    rc = ssh_pki_import_privkey_base64(base64_key, NULL, NULL, NULL, &key);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY, key);
+    assert_int_equal(rc, 0);
+#ifdef HAVE_DSA
+    /* set dsa key */
+    base64_key = torture_get_testkey(SSH_KEYTYPE_DSS, 0, 0);
+    ssh_pki_import_privkey_base64(base64_key, NULL, NULL, NULL, &key);
+    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY, key);
+    assert_int_equal(rc, 0);
+#endif
+    /* set ecdsa key */
+    base64_key = torture_get_testkey(SSH_KEYTYPE_ECDSA, 512, 0);
+    ssh_pki_import_privkey_base64(base64_key, NULL, NULL, NULL, &key);
+    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY, key);
+    assert_int_equal(rc, 0);
+}
+#endif /* WITH_SERVER */
+
 
 int torture_run_tests(void) {
     int rc;
-    UnitTest tests[] = {
-        unit_test_setup_teardown(torture_options_set_host, setup, teardown),
-        unit_test_setup_teardown(torture_options_get_host, setup, teardown),
-        unit_test_setup_teardown(torture_options_set_port, setup, teardown),
-        unit_test_setup_teardown(torture_options_get_port, setup, teardown),
-        unit_test_setup_teardown(torture_options_set_fd, setup, teardown),
-        unit_test_setup_teardown(torture_options_set_user, setup, teardown),
-        unit_test_setup_teardown(torture_options_get_user, setup, teardown),
-        unit_test_setup_teardown(torture_options_set_identity, setup, teardown),
-        unit_test_setup_teardown(torture_options_get_identity, setup, teardown),
-        unit_test_setup_teardown(torture_options_proxycommand, setup, teardown),
+    struct CMUnitTest tests[] = {
+        cmocka_unit_test_setup_teardown(torture_options_set_host, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_get_host, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_set_port, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_get_port, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_set_fd, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_set_user, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_get_user, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_set_identity, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_get_identity, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_proxycommand, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_set_ciphers, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_set_key_exchange, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_set_hostkey, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_set_macs, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_config_host, setup, teardown)
     };
+
+#ifdef WITH_SERVER
+    struct CMUnitTest sshbind_tests[] = {
+        cmocka_unit_test_setup_teardown(torture_bind_options_import_key, sshbind_setup, sshbind_teardown),
+    };
+#endif /* WITH_SERVER */
 
     ssh_init();
     torture_filter_tests(tests);
-    rc=run_tests(tests);
+    rc = cmocka_run_group_tests(tests, NULL, NULL);
+#ifdef WITH_SERVER
+    rc += cmocka_run_group_tests(sshbind_tests, NULL, NULL);
+#endif /* WITH_SERVER */
     ssh_finalize();
     return rc;
 }

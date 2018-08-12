@@ -33,12 +33,9 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
-#endif /* HAVE_SYS_TIME_H */
-
 #endif /* _WIN32 */
 
+#include <errno.h>
 #include <limits.h>
 #include <stdio.h>
 #include <string.h>
@@ -47,6 +44,10 @@
 #include <sys/types.h>
 #include <ctype.h>
 #include <time.h>
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif /* HAVE_SYS_TIME_H */
+
 
 #ifdef _WIN32
 
@@ -59,9 +60,9 @@
 #include <shlobj.h>
 #include <direct.h>
 
-#if _MSC_VER >= 1400
-# include <io.h>
-#endif /* _MSC_VER */
+#ifdef HAVE_IO_H
+#include <io.h>
+#endif /* HAVE_IO_H */
 
 #endif /* _WIN32 */
 
@@ -79,6 +80,12 @@
 #define CRYPTO_STRING "/openssl"
 #else
 #define CRYPTO_STRING ""
+#endif
+
+#ifdef HAVE_LIBMBEDCRYPTO
+#define MBED_STRING "/mbedtls"
+#else
+#define MBED_STRING ""
 #endif
 
 #ifdef WITH_ZLIB
@@ -348,7 +355,7 @@ char *ssh_hostport(const char *host, int port){
  */
 const char *ssh_version(int req_version) {
   if (req_version <= LIBSSH_VERSION_INT) {
-    return SSH_STRINGIFY(LIBSSH_VERSION) GCRYPT_STRING CRYPTO_STRING
+    return SSH_STRINGIFY(LIBSSH_VERSION) GCRYPT_STRING CRYPTO_STRING MBED_STRING
       ZLIB_STRING;
   }
 
@@ -388,6 +395,25 @@ struct ssh_iterator *ssh_list_find(const struct ssh_list *list, void *value){
     if(it->data==value)
       return it;
   return NULL;
+}
+
+/**
+ * @brief Get the number of elements in the list
+ *
+ * @param[in]  list     The list to count.
+ *
+ * @return The number of elements in the list.
+ */
+size_t ssh_list_count(const struct ssh_list *list)
+{
+  struct ssh_iterator *it = NULL;
+  int count = 0;
+
+  for (it = ssh_list_get_iterator(list); it != NULL ; it = it->next) {
+      count++;
+  }
+
+  return count;
 }
 
 static struct ssh_iterator *ssh_iterator_new(const void *data){
@@ -680,6 +706,17 @@ char *ssh_path_expand_tilde(const char *d) {
     return r;
 }
 
+/** @internal
+ * @brief expands a string in function of session options
+ * @param[in] s Format string to expand. Known parameters:
+ *              %d SSH configuration directory (~/.ssh)
+ *              %h target host name
+ *              %u local username
+ *              %l local hostname
+ *              %r remote username
+ *              %p remote port
+ * @returns Expanded string.
+ */
 char *ssh_path_expand_escape(ssh_session session, const char *s) {
     char host[NI_MAXHOST];
     char buf[MAX_BUF_SIZE];
@@ -780,91 +817,104 @@ char *ssh_path_expand_escape(ssh_session session, const char *s) {
 /**
  * @internal
  *
- * @brief Analyze the SSH banner to find out if we have a SSHv1 or SSHv2
- * server.
+ * @brief Analyze the SSH banner to extract version information.
  *
  * @param  session      The session to analyze the banner from.
  * @param  server       0 means we are a client, 1 a server.
- * @param  ssh1         The variable which is set if it is a SSHv1 server.
- * @param  ssh2         The variable which is set if it is a SSHv2 server.
  *
  * @return 0 on success, < 0 on error.
  *
- * @see ssh_get_banner()
+ * @see ssh_get_issue_banner()
  */
-int ssh_analyze_banner(ssh_session session, int server, int *ssh1, int *ssh2) {
-  const char *banner;
-  const char *openssh;
+int ssh_analyze_banner(ssh_session session, int server)
+{
+    const char *banner;
+    const char *openssh;
 
-  if (server) {
-      banner = session->clientbanner;
-  } else {
-      banner = session->serverbanner;
-  }
+    if (server) {
+        banner = session->clientbanner;
+    } else {
+        banner = session->serverbanner;
+    }
 
-  if (banner == NULL) {
-      ssh_set_error(session, SSH_FATAL, "Invalid banner");
-      return -1;
-  }
+    if (banner == NULL) {
+        ssh_set_error(session, SSH_FATAL, "Invalid banner");
+        return -1;
+    }
 
-  /*
-   * Typical banners e.g. are:
-   *
-   * SSH-1.5-openSSH_5.4
-   * SSH-1.99-openSSH_3.0
-   *
-   * SSH-2.0-something
-   * 012345678901234567890
-   */
-  if (strlen(banner) < 6 ||
-      strncmp(banner, "SSH-", 4) != 0) {
-    ssh_set_error(session, SSH_FATAL, "Protocol mismatch: %s", banner);
-    return -1;
-  }
+    /*
+     * Typical banners e.g. are:
+     *
+     * SSH-1.5-openSSH_5.4
+     * SSH-1.99-openSSH_3.0
+     *
+     * SSH-2.0-something
+     * 012345678901234567890
+     */
+    if (strlen(banner) < 6 ||
+        strncmp(banner, "SSH-", 4) != 0) {
+          ssh_set_error(session, SSH_FATAL, "Protocol mismatch: %s", banner);
+          return -1;
+    }
 
-  SSH_LOG(SSH_LOG_RARE, "Analyzing banner: %s", banner);
+    SSH_LOG(SSH_LOG_RARE, "Analyzing banner: %s", banner);
 
-  switch(banner[4]) {
-    case '1':
-      *ssh1 = 1;
-      if (strlen(banner) > 6) {
-          if (banner[6] == '9') {
-            *ssh2 = 1;
-          } else {
-            *ssh2 = 0;
-          }
-      }
-      break;
-    case '2':
-      *ssh1 = 0;
-      *ssh2 = 1;
-      break;
-    default:
-      ssh_set_error(session, SSH_FATAL, "Protocol mismatch: %s", banner);
-      return -1;
-  }
+    switch (banner[4]) {
+        case '2':
+            break;
+        case '1':
+            if (strlen(banner) > 6) {
+                if (banner[6] == '9') {
+                    break;
+                }
+            }
+            FALL_THROUGH;
+        default:
+            ssh_set_error(session, SSH_FATAL, "Protocol mismatch: %s", banner);
+            return -1;
+    }
 
-  openssh = strstr(banner, "OpenSSH");
-  if (openssh != NULL) {
-      int major, minor;
+    /* Make a best-effort to extract OpenSSH version numbers. */
+    openssh = strstr(banner, "OpenSSH");
+    if (openssh != NULL) {
+        char *tmp = NULL;
+        unsigned long int major = 0UL;
+        unsigned long int minor = 0UL;
 
-      /*
-       * The banner is typical:
-       * OpenSSH_5.4
-       * 012345678901234567890
-       */
-      if (strlen(openssh) > 9) {
-          major = strtol(openssh + 8, (char **) NULL, 10);
-          minor = strtol(openssh + 10, (char **) NULL, 10);
-          session->openssh = SSH_VERSION_INT(major, minor, 0);
-          SSH_LOG(SSH_LOG_RARE,
-                  "We are talking to an OpenSSH client version: %d.%d (%x)",
-                  major, minor, session->openssh);
-      }
-  }
+        /*
+         * The banner is typical:
+         * OpenSSH_5.4
+         * 012345678901234567890
+         */
+        if (strlen(openssh) > 9) {
+            major = strtoul(openssh + 8, &tmp, 10);
+            if ((tmp == (openssh + 8)) ||
+                ((errno == ERANGE) && (major == ULONG_MAX)) ||
+                ((errno != 0) && (major == 0)) ||
+                ((major < 1) || (major > 100))) {
+                /* invalid major */
+                goto done;
+            }
 
+            minor = strtoul(openssh + 10, &tmp, 10);
+            if ((tmp == (openssh + 10)) ||
+                ((errno == ERANGE) && (major == ULONG_MAX)) ||
+                ((errno != 0) && (major == 0)) ||
+                (minor > 100)) {
+                /* invalid minor */
+                goto done;
+            }
 
-  return 0;
+            session->openssh = SSH_VERSION_INT(((int) major), ((int) minor), 0);
+
+            SSH_LOG(SSH_LOG_RARE,
+                    "We are talking to an OpenSSH client version: %lu.%lu (%x)",
+                    major, minor, session->openssh);
+        }
+    }
+
+done:
+    return 0;
 }
 
 /* try the Monotonic clock if possible for perfs reasons */
@@ -951,9 +1001,10 @@ int ssh_timeout_elapsed(struct ssh_timestamp *ts, int timeout) {
                   * -2 means user-defined timeout as available in
                   * session->timeout, session->timeout_usec.
                   */
-            fprintf(stderr, "ssh_timeout_elapsed called with -2. this needs to "
+            SSH_LOG(SSH_LOG_WARN, "ssh_timeout_elapsed called with -2. this needs to "
                             "be fixed. please set a breakpoint on %s:%d and "
                             "fix the caller\n", __FILE__, __LINE__);
+            return 0;
         case -1: /* -1 means infinite timeout */
             return 0;
         case 0: /* 0 means no timeout */
@@ -1014,6 +1065,21 @@ int ssh_match_group(const char *group, const char *object)
     return 0;
 }
 
-/** @} */
+#if !defined(HAVE_EXPLICIT_BZERO)
+void explicit_bzero(void *s, size_t n)
+{
+#if defined(HAVE_MEMSET_S)
+    memset_s(s, n, '\0', n);
+#elif defined(HAVE_SECURE_ZERO_MEMORY)
+    SecureZeroMemory(s, n);
+#else
+    memset(s, '\0', n);
+#if defined(HAVE_GCC_VOLATILE_MEMORY_PROTECTION)
+    /* See http://llvm.org/bugs/show_bug.cgi?id=15495 */
+    __asm__ volatile("" : : "g"(s) : "memory");
+#endif /* HAVE_GCC_VOLATILE_MEMORY_PROTECTION */
+#endif
+}
+#endif /* !HAVE_EXPLICIT_BZERO */
 
-/* vim: set ts=4 sw=4 et cindent: */
+/** @} */

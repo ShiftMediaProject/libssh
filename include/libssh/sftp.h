@@ -789,6 +789,22 @@ LIBSSH_API sftp_statvfs_t sftp_fstatvfs(sftp_file file);
 LIBSSH_API void sftp_statvfs_free(sftp_statvfs_t statvfs_o);
 
 /**
+ * @brief Synchronize a file's in-core state with storage device
+ *
+ * This calls the "fsync@openssh.com" extention. You should check if the
+ * extensions is supported using:
+ *
+ * @code
+ * int supported = sftp_extension_supported(sftp, "fsync@openssh.com", "1");
+ * @endcode
+ *
+ * @param file          The opened sftp file handle to sync
+ *
+ * @return              0 on success, < 0 on error with ssh and sftp error set.
+ */
+LIBSSH_API int sftp_fsync(sftp_file file);
+
+/**
  * @brief Canonicalize a sftp path.
  *
  * @param sftp          The sftp session handle.
@@ -847,18 +863,18 @@ LIBSSH_API void sftp_client_message_set_filename(sftp_client_message msg, const 
 LIBSSH_API const char *sftp_client_message_get_data(sftp_client_message msg);
 LIBSSH_API uint32_t sftp_client_message_get_flags(sftp_client_message msg);
 LIBSSH_API int sftp_send_client_message(sftp_session sftp, sftp_client_message msg);
-int sftp_reply_name(sftp_client_message msg, const char *name,
+LIBSSH_API int sftp_reply_name(sftp_client_message msg, const char *name,
     sftp_attributes attr);
-int sftp_reply_handle(sftp_client_message msg, ssh_string handle);
-ssh_string sftp_handle_alloc(sftp_session sftp, void *info);
-int sftp_reply_attr(sftp_client_message msg, sftp_attributes attr);
-void *sftp_handle(sftp_session sftp, ssh_string handle);
-int sftp_reply_status(sftp_client_message msg, uint32_t status, const char *message);
-int sftp_reply_names_add(sftp_client_message msg, const char *file,
+LIBSSH_API int sftp_reply_handle(sftp_client_message msg, ssh_string handle);
+LIBSSH_API ssh_string sftp_handle_alloc(sftp_session sftp, void *info);
+LIBSSH_API int sftp_reply_attr(sftp_client_message msg, sftp_attributes attr);
+LIBSSH_API void *sftp_handle(sftp_session sftp, ssh_string handle);
+LIBSSH_API int sftp_reply_status(sftp_client_message msg, uint32_t status, const char *message);
+LIBSSH_API int sftp_reply_names_add(sftp_client_message msg, const char *file,
     const char *longname, sftp_attributes attr);
-int sftp_reply_names(sftp_client_message msg);
-int sftp_reply_data(sftp_client_message msg, const void *data, int len);
-void sftp_handle_remove(sftp_session sftp, void *handle);
+LIBSSH_API int sftp_reply_names(sftp_client_message msg);
+LIBSSH_API int sftp_reply_data(sftp_client_message msg, const void *data, int len);
+LIBSSH_API void sftp_handle_remove(sftp_session sftp, void *handle);
 
 /* SFTP commands and constants */
 #define SSH_FXP_INIT 1
@@ -962,6 +978,16 @@ void sftp_handle_remove(sftp_session sftp, void *handle);
 #define SSH_FXF_EXCL 0x20
 #define SSH_FXF_TEXT 0x40
 
+/* file type flags */
+#define SSH_S_IFMT   00170000
+#define SSH_S_IFSOCK 0140000
+#define SSH_S_IFLNK  0120000
+#define SSH_S_IFREG  0100000
+#define SSH_S_IFBLK  0060000
+#define SSH_S_IFDIR  0040000
+#define SSH_S_IFCHR  0020000
+#define SSH_S_IFIFO  0010000
+
 /* rename flags */
 #define SSH_FXF_RENAME_OVERWRITE  0x00000001
 #define SSH_FXF_RENAME_ATOMIC     0x00000002
@@ -991,10 +1017,9 @@ void sftp_handle_remove(sftp_session sftp, void *handle);
 #define SSH_FXE_STATVFS_ST_NOSUID 0x2 /* no setuid */
 
 #ifdef __cplusplus
-} ;
+}
 #endif
 
 #endif /* SFTP_H */
 
 /** @} */
-/* vim: set ts=2 sw=2 et cindent: */

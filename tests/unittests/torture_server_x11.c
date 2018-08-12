@@ -18,9 +18,16 @@ struct hostkey_state {
     int fd;
 };
 
-static void setup(void **state) {
+static int setup(void **state) {
     struct hostkey_state *h;
     mode_t mask;
+    int rc;
+
+    ssh_threads_set_callbacks(ssh_threads_get_pthread());
+    rc = ssh_init();
+    if (rc != SSH_OK) {
+        return -1;
+    }
 
     h = malloc(sizeof(struct hostkey_state));
     assert_non_null(h);
@@ -33,20 +40,26 @@ static void setup(void **state) {
     assert_return_code(h->fd, errno);
     close(h->fd);
 
-    h->key_type = SSH_KEYTYPE_RSA;
+    h->key_type = SSH_KEYTYPE_ECDSA;
     h->hostkey = torture_get_testkey(h->key_type, 0, 0);
 
     torture_write_file(h->hostkey_path, h->hostkey);
 
     *state = h;
+
+    return 0;
 }
 
-static void teardown(void **state) {
+static int teardown(void **state) {
     struct hostkey_state *h = (struct hostkey_state *)*state;
 
     unlink(h->hostkey);
     free(h->hostkey_path);
     free(h);
+
+    ssh_finalize();
+
+    return 0;
 }
 
 /* For x11_screen_number, need something that is not equal to htonl
@@ -62,6 +75,7 @@ static void *client_thread(void *arg) {
     /* unused */
     (void)arg;
 
+    usleep(200);
     session = torture_ssh_session("localhost",
                                   &test_port,
                                   "foo", "bar");
@@ -208,16 +222,13 @@ static void test_ssh_channel_request_x11(void **state) {
 
 int torture_run_tests(void) {
     int rc;
-    const UnitTest tests[] = {
-        unit_test_setup_teardown(test_ssh_channel_request_x11,
-                                 setup,
-                                 teardown)
+    const struct CMUnitTest tests[] = {
+        cmocka_unit_test_setup_teardown(test_ssh_channel_request_x11,
+                                        setup,
+                                        teardown)
     };
 
-    ssh_threads_set_callbacks(ssh_threads_get_pthread());
-    ssh_init();
-    rc = run_tests(tests);
-    ssh_finalize();
+    rc = cmocka_run_group_tests(tests, NULL, NULL);
     return rc;
 }
 

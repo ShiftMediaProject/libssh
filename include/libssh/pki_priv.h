@@ -43,11 +43,6 @@ int bcrypt_pbkdf(const char *pass,
 /* Magic defined in OpenSSH/PROTOCOL.key */
 #define OPENSSH_AUTH_MAGIC      "openssh-key-v1"
 
-#define ssh_pki_log(...) \
-    _ssh_log(SSH_LOG_FUNCTIONS, __func__, __VA_ARGS__)
-void _ssh_pki_log(const char *function,
-                  const char *format, ...) PRINTF_ATTRIBUTE(2, 3);
-
 int pki_key_ecdsa_nid_from_name(const char *name);
 const char *pki_key_ecdsa_nid_to_name(int nid);
 
@@ -85,10 +80,6 @@ int pki_pubkey_build_rsa(ssh_key key,
                          ssh_string n);
 int pki_pubkey_build_ecdsa(ssh_key key, int nid, ssh_string e);
 ssh_string pki_publickey_to_blob(const ssh_key key);
-int pki_export_pubkey_rsa1(const ssh_key key,
-                           const char *host,
-                           char *rsa1,
-                           size_t rsa1_len);
 
 /* SSH Signature Functions */
 ssh_string pki_signature_to_blob(const ssh_signature sign);

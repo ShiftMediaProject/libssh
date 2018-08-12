@@ -1,3 +1,5 @@
+#include "config.h"
+
 #define LIBSSH_STATIC
 
 #include "torture.h"
@@ -14,6 +16,8 @@ static void torture_ssh_list_new(void **state) {
     assert_true(xlist != NULL);
     assert_true(xlist->root == NULL);
     assert_true(xlist->end == NULL);
+
+    assert_int_equal(ssh_list_count(xlist), 0);
 
     ssh_list_free(xlist);
 }
@@ -44,6 +48,8 @@ static void torture_ssh_list_append(void **state) {
     assert_string_equal((const char *) xlist->root->next->next->data, "item3");
     assert_string_equal((const char *) xlist->end->data, "item3");
 
+    assert_int_equal(ssh_list_count(xlist), 3);
+
     ssh_list_free(xlist);
 }
 
@@ -73,20 +79,22 @@ static void torture_ssh_list_prepend(void **state) {
     assert_string_equal((const char *) xlist->root->next->next->data, "item2");
     assert_string_equal((const char *) xlist->end->data, "item2");
 
+    assert_int_equal(ssh_list_count(xlist), 3);
+
     ssh_list_free(xlist);
 }
 
 int torture_run_tests(void) {
     int rc;
-    UnitTest tests[] = {
-        unit_test(torture_ssh_list_new),
-        unit_test(torture_ssh_list_append),
-        unit_test(torture_ssh_list_prepend),
+    struct CMUnitTest tests[] = {
+        cmocka_unit_test(torture_ssh_list_new),
+        cmocka_unit_test(torture_ssh_list_append),
+        cmocka_unit_test(torture_ssh_list_prepend),
     };
 
     ssh_init();
     torture_filter_tests(tests);
-    rc=run_tests(tests);
+    rc = cmocka_run_group_tests(tests, NULL, NULL);
     ssh_finalize();
     return rc;
 }

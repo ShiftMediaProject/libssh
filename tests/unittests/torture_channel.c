@@ -1,3 +1,5 @@
+#include "config.h"
+
 #define LIBSSH_STATIC
 #include <libssh/priv.h>
 
@@ -10,7 +12,7 @@
 
 static void torture_channel_select(void **state)
 {
-    fd_set readfds;
+    fd_set readfds = {0};
     int fd;
     int rc;
     int i;
@@ -37,13 +39,13 @@ static void torture_channel_select(void **state)
 
 int torture_run_tests(void) {
     int rc;
-    UnitTest tests[] = {
-        unit_test(torture_channel_select),
+    struct CMUnitTest tests[] = {
+        cmocka_unit_test(torture_channel_select),
     };
 
     ssh_init();
     torture_filter_tests(tests);
-    rc = run_tests(tests);
+    rc = cmocka_run_group_tests(tests, NULL, NULL);
     ssh_finalize();
 
     return rc;

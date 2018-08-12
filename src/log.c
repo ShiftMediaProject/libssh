@@ -21,23 +21,26 @@
  * MA 02111-1307, USA.
  */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <stdarg.h>
 #include <string.h>
-#ifndef _WIN32
+#ifdef HAVE_SYS_TIME_H
 #include <sys/time.h>
-#else
+#endif /* HAVE_SYS_TIME_H */
+#ifdef HAVE_SYS_UTIME_H
 #include <sys/utime.h>
-#endif
+#endif /* HAVE_SYS_UTIME_H */
 #include <time.h>
 
 #include "libssh/priv.h"
 #include "libssh/misc.h"
 #include "libssh/session.h"
 
-LIBSSH_THREAD int ssh_log_level;
-LIBSSH_THREAD ssh_logging_callback ssh_log_cb;
-LIBSSH_THREAD void *ssh_log_userdata;
+static LIBSSH_THREAD int ssh_log_level;
+static LIBSSH_THREAD ssh_logging_callback ssh_log_cb;
+static LIBSSH_THREAD void *ssh_log_userdata;
 
 /**
  * @defgroup libssh_log The SSH logging functions.
@@ -237,5 +240,3 @@ int ssh_set_log_userdata(void *data)
 }
 
 /** @} */
-
-/* vim: set ts=4 sw=4 et cindent: */

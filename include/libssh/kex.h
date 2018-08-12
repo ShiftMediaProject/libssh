@@ -32,16 +32,14 @@ struct ssh_kex_struct {
 };
 
 SSH_PACKET_CALLBACK(ssh_packet_kexinit);
-#ifdef WITH_SSH1
-SSH_PACKET_CALLBACK(ssh_packet_publickey1);
-#endif
 
 int ssh_send_kex(ssh_session session, int server_kex);
 void ssh_list_kex(struct ssh_kex_struct *kex);
-int set_client_kex(ssh_session session);
+int ssh_set_client_kex(ssh_session session);
 int ssh_kex_select_methods(ssh_session session);
-int verify_existing_algo(int algo, const char *name);
-char **space_tokenize(const char *chain);
+int ssh_verify_existing_algo(enum ssh_kex_types_e algo, const char *name);
+char *ssh_keep_known_algos(enum ssh_kex_types_e algo, const char *list);
+char **ssh_space_tokenize(const char *chain);
 int ssh_get_kex1(ssh_session session);
 char *ssh_find_matching(const char *in_d, const char *what_d);
 const char *ssh_kex_get_supported_method(uint32_t algo);

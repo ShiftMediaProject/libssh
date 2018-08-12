@@ -1,5 +1,3 @@
-project(libssh-library C)
-
 set(LIBSSH_PUBLIC_INCLUDE_DIRS
   ${libssh_SOURCE_DIR}/include
   CACHE INTERNAL "libssh public include directories"
@@ -38,6 +36,17 @@ if (OPENSSL_CRYPTO_LIBRARY)
     ${OPENSSL_CRYPTO_LIBRARY}
   )
 endif (OPENSSL_CRYPTO_LIBRARY)
+
+if (MBEDTLS_CRYPTO_LIBRARY)
+    set(LIBSSH_PRIVATE_INCLUDE_DIRS
+      ${LIBSSH_PRIVATE_INCLUDE_DIRS}
+      ${MBEDTLS_INCLUDE_DIR}
+    )
+  set(LIBSSH_LINK_LIBRARIES
+    ${LIBSSH_LINK_LIBRARIES}
+    ${MBEDTLS_CRYPTO_LIBRARY}
+  )
+endif (MBEDTLS_CRYPTO_LIBRARY)
 
 if (GCRYPT_LIBRARY)
   set(LIBSSH_PRIVATE_INCLUDE_DIRS
@@ -115,6 +124,7 @@ set(libssh_SRCS
   client.c
   config.c
   connect.c
+  connector.c
   curve25519.c
   dh.c
   ecdh.c
@@ -123,8 +133,8 @@ set(libssh_SRCS
   init.c
   kex.c
   known_hosts.c
+  knownhosts.c
   legacy.c
-  libcrypto.c
   log.c
   match.c
   messages.c
@@ -146,24 +156,63 @@ set(libssh_SRCS
   wrapper.c
   external/bcrypt_pbkdf.c
   external/blowfish.c
+  external/chacha.c
   external/ed25519.c
   external/fe25519.c
   external/ge25519.c
+  external/poly1305.c
   external/sc25519.c
+  chachapoly.c
 )
+
+if (CMAKE_USE_PTHREADS_INIT)
+    set(libssh_SRCS
+        ${libssh_SRCS}
+        threads/noop.c
+        threads/pthread.c
+    )
+elseif (CMAKE_USE_WIN32_THREADS_INIT)
+        set(libssh_SRCS
+            ${libssh_SRCS}
+            threads/noop.c
+            threads/winlocks.c
+        )
+else()
+    set(libssh_SRCS
+        ${libssh_SRCS}
+        threads/noop.c
+    )
+endif()
 
 if (WITH_GCRYPT)
     set(libssh_SRCS
         ${libssh_SRCS}
+        threads/libgcrypt.c
         libgcrypt.c
         gcrypt_missing.c
         pki_gcrypt.c
+        ecdh_gcrypt.c
+       )
+elseif (WITH_MBEDTLS)
+    set(libssh_SRCS
+        ${libssh_SRCS}
+        threads/mbedtls.c
+        libmbedcrypto.c
+        mbedcrypto_missing.c
+        pki_mbedcrypto.c
+        ecdh_mbedcrypto.c
        )
 else (WITH_GCRYPT)
     set(libssh_SRCS
         ${libssh_SRCS}
+        threads/libcrypto.c
         pki_crypto.c
+        ecdh_crypto.c
+        libcrypto.c
        )
+    if(OPENSSL_VERSION VERSION_LESS "1.1.0")
+        set(libssh_SRCS ${libssh_SRCS} libcrypto-compat.c)
+    endif()
 endif (WITH_GCRYPT)
 
 if (WITH_SFTP)
@@ -179,17 +228,6 @@ if (WITH_SFTP)
     )
   endif (WITH_SERVER)
 endif (WITH_SFTP)
-
-if (WITH_SSH1)
-  set(libssh_SRCS
-    ${libssh_SRCS}
-    auth1.c
-    channels1.c
-    crc32.c
-    kex1.c
-    packet1.c
-  )
-endif (WITH_SSH1)
 
 if (WITH_SERVER)
   set(libssh_SRCS
@@ -225,9 +263,51 @@ include_directories(
   ${LIBSSH_PRIVATE_INCLUDE_DIRS}
 )
 
+# Set the path to the default map file
+set(MAP_PATH "${CMAKE_CURRENT_SOURCE_DIR}/${PROJECT_NAME}.map")
+
+if (WITH_SYMBOL_VERSIONING AND ABIMAP_FOUND)
+    # Get the list of header files
+    get_file_list("dev_header_list"
+                  DIRECTORIES "${LIBSSH_PUBLIC_INCLUDE_DIRS}/libssh"
+                  FILES_PATTERNS "*.h")
+
+    # Extract the symbols marked as "LIBSSH_API" from the header files
+    extract_symbols("${PROJECT_NAME}_dev.symbols"
+                    HEADERS_LIST_FILE "dev_header_list"
+                    FILTER_PATTERN "LIBSSH_API")
+
+    if (WITH_ABI_BREAK)
+        set(ALLOW_ABI_BREAK "BREAK_ABI")
+    endif()
+
+    # Generate the symbol version map file
+    generate_map_file("${PROJECT_NAME}_dev.map"
+                      SYMBOLS "${PROJECT_NAME}_dev.symbols"
+                      RELEASE_NAME_VERSION ${PROJECT_NAME}_AFTER_${LIBRARY_VERSION}
+                      CURRENT_MAP ${MAP_PATH}
+                      ${ALLOW_ABI_BREAK})
+
+    set(libssh_SRCS
+      ${libssh_SRCS}
+      ${PROJECT_NAME}_dev.map
+    )
+endif (WITH_SYMBOL_VERSIONING AND ABIMAP_FOUND)
+
 add_library(${LIBSSH_SHARED_LIBRARY} SHARED ${libssh_SRCS})
 
 target_link_libraries(${LIBSSH_SHARED_LIBRARY} ${LIBSSH_LINK_LIBRARIES})
+
+if (WITH_SYMBOL_VERSIONING)
+    if (ABIMAP_FOUND)
+        # Change path to devel map file
+        set(MAP_PATH "${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}_dev.map")
+    endif (ABIMAP_FOUND)
+
+    set_target_properties(${LIBSSH_SHARED_LIBRARY}
+                          PROPERTIES LINK_FLAGS
+                          "-Wl,--version-script,\"${MAP_PATH}\"")
+endif (WITH_SYMBOL_VERSIONING)
 
 set_target_properties(
   ${LIBSSH_SHARED_LIBRARY}
@@ -301,6 +381,3 @@ if (WITH_STATIC_LIB)
 endif (WITH_STATIC_LIB)
 
 message(STATUS "Threads_FOUND=${Threads_FOUND}")
-if (Threads_FOUND)
-    add_subdirectory(threads)
-endif (Threads_FOUND)

@@ -20,6 +20,9 @@
 /* Define to 1 if you have the <aprpa/inet.h> header file. */
 #cmakedefine HAVE_ARPA_INET_H 1
 
+/* Define to 1 if you have the <glob.h> header file. */
+#cmakedefine HAVE_GLOB_H 1
+
 /* Define to 1 if you have the <pty.h> header file. */
 #cmakedefine HAVE_PTY_H 1
 
@@ -35,11 +38,20 @@
 /* Define to 1 if you have the <sys/time.h> header file. */
 #cmakedefine HAVE_SYS_TIME_H 1
 
+/* Define to 1 if you have the <sys/utime.h> header file. */
+#cmakedefine HAVE_SYS_UTIME_H 1
+
+/* Define to 1 if you have the <io.h> header file. */
+#cmakedefine HAVE_IO_H 1
+
 /* Define to 1 if you have the <termios.h> header file. */
 #cmakedefine HAVE_TERMIOS_H 1
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #cmakedefine HAVE_UNISTD_H 1
+
+/* Define to 1 if you have the <stdint.h> header file. */
+#cmakedefine HAVE_STDINT_H 1
 
 /* Define to 1 if you have the <openssl/aes.h> header file. */
 #cmakedefine HAVE_OPENSSL_AES_H 1
@@ -74,7 +86,25 @@
 /* Define to 1 if you have eliptic curve cryptography */
 #cmakedefine HAVE_ECC 1
 
+/* Define to 1 if you have DSA */
+#cmakedefine HAVE_DSA 1
+
 /*************************** FUNCTIONS ***************************/
+
+/* Define to 1 if you have the `EVP_aes128_ctr' function. */
+#cmakedefine HAVE_OPENSSL_EVP_AES_CTR 1
+
+/* Define to 1 if you have the `EVP_aes128_cbc' function. */
+#cmakedefine HAVE_OPENSSL_EVP_AES_CBC 1
+
+/* Define to 1 if you have the `CRYPTO_THREADID_set_callback' function. */
+#cmakedefine HAVE_OPENSSL_CRYPTO_THREADID_SET_CALLBACK 1
+
+/* Define to 1 if you have the `CRYPTO_ctr128_encrypt' function. */
+#cmakedefine HAVE_OPENSSL_CRYPTO_CTR128_ENCRYPT 1
+
+/* Define to 1 if you have the `EVP_CIPHER_CTX_new' function. */
+#cmakedefine HAVE_OPENSSL_EVP_CIPHER_CTX_NEW 1
 
 /* Define to 1 if you have the `snprintf' function. */
 #cmakedefine HAVE_SNPRINTF 1
@@ -130,11 +160,17 @@
 /* Define to 1 if you have the `_strtoui64' function. */
 #cmakedefine HAVE__STRTOUI64 1
 
-/* Define to 1 if you have the `clock_gettime' function. */
-#cmakedefine HAVE_CLOCK_GETTIME 1
+/* Define to 1 if you have the `glob' function. */
+#cmakedefine HAVE_GLOB 1
 
-/* Define to 1 if you have the `ntohll' function. */
-#cmakedefine HAVE_NTOHLL 1
+/* Define to 1 if you have the `explicit_bzero' function. */
+#cmakedefine HAVE_EXPLICIT_BZERO 1
+
+/* Define to 1 if you have the `memset_s' function. */
+#cmakedefine HAVE_MEMSET_S 1
+
+/* Define to 1 if you have the `SecureZeroMemory' function. */
+#cmakedefine HAVE_SECURE_ZERO_MEMORY 1
 
 /*************************** LIBRARIES ***************************/
 
@@ -144,6 +180,9 @@
 /* Define to 1 if you have the `gcrypt' library (-lgcrypt). */
 #cmakedefine HAVE_LIBGCRYPT 1
 
+/* Define to 1 if you have the 'mbedTLS' library (-lmbedtls). */
+#cmakedefine HAVE_LIBMBEDCRYPTO 1
+
 /* Define to 1 if you have the `pthread' library (-lpthread). */
 #cmakedefine HAVE_PTHREAD 1
 
@@ -152,14 +191,15 @@
 #cmakedefine HAVE_GCC_THREAD_LOCAL_STORAGE 1
 #cmakedefine HAVE_MSC_THREAD_LOCAL_STORAGE 1
 
+#cmakedefine HAVE_FALLTHROUGH_ATTRIBUTE 1
+
 #cmakedefine HAVE_GCC_VOLATILE_MEMORY_PROTECTION 1
 #cmakedefine HAVE_GCC_NARG_MACRO 1
 
 #cmakedefine HAVE_COMPILER__FUNC__ 1
 #cmakedefine HAVE_COMPILER__FUNCTION__ 1
 
-#cmakedefine HAVE_COMPILER__FUNC__ 1
-#cmakedefine HAVE_COMPILER__FUNCTION__ 1
+#cmakedefine HAVE_GCC_BOUNDED_ATTRIBUTE 1
 
 /* Define to 1 if you want to enable GSSAPI */
 #cmakedefine WITH_GSSAPI 1
@@ -170,14 +210,14 @@
 /* Define to 1 if you want to enable SFTP */
 #cmakedefine WITH_SFTP 1
 
-/* Define to 1 if you want to enable SSH1 */
-#cmakedefine WITH_SSH1 1
-
 /* Define to 1 if you want to enable server support */
 #cmakedefine WITH_SERVER 1
 
 /* Define to 1 if you want to enable debug output for crypto functions */
 #cmakedefine DEBUG_CRYPTO 1
+
+/* Define to 1 if you want to enable debug output for packet functions */
+#cmakedefine DEBUG_PACKET 1
 
 /* Define to 1 if you want to enable pcap output support (experimental) */
 #cmakedefine WITH_PCAP 1

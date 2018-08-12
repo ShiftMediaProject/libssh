@@ -21,6 +21,8 @@
  * MA 02111-1307, USA.
  */
 
+#include "config.h"
+
 #include "libssh/pki.h"
 #include "libssh/pki_priv.h"
 #include "libssh/ed25519.h"
@@ -76,16 +78,18 @@ int pki_ed25519_sign(const ssh_key privkey,
     if (rc != 0) {
         goto error;
     }
-    sig->ed25519_sig = malloc(ED25519_SIG_LEN);
-    if (sig->ed25519_sig == NULL) {
-        goto error;
-    }
 
     /* This shouldn't happen */
     if (dlen - hlen != ED25519_SIG_LEN) {
         goto error;
     }
-    memcpy(sig->ed25519_sig, buffer, dlen - hlen);
+
+    sig->ed25519_sig = malloc(ED25519_SIG_LEN);
+    if (sig->ed25519_sig == NULL) {
+        goto error;
+    }
+
+    memcpy(sig->ed25519_sig, buffer, ED25519_SIG_LEN);
     SAFE_FREE(buffer);
 
     return SSH_OK;
@@ -128,8 +132,8 @@ int pki_ed25519_verify(const ssh_key pubkey,
                                   hlen + ED25519_SIG_LEN,
                                   *pubkey->ed25519_pubkey);
 
-    BURN_BUFFER(buffer, hlen + ED25519_SIG_LEN);
-    BURN_BUFFER(buffer2, hlen);
+    explicit_bzero(buffer, hlen + ED25519_SIG_LEN);
+    explicit_bzero(buffer2, hlen);
     SAFE_FREE(buffer);
     SAFE_FREE(buffer2);
     if (rc == 0) {
@@ -199,23 +203,26 @@ int pki_ed25519_key_cmp(const ssh_key k1,
  */
 int pki_ed25519_key_dup(ssh_key new, const ssh_key key)
 {
-    if (key->ed25519_privkey == NULL || key->ed25519_pubkey == NULL) {
+    if (key->ed25519_privkey == NULL && key->ed25519_pubkey == NULL) {
         return SSH_ERROR;
     }
 
-    new->ed25519_privkey = malloc(ED25519_SK_LEN);
-    if (new->ed25519_privkey == NULL) {
-        return SSH_ERROR;
+    if (key->ed25519_privkey != NULL) {
+        new->ed25519_privkey = malloc(ED25519_SK_LEN);
+        if (new->ed25519_privkey == NULL) {
+            return SSH_ERROR;
+        }
+        memcpy(new->ed25519_privkey, key->ed25519_privkey, ED25519_SK_LEN);
     }
 
-    new->ed25519_pubkey = malloc(ED25519_PK_LEN);
-    if (new->ed25519_privkey == NULL || new->ed25519_pubkey == NULL){
-        SAFE_FREE(new->ed25519_privkey);
-        return SSH_ERROR;
+    if (key->ed25519_pubkey != NULL) {
+        new->ed25519_pubkey = malloc(ED25519_PK_LEN);
+        if (new->ed25519_pubkey == NULL) {
+            SAFE_FREE(new->ed25519_privkey);
+            return SSH_ERROR;
+        }
+        memcpy(new->ed25519_pubkey, key->ed25519_pubkey, ED25519_PK_LEN);
     }
-
-    memcpy(new->ed25519_privkey, key->ed25519_privkey, ED25519_SK_LEN);
-    memcpy(new->ed25519_pubkey, key->ed25519_pubkey, ED25519_PK_LEN);
 
     return SSH_OK;
 }
@@ -290,7 +297,7 @@ int pki_ed25519_sig_from_blob(ssh_signature sig, ssh_string sig_blob)
 
     len = ssh_string_len(sig_blob);
     if (len != ED25519_SIG_LEN){
-        ssh_pki_log("Invalid ssh-ed25519 signature len: %zu", len);
+        SSH_LOG(SSH_LOG_WARN, "Invalid ssh-ed25519 signature len: %zu", len);
         return SSH_ERROR;
     }
 

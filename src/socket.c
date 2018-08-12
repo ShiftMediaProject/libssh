@@ -21,9 +21,9 @@
  * MA 02111-1307, USA.
  */
 
+#include "config.h"
+
 #include <errno.h>
-#include <string.h>
-#include <stdlib.h>
 #include <stdio.h>
 #ifdef _WIN32
 #include <winsock2.h>
@@ -227,6 +227,11 @@ int ssh_socket_pollcallback(struct ssh_poll_handle_struct *p, socket_t fd,
     if (!ssh_socket_is_open(s)) {
         return -1;
     }
+    SSH_LOG(SSH_LOG_TRACE, "Poll callback on socket %d (%s%s%s), out buffer %d",fd,
+            (revents & POLLIN) ? "POLLIN ":"",
+            (revents & POLLOUT) ? "POLLOUT ":"",
+            (revents & POLLERR) ? "POLLERR":"",
+            ssh_buffer_get_len(s->out_buffer));
     if (revents & POLLERR || revents & POLLHUP) {
         /* Check if we are in a connecting state */
         if (s->state == SSH_SOCKET_CONNECTING) {
@@ -290,10 +295,10 @@ int ssh_socket_pollcallback(struct ssh_poll_handle_struct *p, socket_t fd,
             }
             if (s->callbacks && s->callbacks->data) {
                 do {
-                    r = s->callbacks->data(buffer_get_rest(s->in_buffer),
-                                           buffer_get_rest_len(s->in_buffer),
+                    r = s->callbacks->data(ssh_buffer_get(s->in_buffer),
+                                           ssh_buffer_get_len(s->in_buffer),
                                            s->callbacks->userdata);
-                    buffer_pass_bytes(s->in_buffer, r);
+                    ssh_buffer_pass_bytes(s->in_buffer, r);
                 } while ((r > 0) && (s->state == SSH_SOCKET_CONNECTED));
                 /* p may have been freed, so don't use it
                  * anymore in this function */
@@ -330,10 +335,11 @@ int ssh_socket_pollcallback(struct ssh_poll_handle_struct *p, socket_t fd,
         }
 
         /* If buffered data is pending, write it */
-        if (buffer_get_rest_len(s->out_buffer) > 0) {
+        if (ssh_buffer_get_len(s->out_buffer) > 0) {
             ssh_socket_nonblocking_flush(s);
         } else if (s->callbacks && s->callbacks->controlflow) {
             /* Otherwise advertise the upper level that write can be done */
+            SSH_LOG(SSH_LOG_TRACE,"sending control flow event");
             s->callbacks->controlflow(SSH_SOCKET_FLOW_WRITEWONTBLOCK,
                                       s->callbacks->userdata);
         }
@@ -650,7 +656,7 @@ int ssh_socket_nonblocking_flush(ssh_socket s) {
     return SSH_ERROR;
   }
 
-  len = buffer_get_rest_len(s->out_buffer);
+  len = ssh_buffer_get_len(s->out_buffer);
   if (!s->write_wontblock && s->poll_out && len > 0) {
       /* force the poll system to catch pollout events */
       ssh_poll_add_events(s->poll_out, POLLOUT);
@@ -658,7 +664,7 @@ int ssh_socket_nonblocking_flush(ssh_socket s) {
       return SSH_AGAIN;
   }
   if (s->write_wontblock && len > 0) {
-    w = ssh_socket_unbuffered_write(s, buffer_get_rest(s->out_buffer), len);
+    w = ssh_socket_unbuffered_write(s, ssh_buffer_get(s->out_buffer), len);
     if (w < 0) {
       session->alive = 0;
       ssh_socket_close(s);
@@ -674,14 +680,14 @@ int ssh_socket_nonblocking_flush(ssh_socket s) {
       }
       return SSH_ERROR;
     }
-    buffer_pass_bytes(s->out_buffer, w);
+    ssh_buffer_pass_bytes(s->out_buffer, w);
     if (s->session->socket_counter != NULL) {
         s->session->socket_counter->out_bytes += w;
     }
   }
 
   /* Is there some data pending? */
-  len = buffer_get_rest_len(s->out_buffer);
+  len = ssh_buffer_get_len(s->out_buffer);
   if (s->poll_out && len > 0) {
       /* force the poll system to catch pollout events */
       ssh_poll_add_events(s->poll_out, POLLOUT);
@@ -721,7 +727,7 @@ int ssh_socket_data_writable(ssh_socket s) {
 int ssh_socket_buffered_write_bytes(ssh_socket s){
 	if(s==NULL || s->out_buffer == NULL)
 		return 0;
-	return buffer_get_rest_len(s->out_buffer);
+	return ssh_buffer_get_len(s->out_buffer);
 }
 
 
@@ -878,5 +884,3 @@ int ssh_socket_connect_proxycommand(ssh_socket s, const char *command){
 
 #endif /* _WIN32 */
 /** @} */
-
-/* vim: set ts=4 sw=4 et cindent: */

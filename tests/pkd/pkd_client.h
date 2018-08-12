@@ -2,24 +2,60 @@
  * pkd_client.h -- macros for generating client-specific command
  *                 invocations for use with pkd testing
  *
- * (c) 2014 Jon Simons
+ * (c) 2014, 2018 Jon Simons <jon@jonsimons.org>
  */
 
 #ifndef __PKD_CLIENT_H__
 #define __PKD_CLIENT_H__
+
+#include "config.h"
 
 /* OpenSSH */
 
 #define OPENSSH_BINARY "ssh"
 #define OPENSSH_KEYGEN "ssh-keygen"
 
+#define OPENSSH_HOSTKEY_ALGOS_DEFAULT "ssh-ed25519,ssh-rsa"
+#define OPENSSH_PKACCEPTED_DEFAULT    "ssh-ed25519,ssh-rsa"
+
+#if       HAVE_ECC
+#define OPENSSH_HOSTKEY_ALGOS_ECDSA   ",ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521"
+#define OPENSSH_PKACCEPTED_ECDSA      ",ecdsa-sha2-nistp256,ecdsa-sha2-nistp384,ecdsa-sha2-nistp521"
+#else  /* HAVE_ECC */
+#define OPENSSH_HOSTKEY_ALGOS_ECDSA   ""
+#define OPENSSH_PKACCEPTED_ECDSA      ""
+#endif /* HAVE_ECC */
+
+#if       HAVE_DSA
+#define OPENSSH_HOSTKEY_ALGOS_DSA     ",ssh-dss"
+#define OPENSSH_PKACCEPTED_DSA        ",ssh-dss"
+#else  /* HAVE_DSA */
+#define OPENSSH_HOSTKEY_ALGOS_DSA     ""
+#define OPENSSH_PKACCEPTED_DSA        ""
+#endif /* HAVE_DSA */
+
+#define OPENSSH_HOSTKEY_ALGOS \
+  "-o HostKeyAlgorithms="        \
+  OPENSSH_HOSTKEY_ALGOS_DEFAULT  \
+  OPENSSH_HOSTKEY_ALGOS_ECDSA    \
+  OPENSSH_HOSTKEY_ALGOS_DSA
+
+#define OPENSSH_PKACCEPTED_TYPES \
+  "-o PubkeyAcceptedKeyTypes="  \
+  OPENSSH_PKACCEPTED_DEFAULT    \
+  OPENSSH_PKACCEPTED_ECDSA      \
+  OPENSSH_PKACCEPTED_DSA
+
 #define OPENSSH_CMD_START \
-    OPENSSH_BINARY " "                 \
-    "-o UserKnownHostsFile=/dev/null " \
-    "-o StrictHostKeyChecking=no "     \
-    "-i " CLIENT_ID_FILE " "           \
-    "1> %s.out "                       \
-    "2> %s.err "                       \
+    OPENSSH_BINARY " "                  \
+    "-o UserKnownHostsFile=/dev/null "  \
+    "-o StrictHostKeyChecking=no "      \
+    "-F /dev/null "                     \
+    OPENSSH_HOSTKEY_ALGOS " "           \
+    OPENSSH_PKACCEPTED_TYPES " "        \
+    "-i " CLIENT_ID_FILE " "            \
+    "1> %s.out "                        \
+    "2> %s.err "                        \
     "-vvv "
 
 #define OPENSSH_CMD_END "-p 1234 localhost ls"
@@ -46,7 +82,6 @@
     DROPBEAR_BINARY " "      \
     "-y -y "                 \
     "-i " CLIENT_ID_FILE " " \
-    "-v "                    \
     "1> %s.out "             \
     "2> %s.err "
 

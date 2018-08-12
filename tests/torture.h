@@ -40,13 +40,19 @@
 
 #include <cmocka.h>
 
+#include "torture_cmocka.h"
+
 #ifndef assert_return_code
 /* hack for older versions of cmocka */
 #define assert_return_code(code, errno) \
     assert_true(code >= 0)
 #endif /* assert_return_code */
 
-#define TORTURE_TESTKEY_PASSWORD "libssh-rocks"
+#define TORTURE_SSH_SERVER "127.0.0.10"
+#define TORTURE_SSH_USER_BOB "bob"
+#define TORTURE_SSH_USER_BOB_PASSWORD "secret"
+
+#define TORTURE_SSH_USER_ALICE "alice"
 
 /* Used by main to communicate with parse_opt. */
 struct argument_s {
@@ -60,10 +66,27 @@ struct torture_sftp {
     char *testdir;
 };
 
+struct torture_state {
+    char *socket_dir;
+    char *pcap_file;
+    char *srv_pidfile;
+    char *srv_config;
+    struct {
+        ssh_session session;
+        struct torture_sftp *tsftp;
+    } ssh;
+};
+
+#ifndef ZERO_STRUCT
+#define ZERO_STRUCT(x) memset((char *)&(x), 0, sizeof(x))
+#endif
+
 void torture_cmdline_parse(int argc, char **argv, struct argument_s *arguments);
 
 int torture_rmdirs(const char *path);
 int torture_isdir(const char *path);
+
+int torture_terminate_process(const char *pidfile);
 
 /*
  * Returns the verbosity level asked by user
@@ -83,16 +106,19 @@ ssh_bind torture_ssh_bind(const char *addr,
 struct torture_sftp *torture_sftp_session(ssh_session session);
 void torture_sftp_close(struct torture_sftp *t);
 
-const char *torture_get_testkey(enum ssh_keytypes_e type,
-                                int ecdsa_bits,
-                                int with_passphrase);
-const char *torture_get_testkey_pub(enum ssh_keytypes_e type, int ecdsa_bits);
-const char *torture_get_testkey_passphrase(void);
-
 void torture_write_file(const char *filename, const char *data);
 
 #define torture_filter_tests(tests) _torture_filter_tests(tests, sizeof(tests) / sizeof(tests)[0])
-void _torture_filter_tests(UnitTest *tests, size_t ntests);
+void _torture_filter_tests(struct CMUnitTest *tests, size_t ntests);
+
+const char *torture_server_address(int domain);
+int torture_server_port(void);
+
+void torture_setup_socket_dir(void **state);
+void torture_setup_sshd_server(void **state);
+
+void torture_teardown_socket_dir(void **state);
+void torture_teardown_sshd_server(void **state);
 
 /*
  * This function must be defined in every unit test file.

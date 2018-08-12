@@ -1,4 +1,8 @@
+#include "config.h"
 
+#ifdef HAVE_UNISTD_H
+#include <unistd.h>
+#endif
 #include <sys/types.h>
 #ifndef _WIN32
 
@@ -16,13 +20,19 @@
 #define TORTURE_TEST_DIR "/usr/local/bin/truc/much/.."
 
 
-static void setup(void **state) {
+static int setup(void **state)
+{
     ssh_session session = ssh_new();
     *state = session;
+
+    return 0;
 }
 
-static void teardown(void **state) {
+static int teardown(void **state)
+{
     ssh_free(*state);
+
+    return 0;
 }
 
 static void torture_get_user_home_dir(void **state) {
@@ -81,11 +91,11 @@ static void torture_ntohll(void **state) {
     (void) state;
 
     if (ptr[0] == 1){
-      /* we're in little endian */
-      check = 0xefcdab8967452301;
+        /* we're in little endian */
+        check = 0xefcdab8967452301;
     } else {
-      /* big endian */
-      check = value;
+        /* big endian */
+        check = value;
     }
     value = ntohll(value);
     assert_true(value == check);
@@ -122,7 +132,14 @@ static void torture_path_expand_tilde_unix(void **state) {
     if (user == NULL){
         user = getenv("LOGNAME");
     }
-    assert_non_null(user);
+    /* in certain CIs there no such variables */
+    if (!user){
+        struct passwd *pw = getpwuid(getuid());
+        if (pw){
+            user = pw->pw_name;
+        }
+    }
+
     home = getenv("HOME");
     assert_non_null(home);
     snprintf(h, 256 - 1, "%s/.ssh", home);
@@ -199,27 +216,163 @@ static void torture_timeout_update(void **state){
     assert_int_equal(ssh_timeout_update(&ts,-1),-1);
 }
 
+static void torture_ssh_analyze_banner(void **state) {
+    int rc = 0;
+    ssh_session session = NULL;
+    (void) state;
+
+#define reset_banner_test() \
+    do {                           \
+        rc = 0;                    \
+        ssh_free(session);         \
+        session = ssh_new();       \
+        assert_non_null(session);  \
+    } while (0)
+
+#define assert_banner_rejected(is_server) \
+    do {                                                            \
+        rc = ssh_analyze_banner(session, is_server);  \
+        assert_int_not_equal(0, rc);                                \
+    } while (0);
+
+#define assert_client_banner_rejected(banner) \
+    do {                                         \
+        reset_banner_test();                     \
+        session->clientbanner = strdup(banner);  \
+        assert_non_null(session->clientbanner);  \
+        assert_banner_rejected(1 /*server*/);    \
+        SAFE_FREE(session->clientbanner);        \
+    } while (0)
+
+#define assert_server_banner_rejected(banner) \
+    do {                                         \
+        reset_banner_test();                     \
+        session->serverbanner = strdup(banner);  \
+        assert_non_null(session->serverbanner);  \
+        assert_banner_rejected(0 /*client*/);    \
+        SAFE_FREE(session->serverbanner);        \
+    } while (0)
+
+#define assert_banner_accepted(is_server) \
+    do {                                                            \
+        rc = ssh_analyze_banner(session, is_server);  \
+        assert_int_equal(0, rc);                                    \
+    } while (0)
+
+#define assert_client_banner_accepted(banner)          \
+    do {                                               \
+        reset_banner_test();                           \
+        session->clientbanner = strdup(banner);        \
+        assert_non_null(session->clientbanner);        \
+        assert_banner_accepted(1 /*server*/);          \
+        SAFE_FREE(session->clientbanner);              \
+    } while (0)
+
+#define assert_server_banner_accepted(banner)          \
+    do {                                               \
+        reset_banner_test();                           \
+        session->serverbanner = strdup(banner);        \
+        assert_non_null(session->serverbanner);        \
+        assert_banner_accepted(0 /*client*/);          \
+        SAFE_FREE(session->serverbanner);              \
+    } while (0)
+
+    /* no banner is set */
+    reset_banner_test();
+    assert_banner_rejected(0 /*client*/);
+    reset_banner_test();
+    assert_banner_rejected(1 /*server*/);
+
+    /* banner is too short */
+    assert_client_banner_rejected("abc");
+    assert_server_banner_rejected("abc");
+
+    /* banner doesn't start "SSH-" */
+    assert_client_banner_rejected("abc-2.0");
+    assert_server_banner_rejected("abc-2.0");
+
+    /* SSH v1 */
+    assert_client_banner_rejected("SSH-1.0");
+    assert_server_banner_rejected("SSH-1.0");
+
+    /* SSH v1.9 gets counted as both v1 and v2 */
+    assert_client_banner_accepted("SSH-1.9");
+    assert_server_banner_accepted("SSH-1.9");
+
+    /* SSH v2 */
+    assert_client_banner_accepted("SSH-2.0");
+    assert_server_banner_accepted("SSH-2.0");
+
+    /* OpenSSH banners: too short to extract major and minor versions */
+    assert_client_banner_accepted("SSH-2.0-OpenSSH");
+    assert_int_equal(0, session->openssh);
+    assert_server_banner_accepted("SSH-2.0-OpenSSH");
+    assert_int_equal(0, session->openssh);
+
+    /* OpenSSH banners: big enough to extract major and minor versions */
+    assert_client_banner_accepted("SSH-2.0-OpenSSH_5.9p1");
+    assert_int_equal(SSH_VERSION_INT(5, 9, 0), session->openssh);
+    assert_server_banner_accepted("SSH-2.0-OpenSSH_5.9p1");
+    assert_int_equal(SSH_VERSION_INT(5, 9, 0), session->openssh);
+
+    assert_client_banner_accepted("SSH-2.0-OpenSSH_1.99");
+    assert_int_equal(SSH_VERSION_INT(1, 99, 0), session->openssh);
+    assert_server_banner_accepted("SSH-2.0-OpenSSH_1.99");
+    assert_int_equal(SSH_VERSION_INT(1, 99, 0), session->openssh);
+
+    /* OpenSSH banners: major, minor version limits result in zero */
+    assert_client_banner_accepted("SSH-2.0-OpenSSH_0.99p1");
+    assert_int_equal(0, session->openssh);
+    assert_server_banner_accepted("SSH-2.0-OpenSSH_0.99p1");
+    assert_int_equal(0, session->openssh);
+    assert_client_banner_accepted("SSH-2.0-OpenSSH_1.101p1");
+    assert_int_equal(0, session->openssh);
+    assert_server_banner_accepted("SSH-2.0-OpenSSH_1.101p1");
+    assert_int_equal(0, session->openssh);
+
+    /* OpenSSH banners: bogus major results in zero */
+    assert_client_banner_accepted("SSH-2.0-OpenSSH_X.9p1");
+    assert_int_equal(0, session->openssh);
+    assert_server_banner_accepted("SSH-2.0-OpenSSH_X.9p1");
+    assert_int_equal(0, session->openssh);
+
+    /* OpenSSH banners: bogus minor results in zero */
+    assert_server_banner_accepted("SSH-2.0-OpenSSH_5.Yp1");
+    assert_int_equal(0, session->openssh);
+    assert_client_banner_accepted("SSH-2.0-OpenSSH_5.Yp1");
+    assert_int_equal(0, session->openssh);
+
+    /* OpenSSH banners: ssh-keyscan(1) */
+    assert_client_banner_accepted("SSH-2.0-OpenSSH-keyscan");
+    assert_int_equal(0, session->openssh);
+    assert_server_banner_accepted("SSH-2.0-OpenSSH-keyscan");
+    assert_int_equal(0, session->openssh);
+
+    ssh_free(session);
+}
+
 int torture_run_tests(void) {
     int rc;
-    UnitTest tests[] = {
-        unit_test(torture_get_user_home_dir),
-        unit_test(torture_basename),
-        unit_test(torture_dirname),
-        unit_test(torture_ntohll),
+    struct CMUnitTest tests[] = {
+        cmocka_unit_test(torture_get_user_home_dir),
+        cmocka_unit_test(torture_basename),
+        cmocka_unit_test(torture_dirname),
+        cmocka_unit_test(torture_ntohll),
 #ifdef _WIN32
-        unit_test(torture_path_expand_tilde_win),
+        cmocka_unit_test(torture_path_expand_tilde_win),
 #else
-        unit_test(torture_path_expand_tilde_unix),
+        cmocka_unit_test(torture_path_expand_tilde_unix),
 #endif
-        unit_test_setup_teardown(torture_path_expand_escape, setup, teardown),
-        unit_test_setup_teardown(torture_path_expand_known_hosts, setup, teardown),
-        unit_test(torture_timeout_elapsed),
-        unit_test(torture_timeout_update),
+        cmocka_unit_test_setup_teardown(torture_path_expand_escape, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_path_expand_known_hosts, setup, teardown),
+        cmocka_unit_test(torture_timeout_elapsed),
+        cmocka_unit_test(torture_timeout_update),
+        cmocka_unit_test(torture_ssh_analyze_banner),
     };
 
     ssh_init();
     torture_filter_tests(tests);
-    rc=run_tests(tests);
+    rc = cmocka_run_group_tests(tests, NULL, NULL);
     ssh_finalize();
     return rc;
 }

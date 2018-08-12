@@ -27,20 +27,32 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
+#ifdef HAVE_GLOB_H
+# include <glob.h>
+#endif
 
 #include "libssh/priv.h"
 #include "libssh/session.h"
 #include "libssh/misc.h"
 #include "libssh/options.h"
 
+#define MAX_LINE_SIZE 1024
+
 enum ssh_config_opcode_e {
+  /* Unknown opcode */
+  SOC_UNKNOWN = -3,
+  /* Known and not applicable to libssh */
+  SOC_NA = -2,
+  /* Known but not supported by current libssh version */
   SOC_UNSUPPORTED = -1,
   SOC_HOST,
+  SOC_MATCH,
   SOC_HOSTNAME,
   SOC_PORT,
   SOC_USERNAME,
   SOC_IDENTITY,
   SOC_CIPHERS,
+  SOC_MACS,
   SOC_COMPRESSION,
   SOC_TIMEOUT,
   SOC_PROTOCOL,
@@ -50,6 +62,16 @@ enum ssh_config_opcode_e {
   SOC_GSSAPISERVERIDENTITY,
   SOC_GSSAPICLIENTIDENTITY,
   SOC_GSSAPIDELEGATECREDENTIALS,
+  SOC_INCLUDE,
+  SOC_BINDADDRESS,
+  SOC_GLOBALKNOWNHOSTSFILE,
+  SOC_LOGLEVEL,
+  SOC_HOSTKEYALGORITHMS,
+  SOC_KEXALGORITHMS,
+  SOC_GSSAPIAUTHENTICATION,
+  SOC_KBDINTERACTIVEAUTHENTICATION,
+  SOC_PASSWORDAUTHENTICATION,
+  SOC_PUBKEYAUTHENTICATION,
 
   SOC_END /* Keep this one last in the list */
 };
@@ -61,11 +83,13 @@ struct ssh_config_keyword_table_s {
 
 static struct ssh_config_keyword_table_s ssh_config_keyword_table[] = {
   { "host", SOC_HOST },
+  { "match", SOC_MATCH },
   { "hostname", SOC_HOSTNAME },
   { "port", SOC_PORT },
   { "user", SOC_USERNAME },
   { "identityfile", SOC_IDENTITY },
   { "ciphers", SOC_CIPHERS },
+  { "macs", SOC_MACS },
   { "compression", SOC_COMPRESSION },
   { "connecttimeout", SOC_TIMEOUT },
   { "protocol", SOC_PROTOCOL },
@@ -73,10 +97,95 @@ static struct ssh_config_keyword_table_s ssh_config_keyword_table[] = {
   { "userknownhostsfile", SOC_KNOWNHOSTS },
   { "proxycommand", SOC_PROXYCOMMAND },
   { "gssapiserveridentity", SOC_GSSAPISERVERIDENTITY },
-  { "gssapiserveridentity", SOC_GSSAPICLIENTIDENTITY },
+  { "gssapiclientidentity", SOC_GSSAPICLIENTIDENTITY },
   { "gssapidelegatecredentials", SOC_GSSAPIDELEGATECREDENTIALS },
-  { NULL, SOC_UNSUPPORTED }
+  { "include", SOC_INCLUDE },
+  { "bindaddress", SOC_BINDADDRESS},
+  { "globalknownhostsfile", SOC_GLOBALKNOWNHOSTSFILE},
+  { "loglevel", SOC_LOGLEVEL},
+  { "hostkeyalgorithms", SOC_HOSTKEYALGORITHMS},
+  { "kexalgorithms", SOC_KEXALGORITHMS},
+  { "mac", SOC_UNSUPPORTED}, /* SSHv1 */
+  { "gssapiauthentication", SOC_GSSAPIAUTHENTICATION},
+  { "kbdinteractiveauthentication", SOC_KBDINTERACTIVEAUTHENTICATION},
+  { "passwordauthentication", SOC_PASSWORDAUTHENTICATION},
+  { "pubkeyauthentication", SOC_PUBKEYAUTHENTICATION},
+  { "addkeystoagent", SOC_UNSUPPORTED},
+  { "addressfamily", SOC_UNSUPPORTED},
+  { "batchmode", SOC_UNSUPPORTED},
+  { "canonicaldomains", SOC_UNSUPPORTED},
+  { "canonicalizefallbacklocal", SOC_UNSUPPORTED},
+  { "canonicalizehostname", SOC_UNSUPPORTED},
+  { "canonicalizemaxdots", SOC_UNSUPPORTED},
+  { "canonicalizepermittedcnames", SOC_UNSUPPORTED},
+  { "certificatefile", SOC_UNSUPPORTED},
+  { "challengeresponseauthentication", SOC_UNSUPPORTED},
+  { "checkhostip", SOC_UNSUPPORTED},
+  { "cipher", SOC_UNSUPPORTED}, /* SSHv1 */
+  { "compressionlevel", SOC_UNSUPPORTED}, /* SSHv1 */
+  { "connectionattempts", SOC_UNSUPPORTED},
+  { "enablesshkeysign", SOC_UNSUPPORTED},
+  { "fingerprinthash", SOC_UNSUPPORTED},
+  { "forwardagent", SOC_UNSUPPORTED},
+  { "gssapikeyexchange", SOC_UNSUPPORTED},
+  { "gssapirenewalforcesrekey", SOC_UNSUPPORTED},
+  { "gssapitrustdns", SOC_UNSUPPORTED},
+  { "hashknownhosts", SOC_UNSUPPORTED},
+  { "hostbasedauthentication", SOC_UNSUPPORTED},
+  { "hostbasedkeytypes", SOC_UNSUPPORTED},
+  { "hostkeyalias", SOC_UNSUPPORTED},
+  { "identitiesonly", SOC_UNSUPPORTED},
+  { "identityagent", SOC_UNSUPPORTED},
+  { "ipqos", SOC_UNSUPPORTED},
+  { "kbdinteractivedevices", SOC_UNSUPPORTED},
+  { "nohostauthenticationforlocalhost", SOC_UNSUPPORTED},
+  { "numberofpasswordprompts", SOC_UNSUPPORTED},
+  { "pkcs11provider", SOC_UNSUPPORTED},
+  { "preferredauthentications", SOC_UNSUPPORTED},
+  { "proxyjump", SOC_UNSUPPORTED},
+  { "proxyusefdpass", SOC_UNSUPPORTED},
+  { "pubkeyacceptedtypes", SOC_UNSUPPORTED},
+  { "rekeylimit", SOC_UNSUPPORTED},
+  { "remotecommand", SOC_UNSUPPORTED},
+  { "revokedhostkeys", SOC_UNSUPPORTED},
+  { "rhostsrsaauthentication", SOC_UNSUPPORTED},
+  { "rsaauthentication", SOC_UNSUPPORTED}, /* SSHv1 */
+  { "serveralivecountmax", SOC_UNSUPPORTED},
+  { "serveraliveinterval", SOC_UNSUPPORTED},
+  { "streamlocalbindmask", SOC_UNSUPPORTED},
+  { "streamlocalbindunlink", SOC_UNSUPPORTED},
+  { "syslogfacility", SOC_UNSUPPORTED},
+  { "tcpkeepalive", SOC_UNSUPPORTED},
+  { "updatehostkeys", SOC_UNSUPPORTED},
+  { "useprivilegedport", SOC_UNSUPPORTED},
+  { "verifyhostkeydns", SOC_UNSUPPORTED},
+  { "visualhostkey", SOC_UNSUPPORTED},
+  { "clearallforwardings", SOC_NA},
+  { "controlmaster", SOC_NA},
+  { "controlpersist", SOC_NA},
+  { "controlpath", SOC_NA},
+  { "dynamicforward", SOC_NA},
+  { "escapechar", SOC_NA},
+  { "exitonforwardfailure", SOC_NA},
+  { "forwardx11", SOC_NA},
+  { "forwardx11timeout", SOC_NA},
+  { "forwardx11trusted", SOC_NA},
+  { "gatewayports", SOC_NA},
+  { "ignoreunknown", SOC_NA},
+  { "localcommand", SOC_NA},
+  { "localforward", SOC_NA},
+  { "permitlocalcommand", SOC_NA},
+  { "remoteforward", SOC_NA},
+  { "requesttty", SOC_NA},
+  { "sendenv", SOC_NA},
+  { "tunnel", SOC_NA},
+  { "tunneldevice", SOC_NA},
+  { "xauthlocation", SOC_NA},
+  { NULL, SOC_UNKNOWN }
 };
+
+static int ssh_config_parse_line(ssh_session session, const char *line,
+    unsigned int count, int *parsing, int seen[]);
 
 static enum ssh_config_opcode_e ssh_config_get_opcode(char *keyword) {
   int i;
@@ -87,7 +196,7 @@ static enum ssh_config_opcode_e ssh_config_get_opcode(char *keyword) {
     }
   }
 
-  return SOC_UNSUPPORTED;
+  return SOC_UNKNOWN;
 }
 
 static char *ssh_config_get_cmd(char **str) {
@@ -142,9 +251,9 @@ out:
   return r;
 }
 
-static int ssh_config_get_int(char **str, int notfound) {
+static long ssh_config_get_long(char **str, long notfound) {
   char *p, *endp;
-  int i;
+  long i;
 
   p = ssh_config_get_token(str);
   if (p && *p) {
@@ -186,6 +295,61 @@ static int ssh_config_get_yesno(char **str, int notfound) {
   return notfound;
 }
 
+static void local_parse_file(ssh_session session, const char *filename, int *parsing, int seen[]) {
+  FILE *f;
+  char line[MAX_LINE_SIZE] = {0};
+  unsigned int count = 0;
+
+  if ((f = fopen(filename, "r")) == NULL) {
+    SSH_LOG(SSH_LOG_RARE, "Cannot find file %s to load",
+            filename);
+    return;
+  }
+
+  SSH_LOG(SSH_LOG_PACKET, "Reading additional configuration data from %s", filename);
+  while (fgets(line, sizeof(line), f)) {
+    count++;
+    if (ssh_config_parse_line(session, line, count, parsing, seen) < 0) {
+       fclose(f);
+       return;
+    }
+  }
+
+  fclose(f);
+  return;
+}
+
+#ifdef HAVE_GLOB
+static void local_parse_glob(ssh_session session,
+                             const char *fileglob,
+                             int *parsing,
+                             int seen[])
+{
+    glob_t globbuf = {
+        .gl_flags = 0,
+    };
+    int rt;
+    u_int i;
+
+    rt = glob(fileglob, GLOB_TILDE, NULL, &globbuf);
+    if (rt == GLOB_NOMATCH) {
+        globfree(&globbuf);
+        return;
+    } else if (rt != 0) {
+        SSH_LOG(SSH_LOG_RARE, "Glob error: %s",
+                fileglob);
+        globfree(&globbuf);
+        return;
+    }
+
+    for (i = 0; i < globbuf.gl_pathc; i++) {
+        local_parse_file(session, globbuf.gl_pathv[i], parsing, seen);
+    }
+
+    globfree(&globbuf);
+}
+#endif /* HAVE_GLOB */
+
 static int ssh_config_parse_line(ssh_session session, const char *line,
     unsigned int count, int *parsing, int seen[]) {
   enum ssh_config_opcode_e opcode;
@@ -195,6 +359,7 @@ static int ssh_config_parse_line(ssh_session session, const char *line,
   char *lowerhost;
   size_t len;
   int i;
+  long l;
 
   x = s = strdup(line);
   if (s == NULL) {
@@ -218,14 +383,26 @@ static int ssh_config_parse_line(ssh_session session, const char *line,
   }
 
   opcode = ssh_config_get_opcode(keyword);
-  if (*parsing == 1 && opcode != SOC_HOST) {
-      if (seen[opcode] == 0) {
+  if (*parsing == 1 && opcode != SOC_HOST && opcode != SOC_UNSUPPORTED && opcode != SOC_INCLUDE) {
+      if (seen[opcode] != 0) {
+          SAFE_FREE(x);
           return 0;
       }
       seen[opcode] = 1;
   }
 
   switch (opcode) {
+    case SOC_INCLUDE: /* recursive include of other files */
+
+      p = ssh_config_get_str_tok(&s, NULL);
+      if (p && *parsing) {
+#ifdef HAVE_GLOB
+        local_parse_glob(session, p, parsing, seen);
+#else
+        local_parse_file(session, p, parsing, seen);
+#endif /* HAVE_GLOB */
+      }
+      break;
     case SOC_HOST: {
         int ok = 0;
 
@@ -258,13 +435,11 @@ static int ssh_config_parse_line(ssh_session session, const char *line,
       }
       break;
     case SOC_PORT:
-      if (session->opts.port == 0) {
-          p = ssh_config_get_str_tok(&s, NULL);
-          if (p && *parsing) {
-              ssh_options_set(session, SSH_OPTIONS_PORT_STR, p);
-          }
-      }
-      break;
+        p = ssh_config_get_str_tok(&s, NULL);
+        if (p && *parsing) {
+            ssh_options_set(session, SSH_OPTIONS_PORT_STR, p);
+        }
+        break;
     case SOC_USERNAME:
       if (session->opts.username == NULL) {
           p = ssh_config_get_str_tok(&s, NULL);
@@ -284,6 +459,13 @@ static int ssh_config_parse_line(ssh_session session, const char *line,
       if (p && *parsing) {
         ssh_options_set(session, SSH_OPTIONS_CIPHERS_C_S, p);
         ssh_options_set(session, SSH_OPTIONS_CIPHERS_S_C, p);
+      }
+      break;
+    case SOC_MACS:
+      p = ssh_config_get_str_tok(&s, NULL);
+      if (p && *parsing) {
+        ssh_options_set(session, SSH_OPTIONS_HMAC_C_S, p);
+        ssh_options_set(session, SSH_OPTIONS_HMAC_S_C, p);
       }
       break;
     case SOC_COMPRESSION:
@@ -307,14 +489,11 @@ static int ssh_config_parse_line(ssh_session session, const char *line,
           return -1;
         }
         i = 0;
-        ssh_options_set(session, SSH_OPTIONS_SSH1, &i);
         ssh_options_set(session, SSH_OPTIONS_SSH2, &i);
 
         for (a = strtok(b, ","); a; a = strtok(NULL, ",")) {
           switch (atoi(a)) {
             case 1:
-              i = 1;
-              ssh_options_set(session, SSH_OPTIONS_SSH1, &i);
               break;
             case 2:
               i = 1;
@@ -328,9 +507,9 @@ static int ssh_config_parse_line(ssh_session session, const char *line,
       }
       break;
     case SOC_TIMEOUT:
-      i = ssh_config_get_int(&s, -1);
-      if (i >= 0 && *parsing) {
-        ssh_options_set(session, SSH_OPTIONS_TIMEOUT, &i);
+      l = ssh_config_get_long(&s, -1);
+      if (l >= 0 && *parsing) {
+        ssh_options_set(session, SSH_OPTIONS_TIMEOUT, &l);
       }
       break;
     case SOC_STRICTHOSTKEYCHECK:
@@ -369,12 +548,94 @@ static int ssh_config_parse_line(ssh_session session, const char *line,
         ssh_options_set(session, SSH_OPTIONS_GSSAPI_DELEGATE_CREDENTIALS, &i);
       }
       break;
+    case SOC_BINDADDRESS:
+        p = ssh_config_get_str_tok(&s, NULL);
+        if (p && *parsing) {
+            ssh_options_set(session, SSH_OPTIONS_BINDADDR, p);
+        }
+        break;
+    case SOC_GLOBALKNOWNHOSTSFILE:
+        p = ssh_config_get_str_tok(&s, NULL);
+        if (p && *parsing) {
+            ssh_options_set(session, SSH_OPTIONS_GLOBAL_KNOWNHOSTS, p);
+        }
+        break;
+    case SOC_LOGLEVEL:
+        p = ssh_config_get_str_tok(&s, NULL);
+        if (p && *parsing) {
+            int value = -1;
+
+            if (strcasecmp(p, "quiet") == 0) {
+                value = SSH_LOG_NONE;
+            } else if (strcasecmp(p, "fatal") == 0 ||
+                    strcasecmp(p, "error")== 0 ||
+                    strcasecmp(p, "info") == 0) {
+                value = SSH_LOG_WARN;
+            } else if (strcasecmp(p, "verbose") == 0) {
+                value = SSH_LOG_INFO;
+            } else if (strcasecmp(p, "DEBUG") == 0 ||
+                    strcasecmp(p, "DEBUG1") == 0) {
+                value = SSH_LOG_DEBUG;
+            } else if (strcasecmp(p, "DEBUG2") == 0 ||
+                    strcasecmp(p, "DEBUG3") == 0) {
+                value = SSH_LOG_TRACE;
+            }
+            if (value != -1) {
+                ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &value);
+            }
+        }
+        break;
+    case SOC_HOSTKEYALGORITHMS:
+        p = ssh_config_get_str_tok(&s, NULL);
+        if (p && *parsing) {
+            ssh_options_set(session, SSH_OPTIONS_HOSTKEYS, p);
+        }
+        break;
+    case SOC_KEXALGORITHMS:
+        p = ssh_config_get_str_tok(&s, NULL);
+        if (p && *parsing) {
+            ssh_options_set(session, SSH_OPTIONS_KEY_EXCHANGE, p);
+        }
+        break;
+    case SOC_GSSAPIAUTHENTICATION:
+    case SOC_KBDINTERACTIVEAUTHENTICATION:
+    case SOC_PASSWORDAUTHENTICATION:
+    case SOC_PUBKEYAUTHENTICATION:
+        i = ssh_config_get_yesno(&s, 0);
+        if (i>=0 && *parsing) {
+            switch(opcode){
+            case SOC_GSSAPIAUTHENTICATION:
+                ssh_options_set(session, SSH_OPTIONS_GSSAPI_AUTH, &i);
+                break;
+            case SOC_KBDINTERACTIVEAUTHENTICATION:
+                ssh_options_set(session, SSH_OPTIONS_KBDINT_AUTH, &i);
+                break;
+            case SOC_PASSWORDAUTHENTICATION:
+                ssh_options_set(session, SSH_OPTIONS_PASSWORD_AUTH, &i);
+                break;
+            case SOC_PUBKEYAUTHENTICATION:
+                ssh_options_set(session, SSH_OPTIONS_PUBKEY_AUTH, &i);
+                break;
+            /* make gcc happy */
+            default:
+                break;
+            }
+        }
+        break;
+    case SOC_NA:
+      SSH_LOG(SSH_LOG_INFO, "Unapplicable option: %s, line: %d\n",
+              keyword, count);
+      break;
     case SOC_UNSUPPORTED:
-      SSH_LOG(SSH_LOG_RARE, "Unsupported option: %s, line: %d\n",
+      SSH_LOG(SSH_LOG_RARE, "Unsupported option: %s, line: %d",
+              keyword, count);
+      break;
+    case SOC_UNKNOWN:
+      SSH_LOG(SSH_LOG_WARN, "Unknown option: %s, line: %d\n",
               keyword, count);
       break;
     default:
-      ssh_set_error(session, SSH_FATAL, "ERROR - unimplemented opcode: %d\n",
+      ssh_set_error(session, SSH_FATAL, "ERROR - unimplemented opcode: %d",
               opcode);
       SAFE_FREE(x);
       return -1;
@@ -387,7 +648,7 @@ static int ssh_config_parse_line(ssh_session session, const char *line,
 
 /* ssh_config_parse_file */
 int ssh_config_parse_file(ssh_session session, const char *filename) {
-  char line[1024] = {0};
+  char line[MAX_LINE_SIZE] = {0};
   unsigned int count = 0;
   FILE *f;
   int parsing;

@@ -55,14 +55,38 @@ enum ssh_key_exchange_e {
   SSH_KEX_DH_GROUP14_SHA1,
   /* ecdh-sha2-nistp256 */
   SSH_KEX_ECDH_SHA2_NISTP256,
+  /* ecdh-sha2-nistp384 */
+  SSH_KEX_ECDH_SHA2_NISTP384,
+  /* ecdh-sha2-nistp521 */
+  SSH_KEX_ECDH_SHA2_NISTP521,
   /* curve25519-sha256@libssh.org */
-  SSH_KEX_CURVE25519_SHA256_LIBSSH_ORG
+  SSH_KEX_CURVE25519_SHA256_LIBSSH_ORG,
+  /* curve25519-sha256 */
+  SSH_KEX_CURVE25519_SHA256
+};
+
+enum ssh_cipher_e {
+    SSH_NO_CIPHER=0,
+    SSH_BLOWFISH_CBC,
+    SSH_3DES_CBC,
+    SSH_AES128_CBC,
+    SSH_AES192_CBC,
+    SSH_AES256_CBC,
+    SSH_AES128_CTR,
+    SSH_AES192_CTR,
+    SSH_AES256_CTR
 };
 
 struct ssh_crypto_struct {
     bignum e,f,x,k,y;
 #ifdef HAVE_ECDH
+#ifdef HAVE_OPENSSL_ECC
     EC_KEY *ecdh_privkey;
+#elif defined HAVE_GCRYPT_ECC
+    gcry_sexp_t ecdh_privkey;
+#elif defined HAVE_LIBMBEDCRYPTO
+    mbedtls_ecp_keypair *ecdh_privkey;
+#endif
     ssh_string ecdh_client_pubkey;
     ssh_string ecdh_server_pubkey;
 #endif
@@ -85,8 +109,7 @@ struct ssh_crypto_struct {
     struct ssh_cipher_struct *in_cipher, *out_cipher; /* the cipher structures/objects */
     enum ssh_hmac_e in_hmac, out_hmac; /* the MAC algorithms used */
 
-    ssh_string server_pubkey;
-    const char *server_pubkey_type;
+    ssh_key server_pubkey;
     int do_compress_out; /* idem */
     int do_compress_in; /* don't set them, set the option instead */
     int delayed_compress_in; /* Use of zlib@openssh.org */
@@ -104,14 +127,24 @@ struct ssh_crypto_struct {
 struct ssh_cipher_struct {
     const char *name; /* ssh name of the algorithm */
     unsigned int blocksize; /* blocksize of the algo */
-    unsigned int keylen; /* length of the key structure */
+    enum ssh_cipher_e ciphertype;
+    uint32_t lenfield_blocksize; /* blocksize of the packet length field */
+    size_t keylen; /* length of the key structure */
 #ifdef HAVE_LIBGCRYPT
     gcry_cipher_hd_t *key;
 #elif defined HAVE_LIBCRYPTO
-    void *key; /* a key buffer allocated for the algo */
-    void *IV;
+    struct ssh_3des_key_schedule *des3_key;
+    struct ssh_aes_key_schedule *aes_key;
+    const EVP_CIPHER *cipher;
+    EVP_CIPHER_CTX *ctx;
+#elif defined HAVE_LIBMBEDCRYPTO
+    mbedtls_cipher_context_t encrypt_ctx;
+    mbedtls_cipher_context_t decrypt_ctx;
+    mbedtls_cipher_type_t type;
 #endif
+    struct chacha20_poly1305_keysched *chacha20_schedule;
     unsigned int keysize; /* bytes of key used. != keylen */
+    size_t tag_size; /* overhead required for tag */
     /* sets the new key for immediate use */
     int (*set_encrypt_key)(struct ssh_cipher_struct *cipher, void *key, void *IV);
     int (*set_decrypt_key)(struct ssh_cipher_struct *cipher, void *key, void *IV);
@@ -119,7 +152,15 @@ struct ssh_cipher_struct {
         unsigned long len);
     void (*decrypt)(struct ssh_cipher_struct *cipher, void *in, void *out,
         unsigned long len);
+    void (*aead_encrypt)(struct ssh_cipher_struct *cipher, void *in, void *out,
+        size_t len, uint8_t *mac, uint64_t seq);
+    int (*aead_decrypt_length)(struct ssh_cipher_struct *cipher, void *in,
+        uint8_t *out, size_t len, uint64_t seq);
+    int (*aead_decrypt)(struct ssh_cipher_struct *cipher, void *complete_packet, uint8_t *out,
+        size_t encrypted_size, uint64_t seq);
+    void (*cleanup)(struct ssh_cipher_struct *cipher);
 };
 
-/* vim: set ts=2 sw=2 et cindent: */
+const struct ssh_cipher_struct *ssh_get_chacha20poly1305_cipher(void);
+
 #endif /* _CRYPTO_H_ */

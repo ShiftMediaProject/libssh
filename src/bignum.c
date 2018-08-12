@@ -19,13 +19,15 @@
  * MA 02111-1307, USA.
  */
 
+#include "config.h"
+
 #include <stdio.h>
 
 #include "libssh/priv.h"
 #include "libssh/bignum.h"
 #include "libssh/string.h"
 
-ssh_string make_bignum_string(bignum num) {
+ssh_string ssh_make_bignum_string(bignum num) {
   ssh_string ptr = NULL;
   int pad = 0;
   unsigned int len = bignum_num_bytes(num);
@@ -58,12 +60,14 @@ ssh_string make_bignum_string(bignum num) {
   bignum_bn2bin(num, len, ptr->data + pad);
 #elif HAVE_LIBCRYPTO
   bignum_bn2bin(num, ptr->data + pad);
+#elif HAVE_LIBMBEDCRYPTO
+  bignum_bn2bin(num, ptr->data + pad);
 #endif
 
   return ptr;
 }
 
-bignum make_string_bn(ssh_string string){
+bignum ssh_make_string_bn(ssh_string string){
   bignum bn = NULL;
   unsigned int len = ssh_string_len(string);
 
@@ -76,12 +80,15 @@ bignum make_string_bn(ssh_string string){
   bignum_bin2bn(string->data, len, &bn);
 #elif defined HAVE_LIBCRYPTO
   bn = bignum_bin2bn(string->data, len, NULL);
+#elif defined HAVE_LIBMBEDCRYPTO
+  bn = bignum_new();
+  bignum_bin2bn(string->data, len, bn);
 #endif
 
   return bn;
 }
 
-void make_string_bn_inplace(ssh_string string, bignum bnout) {
+void ssh_make_string_bn_inplace(ssh_string string, bignum bnout) {
   unsigned int len = ssh_string_len(string);
 #ifdef HAVE_LIBGCRYPT
   /* XXX: FIXME as needed for LIBGCRYPT ECDSA codepaths. */
@@ -89,15 +96,20 @@ void make_string_bn_inplace(ssh_string string, bignum bnout) {
   (void) bnout;
 #elif defined HAVE_LIBCRYPTO
   bignum_bin2bn(string->data, len, bnout);
+#elif defined HAVE_LIBMBEDCRYPTO
+  bignum_bin2bn(string->data, len, bnout);
 #endif
 }
 
 /* prints the bignum on stderr */
-void ssh_print_bignum(const char *which, bignum num) {
+void ssh_print_bignum(const char *which, const bignum num) {
 #ifdef HAVE_LIBGCRYPT
   unsigned char *hex = NULL;
   bignum_bn2hex(num, &hex);
 #elif defined HAVE_LIBCRYPTO
+  char *hex = NULL;
+  hex = bignum_bn2hex(num);
+#elif defined HAVE_LIBMBEDCRYPTO
   char *hex = NULL;
   hex = bignum_bn2hex(num);
 #endif
@@ -107,5 +119,7 @@ void ssh_print_bignum(const char *which, bignum num) {
   SAFE_FREE(hex);
 #elif defined HAVE_LIBCRYPTO
   OPENSSL_free(hex);
+#elif defined HAVE_LIBMBEDCRYPTO
+  SAFE_FREE(hex);
 #endif
 }

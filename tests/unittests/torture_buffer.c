@@ -1,3 +1,5 @@
+#include "config.h"
+
 #define LIBSSH_STATIC
 
 #include "torture.h"
@@ -6,15 +8,23 @@
 
 #define LIMIT (8*1024*1024)
 
-static void setup(void **state) {
+static int setup(void **state) {
     ssh_buffer buffer;
+
     buffer = ssh_buffer_new();
+    if (buffer == NULL) {
+        return -1;
+    }
     ssh_buffer_set_secure(buffer);
     *state = (void *) buffer;
+
+    return 0;
 }
 
-static void teardown(void **state) {
+static int teardown(void **state) {
     ssh_buffer_free(*state);
+
+    return 0;
 }
 
 /*
@@ -28,8 +38,8 @@ static void torture_growing_buffer(void **state) {
   for(i=0;i<LIMIT;++i){
     ssh_buffer_add_data(buffer,"A",1);
     if(buffer->used >= 128){
-      if(buffer_get_rest_len(buffer) * 2 < buffer->allocated){
-        assert_true(buffer_get_rest_len(buffer) * 2 >= buffer->allocated);
+      if(ssh_buffer_get_len(buffer) * 2 < buffer->allocated){
+        assert_true(ssh_buffer_get_len(buffer) * 2 >= buffer->allocated);
       }
     }
   }
@@ -47,11 +57,11 @@ static void torture_growing_buffer_shifting(void **state) {
     ssh_buffer_add_data(buffer,"S",1);
   }
   for(i=0;i<LIMIT;++i){
-    buffer_get_u8(buffer,&c);
+    ssh_buffer_get_u8(buffer,&c);
     ssh_buffer_add_data(buffer,"A",1);
     if(buffer->used >= 128){
-      if(buffer_get_rest_len(buffer) * 4 < buffer->allocated){
-        assert_true(buffer_get_rest_len(buffer) * 4 >= buffer->allocated);
+      if(ssh_buffer_get_len(buffer) * 4 < buffer->allocated){
+        assert_true(ssh_buffer_get_len(buffer) * 4 >= buffer->allocated);
         return;
       }
     }
@@ -59,39 +69,39 @@ static void torture_growing_buffer_shifting(void **state) {
 }
 
 /*
- * Test the behavior of buffer_prepend_data
+ * Test the behavior of ssh_buffer_prepend_data
  */
 static void torture_buffer_prepend(void **state) {
   ssh_buffer buffer = *state;
   uint32_t v;
   ssh_buffer_add_data(buffer,"abcdef",6);
-  buffer_prepend_data(buffer,"xyz",3);
-  assert_int_equal(buffer_get_rest_len(buffer),9);
-  assert_memory_equal(buffer_get_rest(buffer),  "xyzabcdef", 9);
+  ssh_buffer_prepend_data(buffer,"xyz",3);
+  assert_int_equal(ssh_buffer_get_len(buffer),9);
+  assert_memory_equal(ssh_buffer_get(buffer),  "xyzabcdef", 9);
 
   /* Now remove 4 bytes and see if we can replace them */
-  buffer_get_u32(buffer,&v);
-  assert_int_equal(buffer_get_rest_len(buffer),5);
-  assert_memory_equal(buffer_get_rest(buffer), "bcdef", 5);
+  ssh_buffer_get_u32(buffer,&v);
+  assert_int_equal(ssh_buffer_get_len(buffer),5);
+  assert_memory_equal(ssh_buffer_get(buffer), "bcdef", 5);
 
-  buffer_prepend_data(buffer,"aris",4);
-  assert_int_equal(buffer_get_rest_len(buffer),9);
-  assert_memory_equal(buffer_get_rest(buffer), "arisbcdef", 9);
+  ssh_buffer_prepend_data(buffer,"aris",4);
+  assert_int_equal(ssh_buffer_get_len(buffer),9);
+  assert_memory_equal(ssh_buffer_get(buffer), "arisbcdef", 9);
 
   /* same thing but we add 5 bytes now */
-  buffer_get_u32(buffer,&v);
-  assert_int_equal(buffer_get_rest_len(buffer),5);
-  assert_memory_equal(buffer_get_rest(buffer), "bcdef", 5);
+  ssh_buffer_get_u32(buffer,&v);
+  assert_int_equal(ssh_buffer_get_len(buffer),5);
+  assert_memory_equal(ssh_buffer_get(buffer), "bcdef", 5);
 
-  buffer_prepend_data(buffer,"12345",5);
-  assert_int_equal(buffer_get_rest_len(buffer),10);
-  assert_memory_equal(buffer_get_rest(buffer), "12345bcdef", 10);
+  ssh_buffer_prepend_data(buffer,"12345",5);
+  assert_int_equal(ssh_buffer_get_len(buffer),10);
+  assert_memory_equal(ssh_buffer_get(buffer), "12345bcdef", 10);
 }
 
 /*
- * Test the behavior of buffer_get_ssh_string with invalid data
+ * Test the behavior of ssh_buffer_get_ssh_string with invalid data
  */
-static void torture_buffer_get_ssh_string(void **state) {
+static void torture_ssh_buffer_get_ssh_string(void **state) {
   ssh_buffer buffer;
   int i,j,k,l, rc;
   /* some values that can go wrong */
@@ -107,13 +117,13 @@ static void torture_buffer_get_ssh_string(void **state) {
         assert_non_null(buffer);
 
         for(l=0;l<k;++l){
-          rc = buffer_add_u32(buffer,htonl(values[i]));
+          rc = ssh_buffer_add_u32(buffer,htonl(values[i]));
           assert_int_equal(rc, 0);
         }
         rc = ssh_buffer_add_data(buffer,data,j);
         assert_int_equal(rc, 0);
         for(l=0;l<k;++l){
-          ssh_string str = buffer_get_ssh_string(buffer);
+          ssh_string str = ssh_buffer_get_ssh_string(buffer);
           assert_null(str);
           ssh_string_free(str);
         }
@@ -123,7 +133,7 @@ static void torture_buffer_get_ssh_string(void **state) {
   }
 }
 
-static void torture_buffer_add_format(void **state) {
+static void torture_ssh_buffer_add_format(void **state) {
     ssh_buffer buffer=*state;
     uint8_t b;
     uint16_t w;
@@ -147,14 +157,14 @@ static void torture_buffer_add_format(void **state) {
     rc=ssh_buffer_pack(buffer, "bwdqSsPt",b,w,d,q,s,"rocks",7,"So much","Fun!");
     assert_int_equal(rc, SSH_OK);
 
-    len = buffer_get_rest_len(buffer);
+    len = ssh_buffer_get_len(buffer);
     assert_int_equal(len, sizeof(verif) - 1);
-    assert_memory_equal(buffer_get_rest(buffer), verif, sizeof(verif) -1);
+    assert_memory_equal(ssh_buffer_get(buffer), verif, sizeof(verif) -1);
 
     ssh_string_free(s);
 }
 
-static void torture_buffer_get_format(void **state) {
+static void torture_ssh_buffer_get_format(void **state) {
     ssh_buffer buffer=*state;
     uint8_t b=0;
     uint16_t w=0;
@@ -191,14 +201,14 @@ static void torture_buffer_get_format(void **state) {
     assert_true(s2 != NULL);
     assert_memory_equal(s2, "So much", 7);
 
-    len = buffer_get_rest_len(buffer);
+    len = ssh_buffer_get_len(buffer);
     assert_int_equal(len, 0);
     SAFE_FREE(s);
     SAFE_FREE(s1);
     SAFE_FREE(s2);
 }
 
-static void torture_buffer_get_format_error(void **state) {
+static void torture_ssh_buffer_get_format_error(void **state) {
     ssh_buffer buffer=*state;
     uint8_t b=0;
     uint16_t w=0;
@@ -235,7 +245,10 @@ static void torture_buffer_pack_badformat(void **state){
 
     /* with additional format */
     rc = ssh_buffer_pack(buffer, "bb", b);
+#ifdef HAVE_GCC_NARG_MACRO
+    /* We can only detect errors if we have support for NARG macros */
     assert_int_equal(rc, SSH_ERROR);
+#endif
 
     /* unpack with missing format */
     ssh_buffer_reinit(buffer);
@@ -250,20 +263,20 @@ static void torture_buffer_pack_badformat(void **state){
 
 int torture_run_tests(void) {
     int rc;
-    UnitTest tests[] = {
-        unit_test_setup_teardown(torture_growing_buffer, setup, teardown),
-        unit_test_setup_teardown(torture_growing_buffer_shifting, setup, teardown),
-        unit_test_setup_teardown(torture_buffer_prepend, setup, teardown),
-        unit_test(torture_buffer_get_ssh_string),
-        unit_test_setup_teardown(torture_buffer_add_format, setup, teardown),
-        unit_test_setup_teardown(torture_buffer_get_format, setup, teardown),
-        unit_test_setup_teardown(torture_buffer_get_format_error, setup, teardown),
-        unit_test_setup_teardown(torture_buffer_pack_badformat, setup, teardown)
+    struct CMUnitTest tests[] = {
+        cmocka_unit_test_setup_teardown(torture_growing_buffer, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_growing_buffer_shifting, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_buffer_prepend, setup, teardown),
+        cmocka_unit_test(torture_ssh_buffer_get_ssh_string),
+        cmocka_unit_test_setup_teardown(torture_ssh_buffer_add_format, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_ssh_buffer_get_format, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_ssh_buffer_get_format_error, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_buffer_pack_badformat, setup, teardown)
     };
 
     ssh_init();
     torture_filter_tests(tests);
-    rc=run_tests(tests);
+    rc = cmocka_run_group_tests(tests, NULL, NULL);
     ssh_finalize();
     return rc;
 }

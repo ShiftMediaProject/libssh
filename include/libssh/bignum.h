@@ -23,11 +23,12 @@
 
 #include "libssh/libcrypto.h"
 #include "libssh/libgcrypt.h"
+#include "libssh/libmbedcrypto.h"
 
-bignum make_string_bn(ssh_string string);
-void make_string_bn_inplace(ssh_string string, bignum bnout);
-ssh_string make_bignum_string(bignum num);
-void ssh_print_bignum(const char *which,bignum num);
+bignum ssh_make_string_bn(ssh_string string);
+void ssh_make_string_bn_inplace(ssh_string string, bignum bnout);
+ssh_string ssh_make_bignum_string(bignum num);
+void ssh_print_bignum(const char *which, const bignum num);
 
 
 #endif /* BIGNUM_H_ */

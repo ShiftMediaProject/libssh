@@ -58,7 +58,7 @@ static struct {
     int rc;
     pthread_t tid;
     int keep_going;
-    int pkd_ready;
+    volatile int pkd_ready;
 } ctx;
 
 static struct {
@@ -253,8 +253,12 @@ static int pkd_exec_hello(int fd, struct pkd_daemon_args *args) {
 
     if (type == PKD_RSA) {
         opts = SSH_BIND_OPTIONS_RSAKEY;
+    } else if (type == PKD_ED25519) {
+        opts = SSH_BIND_OPTIONS_HOSTKEY;
+#ifdef HAVE_DSA
     } else if (type == PKD_DSA) {
         opts = SSH_BIND_OPTIONS_DSAKEY;
+#endif
     } else if (type == PKD_ECDSA) {
         opts = SSH_BIND_OPTIONS_ECDSAKEY;
     } else {
@@ -364,11 +368,25 @@ static int pkd_exec_hello(int fd, struct pkd_daemon_args *args) {
 
     while ((ctx.keep_going != 0) &&
            (pkd_state.eof_received == 0) &&
-           (pkd_state.close_received == 0) &&
-           (ssh_channel_is_closed(c) == 0)) {
+           (pkd_state.close_received == 0)) {
         rc = ssh_event_dopoll(e, 1000 /* milliseconds */);
         if (rc == SSH_ERROR) {
-            pkderr("ssh_event_dopoll for eof + close: %s\n", ssh_get_error(s));
+            /* log, but don't consider this fatal */
+            pkdout("ssh_event_dopoll for eof + close: %s\n", ssh_get_error(s));
+            rc = 0;
+            break;
+        } else {
+            rc = 0;
+        }
+    }
+
+    while ((ctx.keep_going != 0) &&
+           (ssh_is_connected(s))) {
+        rc = ssh_event_dopoll(e, 1000 /* milliseconds */);
+        if (rc == SSH_ERROR) {
+            /* log, but don't consider this fatal */
+            pkdout("ssh_event_dopoll for session connection: %s\n", ssh_get_error(s));
+            rc = 0;
             break;
         } else {
             rc = 0;
@@ -488,6 +506,7 @@ void pkd_stop(struct pkd_result *out) {
     int rc = 0;
 
     ctx.keep_going = 0;
+    close(pkd_state.server_fd);
 
     rc = pthread_kill(ctx.tid, SIGUSR1);
     assert_int_equal(rc, 0);

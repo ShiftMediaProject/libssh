@@ -19,6 +19,8 @@
 
 #ifndef HAVE_BCRYPT_PBKDF
 
+#include "config.h"
+
 #include "libssh/priv.h"
 #include "libssh/wrapper.h"
 #include <stdlib.h>
@@ -63,13 +65,13 @@
 static void
 bcrypt_hash(uint8_t *sha2pass, uint8_t *sha2salt, uint8_t *out)
 {
-	blf_ctx state;
+	ssh_blf_ctx state;
 	uint8_t ciphertext[BCRYPT_HASHSIZE] =
 	    "OxychromaticBlowfishSwatDynamite";
 	uint32_t cdata[BCRYPT_BLOCKS];
 	int i;
 	uint16_t j;
-	size_t shalen = SHA512_DIGEST_LENGTH;
+	uint16_t shalen = SHA512_DIGEST_LENGTH;
 
 	/* key expansion */
 	Blowfish_initstate(&state);
@@ -85,7 +87,7 @@ bcrypt_hash(uint8_t *sha2pass, uint8_t *sha2salt, uint8_t *out)
 		cdata[i] = Blowfish_stream2word(ciphertext, sizeof(ciphertext),
 		    &j);
 	for (i = 0; i < 64; i++)
-		blf_enc(&state, cdata, sizeof(cdata) / sizeof(uint64_t));
+		ssh_blf_enc(&state, cdata, sizeof(cdata) / sizeof(uint64_t));
 
 	/* copy out */
 	for (i = 0; i < BCRYPT_BLOCKS; i++) {
@@ -96,8 +98,8 @@ bcrypt_hash(uint8_t *sha2pass, uint8_t *sha2salt, uint8_t *out)
 	}
 
 	/* zap */
-	BURN_BUFFER(ciphertext, sizeof(ciphertext));
-	BURN_BUFFER(cdata, sizeof(cdata));
+	explicit_bzero(ciphertext, sizeof(ciphertext));
+	explicit_bzero(cdata, sizeof(cdata));
 	ZERO_STRUCT(state);
 }
 
@@ -173,7 +175,7 @@ bcrypt_pbkdf(const char *pass, size_t passlen, const uint8_t *salt, size_t saltl
 	}
 
 	/* zap */
-	BURN_BUFFER(out, sizeof(out));
+	explicit_bzero(out, sizeof(out));
 	free(countsalt);
 
 	return 0;

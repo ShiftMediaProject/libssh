@@ -35,8 +35,9 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#include "config.h"
+
 #include <ctype.h>
-#include <string.h>
 #include <sys/types.h>
 
 #include "libssh/priv.h"
@@ -109,6 +110,7 @@ static int match_pattern(const char *s, const char *pattern) {
   }
 
   /* NOTREACHED */
+  return 0;
 }
 
 /*
@@ -185,5 +187,3 @@ static int match_pattern_list(const char *string, const char *pattern,
 int match_hostname(const char *host, const char *pattern, unsigned int len) {
   return match_pattern_list(host, pattern, len, 1);
 }
-
-/* vim: set ts=2 sw=2 et cindent: */

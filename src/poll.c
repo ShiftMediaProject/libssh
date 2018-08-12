@@ -21,8 +21,6 @@
  * along with the SSH Library; see the file COPYING.  If not, write to
  * the Free Software Foundation, Inc., 59 Temple Place - Suite 330, Boston,
  * MA 02111-1307, USA.
- *
- * vim: ts=2 sw=2 et cindent
  */
 
 #include "config.h"
@@ -775,6 +773,33 @@ int ssh_event_add_fd(ssh_event event, socket_t fd, short events,
 }
 
 /**
+ * @brief Add a poll handle to the event.
+ *
+ * @param   event     the ssh_event
+ *
+ * @param   p         the poll handle
+ *
+ * @returns SSH_OK    on success
+ *          SSH_ERROR on failure
+ */
+int ssh_event_add_poll(ssh_event event, ssh_poll_handle p)
+{
+    return ssh_poll_ctx_add(event->ctx, p);
+}
+
+/**
+ * @brief remove a poll handle to the event.
+ *
+ * @param   event     the ssh_event
+ *
+ * @param   p         the poll handle
+ */
+void ssh_event_remove_poll(ssh_event event, ssh_poll_handle p)
+{
+    ssh_poll_ctx_remove(event->ctx,p);
+}
+
+/**
  * @brief remove the poll handle from session and assign them to a event,
  * when used in blocking mode.
  *
@@ -785,20 +810,23 @@ int ssh_event_add_fd(ssh_event event, socket_t fd, short events,
  *          SSH_ERROR   on failure
  */
 int ssh_event_add_session(ssh_event event, ssh_session session) {
-    unsigned int i;
     ssh_poll_handle p;
 #ifdef WITH_SERVER
     struct ssh_iterator *iterator;
 #endif
-    
+
     if(event == NULL || event->ctx == NULL || session == NULL) {
         return SSH_ERROR;
     }
     if(session->default_poll_ctx == NULL) {
         return SSH_ERROR;
     }
-    for(i = 0; i < session->default_poll_ctx->polls_used; i++) {
-        p = session->default_poll_ctx->pollptrs[i];
+    while (session->default_poll_ctx->polls_used > 0) {
+        p = session->default_poll_ctx->pollptrs[0];
+        /*
+         * ssh_poll_ctx_remove() decrements
+         * session->default_poll_ctx->polls_used
+         */
         ssh_poll_ctx_remove(session->default_poll_ctx, p);
         ssh_poll_ctx_add(event->ctx, p);
         /* associate the pollhandler with a session so we can put it back
@@ -823,17 +851,34 @@ int ssh_event_add_session(ssh_event event, ssh_session session) {
 }
 
 /**
- * @brief  Poll all the sockets and sessions associated through an event object.
- *         If any of the events are set after the poll, the
- *         call back functions of the sessions or sockets will be called.
- *         This function should be called once within the programs main loop.
+ * @brief Add a connector to the SSH event loop
+ *
+ * @param[in] event The SSH event loop
+ *
+ * @param[in] connector The connector object
+ *
+ * @return SSH_OK
+ *
+ * @return SSH_ERROR in case of error
+ */
+int ssh_event_add_connector(ssh_event event, ssh_connector connector){
+    return ssh_connector_set_event(connector, event);
+}
+
+/**
+ * @brief Poll all the sockets and sessions associated through an event object.i
+ *
+ * If any of the events are set after the poll, the call back functions of the
+ * sessions or sockets will be called.
+ * This function should be called once within the programs main loop.
  *
  * @param  event        The ssh_event object to poll.
+ *
  * @param  timeout      An upper limit on the time for which the poll will
  *                      block, in milliseconds. Specifying a negative value
  *                      means an infinite timeout. This parameter is passed to
  *                      the poll() function.
- * @returns SSH_OK      No error.
+ * @returns SSH_OK      on success.
  *          SSH_ERROR   Error happened during the poll.
  */
 int ssh_event_dopoll(ssh_event event, int timeout) {
@@ -917,11 +962,21 @@ int ssh_event_remove_session(ssh_event event, ssh_session session) {
     for(i = 0; i < used; i++) {
     	p = event->ctx->pollptrs[i];
     	if(p->session == session){
+            /*
+             * ssh_poll_ctx_remove() decrements
+             * event->ctx->polls_used
+             */
             ssh_poll_ctx_remove(event->ctx, p);
             p->session = NULL;
             ssh_poll_ctx_add(session->default_poll_ctx, p);
             rc = SSH_OK;
-            used = 0;
+            /*
+             * Restart the loop!
+             * A session can initially have two pollhandlers.
+             */
+            used = event->ctx->polls_used;
+            i = 0;
+
         }
     }
 #ifdef WITH_SERVER
@@ -937,6 +992,17 @@ int ssh_event_remove_session(ssh_event event, ssh_session session) {
 #endif
 
     return rc;
+}
+
+/** @brief Remove a connector from an event context
+ * @param[in] event The ssh_event object.
+ * @param[in] connector connector object to remove
+ * @return SSH_OK on success
+ * @return SSH_ERROR on failure
+ */
+int ssh_event_remove_connector(ssh_event event, ssh_connector connector){
+    (void)event;
+    return ssh_connector_remove_event(connector);
 }
 
 /**
@@ -976,5 +1042,3 @@ void ssh_event_free(ssh_event event) {
 }
 
 /** @} */
-
-/* vim: set ts=4 sw=4 et cindent: */

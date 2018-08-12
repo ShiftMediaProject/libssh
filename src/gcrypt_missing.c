@@ -21,13 +21,15 @@
  * MA 02111-1307, USA.
  */
 
+#include "config.h"
+
 #include <stdlib.h>
 
 #include "libssh/priv.h"
 #include "libssh/libgcrypt.h"
 
 #ifdef HAVE_LIBGCRYPT
-int my_gcry_dec2bn(bignum *bn, const char *data) {
+int ssh_gcry_dec2bn(bignum *bn, const char *data) {
   int count;
 
   *bn = bignum_new();
@@ -43,7 +45,7 @@ int my_gcry_dec2bn(bignum *bn, const char *data) {
   return count;
 }
 
-char *my_gcry_bn2dec(bignum bn) {
+char *ssh_gcry_bn2dec(bignum bn) {
   bignum bndup, num, ten;
   char *ret;
   int count, count2;
@@ -70,7 +72,7 @@ char *my_gcry_bn2dec(bignum bn) {
     num = bignum_new();
     if (num == NULL) {
       SAFE_FREE(ret);
-      bignum_free(ten);
+      bignum_safe_free(ten);
       return NULL;
     }
 
@@ -89,13 +91,12 @@ char *my_gcry_bn2dec(bignum bn) {
       ret[count2] = ret[count2 + count];
     }
     ret[count2] = 0;
-    bignum_free(num);
-    bignum_free(bndup);
-    bignum_free(ten);
+    bignum_safe_free(num);
+    bignum_safe_free(bndup);
+    bignum_safe_free(ten);
   }
 
   return ret;
 }
 
 #endif
-/* vim: set ts=2 sw=2 et cindent: */

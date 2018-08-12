@@ -30,15 +30,13 @@
 #include <openssl/sha.h>
 #include <openssl/md5.h>
 #include <openssl/hmac.h>
-#ifdef HAVE_OPENSSL_ECC
 #include <openssl/evp.h>
-#endif
 
-typedef SHA_CTX* SHACTX;
-typedef SHA256_CTX* SHA256CTX;
-typedef SHA512_CTX* SHA384CTX;
-typedef SHA512_CTX* SHA512CTX;
-typedef MD5_CTX*  MD5CTX;
+typedef EVP_MD_CTX* SHACTX;
+typedef EVP_MD_CTX* SHA256CTX;
+typedef EVP_MD_CTX* SHA384CTX;
+typedef EVP_MD_CTX* SHA512CTX;
+typedef EVP_MD_CTX* MD5CTX;
 typedef HMAC_CTX* HMACCTX;
 #ifdef HAVE_ECC
 typedef EVP_MD_CTX *EVPCTX;
@@ -69,13 +67,18 @@ typedef BIGNUM*  bignum;
 typedef BN_CTX* bignum_CTX;
 
 #define bignum_new() BN_new()
-#define bignum_free(num) BN_clear_free(num)
+#define bignum_safe_free(num) do { \
+    if ((num) != NULL) { \
+        BN_clear_free((num)); \
+        (num)=NULL; \
+    } \
+    } while(0)
 #define bignum_set_word(bn,n) BN_set_word(bn,n)
 #define bignum_bin2bn(bn,datalen,data) BN_bin2bn(bn,datalen,data)
 #define bignum_bn2dec(num) BN_bn2dec(num)
 #define bignum_dec2bn(bn,data) BN_dec2bn(data,bn)
 #define bignum_bn2hex(num) BN_bn2hex(num)
-#define bignum_rand(rnd, bits, top, bottom) BN_rand(rnd,bits,top,bottom)
+#define bignum_rand(rnd, bits) BN_rand(rnd, bits, 0, 1)
 #define bignum_ctx_new() BN_CTX_new()
 #define bignum_ctx_free(num) BN_CTX_free(num)
 #define bignum_mod_exp(dest,generator,exp,modulo,ctx) BN_mod_exp(dest,generator,exp,modulo,ctx)
@@ -84,20 +87,6 @@ typedef BN_CTX* bignum_CTX;
 #define bignum_is_bit_set(num,bit) BN_is_bit_set(num,bit)
 #define bignum_bn2bin(num,ptr) BN_bn2bin(num,ptr)
 #define bignum_cmp(num1,num2) BN_cmp(num1,num2)
-
-SHA256CTX sha256_init(void);
-void sha256_update(SHA256CTX c, const void *data, unsigned long len);
-void sha256_final(unsigned char *md, SHA256CTX c);
-
-SHA384CTX sha384_init(void);
-void sha384_update(SHA384CTX c, const void *data, unsigned long len);
-void sha384_final(unsigned char *md, SHA384CTX c);
-
-SHA512CTX sha512_init(void);
-void sha512_update(SHA512CTX c, const void *data, unsigned long len);
-void sha512_final(unsigned char *md, SHA512CTX c);
-
-struct ssh_cipher_struct *ssh_get_ciphertab(void);
 
 #endif /* HAVE_LIBCRYPTO */
 

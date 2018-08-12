@@ -29,7 +29,8 @@
 #ifndef _LIBSSH_PRIV_H
 #define _LIBSSH_PRIV_H
 
-#include "config.h"
+#include <stdlib.h>
+#include <string.h>
 
 #if !defined(HAVE_STRTOULL)
 # if defined(HAVE___STRTOULL)
@@ -45,6 +46,10 @@
 
 #ifdef HAVE_BYTESWAP_H
 #include <byteswap.h>
+#endif
+
+#ifdef HAVE_ARPA_INET_H
+#include <arpa/inet.h>
 #endif
 
 #ifndef bswap_32
@@ -145,12 +150,11 @@ int gettimeofday(struct timeval *__p, void *__t);
 #ifndef ERROR_BUFFERLEN
 #define ERROR_BUFFERLEN 1024
 #endif
-#ifndef CLIENTBANNER1
-#define CLIENTBANNER1 "SSH-1.5-libssh_" SSH_STRINGIFY(LIBSSH_VERSION)
-#endif
-#ifndef CLIENTBANNER2
-#define CLIENTBANNER2 "SSH-2.0-libssh_" SSH_STRINGIFY(LIBSSH_VERSION)
-#endif
+
+#ifndef CLIENT_BANNER_SSH2
+#define CLIENT_BANNER_SSH2 "SSH-2.0-libssh_" SSH_STRINGIFY(LIBSSH_VERSION)
+#endif /* CLIENT_BANNER_SSH2 */
+
 #ifndef KBDINT_MAX_PROMPT
 #define KBDINT_MAX_PROMPT 256 /* more than openssh's :) */
 #endif
@@ -183,10 +187,6 @@ int gettimeofday(struct timeval *__p, void *__t);
 # define LIBSSH_MEM_PROTECTION __asm__ volatile("" : : "r"(&(x)) : "memory")
 #else
 # define LIBSSH_MEM_PROTECTION
-#endif
-
-#ifdef HAVE_SYS_TIME_H
-#include <sys/time.h>
 #endif
 
 /* forward declarations */
@@ -259,8 +259,16 @@ int decompress_buffer(ssh_session session,ssh_buffer buf, size_t maxlen);
 /* match.c */
 int match_hostname(const char *host, const char *pattern, unsigned int len);
 
+/* connector.c */
+int ssh_connector_set_event(ssh_connector connector, ssh_event event);
+int ssh_connector_remove_event(ssh_connector connector);
+
 #ifndef MIN
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
+#endif
+
+#ifndef MAX
+#define MAX(a,b) ((a) > (b) ? (a) : (b))
 #endif
 
 /** Free memory space */
@@ -275,33 +283,9 @@ int match_hostname(const char *host, const char *pattern, unsigned int len);
 /** Get the size of an array */
 #define ARRAY_SIZE(a) (sizeof(a)/sizeof(a[0]))
 
-/*
- * See http://llvm.org/bugs/show_bug.cgi?id=15495
- */
-#if defined(HAVE_GCC_VOLATILE_MEMORY_PROTECTION)
-/** Overwrite a string with '\0' */
-# define BURN_STRING(x) do { \
-    if ((x) != NULL) \
-        memset((x), '\0', strlen((x))); __asm__ volatile("" : : "r"(&(x)) : "memory"); \
-  } while(0)
-
-/** Overwrite the buffer with '\0' */
-# define BURN_BUFFER(x, size) do { \
-    if ((x) != NULL) \
-        memset((x), '\0', (size)); __asm__ volatile("" : : "r"(&(x)) : "memory"); \
-  } while(0)
-#else /* HAVE_GCC_VOLATILE_MEMORY_PROTECTION */
-/** Overwrite a string with '\0' */
-# define BURN_STRING(x) do { \
-    if ((x) != NULL) memset((x), '\0', strlen((x))); \
-  } while(0)
-
-/** Overwrite the buffer with '\0' */
-# define BURN_BUFFER(x, size) do { \
-    if ((x) != NULL) \
-        memset((x), '\0', (size)); \
-  } while(0)
-#endif /* HAVE_GCC_VOLATILE_MEMORY_PROTECTION */
+#ifndef HAVE_EXPLICIT_BZERO
+void explicit_bzero(void *s, size_t n);
+#endif /* !HAVE_EXPLICIT_BZERO */
 
 /**
  * This is a hack to fix warnings. The idea is to use this everywhere that we
@@ -379,7 +363,14 @@ int match_hostname(const char *host, const char *pattern, unsigned int len);
 # endif
 #endif
 
+#ifndef FALL_THROUGH
+# ifdef HAVE_FALLTHROUGH_ATTRIBUTE
+#  define FALL_THROUGH __attribute__ ((fallthrough))
+# else /* HAVE_FALLTHROUGH_ATTRIBUTE */
+#  define FALL_THROUGH
+# endif /* HAVE_FALLTHROUGH_ATTRIBUTE */
+#endif /* FALL_THROUGH */
+
 void ssh_agent_state_free(void *data);
 
 #endif /* _LIBSSH_PRIV_H */
-/* vim: set ts=4 sw=4 et cindent: */

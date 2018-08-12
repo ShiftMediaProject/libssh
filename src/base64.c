@@ -22,9 +22,9 @@
  */
 
 /* just the dirtiest part of code i ever made */
-#include <string.h>
+#include "config.h"
+
 #include <stdio.h>
-#include <stdlib.h>
 
 #include "libssh/priv.h"
 #include "libssh/buffer.h"
@@ -288,5 +288,3 @@ unsigned char *bin_to_base64(const unsigned char *source, int len) {
 
   return base64;
 }
-
-/* vim: set ts=2 sw=2 et cindent: */

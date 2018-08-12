@@ -41,7 +41,7 @@
 #include <sys/types.h>
 
 #ifdef _WIN32
-# if _MSC_VER >= 1400
+# ifdef HAVE_IO_H
 #  include <io.h>
 #  undef open
 #  define open _open
@@ -51,7 +51,7 @@
 #  define read _read
 #  undef unlink
 #  define unlink _unlink
-# endif /* _MSC_VER */
+# endif /* HAVE_IO_H */
 #endif
 
 #include "libssh/libssh.h"
@@ -63,24 +63,6 @@
 #include "libssh/buffer.h"
 #include "libssh/misc.h"
 #include "libssh/agent.h"
-
-void _ssh_pki_log(const char *function, const char *format, ...)
-{
-#ifdef DEBUG_CRYPTO
-    char buffer[1024];
-    va_list va;
-
-    va_start(va, format);
-    vsnprintf(buffer, sizeof(buffer), format, va);
-    va_end(va);
-
-    ssh_log_function(SSH_LOG_DEBUG, function, buffer);
-#else
-    (void) function;
-    (void) format;
-#endif
-    return;
-}
 
 enum ssh_keytypes_e pki_privatekey_type_from_string(const char *privkey) {
     if (strncmp(privkey, DSA_HEADER_BEGIN, strlen(DSA_HEADER_BEGIN)) == 0) {
@@ -109,7 +91,7 @@ enum ssh_keytypes_e pki_privatekey_type_from_string(const char *privkey) {
  */
 const char *ssh_pki_key_ecdsa_name(const ssh_key key)
 {
-#ifdef HAVE_OPENSSL_ECC /* FIXME Better ECC check needed */
+#ifdef HAVE_ECC /* FIXME Better ECC check needed */
     return pki_key_ecdsa_nid_to_name(key->ecdsa_nid);
 #else
     (void) key; /* unused */
@@ -156,12 +138,26 @@ void ssh_key_clean (ssh_key key){
 #ifdef HAVE_OPENSSL_ECC
     if(key->ecdsa) EC_KEY_free(key->ecdsa);
 #endif /* HAVE_OPENSSL_ECC */
+#elif defined HAVE_LIBMBEDCRYPTO
+    if (key->rsa != NULL) {
+        mbedtls_pk_free(key->rsa);
+        SAFE_FREE(key->rsa);
+    }
+
+    if (key->ecdsa != NULL) {
+        mbedtls_ecdsa_free(key->ecdsa);
+        SAFE_FREE(key->ecdsa);
+    }
 #endif
     if (key->ed25519_privkey != NULL){
-        BURN_BUFFER(key->ed25519_privkey, sizeof(ed25519_privkey));
+        explicit_bzero(key->ed25519_privkey, sizeof(ed25519_privkey));
         SAFE_FREE(key->ed25519_privkey);
     }
     SAFE_FREE(key->ed25519_pubkey);
+    if (key->cert != NULL) {
+        ssh_buffer_free(key->cert);
+    }
+    key->cert_type = SSH_KEYTYPE_UNKNOWN;
     key->flags=SSH_KEY_FLAG_EMPTY;
     key->type=SSH_KEYTYPE_UNKNOWN;
     key->ecdsa_nid = 0;
@@ -185,7 +181,9 @@ void ssh_key_free (ssh_key key){
 /**
  * @brief returns the type of a ssh key
  * @param[in] key the ssh_key handle
- * @returns one of SSH_KEYTYPE_RSA,SSH_KEYTYPE_DSS,SSH_KEYTYPE_RSA1
+ * @returns one of SSH_KEYTYPE_RSA, SSH_KEYTYPE_DSS,
+ *          SSH_KEYTYPE_ECDSA, SSH_KEYTYPE_ED25519,
+ *          SSH_KEYTYPE_DSS_CERT01, SSH_KEYTYPE_RSA_CERT01
  * @returns SSH_KEYTYPE_UNKNOWN if the type is unknown
  */
 enum ssh_keytypes_e ssh_key_type(const ssh_key key){
@@ -208,12 +206,15 @@ const char *ssh_key_type_to_char(enum ssh_keytypes_e type) {
       return "ssh-dss";
     case SSH_KEYTYPE_RSA:
       return "ssh-rsa";
-    case SSH_KEYTYPE_RSA1:
-      return "ssh-rsa1";
     case SSH_KEYTYPE_ECDSA:
       return "ssh-ecdsa";
     case SSH_KEYTYPE_ED25519:
       return "ssh-ed25519";
+    case SSH_KEYTYPE_DSS_CERT01:
+      return "ssh-dss-cert-v01@openssh.com";
+    case SSH_KEYTYPE_RSA_CERT01:
+      return "ssh-rsa-cert-v01@openssh.com";
+    case SSH_KEYTYPE_RSA1:
     case SSH_KEYTYPE_UNKNOWN:
       return NULL;
   }
@@ -234,14 +235,10 @@ enum ssh_keytypes_e ssh_key_type_from_name(const char *name) {
         return SSH_KEYTYPE_UNKNOWN;
     }
 
-    if (strcmp(name, "rsa1") == 0) {
-        return SSH_KEYTYPE_RSA1;
-    } else if (strcmp(name, "rsa") == 0) {
+    if (strcmp(name, "rsa") == 0) {
         return SSH_KEYTYPE_RSA;
     } else if (strcmp(name, "dsa") == 0) {
         return SSH_KEYTYPE_DSS;
-    } else if (strcmp(name, "ssh-rsa1") == 0) {
-        return SSH_KEYTYPE_RSA1;
     } else if (strcmp(name, "ssh-rsa") == 0) {
         return SSH_KEYTYPE_RSA;
     } else if (strcmp(name, "ssh-dss") == 0) {
@@ -254,6 +251,10 @@ enum ssh_keytypes_e ssh_key_type_from_name(const char *name) {
         return SSH_KEYTYPE_ECDSA;
     } else if (strcmp(name, "ssh-ed25519") == 0){
         return SSH_KEYTYPE_ED25519;
+    } else if (strcmp(name, "ssh-dss-cert-v01@openssh.com") == 0) {
+        return SSH_KEYTYPE_DSS_CERT01;
+    } else if (strcmp(name, "ssh-rsa-cert-v01@openssh.com") == 0) {
+        return SSH_KEYTYPE_RSA_CERT01;
     }
 
     return SSH_KEYTYPE_UNKNOWN;
@@ -309,7 +310,7 @@ int ssh_key_cmp(const ssh_key k1,
     }
 
     if (k1->type != k2->type) {
-        ssh_pki_log("key types don't match!");
+        SSH_LOG(SSH_LOG_WARN, "key types don't match!");
         return 1;
     }
 
@@ -355,21 +356,30 @@ void ssh_signature_free(ssh_signature sig)
 #endif
             break;
         case SSH_KEYTYPE_RSA:
-        case SSH_KEYTYPE_RSA1:
 #ifdef HAVE_LIBGCRYPT
             gcry_sexp_release(sig->rsa_sig);
 #elif defined HAVE_LIBCRYPTO
             SAFE_FREE(sig->rsa_sig);
+#elif defined HAVE_LIBMBEDCRYPTO
+            SAFE_FREE(sig->rsa_sig);
 #endif
             break;
         case SSH_KEYTYPE_ECDSA:
-#if defined(HAVE_LIBCRYPTO) && defined(HAVE_OPENSSL_ECC)
+#ifdef HAVE_GCRYPT_ECC
+            gcry_sexp_release(sig->ecdsa_sig);
+#elif defined(HAVE_LIBCRYPTO) && defined(HAVE_OPENSSL_ECC)
             ECDSA_SIG_free(sig->ecdsa_sig);
+#elif defined HAVE_LIBMBEDCRYPTO
+            bignum_safe_free(sig->ecdsa_sig.r);
+            bignum_safe_free(sig->ecdsa_sig.s);
 #endif
             break;
         case SSH_KEYTYPE_ED25519:
             SAFE_FREE(sig->ed25519_sig);
             break;
+        case SSH_KEYTYPE_DSS_CERT01:
+        case SSH_KEYTYPE_RSA_CERT01:
+        case SSH_KEYTYPE_RSA1:
         case SSH_KEYTYPE_UNKNOWN:
             break;
     }
@@ -412,8 +422,9 @@ int ssh_pki_import_privkey_base64(const char *b64_key,
         return SSH_ERROR;
     }
 
-    ssh_pki_log("Trying to decode privkey passphrase=%s",
-                passphrase ? "true" : "false");
+    SSH_LOG(SSH_LOG_INFO,
+            "Trying to decode privkey passphrase=%s",
+            passphrase ? "true" : "false");
 
     /* Test for OpenSSH key format first */
     cmp = strncmp(b64_key, OPENSSH_HEADER_BEGIN, strlen(OPENSSH_HEADER_BEGIN));
@@ -475,16 +486,20 @@ int ssh_pki_import_privkey_file(const char *filename,
 
     file = fopen(filename, "rb");
     if (file == NULL) {
-        ssh_pki_log("Error opening %s: %s",
-                    filename, strerror(errno));
+        SSH_LOG(SSH_LOG_WARN,
+                "Error opening %s: %s",
+                filename,
+                strerror(errno));
         return SSH_EOF;
     }
 
     rc = fstat(fileno(file), &sb);
     if (rc < 0) {
         fclose(file);
-        ssh_pki_log("Error getting stat of %s: %s",
-                    filename, strerror(errno));
+        SSH_LOG(SSH_LOG_WARN,
+                "Error getting stat of %s: %s",
+                filename,
+                strerror(errno));
         switch (errno) {
             case ENOENT:
             case EACCES:
@@ -495,7 +510,8 @@ int ssh_pki_import_privkey_file(const char *filename,
     }
 
     if (sb.st_size > MAX_PRIVKEY_SIZE) {
-        ssh_pki_log("Private key is bigger than 4M.");
+        SSH_LOG(SSH_LOG_WARN,
+                "Private key is bigger than 4M.");
         fclose(file);
         return SSH_ERROR;
     }
@@ -503,7 +519,7 @@ int ssh_pki_import_privkey_file(const char *filename,
     key_buf = malloc(sb.st_size + 1);
     if (key_buf == NULL) {
         fclose(file);
-        ssh_pki_log("Out of memory!");
+        SSH_LOG(SSH_LOG_WARN, "Out of memory!");
         return SSH_ERROR;
     }
 
@@ -512,8 +528,10 @@ int ssh_pki_import_privkey_file(const char *filename,
 
     if (size != sb.st_size) {
         SAFE_FREE(key_buf);
-        ssh_pki_log("Error reading %s: %s",
-                    filename, strerror(errno));
+        SSH_LOG(SSH_LOG_WARN,
+                "Error reading %s: %s",
+                filename,
+                strerror(errno));
         return SSH_ERROR;
     }
     key_buf[size] = 0;
@@ -667,18 +685,18 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
                 ssh_string g;
                 ssh_string pubkey;
 
-                p = buffer_get_ssh_string(buffer);
+                p = ssh_buffer_get_ssh_string(buffer);
                 if (p == NULL) {
                     goto fail;
                 }
-                q = buffer_get_ssh_string(buffer);
+                q = ssh_buffer_get_ssh_string(buffer);
                 if (q == NULL) {
                     ssh_string_burn(p);
                     ssh_string_free(p);
 
                     goto fail;
                 }
-                g = buffer_get_ssh_string(buffer);
+                g = ssh_buffer_get_ssh_string(buffer);
                 if (g == NULL) {
                     ssh_string_burn(p);
                     ssh_string_free(p);
@@ -687,7 +705,7 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
 
                     goto fail;
                 }
-                pubkey = buffer_get_ssh_string(buffer);
+                pubkey = ssh_buffer_get_ssh_string(buffer);
                 if (pubkey == NULL) {
                     ssh_string_burn(p);
                     ssh_string_free(p);
@@ -719,16 +737,15 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
             }
             break;
         case SSH_KEYTYPE_RSA:
-        case SSH_KEYTYPE_RSA1:
             {
                 ssh_string e;
                 ssh_string n;
 
-                e = buffer_get_ssh_string(buffer);
+                e = ssh_buffer_get_ssh_string(buffer);
                 if (e == NULL) {
                     goto fail;
                 }
-                n = buffer_get_ssh_string(buffer);
+                n = ssh_buffer_get_ssh_string(buffer);
                 if (n == NULL) {
                     ssh_string_burn(e);
                     ssh_string_free(e);
@@ -750,14 +767,14 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
                 }
             }
             break;
-        case SSH_KEYTYPE_ECDSA:
 #ifdef HAVE_ECC
+        case SSH_KEYTYPE_ECDSA:
             {
                 ssh_string e;
                 ssh_string i;
                 int nid;
 
-                i = buffer_get_ssh_string(buffer);
+                i = ssh_buffer_get_ssh_string(buffer);
                 if (i == NULL) {
                     goto fail;
                 }
@@ -768,7 +785,7 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
                 }
 
 
-                e = buffer_get_ssh_string(buffer);
+                e = ssh_buffer_get_ssh_string(buffer);
                 if (e == NULL) {
                     goto fail;
                 }
@@ -787,9 +804,9 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
 #endif
         case SSH_KEYTYPE_ED25519:
         {
-            ssh_string pubkey = buffer_get_ssh_string(buffer);
+            ssh_string pubkey = ssh_buffer_get_ssh_string(buffer);
             if (ssh_string_len(pubkey) != ED25519_PK_LEN) {
-                ssh_pki_log("Invalid public key length");
+                SSH_LOG(SSH_LOG_WARN, "Invalid public key length");
                 ssh_string_burn(pubkey);
                 ssh_string_free(pubkey);
                 goto fail;
@@ -807,9 +824,12 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
             ssh_string_free(pubkey);
         }
         break;
+        case SSH_KEYTYPE_DSS_CERT01:
+        case SSH_KEYTYPE_RSA_CERT01:
+        case SSH_KEYTYPE_RSA1:
         case SSH_KEYTYPE_UNKNOWN:
         default:
-            ssh_pki_log("Unknown public key protocol %d", type);
+            SSH_LOG(SSH_LOG_WARN, "Unknown public key protocol %d", type);
             goto fail;
     }
 
@@ -818,6 +838,58 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
 fail:
     ssh_key_free(key);
 
+    return SSH_ERROR;
+}
+
+static int pki_import_cert_buffer(ssh_buffer buffer,
+                                  enum ssh_keytypes_e type,
+                                  ssh_key *pkey) {
+    ssh_buffer cert;
+    ssh_string type_s;
+    ssh_key key;
+    int rc;
+
+    key = ssh_key_new();
+    if (key == NULL) {
+        return SSH_ERROR;
+    }
+    cert = ssh_buffer_new();
+    if (cert == NULL) {
+        ssh_key_free(key);
+        return SSH_ERROR;
+    }
+
+    key->type = type;
+    key->type_c = ssh_key_type_to_char(type);
+    key->flags = SSH_KEY_FLAG_PUBLIC;
+
+    /*
+     * The cert blob starts with the key type as an ssh_string, but this
+     * string has been read out of the buffer to identify the key type.
+     * Simply add it again as first element before copying the rest.
+     */
+    type_s = ssh_string_from_char(key->type_c);
+    if (type_s == NULL) {
+        goto fail;
+    }
+    rc = ssh_buffer_add_ssh_string(cert, type_s);
+    ssh_string_free(type_s);
+    if (rc != 0) {
+        goto fail;
+    }
+
+    rc = ssh_buffer_add_buffer(cert, buffer);
+    if (rc != 0) {
+        goto fail;
+    }
+    key->cert = (void*) cert;
+
+    *pkey = key;
+    return SSH_OK;
+
+fail:
+    ssh_key_free(key);
+    ssh_buffer_free(cert);
     return SSH_ERROR;
 }
 
@@ -851,14 +923,19 @@ int ssh_pki_import_pubkey_base64(const char *b64_key,
         return SSH_ERROR;
     }
 
-    type_s = buffer_get_ssh_string(buffer);
+    type_s = ssh_buffer_get_ssh_string(buffer);
     if (type_s == NULL) {
         ssh_buffer_free(buffer);
         return SSH_ERROR;
     }
     ssh_string_free(type_s);
 
-    rc = pki_import_pubkey_buffer(buffer, type, pkey);
+    if (type == SSH_KEYTYPE_RSA_CERT01 ||
+        type == SSH_KEYTYPE_DSS_CERT01) {
+        rc = pki_import_cert_buffer(buffer, type, pkey);
+    } else {
+        rc = pki_import_pubkey_buffer(buffer, type, pkey);
+    }
     ssh_buffer_free(buffer);
 
     return rc;
@@ -892,31 +969,36 @@ int ssh_pki_import_pubkey_blob(const ssh_string key_blob,
 
     buffer = ssh_buffer_new();
     if (buffer == NULL) {
-        ssh_pki_log("Out of memory!");
+        SSH_LOG(SSH_LOG_WARN, "Out of memory!");
         return SSH_ERROR;
     }
 
     rc = ssh_buffer_add_data(buffer, ssh_string_data(key_blob),
             ssh_string_len(key_blob));
     if (rc < 0) {
-        ssh_pki_log("Out of memory!");
+        SSH_LOG(SSH_LOG_WARN, "Out of memory!");
         goto fail;
     }
 
-    type_s = buffer_get_ssh_string(buffer);
+    type_s = ssh_buffer_get_ssh_string(buffer);
     if (type_s == NULL) {
-        ssh_pki_log("Out of memory!");
+        SSH_LOG(SSH_LOG_WARN, "Out of memory!");
         goto fail;
     }
 
     type = ssh_key_type_from_name(ssh_string_get_char(type_s));
     if (type == SSH_KEYTYPE_UNKNOWN) {
-        ssh_pki_log("Unknown key type found!");
+        SSH_LOG(SSH_LOG_WARN, "Unknown key type found!");
         goto fail;
     }
     ssh_string_free(type_s);
 
-    rc = pki_import_pubkey_buffer(buffer, type, pkey);
+    if (type == SSH_KEYTYPE_RSA_CERT01 ||
+        type == SSH_KEYTYPE_DSS_CERT01) {
+        rc = pki_import_cert_buffer(buffer, type, pkey);
+    } else {
+        rc = pki_import_pubkey_buffer(buffer, type, pkey);
+    }
 
     ssh_buffer_free(buffer);
 
@@ -946,6 +1028,7 @@ int ssh_pki_import_pubkey_file(const char *filename, ssh_key *pkey)
     enum ssh_keytypes_e type;
     struct stat sb;
     char *key_buf, *p;
+    size_t buflen, i;
     const char *q;
     FILE *file;
     off_t size;
@@ -957,7 +1040,7 @@ int ssh_pki_import_pubkey_file(const char *filename, ssh_key *pkey)
 
     file = fopen(filename, "rb");
     if (file == NULL) {
-        ssh_pki_log("Error opening %s: %s",
+        SSH_LOG(SSH_LOG_WARN, "Error opening %s: %s",
                     filename, strerror(errno));
         return SSH_EOF;
     }
@@ -965,7 +1048,7 @@ int ssh_pki_import_pubkey_file(const char *filename, ssh_key *pkey)
     rc = fstat(fileno(file), &sb);
     if (rc < 0) {
         fclose(file);
-        ssh_pki_log("Error gettint stat of %s: %s",
+        SSH_LOG(SSH_LOG_WARN, "Error gettint stat of %s: %s",
                     filename, strerror(errno));
         switch (errno) {
             case ENOENT:
@@ -983,7 +1066,7 @@ int ssh_pki_import_pubkey_file(const char *filename, ssh_key *pkey)
     key_buf = malloc(sb.st_size + 1);
     if (key_buf == NULL) {
         fclose(file);
-        ssh_pki_log("Out of memory!");
+        SSH_LOG(SSH_LOG_WARN, "Out of memory!");
         return SSH_ERROR;
     }
 
@@ -992,29 +1075,97 @@ int ssh_pki_import_pubkey_file(const char *filename, ssh_key *pkey)
 
     if (size != sb.st_size) {
         SAFE_FREE(key_buf);
-        ssh_pki_log("Error reading %s: %s",
+        SSH_LOG(SSH_LOG_WARN, "Error reading %s: %s",
                     filename, strerror(errno));
         return SSH_ERROR;
     }
     key_buf[size] = '\0';
+    buflen = strlen(key_buf);
 
     q = p = key_buf;
-    while (!isspace((int)*p)) p++;
-    *p = '\0';
+    for (i = 0; i < buflen; i++) {
+        if (isspace((int)p[i])) {
+            p[i] = '\0';
+            break;
+        }
+    }
 
     type = ssh_key_type_from_name(q);
     if (type == SSH_KEYTYPE_UNKNOWN) {
         SAFE_FREE(key_buf);
         return SSH_ERROR;
     }
-    q = ++p;
-    while (!isspace((int)*p)) p++;
-    *p = '\0';
+
+    q = &p[i + 1];
+    for (; i < buflen; i++) {
+        if (isspace((int)p[i])) {
+            p[i] = '\0';
+            break;
+        }
+    }
 
     rc = ssh_pki_import_pubkey_base64(q, type, pkey);
     SAFE_FREE(key_buf);
 
     return rc;
+}
+
+/**
+ * @brief Import a base64 formated certificate from a memory c-string.
+ *
+ * @param[in]  b64_cert  The base64 cert to format.
+ *
+ * @param[in]  type     The type of the cert to format.
+ *
+ * @param[out] pkey     A pointer where the allocated key can be stored. You
+ *                      need to free the memory.
+ *
+ * @return              SSH_OK on success, SSH_ERROR on error.
+ *
+ * @see ssh_key_free()
+ */
+int ssh_pki_import_cert_base64(const char *b64_cert,
+                               enum ssh_keytypes_e type,
+                               ssh_key *pkey) {
+    return ssh_pki_import_pubkey_base64(b64_cert, type, pkey);
+}
+
+/**
+ * @internal
+ *
+ * @brief Import a certificate from a ssh string.
+ *
+ * @param[in]  cert_blob The cert blob to import as specified in RFC 4253 section
+ *                      6.6 "Public Key Algorithms".
+ *
+ * @param[out] pkey     A pointer where the allocated key can be stored. You
+ *                      need to free the memory.
+ *
+ * @return              SSH_OK on success, SSH_ERROR on error.
+ *
+ * @see ssh_key_free()
+ */
+int ssh_pki_import_cert_blob(const ssh_string cert_blob,
+                             ssh_key *pkey) {
+    return ssh_pki_import_pubkey_blob(cert_blob, pkey);
+}
+
+/**
+ * @brief Import a certificate from the given filename.
+ *
+ * @param[in]  filename The path to the certificate.
+ *
+ * @param[out] pkey     A pointer to store the allocated certificate. You need to
+ *                      free the memory.
+ *
+ * @returns SSH_OK on success, SSH_EOF if the file doesn't exist or permission
+ *          denied, SSH_ERROR otherwise.
+ *
+ * @see ssh_key_free()
+ */
+int ssh_pki_import_cert_file(const char *filename, ssh_key *pkey)
+{
+    return ssh_pki_import_pubkey_file(filename, pkey);
 }
 
 /**
@@ -1048,7 +1199,6 @@ int ssh_pki_generate(enum ssh_keytypes_e type, int parameter,
 
     switch(type){
         case SSH_KEYTYPE_RSA:
-        case SSH_KEYTYPE_RSA1:
             rc = pki_key_generate_rsa(key, parameter);
             if(rc == SSH_ERROR)
                 goto error;
@@ -1058,8 +1208,8 @@ int ssh_pki_generate(enum ssh_keytypes_e type, int parameter,
             if(rc == SSH_ERROR)
                 goto error;
             break;
-        case SSH_KEYTYPE_ECDSA:
 #ifdef HAVE_ECC
+        case SSH_KEYTYPE_ECDSA:
             rc = pki_key_generate_ecdsa(key, parameter);
             if (rc == SSH_ERROR) {
                 goto error;
@@ -1075,7 +1225,11 @@ int ssh_pki_generate(enum ssh_keytypes_e type, int parameter,
                 goto error;
             }
             break;
+        case SSH_KEYTYPE_DSS_CERT01:
+        case SSH_KEYTYPE_RSA_CERT01:
+        case SSH_KEYTYPE_RSA1:
         case SSH_KEYTYPE_UNKNOWN:
+        default:
             goto error;
     }
 
@@ -1123,6 +1277,8 @@ int ssh_pki_export_privkey_to_pubkey(const ssh_key privkey,
  *
  * The "key_blob" is encoded as per RFC 4253 section 6.6 "Public Key
  * Algorithms" for any of the supported protocol 2 key types.
+ * Encoding of EC keys is described in RFC 5656 section 3.1 "Key
+ * Format".
  *
  * @param[in]  key      A public or private key to create the public ssh_string
  *                      from.
@@ -1248,12 +1404,45 @@ int ssh_pki_export_pubkey_file(const ssh_key key,
     return SSH_OK;
 }
 
-int ssh_pki_export_pubkey_rsa1(const ssh_key key,
-                               const char *host,
-                               char *rsa1,
-                               size_t rsa1_len)
-{
-    return pki_export_pubkey_rsa1(key, host, rsa1, rsa1_len);
+/**
+ * @brief Copy the certificate part of a public key into a private key.
+ *
+ * @param[in]  certkey  The certificate key.
+ *
+ * @param[in]  privkey  The target private key to copy the certificate to.
+ *
+ * @returns SSH_OK on success, SSH_ERROR otherwise.
+ **/
+int ssh_pki_copy_cert_to_privkey(const ssh_key certkey, ssh_key privkey) {
+  ssh_buffer cert_buffer;
+  int rc;
+
+  if (certkey == NULL || privkey == NULL) {
+      return SSH_ERROR;
+  }
+
+  if (privkey->cert != NULL) {
+      return SSH_ERROR;
+  }
+
+  if (certkey->cert == NULL) {
+      return SSH_ERROR;
+  }
+
+  cert_buffer = ssh_buffer_new();
+  if (cert_buffer == NULL) {
+      return SSH_ERROR;
+  }
+
+  rc = ssh_buffer_add_buffer(cert_buffer, certkey->cert);
+  if (rc != 0) {
+      ssh_buffer_free(cert_buffer);
+      return SSH_ERROR;
+  }
+
+  privkey->cert = cert_buffer;
+  privkey->cert_type = certkey->type;
+  return SSH_OK;
 }
 
 int ssh_pki_export_signature_blob(const ssh_signature sig,
@@ -1278,7 +1467,7 @@ int ssh_pki_export_signature_blob(const ssh_signature sig,
         return SSH_ERROR;
     }
 
-    rc = buffer_add_ssh_string(buf, str);
+    rc = ssh_buffer_add_ssh_string(buf, str);
     ssh_string_free(str);
     if (rc < 0) {
         ssh_buffer_free(buf);
@@ -1291,20 +1480,20 @@ int ssh_pki_export_signature_blob(const ssh_signature sig,
         return SSH_ERROR;
     }
 
-    rc = buffer_add_ssh_string(buf, str);
+    rc = ssh_buffer_add_ssh_string(buf, str);
     ssh_string_free(str);
     if (rc < 0) {
         ssh_buffer_free(buf);
         return SSH_ERROR;
     }
 
-    str = ssh_string_new(buffer_get_rest_len(buf));
+    str = ssh_string_new(ssh_buffer_get_len(buf));
     if (str == NULL) {
         ssh_buffer_free(buf);
         return SSH_ERROR;
     }
 
-    ssh_string_fill(str, buffer_get_rest(buf), buffer_get_rest_len(buf));
+    ssh_string_fill(str, ssh_buffer_get(buf), ssh_buffer_get_len(buf));
     ssh_buffer_free(buf);
 
     *sig_blob = str;
@@ -1339,7 +1528,7 @@ int ssh_pki_import_signature_blob(const ssh_string sig_blob,
         return SSH_ERROR;
     }
 
-    str = buffer_get_ssh_string(buf);
+    str = ssh_buffer_get_ssh_string(buf);
     if (str == NULL) {
         ssh_buffer_free(buf);
         return SSH_ERROR;
@@ -1348,7 +1537,7 @@ int ssh_pki_import_signature_blob(const ssh_string sig_blob,
     type = ssh_key_type_from_name(ssh_string_get_char(str));
     ssh_string_free(str);
 
-    str = buffer_get_ssh_string(buf);
+    str = ssh_buffer_get_ssh_string(buf);
     ssh_buffer_free(buf);
     if (str == NULL) {
         return SSH_ERROR;
@@ -1380,7 +1569,7 @@ int ssh_pki_signature_verify_blob(ssh_session session,
 
     SSH_LOG(SSH_LOG_FUNCTIONS,
             "Going to verify a %s type signature",
-            key->type_c);
+            sig->type_c);
 
 
     if (key->type == SSH_KEYTYPE_ECDSA) {
@@ -1408,7 +1597,11 @@ int ssh_pki_signature_verify_blob(ssh_session session,
 
         sha1(digest, dlen, hash);
 #ifdef DEBUG_CRYPTO
-        ssh_print_hexa("Hash to be verified with dsa", hash, SHA_DIGEST_LEN);
+        ssh_print_hexa(key->type == SSH_KEYTYPE_DSS
+                       ? "Hash to be verified with DSA"
+                       : "Hash to be verified with RSA",
+                       hash,
+                       SHA_DIGEST_LEN);
 #endif
 
         rc = pki_signature_verify(session,
@@ -1460,7 +1653,7 @@ ssh_string ssh_pki_do_sign(ssh_session session,
         }
 
         evp_update(ctx, session_id, ssh_string_len(session_id) + 4);
-        evp_update(ctx, buffer_get_rest(sigbuf), buffer_get_rest_len(sigbuf));
+        evp_update(ctx, ssh_buffer_get(sigbuf), ssh_buffer_get_len(sigbuf));
         evp_final(ctx, ehash, &elen);
 
 #ifdef DEBUG_CRYPTO
@@ -1482,7 +1675,7 @@ ssh_string ssh_pki_do_sign(ssh_session session,
         rc = ssh_buffer_pack(buf,
                              "SP",
                              session_id,
-                             buffer_get_rest_len(sigbuf), buffer_get_rest(sigbuf));
+                             ssh_buffer_get_len(sigbuf), ssh_buffer_get(sigbuf));
         if (rc != SSH_OK) {
             ssh_string_free(session_id);
             ssh_buffer_free(buf);
@@ -1490,7 +1683,7 @@ ssh_string ssh_pki_do_sign(ssh_session session,
         }
 
         sig = pki_do_sign(privkey,
-                          ssh_buffer_get_begin(buf),
+                          ssh_buffer_get(buf),
                           ssh_buffer_get_len(buf));
         ssh_buffer_free(buf);
     } else {
@@ -1504,7 +1697,7 @@ ssh_string ssh_pki_do_sign(ssh_session session,
         }
 
         sha1_update(ctx, session_id, ssh_string_len(session_id) + 4);
-        sha1_update(ctx, buffer_get_rest(sigbuf), buffer_get_rest_len(sigbuf));
+        sha1_update(ctx, ssh_buffer_get(sigbuf), ssh_buffer_get_len(sigbuf));
         sha1_final(hash, ctx);
 
 #ifdef DEBUG_CRYPTO
@@ -1556,7 +1749,7 @@ ssh_string ssh_pki_do_sign_agent(ssh_session session,
         return NULL;
     }
 
-    rc = buffer_add_ssh_string(sig_buf, session_id);
+    rc = ssh_buffer_add_ssh_string(sig_buf, session_id);
     if (rc < 0) {
         ssh_string_free(session_id);
         ssh_buffer_free(sig_buf);
@@ -1565,7 +1758,7 @@ ssh_string ssh_pki_do_sign_agent(ssh_session session,
     ssh_string_free(session_id);
 
     /* append out buffer */
-    if (buffer_add_buffer(sig_buf, buf) < 0) {
+    if (ssh_buffer_add_buffer(sig_buf, buf) < 0) {
         ssh_buffer_free(sig_buf);
         return NULL;
     }

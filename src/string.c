@@ -21,10 +21,10 @@
  * MA 02111-1307, USA.
  */
 
+#include "config.h"
+
 #include <errno.h>
 #include <limits.h>
-#include <stdlib.h>
-#include <string.h>
 
 #ifndef _WIN32
 #include <netinet/in.h>
@@ -246,7 +246,7 @@ void ssh_string_burn(struct ssh_string_struct *s) {
         return;
     }
 
-    BURN_BUFFER(s->data, ssh_string_len(s));
+    explicit_bzero(s->data, ssh_string_len(s));
 }
 
 /**
@@ -274,5 +274,3 @@ void ssh_string_free(struct ssh_string_struct *s) {
 }
 
 /** @} */
-
-/* vim: set ts=4 sw=4 et cindent: */

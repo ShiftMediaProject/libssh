@@ -21,6 +21,8 @@
  * MA 02111-1307, USA.
  */
 
+#include "config.h"
+
 #include <stdio.h>
 #include <stdarg.h>
 #include "libssh/priv.h"
@@ -135,5 +137,3 @@ int ssh_get_error_code(void *error) {
 }
 
 /** @} */
-
-/* vim: set ts=4 sw=4 et cindent: */

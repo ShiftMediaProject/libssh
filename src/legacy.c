@@ -33,6 +33,7 @@
 #include <libssh/session.h>
 #include <libssh/server.h>
 #include <libssh/buffer.h>
+#include <libssh/dh.h>
 #include <libssh/pki.h>
 #include "libssh/pki_priv.h"
 #include <libssh/misc.h>
@@ -145,7 +146,7 @@ void buffer_free(ssh_buffer buffer){
   ssh_buffer_free(buffer);
 }
 void *buffer_get(ssh_buffer buffer){
-  return ssh_buffer_get_begin(buffer);
+  return ssh_buffer_get(buffer);
 }
 uint32_t buffer_get_len(ssh_buffer buffer){
   return ssh_buffer_get_len(buffer);
@@ -357,11 +358,13 @@ void publickey_free(ssh_public_key key) {
 #endif
       break;
     case SSH_KEYTYPE_RSA:
-    case SSH_KEYTYPE_RSA1:
 #ifdef HAVE_LIBGCRYPT
       gcry_sexp_release(key->rsa_pub);
 #elif defined HAVE_LIBCRYPTO
       RSA_free(key->rsa_pub);
+#elif defined HAVE_LIBMBEDCRYPTO
+      mbedtls_pk_free(key->rsa_pub);
+      SAFE_FREE(key->rsa_pub);
 #endif
       break;
     default:
@@ -463,6 +466,9 @@ void privatekey_free(ssh_private_key prv) {
 #elif defined HAVE_LIBCRYPTO
   DSA_free(prv->dsa_priv);
   RSA_free(prv->rsa_priv);
+#elif defined HAVE_LIBMBEDCRYPTO
+  mbedtls_pk_free(prv->rsa_priv);
+  SAFE_FREE(prv->rsa_priv);
 #endif
   memset(prv, 0, sizeof(struct ssh_private_key_struct));
   SAFE_FREE(prv);
@@ -695,12 +701,24 @@ int ssh_try_publickey_from_file(ssh_session session,
     return 0;
 }
 
-ssh_string ssh_get_pubkey(ssh_session session){
-	if(session==NULL || session->current_crypto ==NULL ||
-      session->current_crypto->server_pubkey==NULL)
-    return NULL;
-	else
-    return ssh_string_copy(session->current_crypto->server_pubkey);
+ssh_string ssh_get_pubkey(ssh_session session)
+{
+    ssh_string pubkey_blob = NULL;
+    int rc;
+
+    if (session == NULL ||
+        session->current_crypto == NULL ||
+        session->current_crypto->server_pubkey == NULL) {
+        return NULL;
+    }
+
+    rc = ssh_dh_get_current_server_publickey_blob(session,
+                                                  &pubkey_blob);
+    if (rc != 0) {
+        return NULL;
+    }
+
+    return pubkey_blob;
 }
 
 /****************************************************************************
