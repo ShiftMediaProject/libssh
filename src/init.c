@@ -32,7 +32,7 @@
 #include <winsock2.h>
 #endif
 
-#ifdef _MSC_VER
+#if defined(_WIN32) && defined(_MSC_VER) && (!defined(_USRDLL) && !defined(_WINDLL))
 #define CONSTRUCTOR_ATTRIBUTE(_func) static void _func(void); \
     static int _func ## _wrapper(void) { _func(); return 0; } \
     __pragma(section(".CRT$XCU",read)) \

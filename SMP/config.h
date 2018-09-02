@@ -117,6 +117,9 @@
 /* Define to 1 if you have the `strncpy' function. */
 #define HAVE_STRNCPY 1
 
+/* Define to 1 if you have the `strndup' function. */
+/* #undef HAVE_STRNDUP */
+
 /* Define to 1 if you have the `cfmakeraw' function. */
 /* #undef HAVE_CFMAKERAW */
 
