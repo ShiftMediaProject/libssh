@@ -778,7 +778,10 @@ char *ssh_path_expand_escape(ssh_session session, const char *s) {
                 if (session->opts.port < 65536) {
                     char tmp[6];
 
-                    snprintf(tmp, sizeof(tmp), "%u", session->opts.port);
+                    snprintf(tmp,
+                             sizeof(tmp),
+                             "%u",
+                             session->opts.port > 0 ? session->opts.port : 22);
                     x = strdup(tmp);
                 }
                 break;
@@ -1081,5 +1084,26 @@ void explicit_bzero(void *s, size_t n)
 #endif
 }
 #endif /* !HAVE_EXPLICIT_BZERO */
+
+#if !defined(HAVE_STRNDUP)
+char *strndup(const char *s, size_t n)
+{
+    char *x = NULL;
+
+    if (n + 1 < n) {
+        return NULL;
+    }
+
+    x = malloc(n + 1);
+    if (x == NULL) {
+        return NULL;
+    }
+
+    memcpy(x, s, n);
+    x[n] = '\0';
+
+    return x;
+}
+#endif /* ! HAVE_STRNDUP */
 
 /** @} */

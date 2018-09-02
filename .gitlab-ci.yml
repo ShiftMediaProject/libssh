@@ -28,6 +28,25 @@ fedora/openssl_1.1.x/x86-64:
   script:
   - mkdir -p obj && cd obj && cmake -DCMAKE_BUILD_TYPE=Debug
     -DWITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON --DWITH_PCAP=ON
+    -DPICKY_DEVELOPER=ON
+    -DUNIT_TESTING=ON -DCLIENT_TESTING=ON -DSERVER_TESTING=ON .. &&
+    make -j$(nproc) && ctest --output-on-failure
+  tags:
+  - shared
+  except:
+  - tags
+  artifacts:
+    expire_in: 1 week
+    when: on_failure
+    paths:
+      - obj/
+
+fedora/openssl_1.1.x/x86-64/release:
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
+  script:
+  - mkdir -p obj && cd obj && cmake -DCMAKE_BUILD_TYPE=Release
+    -DWITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON --DWITH_PCAP=ON
+    -DPICKY_DEVELOPER=ON
     -DUNIT_TESTING=ON -DCLIENT_TESTING=ON -DSERVER_TESTING=ON .. &&
     make -j$(nproc) && ctest --output-on-failure
   tags:
@@ -105,6 +124,7 @@ freebsd/x86-64:
   script:
   - mkdir -p obj && cd obj && cmake -DCMAKE_BUILD_TYPE=Debug
     -DWITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON --DWITH_PCAP=ON
+    -DPICKY_DEVELOPER=ON
     -DUNIT_TESTING=ON .. &&
     make && ctest --output-on-failure
   tags:
@@ -144,6 +164,7 @@ fedora/mbedtls/x86-64:
   - mkdir -p obj && cd obj && cmake -DCMAKE_BUILD_TYPE=Debug
     -DWITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON --DWITH_PCAP=ON
     -DUNIT_TESTING=ON -DCLIENT_TESTING=ON -DSERVER_TESTING=ON
+    -DPICKY_DEVELOPER=ON
     -DWITH_MBEDTLS=ON .. &&
     make -j$(nproc) && ctest --output-on-failure
   tags:
@@ -162,8 +183,42 @@ tumbleweed/openssl_1.1.x/x86-64:
   - mkdir -p obj && cd obj && cmake -DCMAKE_BUILD_TYPE=Debug
     -DWITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON --DWITH_PCAP=ON
     -DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config
+    -DPICKY_DEVELOPER=ON
     -DUNIT_TESTING=ON -DCLIENT_TESTING=ON -DSERVER_TESTING=ON .. &&
     make -j$(nproc) && ctest --output-on-failure
+  tags:
+  - shared
+  except:
+  - tags
+  artifacts:
+    expire_in: 1 week
+    when: on_failure
+    paths:
+      - obj/
+
+tumbleweed/openssl_1.1.x/x86-64/release:
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$TUMBLEWEED_BUILD
+  script:
+  - mkdir -p obj && cd obj && cmake -DCMAKE_BUILD_TYPE=Release
+    -DWITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON --DWITH_PCAP=ON
+    -DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config
+    -DPICKY_DEVELOPER=ON
+    -DUNIT_TESTING=ON -DCLIENT_TESTING=ON -DSERVER_TESTING=ON .. &&
+    make -j$(nproc) && ctest --output-on-failure
+  tags:
+  - shared
+  except:
+  - tags
+  artifacts:
+    expire_in: 1 week
+    when: on_failure
+    paths:
+      - obj/
+
+tumbleweed/docs:
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$TUMBLEWEED_BUILD
+  script:
+  - mkdir -p obj && cd obj && cmake .. && make docs
   tags:
   - shared
   except:
@@ -179,6 +234,7 @@ tumbleweed/openssl_1.1.x/x86:
   script:
   - mkdir -p obj && cd obj && cmake -DCMAKE_TOOLCHAIN_FILE=../cmake/Toolchain-cross-m32.cmake
     -DWITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON --DWITH_PCAP=ON
+    -DPICKY_DEVELOPER=ON
     -DUNIT_TESTING=ON .. &&
     make -j$(nproc) && ctest --output-on-failure
   tags:
@@ -238,6 +294,7 @@ mingw64:
   - export DISPLAY=:1
   - mkdir -p obj && cd obj && mingw64-cmake -DCMAKE_BUILD_TYPE=Debug
     -DWITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON --DWITH_PCAP=ON
+    -DPICKY_DEVELOPER=ON
     -DUNIT_TESTING=ON .. &&
     make -j$(nproc)
   - export WINEPATH=/usr/x86_64-w64-mingw32/sys-root/mingw/bin
@@ -261,6 +318,7 @@ mingw32:
   - export DISPLAY=:1
   - mkdir -p obj && cd obj && mingw32-cmake -DCMAKE_BUILD_TYPE=Debug
     -DWITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON --DWITH_PCAP=ON
+    -DPICKY_DEVELOPER=ON
     -DUNIT_TESTING=ON .. &&
     make -j$(nproc)
   - export WINEPATH=/usr/i686-w64-mingw32/sys-root/mingw/bin

@@ -1,7 +1,7 @@
-cmake_minimum_required(VERSION 3.2.0)
+cmake_minimum_required(VERSION 3.3.0)
 cmake_policy(SET CMP0048 NEW)
 
-project(libssh VERSION 0.8.1 LANGUAGES C)
+project(libssh VERSION 0.8.2 LANGUAGES C)
 
 # global needed variable
 set(APPLICATION_NAME ${PROJECT_NAME})
@@ -13,7 +13,7 @@ set(APPLICATION_NAME ${PROJECT_NAME})
 #     Increment AGE. Set REVISION to 0
 #   If the source code was changed, but there were no interface changes:
 #     Increment REVISION.
-set(LIBRARY_VERSION "4.5.1")
+set(LIBRARY_VERSION "4.6.0")
 set(LIBRARY_SOVERSION "4")
 
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
@@ -24,10 +24,11 @@ set(CMAKE_MODULE_PATH
 # add definitions
 include(DefineCMakeDefaults)
 include(DefinePlatformDefaults)
-include(DefineCompilerFlags)
 include(DefineInstallationPaths)
 include(DefineOptions.cmake)
 include(CPackConfig.cmake)
+
+include(CompilerChecks.cmake)
 
 # disallow in-source build
 include(MacroEnsureOutOfSourceBuild)
@@ -83,7 +84,7 @@ endif (BSD OR SOLARIS OR OSX)
 
 # Disable symbol versioning in non UNIX platforms
 if (UNIX)
-    find_package(ABIMap)
+    find_package(ABIMap 0.3.1)
 else (UNIX)
     set(WITH_SYMBOL_VERSIONING OFF)
 endif (UNIX)
@@ -158,13 +159,13 @@ if (WITH_SYMBOL_VERSIONING AND ABIMAP_FOUND)
         message(STATUS "Library version bumped to ${LIBRARY_VERSION}: Updating ABI")
 
         # Get the list of header files
-        get_file_list("${PROJECT_NAME}_header_list"
+        get_file_list(${PROJECT_NAME}_header_list
                       DIRECTORIES "${CMAKE_SOURCE_DIR}/include/libssh"
                       FILES_PATTERNS "*.h")
 
         # Extract the symbols marked as "LIBSSH_API" from the header files
         extract_symbols(${PROJECT_NAME}.symbols
-                        HEADERS_LIST_FILE "${PROJECT_NAME}_header_list"
+                        HEADERS_LIST ${PROJECT_NAME}_header_list
                         FILTER_PATTERN "LIBSSH_API"
                         COPY_TO "${CMAKE_SOURCE_DIR}/src/ABI/${PROJECT_NAME}-${LIBRARY_VERSION}.symbols")
 
@@ -180,7 +181,7 @@ if (WITH_SYMBOL_VERSIONING AND ABIMAP_FOUND)
 
         # Generate the symbol version map file
         generate_map_file(${_SYMBOL_TARGET}
-                          SYMBOLS "${PROJECT_NAME}.symbols"
+                          SYMBOLS ${PROJECT_NAME}.symbols
                           RELEASE_NAME_VERSION ${PROJECT_NAME}_${LIBRARY_VERSION}
                           CURRENT_MAP ${MAP_PATH}
                           COPY_TO ${MAP_PATH}

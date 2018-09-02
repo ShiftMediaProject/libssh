@@ -79,7 +79,7 @@
 /* libssh version */
 #define LIBSSH_VERSION_MAJOR  0
 #define LIBSSH_VERSION_MINOR  8
-#define LIBSSH_VERSION_MICRO  1
+#define LIBSSH_VERSION_MICRO  2
 
 #define LIBSSH_VERSION_INT SSH_VERSION_INT(LIBSSH_VERSION_MAJOR, \
                                            LIBSSH_VERSION_MINOR, \
@@ -239,11 +239,39 @@ enum ssh_server_known_e {
 };
 
 enum ssh_known_hosts_e {
+    /**
+     * There had been an error checking the host.
+     */
     SSH_KNOWN_HOSTS_ERROR = -2,
+
+    /**
+     * The known host file does not exist. The host is thus unknown. File will
+     * be created if host key is accepted.
+     */
     SSH_KNOWN_HOSTS_NOT_FOUND = -1,
+
+    /**
+     * The server is unknown. User should confirm the public key hash is
+     * correct.
+     */
     SSH_KNOWN_HOSTS_UNKNOWN = 0,
+
+    /**
+     * The server is known and has not changed.
+     */
     SSH_KNOWN_HOSTS_OK,
+
+    /**
+     * The server key has changed. Either you are under attack or the
+     * administrator changed the key. You HAVE to warn the user about a
+     * possible attack.
+     */
     SSH_KNOWN_HOSTS_CHANGED,
+
+    /**
+     * The server gave use a key of a type while we had an other type recorded.
+     * It is a possible attack.
+     */
     SSH_KNOWN_HOSTS_OTHER,
 };
 
@@ -500,7 +528,8 @@ LIBSSH_API int ssh_get_server_publickey(ssh_session session, ssh_key *key);
 
 enum ssh_publickey_hash_type {
     SSH_PUBLICKEY_HASH_SHA1,
-    SSH_PUBLICKEY_HASH_MD5
+    SSH_PUBLICKEY_HASH_MD5,
+    SSH_PUBLICKEY_HASH_SHA256
 };
 LIBSSH_API int ssh_get_publickey_hash(const ssh_key key,
                                       enum ssh_publickey_hash_type type,
@@ -652,6 +681,7 @@ LIBSSH_API int ssh_pki_export_pubkey_file(const ssh_key key,
 
 LIBSSH_API const char *ssh_pki_key_ecdsa_name(const ssh_key key);
 
+LIBSSH_API void ssh_print_hash(enum ssh_publickey_hash_type type, unsigned char *hash, size_t len);
 LIBSSH_API void ssh_print_hexa(const char *descr, const unsigned char *what, size_t len);
 LIBSSH_API int ssh_send_ignore (ssh_session session, const char *data);
 LIBSSH_API int ssh_send_debug (ssh_session session, const char *message, int always_display);
