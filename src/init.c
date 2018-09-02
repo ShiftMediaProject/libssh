@@ -32,19 +32,17 @@
 #include <winsock2.h>
 #endif
 
-#ifdef _MSC_VER
-#define CONSTRUCTOR_ATTRIBUTE(_func) static void _func(void); \
-    static int _func ## _wrapper(void) { _func(); return 0; } \
-    __pragma(section(".CRT$XCU",read)) \
-    __declspec(allocate(".CRT$XCU")) static int (* _array ## _func)(void) = _func ## _wrapper;
-#define DESTRUCTOR_ATTRIBUTE(_func) static void _func(void); \
-    static int _func ## _constructor(void) { atexit (_func); return 0; } \
-    __pragma(section(".CRT$XCU",read)) \
-    __declspec(allocate(".CRT$XCU")) static int (* _array ## _func)(void) = _func ## _constructor;
+#ifdef HAVE_CONSTRUCTOR_ATTRIBUTE
+#define CONSTRUCTOR_ATTRIBUTE __attribute__((constructor))
 #else
-#define CONSTRUCTOR_ATTRIBUTE(_func) void _func(void) __attribute__((constructor))
-#define DESTRUCTOR_ATTRIBUTE(_func) void _func(void) __attribute__((destructor))
-#endif
+#define CONSTRUCTOR_ATTRIBUTE
+#endif /* HAVE_CONSTRUCTOR_ATTRIBUTE */
+
+#ifdef HAVE_DESTRUCTOR_ATTRIBUTE
+#define DESTRUCTOR_ATTRIBUTE __attribute__((destructor))
+#else
+#define DESTRUCTOR_ATTRIBUTE
+#endif /* HAVE_DESTRUCTOR_ATTRIBUTE */
 
 /* Declare static mutex */
 static SSH_MUTEX ssh_init_mutex = SSH_MUTEX_STATIC_INIT;
@@ -155,28 +153,28 @@ static int _ssh_finalize(unsigned destructor) {
 
     if (!destructor) {
         ssh_mutex_lock(&ssh_init_mutex);
-    }
 
-    if (_ssh_initialized == 1) {
-        _ssh_initialized = 0;
-
-        if (_ssh_init_ret < 0) {
+        if (_ssh_initialized > 1) {
+            _ssh_initialized--;
             goto _ret;
         }
 
-        ssh_dh_finalize();
-        ssh_crypto_finalize();
-        ssh_socket_cleanup();
-        /* It is important to finalize threading after CRYPTO because
-         * it still depends on it */
-        ssh_threads_finalize();
-
-    }
-    else {
-        if (_ssh_initialized > 0) {
-            _ssh_initialized--;
+        if (_ssh_initialized == 1) {
+            if (_ssh_init_ret < 0) {
+                goto _ret;
+            }
         }
     }
+
+    /* If the counter reaches zero or it is the destructor calling, finalize */
+    ssh_dh_finalize();
+    ssh_crypto_finalize();
+    ssh_socket_cleanup();
+    /* It is important to finalize threading after CRYPTO because
+     * it still depends on it */
+    ssh_threads_finalize();
+
+    _ssh_initialized = 0;
 
 _ret:
     if (!destructor) {
@@ -202,14 +200,6 @@ void libssh_destructor(void)
     if (rc < 0) {
         fprintf(stderr, "Error in libssh_destructor()\n");
     }
-
-    /* Detect if ssh_init() was called without matching ssh_finalize() */
-    if (_ssh_initialized > 0) {
-        fprintf(stderr,
-                "Warning: ssh still initialized; probably ssh_init() "
-                "was called more than once (init count: %d)\n",
-                _ssh_initialized);
-    }
 }
 
 /**
@@ -231,5 +221,28 @@ void libssh_destructor(void)
 int ssh_finalize(void) {
     return _ssh_finalize(0);
 }
+
+#ifdef _WIN32
+
+#ifdef _MSC_VER
+/* Library constructor and destructor */
+BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
+{
+    int rc;
+
+    if (fdwReason == DLL_PROCESS_ATTACH) {
+        rc = ssh_init();
+    } else if (fdwReason == DLL_PROCESS_DETACH) {
+        rc = ssh_finalize();
+    }
+
+    if (rc != 0) {
+        return FALSE;
+    }
+    return TRUE;
+}
+#endif /* _MSC_VER */
+
+#endif /* _WIN32 */
 
 /** @} */

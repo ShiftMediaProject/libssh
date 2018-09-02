@@ -7,8 +7,8 @@ include(CheckTypeSize)
 include(CheckCXXSourceCompiles)
 include(TestBigEndian)
 
-set(PACKAGE ${APPLICATION_NAME})
-set(VERSION ${APPLICATION_VERSION})
+set(PACKAGE ${PROJECT_NAME})
+set(VERSION ${PROJECT_VERSION})
 set(DATADIR ${DATA_INSTALL_DIR})
 set(LIBDIR ${LIB_INSTALL_DIR})
 set(PLUGINDIR "${PLUGIN_INSTALL_DIR}-${LIBRARY_SOVERSION}")
@@ -267,25 +267,47 @@ int main(void) {
     return 0;
 }" HAVE_MSC_THREAD_LOCAL_STORAGE)
 
+###########################################################
+# For detecting attributes we need to treat warnings as
+# errors
+if (UNIX)
+    set(CMAKE_REQUIRED_FLAGS "-Werror")
+endif (UNIX)
+
+check_c_source_compiles("
+void test_constructor_attribute(void) __attribute__ ((constructor));
+
+void test_constructor_attribute(void)
+{
+    return;
+}
+
+int main(void) {
+    return 0;
+}" HAVE_CONSTRUCTOR_ATTRIBUTE)
+
+check_c_source_compiles("
+void test_destructor_attribute(void) __attribute__ ((destructor));
+
+void test_destructor_attribute(void)
+{
+    return;
+}
+
+int main(void) {
+    return 0;
+}" HAVE_DESTRUCTOR_ATTRIBUTE)
+
 check_c_source_compiles("
 #define FALL_THROUGH __attribute__((fallthrough))
 
-enum direction_e {
-    UP = 0,
-    DOWN,
-};
-
 int main(void) {
-    enum direction_e key = UP;
-    int i = 10;
-    int j = 0;
+    int i = 2;
 
-    switch (key) {
-    case UP:
-        i = 5;
+    switch (i) {
+    case 0:
         FALL_THROUGH;
-    case DOWN:
-        j = i * 2;
+    case 1:
         break;
     default:
         break;
@@ -332,11 +354,17 @@ int main(void) {
     return 0;
 }" HAVE_COMPILER__FUNCTION__)
 
+# Stop treating warnings as errors
+unset(CMAKE_REQUIRED_FLAGS)
 
 check_c_source_compiles("
-void chacha_keysetup(struct chacha_ctx *x, const u_char *k, u_int kbits)
-    __attribute__((__bounded__(__minbytes__, 2, CHACHA_MINKEYLEN)));
-int main(void) { return 0; }" HAVE_GCC_BOUNDED_ATTRIBUTE)
+#define ARRAY_LEN 16
+void test_attr(const unsigned char *k)
+    __attribute__((__bounded__(__minbytes__, 2, 16)));
+
+int main(void) {
+    return 0;
+}" HAVE_GCC_BOUNDED_ATTRIBUTE)
 
 if (WITH_DEBUG_CRYPTO)
   set(DEBUG_CRYPTO 1)

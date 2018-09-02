@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.2.0)
 cmake_policy(SET CMP0048 NEW)
 
-project(libssh VERSION 0.8.0 LANGUAGES C)
+project(libssh VERSION 0.8.1 LANGUAGES C)
 
 # global needed variable
 set(APPLICATION_NAME ${PROJECT_NAME})
@@ -13,7 +13,7 @@ set(APPLICATION_NAME ${PROJECT_NAME})
 #     Increment AGE. Set REVISION to 0
 #   If the source code was changed, but there were no interface changes:
 #     Increment REVISION.
-set(LIBRARY_VERSION "4.5.0")
+set(LIBRARY_VERSION "4.5.1")
 set(LIBRARY_SOVERSION "4")
 
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked

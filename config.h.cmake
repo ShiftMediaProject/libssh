@@ -1,8 +1,8 @@
 /* Name of package */
-#cmakedefine PACKAGE "${APPLICATION_NAME}"
+#cmakedefine PACKAGE "${PROJECT_NAME}"
 
 /* Version number of package */
-#cmakedefine VERSION "${APPLICATION_VERSION}"
+#cmakedefine VERSION "${PROJECT_VERSION}"
 
 #cmakedefine LOCALEDIR "${LOCALE_INSTALL_DIR}"
 #cmakedefine DATADIR "${DATADIR}"
@@ -192,6 +192,9 @@
 #cmakedefine HAVE_MSC_THREAD_LOCAL_STORAGE 1
 
 #cmakedefine HAVE_FALLTHROUGH_ATTRIBUTE 1
+
+#cmakedefine HAVE_CONSTRUCTOR_ATTRIBUTE 1
+#cmakedefine HAVE_DESTRUCTOR_ATTRIBUTE 1
 
 #cmakedefine HAVE_GCC_VOLATILE_MEMORY_PROTECTION 1
 #cmakedefine HAVE_GCC_NARG_MACRO 1
