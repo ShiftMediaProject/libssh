@@ -124,6 +124,9 @@ int ssh_getpass(const char *prompt,
                 size_t len,
                 int echo,
                 int verify) {
+#if defined(WINAPI_FAMILY) || (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
+    return -1;
+#else
     HANDLE h;
     DWORD mode = 0;
     int ok;
@@ -160,6 +163,7 @@ int ssh_getpass(const char *prompt,
     buf[len - 1] = '\0';
 
     return 0;
+#endif
 }
 
 #else

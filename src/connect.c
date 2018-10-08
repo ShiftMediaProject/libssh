@@ -33,6 +33,7 @@
 #include "libssh/misc.h"
 
 #ifdef _WIN32
+#if !defined(WINAPI_FAMILY) || !(WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
 /*
  * Only use Windows API functions available on Windows 2000 SP4 or later.
  * The available constants are in <sdkddkver.h>.
@@ -48,6 +49,7 @@
 #define _WIN32_WINNT 0x0501 /* _WIN32_WINNT_WINXP */
 #undef NTDDI_VERSION
 #define NTDDI_VERSION 0x05010000 /* NTDDI_WINXP */
+#endif
 #endif
 
 #if _MSC_VER >= 1400
@@ -220,7 +222,7 @@ static int ssh_connect_ai_timeout(ssh_session session, const char *host,
 static int set_tcp_nodelay(socket_t socket)
 {
     int opt = 1;
-    return setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, &opt, sizeof(opt));
+    return setsockopt(socket, IPPROTO_TCP, TCP_NODELAY, (char *) &opt, sizeof(opt));
 }
 
 /**

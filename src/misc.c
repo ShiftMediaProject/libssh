@@ -50,9 +50,10 @@
 
 
 #ifdef _WIN32
-
-#ifndef _WIN32_IE
-# define _WIN32_IE 0x0501 // SHGetSpecialFolderPath
+#if !defined(WINAPI_FAMILY) || !(WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
+# ifndef _WIN32_IE
+#  define _WIN32_IE 0x0501 // SHGetSpecialFolderPath
+# endif
 #endif
 
 #include <winsock2.h> // Must be the first to include
@@ -105,6 +106,9 @@
 
 #ifdef _WIN32
 char *ssh_get_user_home_dir(void) {
+#if defined(WINAPI_FAMILY) || (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
+    return NULL;
+#else
   char tmp[MAX_PATH] = {0};
   char *szPath = NULL;
 
@@ -119,6 +123,7 @@ char *ssh_get_user_home_dir(void) {
   }
 
   return NULL;
+#endif
 }
 
 /* we have read access on file */
@@ -147,22 +152,26 @@ int gettimeofday(struct timeval *__p, void *__t) {
 }
 
 char *ssh_get_local_username(void) {
+#if defined(WINAPI_FAMILY) || (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
+    return NULL;
+#else
     DWORD size = 0;
     char *user;
 
     /* get the size */
-    GetUserName(NULL, &size);
+    GetUserNameA(NULL, &size);
 
     user = (char *) malloc(size);
     if (user == NULL) {
         return NULL;
     }
 
-    if (GetUserName(user, &size)) {
+    if (GetUserNameA(user, &size)) {
         return user;
     }
 
     return NULL;
+#endif
 }
 
 int ssh_is_ipaddr_v4(const char *str) {
