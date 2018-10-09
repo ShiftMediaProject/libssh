@@ -32,7 +32,7 @@
 #include <winsock2.h>
 #endif
 
-#if defined(_WIN32) && defined(_MSC_VER) && (!defined(_USRDLL) && !defined(_WINDLL))
+#if defined(_WIN32) && defined(_MSC_VER) && defined(LIBSSH_STATIC)
 #define CONSTRUCTOR_ATTRIBUTE(_func) static void _func(void); \
     static int _func ## _wrapper(void) { _func(); return 0; } \
     __pragma(section(".CRT$XCU",read)) \
@@ -235,7 +235,7 @@ int ssh_finalize(void) {
 
 #ifdef _WIN32
 
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && !defined(LIBSSH_STATIC)
 /* Library constructor and destructor */
 BOOL WINAPI DllMain(HINSTANCE hinstDLL,
                     DWORD fdwReason,
