@@ -33,14 +33,26 @@
 #endif
 
 #if defined(_WIN32) && defined(_MSC_VER) && defined(LIBSSH_STATIC)
-#define CONSTRUCTOR_ATTRIBUTE(_func) static void _func(void); \
+# define CONSTRUCTOR_ATTRIBUTE_(_func,p) static void _func(void); \
     static int _func ## _wrapper(void) { _func(); return 0; } \
     __pragma(section(".CRT$XCU",read)) \
-    __declspec(allocate(".CRT$XCU")) static int (* _array ## _func)(void) = _func ## _wrapper;
-#define DESTRUCTOR_ATTRIBUTE(_func) static void _func(void); \
+    __declspec(allocate(".CRT$XCU")) int (* _func##_)(void) = _func ## _wrapper; \
+    __pragma(comment(linker,"/include:" p #_func "_"))
+#ifdef _WIN64
+#define CONSTRUCTOR_ATTRIBUTE(f) CONSTRUCTOR_ATTRIBUTE_(f,"")
+#else
+#define CONSTRUCTOR_ATTRIBUTE(f) CONSTRUCTOR_ATTRIBUTE_(f,"_")
+#endif
+# define DESTRUCTOR_ATTRIBUTE_(_func,p) static void _func(void); \
     static int _func ## _constructor(void) { atexit (_func); return 0; } \
     __pragma(section(".CRT$XCU",read)) \
-    __declspec(allocate(".CRT$XCU")) static int (* _array ## _func)(void) = _func ## _constructor;
+    __declspec(allocate(".CRT$XCU")) int (* _func##_)(void) = _func ## _constructor; \
+    __pragma(comment(linker,"/include:" p #_func "_"))
+#ifdef _WIN64
+#define DESTRUCTOR_ATTRIBUTE(f) DESTRUCTOR_ATTRIBUTE_(f,"")
+#else
+#define DESTRUCTOR_ATTRIBUTE(f) DESTRUCTOR_ATTRIBUTE_(f,"_")
+#endif
 #else
 #ifdef HAVE_CONSTRUCTOR_ATTRIBUTE
 #define CONSTRUCTOR_ATTRIBUTE(_func) void _func(void) __attribute__((constructor))
