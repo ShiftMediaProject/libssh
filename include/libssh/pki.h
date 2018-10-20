@@ -69,6 +69,7 @@ struct ssh_key_struct {
 
 struct ssh_signature_struct {
     enum ssh_keytypes_e type;
+    enum ssh_digest_e hash_type;
     const char *type_c;
 #ifdef HAVE_LIBGCRYPT
     gcry_sexp_t dsa_sig;
@@ -94,6 +95,11 @@ typedef struct ssh_signature_struct *ssh_signature;
 /* SSH Key Functions */
 ssh_key ssh_key_dup(const ssh_key key);
 void ssh_key_clean (ssh_key key);
+
+const char *
+ssh_key_get_signature_algorithm(ssh_session session,
+                                enum ssh_keytypes_e type);
+enum ssh_keytypes_e ssh_key_type_from_signature_name(const char *name);
 
 /* SSH Signature Functions */
 ssh_signature ssh_signature_new(void);
@@ -133,4 +139,5 @@ ssh_string ssh_srv_pki_do_sign_sessionid(ssh_session session,
 ssh_public_key ssh_pki_convert_key_to_publickey(const ssh_key key);
 ssh_private_key ssh_pki_convert_key_to_privatekey(const ssh_key key);
 
+int ssh_key_algorithm_allowed(ssh_session session, const char *type);
 #endif /* PKI_H_ */

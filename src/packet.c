@@ -59,8 +59,9 @@ static ssh_packet_callback default_packet_handlers[]= {
   NULL,
 #endif
   ssh_packet_service_accept,               // SSH2_MSG_SERVICE_ACCEPT             6
-  NULL, NULL, NULL, NULL, NULL, NULL, NULL,
-  NULL, NULL, NULL,	NULL, NULL, NULL,      //                                     7-19
+  ssh_packet_ext_info,                     // SSH2_MSG_EXT_INFO                   7
+  NULL, NULL, NULL, NULL, NULL, NULL,
+  NULL, NULL, NULL, NULL, NULL, NULL,      //                                     8-19
   ssh_packet_kexinit,                      // SSH2_MSG_KEXINIT	                  20
   ssh_packet_newkeys,                      // SSH2_MSG_NEWKEYS                    21
   NULL, NULL, NULL, NULL, NULL, NULL, NULL,
@@ -198,7 +199,9 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
                 return 0;
             }
 
-            memset(&session->in_packet, 0, sizeof(PACKET));
+            session->in_packet = (struct packet_struct) {
+                .type = 0,
+            };
 
             if (session->in_buffer) {
                 rc = ssh_buffer_reinit(session->in_buffer);
@@ -514,20 +517,24 @@ SSH_PACKET_CALLBACK(ssh_packet_unimplemented){
 /** @internal
  * @parse the "Type" header field of a packet and updates the session
  */
-int ssh_packet_parse_type(ssh_session session) {
-  memset(&session->in_packet, 0, sizeof(PACKET));
-  if(session->in_buffer == NULL) {
-    return SSH_ERROR;
-  }
+int ssh_packet_parse_type(struct ssh_session_struct *session)
+{
+    session->in_packet = (struct packet_struct) {
+        .type = 0,
+    };
 
-  if(ssh_buffer_get_u8(session->in_buffer, &session->in_packet.type) == 0) {
-    ssh_set_error(session, SSH_FATAL, "Packet too short to read type");
-    return SSH_ERROR;
-  }
+    if (session->in_buffer == NULL) {
+        return SSH_ERROR;
+    }
 
-  session->in_packet.valid = 1;
+    if (ssh_buffer_get_u8(session->in_buffer, &session->in_packet.type) == 0) {
+        ssh_set_error(session, SSH_FATAL, "Packet too short to read type");
+        return SSH_ERROR;
+    }
 
-  return SSH_OK;
+    session->in_packet.valid = 1;
+
+    return SSH_OK;
 }
 
 /*

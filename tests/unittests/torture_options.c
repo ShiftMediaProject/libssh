@@ -11,10 +11,18 @@
 #include "torture_key.h"
 #include <libssh/session.h>
 #include <libssh/misc.h>
+#include <libssh/pki_priv.h>
 
 static int setup(void **state)
 {
-    ssh_session session = ssh_new();
+    ssh_session session;
+    int verbosity;
+
+    session = ssh_new();
+
+    verbosity = torture_libssh_verbosity();
+    ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
+
     *state = session;
 
     return 0;
@@ -68,18 +76,18 @@ static void torture_options_set_key_exchange(void **state)
     /* Test known kexes */
     rc = ssh_options_set(session,
                          SSH_OPTIONS_KEY_EXCHANGE,
-                         "curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,diffie-hellman-group14-sha1");
+                         "curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group14-sha1");
     assert_true(rc == 0);
     assert_string_equal(session->opts.wanted_methods[SSH_KEX],
-                        "curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,diffie-hellman-group14-sha1");
+                        "curve25519-sha256,curve25519-sha256@libssh.org,ecdh-sha2-nistp256,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group14-sha1");
 
     /* Test one unknown kex */
     rc = ssh_options_set(session,
                          SSH_OPTIONS_KEY_EXCHANGE,
-                         "curve25519-sha256,curve25519-sha256@libssh.org,unknown-crap@example.com,diffie-hellman-group14-sha1");
+                         "curve25519-sha256,curve25519-sha256@libssh.org,unknown-crap@example.com,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group14-sha1");
     assert_true(rc == 0);
     assert_string_equal(session->opts.wanted_methods[SSH_KEX],
-                        "curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group14-sha1");
+                        "curve25519-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512,diffie-hellman-group18-sha512,diffie-hellman-group14-sha1");
 
     /* Test all unknown kexes */
     rc = ssh_options_set(session,
@@ -113,6 +121,54 @@ static void torture_options_set_hostkey(void **state) {
                          SSH_OPTIONS_HOSTKEYS,
                          "unknown-crap@example.com,more-crap@example.com");
     assert_false(rc == 0);
+}
+
+static void torture_options_set_pubkey_accepted_types(void **state) {
+    ssh_session session = *state;
+    int rc;
+    enum ssh_digest_e type;
+
+    /* Test known public key algorithms */
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_PUBLICKEY_ACCEPTED_TYPES,
+                         "ssh-ed25519,ecdsa-sha2-nistp384,ssh-rsa");
+    assert_true(rc == 0);
+    assert_string_equal(session->opts.pubkey_accepted_types,
+                        "ssh-ed25519,ecdsa-sha2-nistp384,ssh-rsa");
+
+    /* Test one unknown public key algorithms */
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_PUBLICKEY_ACCEPTED_TYPES,
+                         "ssh-ed25519,unknown-crap@example.com,ssh-rsa");
+    assert_true(rc == 0);
+    assert_string_equal(session->opts.pubkey_accepted_types,
+                        "ssh-ed25519,ssh-rsa");
+
+    /* Test all unknown public key algorithms */
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_PUBLICKEY_ACCEPTED_TYPES,
+                         "unknown-crap@example.com,more-crap@example.com");
+    assert_false(rc == 0);
+
+    /* Test that the option affects the algorithm selection for RSA keys */
+    /* simulate the SHA2 extension was negotiated */
+    session->extensions = SSH_EXT_SIG_RSA_SHA256;
+
+    /* previous configuration did not list the SHA2 extension algoritms, so
+     * it should not be used */
+    type = ssh_key_type_to_hash(session, SSH_KEYTYPE_RSA);
+    assert_int_equal(type, SSH_DIGEST_SHA1);
+
+    /* now, lets allow the signature from SHA2 extension and expect
+     * it to be used */
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_PUBLICKEY_ACCEPTED_TYPES,
+                         "rsa-sha2-256,ssh-rsa");
+    assert_true(rc == 0);
+    assert_string_equal(session->opts.pubkey_accepted_types,
+                        "rsa-sha2-256,ssh-rsa");
+    type = ssh_key_type_to_hash(session, SSH_KEYTYPE_RSA);
+    assert_int_equal(type, SSH_DIGEST_SHA256);
 }
 
 static void torture_options_set_macs(void **state) {
@@ -194,8 +250,10 @@ static void torture_options_get_user(void **state) {
   char* user = NULL;
   int rc;
   rc = ssh_options_set(session, SSH_OPTIONS_USER, "magicaltrevor");
-  assert_true(rc == SSH_OK);
+  assert_int_equal(rc, SSH_OK);
   rc = ssh_options_get(session, SSH_OPTIONS_USER, &user);
+  assert_int_equal(rc, SSH_OK);
+  assert_non_null(user);
   assert_string_equal(user, "magicaltrevor");
   free(user);
 }
@@ -273,15 +331,17 @@ static void torture_options_get_identity(void **state) {
     rc = ssh_options_set(session, SSH_OPTIONS_ADD_IDENTITY, "identity1");
     assert_true(rc == 0);
     rc = ssh_options_get(session, SSH_OPTIONS_IDENTITY, &identity);
-    assert_true(rc == SSH_OK);
+    assert_int_equal(rc, SSH_OK);
+    assert_non_null(identity);
     assert_string_equal(identity, "identity1");
     SAFE_FREE(identity);
 
     rc = ssh_options_set(session, SSH_OPTIONS_IDENTITY, "identity2");
-    assert_true(rc == 0);
+    assert_int_equal(rc, SSH_OK);
     assert_string_equal(session->opts.identity->root->data, "identity2");
     rc = ssh_options_get(session, SSH_OPTIONS_IDENTITY, &identity);
-    assert_true(rc == SSH_OK);
+    assert_int_equal(rc, SSH_OK);
+    assert_non_null(identity);
     assert_string_equal(identity, "identity2");
     free(identity);
 }
@@ -310,7 +370,10 @@ static void torture_options_config_host(void **state) {
     /* create a new config file */
     config = fopen("test_config", "w");
     assert_non_null(config);
-    fputs("Host testhost1\nPort 42\nHost testhost2,testhost3\nPort 43\n", config);
+    fputs("Host testhost1\nPort 42\n"
+          "Host testhost2,testhost3\nPort 43\n"
+          "Host testhost4 testhost5\nPort 44\n",
+          config);
     fclose(config);
 
     ssh_options_set(session, SSH_OPTIONS_HOST, "testhost1");
@@ -328,8 +391,145 @@ static void torture_options_config_host(void **state) {
     ssh_options_parse_config(session, "test_config");
     assert_int_equal(session->opts.port, 43);
 
+    ssh_options_set(session, SSH_OPTIONS_HOST, "testhost4");
+    ssh_options_parse_config(session, "test_config");
+    assert_int_equal(session->opts.port, 44);
+
+    session->opts.port = 0;
+
+    ssh_options_set(session, SSH_OPTIONS_HOST, "testhost5");
+    ssh_options_parse_config(session, "test_config");
+    assert_int_equal(session->opts.port, 44);
+
     unlink("test_config");
 }
+
+static void torture_options_config_match(void **state)
+{
+    ssh_session session = *state;
+    FILE *config = NULL;
+    int rv;
+
+    /* Required for options_parse_config() */
+    ssh_options_set(session, SSH_OPTIONS_HOST, "testhost1");
+
+    /* The Match keyword requires argument */
+    config = fopen("test_config", "w");
+    assert_non_null(config);
+    fputs("Match\n",
+          config);
+    fclose(config);
+
+    rv = ssh_options_parse_config(session, "test_config");
+    assert_ssh_return_code_equal(session, rv, SSH_ERROR);
+
+    /* The Match all keyword needs to be the only one (start) */
+    config = fopen("test_config", "w");
+    assert_non_null(config);
+    fputs("Match all host local\n",
+          config);
+    fclose(config);
+
+    rv = ssh_options_parse_config(session, "test_config");
+    assert_ssh_return_code_equal(session, rv, SSH_ERROR);
+
+    /* The Match all keyword needs to be the only one (end) */
+    config = fopen("test_config", "w");
+    assert_non_null(config);
+    fputs("Match host local all\n",
+          config);
+    fclose(config);
+
+    rv = ssh_options_parse_config(session, "test_config");
+    assert_ssh_return_code_equal(session, rv, SSH_ERROR);
+
+    /* The Match host keyword requires an argument */
+    config = fopen("test_config", "w");
+    assert_non_null(config);
+    fputs("Match host\n",
+          config);
+    fclose(config);
+
+    rv = ssh_options_parse_config(session, "test_config");
+    assert_ssh_return_code_equal(session, rv, SSH_ERROR);
+
+    /* The Match user keyword requires an argument */
+    config = fopen("test_config", "w");
+    assert_non_null(config);
+    fputs("Match user\n",
+          config);
+    fclose(config);
+
+    rv = ssh_options_parse_config(session, "test_config");
+    assert_ssh_return_code_equal(session, rv, SSH_ERROR);
+
+    /* The Match canonical keyword is ignored */
+    config = fopen("test_config", "w");
+    assert_non_null(config);
+    fputs("Match canonical\n"
+          "\tPort 33\n"
+          "Match all\n"
+          "\tPort 34\n",
+          config);
+    fclose(config);
+
+    rv = ssh_options_parse_config(session, "test_config");
+    assert_ssh_return_code_equal(session, rv, SSH_OK);
+    assert_int_equal(session->opts.port, 34);
+
+    session->opts.port = 0;
+
+    /* The Match originalhost keyword is ignored */
+    config = fopen("test_config", "w");
+    assert_non_null(config);
+    fputs("Match originalhost origin\n"
+          "\tPort 33\n"
+          "Match all\n"
+          "\tPort 34\n",
+          config);
+    fclose(config);
+
+    rv = ssh_options_parse_config(session, "test_config");
+    assert_ssh_return_code(session, rv);
+    assert_int_equal(session->opts.port, 34);
+
+    session->opts.port = 0;
+
+    /* The Match localuser keyword is ignored */
+    config = fopen("test_config", "w");
+    assert_non_null(config);
+    fputs("Match originalhost origin\n"
+          "\tPort 33\n"
+          "Match all\n"
+          "\tPort 34\n",
+          config);
+    fclose(config);
+
+    rv = ssh_options_parse_config(session, "test_config");
+    assert_ssh_return_code(session, rv);
+    assert_int_equal(session->opts.port, 34);
+
+    session->opts.port = 0;
+
+    /* The Match exec keyword is ignored */
+    config = fopen("test_config", "w");
+    assert_non_null(config);
+    fputs("Match exec /bin/true\n"
+          "\tPort 33\n"
+          "Match all\n"
+          "\tPort 34\n",
+          config);
+    fclose(config);
+
+    rv = ssh_options_parse_config(session, "test_config");
+    assert_ssh_return_code(session, rv);
+    assert_int_equal(session->opts.port, 34);
+
+    session->opts.port = 0;
+
+    unlink("test_config");
+}
+
 
 
 #ifdef WITH_SERVER
@@ -366,19 +566,26 @@ static void torture_bind_options_import_key(void **state)
     base64_key = torture_get_testkey(SSH_KEYTYPE_RSA, 0, 0);
     rc = ssh_pki_import_privkey_base64(base64_key, NULL, NULL, NULL, &key);
     assert_int_equal(rc, SSH_OK);
+    assert_non_null(key);
 
     rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY, key);
     assert_int_equal(rc, 0);
 #ifdef HAVE_DSA
     /* set dsa key */
     base64_key = torture_get_testkey(SSH_KEYTYPE_DSS, 0, 0);
-    ssh_pki_import_privkey_base64(base64_key, NULL, NULL, NULL, &key);
+    rc = ssh_pki_import_privkey_base64(base64_key, NULL, NULL, NULL, &key);
+    assert_int_equal(rc, SSH_OK);
+    assert_non_null(key);
+
     rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY, key);
     assert_int_equal(rc, 0);
 #endif
     /* set ecdsa key */
     base64_key = torture_get_testkey(SSH_KEYTYPE_ECDSA, 512, 0);
-    ssh_pki_import_privkey_base64(base64_key, NULL, NULL, NULL, &key);
+    rc = ssh_pki_import_privkey_base64(base64_key, NULL, NULL, NULL, &key);
+    assert_int_equal(rc, SSH_OK);
+    assert_non_null(key);
+
     rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY, key);
     assert_int_equal(rc, 0);
 }
@@ -401,8 +608,11 @@ int torture_run_tests(void) {
         cmocka_unit_test_setup_teardown(torture_options_set_ciphers, setup, teardown),
         cmocka_unit_test_setup_teardown(torture_options_set_key_exchange, setup, teardown),
         cmocka_unit_test_setup_teardown(torture_options_set_hostkey, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_set_pubkey_accepted_types, setup, teardown),
         cmocka_unit_test_setup_teardown(torture_options_set_macs, setup, teardown),
-        cmocka_unit_test_setup_teardown(torture_options_config_host, setup, teardown)
+        cmocka_unit_test_setup_teardown(torture_options_config_host, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_config_match,
+                                        setup, teardown)
     };
 
 #ifdef WITH_SERVER

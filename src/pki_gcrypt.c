@@ -1030,6 +1030,27 @@ fail:
     return NULL;
 }
 
+int pki_privkey_build_dss(ssh_key key,
+                          ssh_string p,
+                          ssh_string q,
+                          ssh_string g,
+                          ssh_string pubkey,
+                          ssh_string privkey)
+{
+    gcry_sexp_build(&key->dsa, NULL,
+            "(private-key(dsa(p %b)(q %b)(g %b)(y %b)(x %b)))",
+            ssh_string_len(p), ssh_string_data(p),
+            ssh_string_len(q), ssh_string_data(q),
+            ssh_string_len(g), ssh_string_data(g),
+            ssh_string_len(pubkey), ssh_string_data(pubkey),
+            ssh_string_len(privkey), ssh_string_data(privkey));
+    if (key->dsa == NULL) {
+        return SSH_ERROR;
+    }
+
+    return SSH_OK;
+}
+
 int pki_pubkey_build_dss(ssh_key key,
                          ssh_string p,
                          ssh_string q,
@@ -1042,6 +1063,32 @@ int pki_pubkey_build_dss(ssh_key key,
             ssh_string_len(g), ssh_string_data(g),
             ssh_string_len(pubkey), ssh_string_data(pubkey));
     if (key->dsa == NULL) {
+        return SSH_ERROR;
+    }
+
+    return SSH_OK;
+}
+
+int pki_privkey_build_rsa(ssh_key key,
+                          ssh_string n,
+                          ssh_string e,
+                          ssh_string d,
+                          ssh_string iqmp,
+                          ssh_string p,
+                          ssh_string q)
+{
+    /* in gcrypt, there is no iqmp (inverse of q mod p) argument,
+     * but it is ipmq (inverse of p mod q) so we need to swap
+     * the p and q arguments */
+    gcry_sexp_build(&key->rsa, NULL,
+            "(private-key(rsa(n %b)(e %b)(d %b)(p %b)(q %b)(u %b)))",
+            ssh_string_len(n), ssh_string_data(n),
+            ssh_string_len(e), ssh_string_data(e),
+            ssh_string_len(d), ssh_string_data(d),
+            ssh_string_len(q), ssh_string_data(q),
+            ssh_string_len(p), ssh_string_data(p),
+            ssh_string_len(iqmp), ssh_string_data(iqmp));
+    if (key->rsa == NULL) {
         return SSH_ERROR;
     }
 
@@ -1063,6 +1110,25 @@ int pki_pubkey_build_rsa(ssh_key key,
 }
 
 #ifdef HAVE_GCRYPT_ECC
+int pki_privkey_build_ecdsa(ssh_key key, int nid, ssh_string e, ssh_string exp)
+{
+    gpg_error_t err;
+
+    key->ecdsa_nid = nid;
+    key->type_c = pki_key_ecdsa_nid_to_name(nid);
+
+    err = gcry_sexp_build(&key->ecdsa, NULL,
+                          "(private-key(ecdsa(curve %s)(d %b)(q %b)))",
+                          pki_key_ecdsa_nid_to_gcrypt_name(nid),
+                          ssh_string_len(exp), ssh_string_data(exp),
+                          ssh_string_len(e), ssh_string_data(e));
+    if (err) {
+        return SSH_ERROR;
+    }
+
+    return SSH_OK;
+}
+
 int pki_pubkey_build_ecdsa(ssh_key key, int nid, ssh_string e)
 {
     gpg_error_t err;
@@ -1773,7 +1839,8 @@ ssh_string pki_signature_to_blob(const ssh_signature sig)
 
 ssh_signature pki_signature_from_blob(const ssh_key pubkey,
                                       const ssh_string sig_blob,
-                                      enum ssh_keytypes_e type)
+                                      enum ssh_keytypes_e type,
+                                      enum ssh_digest_e hash_type)
 {
     ssh_signature sig;
     gcry_error_t err;
@@ -1787,6 +1854,8 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
     }
 
     sig->type = type;
+    sig->hash_type = hash_type;
+    sig->type_c = ssh_key_signature_to_char(type, hash_type);
 
     len = ssh_string_len(sig_blob);
 
@@ -1955,7 +2024,7 @@ int pki_signature_verify(ssh_session session,
     unsigned char * ghash = (char *)_alloca( sizeof( char )*( hlen + 1 ) );
 #else
     unsigned char ghash[hlen + 1];
-#endif
+    const char *hash_type = NULL;
     gcry_sexp_t sexp;
     gcry_error_t err;
 
@@ -1990,10 +2059,29 @@ int pki_signature_verify(ssh_session session,
             }
             break;
         case SSH_KEYTYPE_RSA:
+            switch (sig->hash_type) {
+            case SSH_DIGEST_SHA256:
+                hash_type = "sha256";
+                break;
+            case SSH_DIGEST_SHA512:
+                hash_type = "sha512";
+                break;
+            case SSH_DIGEST_SHA1:
+            case SSH_DIGEST_AUTO:
+                hash_type = "sha1";
+                break;
+            default:
+                SSH_LOG(SSH_LOG_TRACE, "Unknown sig type %d", sig->hash_type);
+                ssh_set_error(session,
+                              SSH_FATAL,
+                              "Unexpected signature type %d during RSA verify",
+                              sig->hash_type);
+                return SSH_ERROR;
+            }
             err = gcry_sexp_build(&sexp,
                                   NULL,
-                                  "(data(flags pkcs1)(hash sha1 %b))",
-                                  hlen, hash);
+                                  "(data(flags pkcs1)(hash %s %b))",
+                                  hash_type, hlen, hash);
             if (err) {
                 ssh_set_error(session,
                               SSH_FATAL,
@@ -2060,23 +2148,29 @@ int pki_signature_verify(ssh_session session,
     return SSH_OK;
 }
 
-ssh_signature pki_do_sign(const ssh_key privkey,
-                          const unsigned char *hash,
-                          size_t hlen) {
-#ifdef _MSC_VER
-    unsigned char * ghash = (char *)_alloca( sizeof( char )*( hlen + 1 ) );
-#else
+ssh_signature pki_do_sign_hash(const ssh_key privkey,
+                               const unsigned char *hash,
+                               size_t hlen,
+                               enum ssh_digest_e hash_type)
+{
     unsigned char ghash[hlen + 1];
-#endif
+    const char *hash_c = NULL;
     ssh_signature sig;
     gcry_sexp_t sexp;
     gcry_error_t err;
+
+    /* Only RSA supports different signature algorithm types now */
+    if (privkey->type != SSH_KEYTYPE_RSA && hash_type != SSH_DIGEST_AUTO) {
+        SSH_LOG(SSH_LOG_WARN, "Incompatible signature algorithm passed");
+        return NULL;
+    }
 
     sig = ssh_signature_new();
     if (sig == NULL) {
         return NULL;
     }
     sig->type = privkey->type;
+    sig->hash_type = hash_type;
     sig->type_c = privkey->type_c;
     switch (privkey->type) {
         case SSH_KEYTYPE_DSS:
@@ -2102,9 +2196,26 @@ ssh_signature pki_do_sign(const ssh_key privkey,
             }
             break;
         case SSH_KEYTYPE_RSA:
+            sig->type_c = ssh_key_signature_to_char(privkey->type, hash_type);
+            switch (hash_type) {
+            case SSH_DIGEST_SHA1:
+            case SSH_DIGEST_AUTO:
+                hash_c = "sha1";
+                break;
+            case SSH_DIGEST_SHA256:
+                hash_c = "sha256";
+                break;
+            case SSH_DIGEST_SHA512:
+                hash_c = "sha512";
+                break;
+            default:
+                SSH_LOG(SSH_LOG_WARN, "Incomplatible key algorithm");
+                return NULL;
+            }
             err = gcry_sexp_build(&sexp,
                                   NULL,
-                                  "(data(flags pkcs1)(hash sha1 %b))",
+                                  "(data(flags pkcs1)(hash %s %b))",
+                                  hash_c,
                                   hlen,
                                   hash);
             if (err) {
@@ -2157,23 +2268,31 @@ ssh_signature pki_do_sign(const ssh_key privkey,
 }
 
 #ifdef WITH_SERVER
-ssh_signature pki_do_sign_sessionid(const ssh_key key,
-                                    const unsigned char *hash,
-                                    size_t hlen)
+ssh_signature pki_do_sign_sessionid_hash(const ssh_key key,
+                                         const unsigned char *hash,
+                                         size_t hlen,
+                                         enum ssh_digest_e hash_type)
 {
 #ifdef _MSC_VER
     unsigned char * ghash = (char *)_alloca( sizeof( char )*( hlen + 1 ) );
 #else
     unsigned char ghash[hlen + 1];
-#endif
+    const char *hash_c = NULL;
     ssh_signature sig;
     gcry_sexp_t sexp;
     gcry_error_t err;
+
+    /* Only RSA supports different signature algorithm types now */
+    if (key->type != SSH_KEYTYPE_RSA && hash_type != SSH_DIGEST_AUTO) {
+        SSH_LOG(SSH_LOG_WARN, "Incompatible signature algorithm passed");
+        return NULL;
+    }
 
     sig = ssh_signature_new();
     if (sig == NULL) {
         return NULL;
     }
+
     sig->type = key->type;
     sig->type_c = key->type_c;
 
@@ -2200,9 +2319,25 @@ ssh_signature pki_do_sign_sessionid(const ssh_key key,
             }
             break;
         case SSH_KEYTYPE_RSA:
+            sig->type_c = ssh_key_signature_to_char(key->type, hash_type);
+            switch (hash_type) {
+            case SSH_DIGEST_SHA1:
+                hash_c = "sha1";
+                break;
+            case SSH_DIGEST_SHA256:
+                hash_c = "sha256";
+                break;
+            case SSH_DIGEST_SHA512:
+                hash_c = "sha512";
+                break;
+            default:
+                SSH_LOG(SSH_LOG_WARN, "Incomplatible key algorithm");
+                return NULL;
+            }
             err = gcry_sexp_build(&sexp,
                                   NULL,
-                                  "(data(flags pkcs1)(hash sha1 %b))",
+                                  "(data(flags pkcs1)(hash %s %b))",
+                                  hash_c,
                                   hlen,
                                   hash);
             if (err) {

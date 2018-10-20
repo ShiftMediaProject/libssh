@@ -214,6 +214,64 @@ fail:
     return NULL;
 }
 
+int pki_privkey_build_rsa(ssh_key key,
+                          ssh_string n,
+                          ssh_string e,
+                          ssh_string d,
+                          ssh_string iqmp,
+                          ssh_string p,
+                          ssh_string q)
+{
+    mbedtls_rsa_context *rsa = NULL;
+    const mbedtls_pk_info_t *pk_info = NULL;
+    int rc;
+
+    key->rsa = malloc(sizeof(mbedtls_pk_context));
+    if (key->rsa == NULL) {
+        return SSH_ERROR;
+    }
+
+    mbedtls_pk_init(key->rsa);
+    pk_info = mbedtls_pk_info_from_type(MBEDTLS_PK_RSA);
+    mbedtls_pk_setup(key->rsa, pk_info);
+
+    rc = mbedtls_pk_can_do(key->rsa, MBEDTLS_PK_RSA);
+    if (rc == 0) {
+        goto fail;
+    }
+
+    rsa = mbedtls_pk_rsa(*key->rsa);
+    rc = mbedtls_rsa_import_raw(rsa,
+                                ssh_string_data(n), ssh_string_len(n),
+                                ssh_string_data(p), ssh_string_len(p),
+                                ssh_string_data(q), ssh_string_len(q),
+                                ssh_string_data(d), ssh_string_len(d),
+                                ssh_string_data(e), ssh_string_len(e));
+    if (rc != 0) {
+        SSH_LOG(SSH_LOG_WARN, "Failed to import private RSA key");
+        goto fail;
+    }
+
+    rc = mbedtls_rsa_complete(rsa);
+    if (rc != 0) {
+        SSH_LOG(SSH_LOG_WARN, "Failed to complete private RSA key");
+        goto fail;
+    }
+
+    rc = mbedtls_rsa_check_privkey(rsa);
+    if (rc != 0) {
+        SSH_LOG(SSH_LOG_WARN, "Inconsistent private RSA key");
+        goto fail;
+    }
+
+    return SSH_OK;
+
+fail:
+    mbedtls_pk_free(key->rsa);
+    SAFE_FREE(key->rsa);
+    return SSH_ERROR;
+}
+
 int pki_pubkey_build_rsa(ssh_key key, ssh_string e, ssh_string n)
 {
     mbedtls_rsa_context *rsa = NULL;
@@ -229,25 +287,31 @@ int pki_pubkey_build_rsa(ssh_key key, ssh_string e, ssh_string n)
     pk_info = mbedtls_pk_info_from_type(MBEDTLS_PK_RSA);
     mbedtls_pk_setup(key->rsa, pk_info);
 
-    if (mbedtls_pk_can_do(key->rsa, MBEDTLS_PK_RSA)) {
-        rsa = mbedtls_pk_rsa(*key->rsa);
-        rc = mbedtls_mpi_read_binary(&rsa->N, ssh_string_data(n),
-                ssh_string_len(n));
-        if (rc != 0) {
-            return SSH_ERROR;
-        }
-        rc = mbedtls_mpi_read_binary(&rsa->E, ssh_string_data(e),
-                ssh_string_len(e));
-        if (rc != 0) {
-            return SSH_ERROR;
-        }
-
-        rsa->len = (mbedtls_mpi_bitlen(&rsa->N) + 7) >> 3;
-    } else {
-        return SSH_ERROR;
+    rc = mbedtls_pk_can_do(key->rsa, MBEDTLS_PK_RSA);
+    if (rc == 0) {
+        goto fail;
     }
 
+    rsa = mbedtls_pk_rsa(*key->rsa);
+    rc = mbedtls_mpi_read_binary(&rsa->N, ssh_string_data(n),
+                                 ssh_string_len(n));
+    if (rc != 0) {
+        goto fail;
+    }
+    rc = mbedtls_mpi_read_binary(&rsa->E, ssh_string_data(e),
+                                 ssh_string_len(e));
+    if (rc != 0) {
+        goto fail;
+    }
+
+    rsa->len = (mbedtls_mpi_bitlen(&rsa->N) + 7) >> 3;
+
     return SSH_OK;
+
+fail:
+    mbedtls_pk_free(key->rsa);
+    SAFE_FREE(key->rsa);
+    return SSH_ERROR;
 }
 
 ssh_key pki_key_dup(const ssh_key key, int demote)
@@ -825,8 +889,10 @@ errout:
     ssh_signature_free(sig);
     return NULL;
 }
-ssh_signature pki_signature_from_blob(const ssh_key pubkey, const ssh_string
-        sig_blob, enum ssh_keytypes_e type)
+ssh_signature pki_signature_from_blob(const ssh_key pubkey,
+                                      const ssh_string sig_blob,
+                                      enum ssh_keytypes_e type,
+                                      enum ssh_digest_e hash_type)
 {
     ssh_signature sig = NULL;
     int rc;
@@ -837,7 +903,8 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey, const ssh_string
     }
 
     sig->type = type;
-    sig->type_c = ssh_key_type_to_char(type);
+    sig->hash_type = hash_type;
+    sig->type_c = ssh_key_signature_to_char(type, hash_type);
 
     switch(type) {
         case SSH_KEYTYPE_RSA:
@@ -930,10 +997,30 @@ int pki_signature_verify(ssh_session session, const ssh_signature sig, const
         ssh_key key, const unsigned char *hash, size_t hlen)
 {
     int rc;
+    mbedtls_md_type_t md = 0;
 
     switch (key->type) {
         case SSH_KEYTYPE_RSA:
-            rc = mbedtls_pk_verify(key->rsa, MBEDTLS_MD_SHA1, hash, hlen,
+            switch (sig->hash_type) {
+            case SSH_DIGEST_SHA1:
+            case SSH_DIGEST_AUTO:
+                md = MBEDTLS_MD_SHA1;
+                break;
+            case SSH_DIGEST_SHA256:
+                md = MBEDTLS_MD_SHA256;
+                break;
+            case SSH_DIGEST_SHA512:
+                md = MBEDTLS_MD_SHA512;
+                break;
+            default:
+                SSH_LOG(SSH_LOG_TRACE, "Unknown sig type %d", sig->hash_type);
+                ssh_set_error(session,
+                              SSH_FATAL,
+                              "Unexpected signature hash type %d during RSA verify",
+                              sig->hash_type);
+                return SSH_ERROR;
+            }
+            rc = mbedtls_pk_verify(key->rsa, md, hash, hlen,
                     ssh_string_data(sig->rsa_sig),
                     ssh_string_len(sig->rsa_sig));
             if (rc != 0) {
@@ -970,13 +1057,32 @@ int pki_signature_verify(ssh_session session, const ssh_signature sig, const
     return SSH_OK;
 }
 
-static ssh_string rsa_do_sign(const unsigned char *digest, int dlen,
-        mbedtls_pk_context *privkey)
+static ssh_string rsa_do_sign_hash(const unsigned char *digest,
+                                   int dlen,
+                                   mbedtls_pk_context *privkey,
+                                   enum ssh_digest_e hash_type)
 {
     ssh_string sig_blob = NULL;
+    mbedtls_md_type_t md = 0;
     unsigned char *sig = NULL;
     size_t slen;
     int ok;
+
+    switch (hash_type) {
+    case SSH_DIGEST_SHA1:
+    case SSH_DIGEST_AUTO:
+        md = MBEDTLS_MD_SHA1;
+        break;
+    case SSH_DIGEST_SHA256:
+        md = MBEDTLS_MD_SHA256;
+        break;
+    case SSH_DIGEST_SHA512:
+        md = MBEDTLS_MD_SHA512;
+        break;
+    default:
+        SSH_LOG(SSH_LOG_WARN, "Incomplatible key algorithm");
+        return NULL;
+    }
 
     sig = malloc(mbedtls_pk_get_bitlen(privkey) / 8);
     if (sig == NULL) {
@@ -984,7 +1090,7 @@ static ssh_string rsa_do_sign(const unsigned char *digest, int dlen,
     }
 
     ok = mbedtls_pk_sign(privkey,
-                         MBEDTLS_MD_SHA1,
+                         md,
                          digest,
                          dlen,
                          sig,
@@ -1004,18 +1110,26 @@ static ssh_string rsa_do_sign(const unsigned char *digest, int dlen,
     }
 
     ssh_string_fill(sig_blob, sig, slen);
-    memset(sig, 'd', slen);
+    explicit_bzero(sig, slen);
     SAFE_FREE(sig);
 
     return sig_blob;
 }
 
 
-ssh_signature pki_do_sign(const ssh_key privkey, const unsigned char *hash,
-        size_t hlen)
+ssh_signature pki_do_sign_hash(const ssh_key privkey,
+                               const unsigned char *hash,
+                               size_t hlen,
+                               enum ssh_digest_e hash_type)
 {
     ssh_signature sig = NULL;
     int rc;
+
+    /* Only RSA supports different signature algorithm types now */
+    if (privkey->type != SSH_KEYTYPE_RSA && hash_type != SSH_DIGEST_AUTO) {
+        SSH_LOG(SSH_LOG_WARN, "Incompatible signature algorithm passed");
+        return NULL;
+    }
 
     sig = ssh_signature_new();
     if (sig == NULL) {
@@ -1023,11 +1137,13 @@ ssh_signature pki_do_sign(const ssh_key privkey, const unsigned char *hash,
     }
 
     sig->type = privkey->type;
+    sig->hash_type = hash_type;
     sig->type_c = privkey->type_c;
 
     switch(privkey->type) {
         case SSH_KEYTYPE_RSA:
-            sig->rsa_sig = rsa_do_sign(hash, hlen, privkey->rsa);
+            sig->type_c = ssh_key_signature_to_char(privkey->type, hash_type);
+            sig->rsa_sig = rsa_do_sign_hash(hash, hlen, privkey->rsa, hash_type);
             if (sig->rsa_sig == NULL) {
                 ssh_signature_free(sig);
                 return NULL;
@@ -1075,22 +1191,32 @@ ssh_signature pki_do_sign(const ssh_key privkey, const unsigned char *hash,
 }
 
 #ifdef WITH_SERVER
-ssh_signature pki_do_sign_sessionid(const ssh_key key, const unsigned char
-        *hash, size_t hlen)
+ssh_signature pki_do_sign_sessionid_hash(const ssh_key key,
+                                         const unsigned char *hash,
+                                         size_t hlen,
+                                         enum ssh_digest_e hash_type)
 {
     ssh_signature sig = NULL;
     int rc;
+
+    /* Only RSA supports different signature algorithm types now */
+    if (key->type != SSH_KEYTYPE_RSA && hash_type != SSH_DIGEST_AUTO) {
+        SSH_LOG(SSH_LOG_WARN, "Incompatible signature algorithm passed");
+        return NULL;
+    }
 
     sig = ssh_signature_new();
     if (sig == NULL) {
         return NULL;
     }
+
     sig->type = key->type;
     sig->type_c = key->type_c;
 
     switch (key->type) {
         case SSH_KEYTYPE_RSA:
-            sig->rsa_sig = rsa_do_sign(hash, hlen, key->rsa);
+            sig->type_c = ssh_key_signature_to_char(key->type, hash_type);
+            sig->rsa_sig = rsa_do_sign_hash(hash, hlen, key->rsa, hash_type);
             if (sig->rsa_sig == NULL) {
                 ssh_signature_free(sig);
                 return NULL;
@@ -1173,6 +1299,73 @@ static mbedtls_ecp_group_id pki_key_ecdsa_nid_to_mbed_gid(int nid)
     }
 
     return MBEDTLS_ECP_DP_NONE;
+}
+
+int pki_privkey_build_ecdsa(ssh_key key, int nid, ssh_string e, ssh_string exp)
+{
+    int rc;
+    mbedtls_ecp_keypair keypair;
+    mbedtls_ecp_group group;
+    mbedtls_ecp_point Q;
+
+    key->ecdsa_nid = nid;
+    key->type_c = pki_key_ecdsa_nid_to_name(nid);
+
+    key->ecdsa = malloc(sizeof(mbedtls_ecdsa_context));
+    if (key->ecdsa == NULL) {
+        return SSH_ERROR;
+    }
+
+    mbedtls_ecdsa_init(key->ecdsa);
+    mbedtls_ecp_keypair_init(&keypair);
+    mbedtls_ecp_group_init(&group);
+    mbedtls_ecp_point_init(&Q);
+
+    rc = mbedtls_ecp_group_load(&group,
+                                pki_key_ecdsa_nid_to_mbed_gid(nid));
+    if (rc != 0) {
+        goto fail;
+    }
+
+    rc = mbedtls_ecp_point_read_binary(&group, &Q, ssh_string_data(e),
+                                       ssh_string_len(e));
+    if (rc != 0) {
+        goto fail;
+    }
+
+    rc = mbedtls_ecp_copy(&keypair.Q, &Q);
+    if (rc != 0) {
+        goto fail;
+    }
+
+    rc = mbedtls_ecp_group_copy(&keypair.grp, &group);
+    if (rc != 0) {
+        goto fail;
+    }
+
+    rc = mbedtls_mpi_read_binary(&keypair.d, ssh_string_data(exp),
+                                 ssh_string_len(exp));
+    if (rc != 0) {
+        goto fail;
+    }
+
+    rc = mbedtls_ecdsa_from_keypair(key->ecdsa, &keypair);
+    if (rc != 0) {
+        goto fail;
+    }
+
+    mbedtls_ecp_point_free(&Q);
+    mbedtls_ecp_group_free(&group);
+    mbedtls_ecp_keypair_free(&keypair);
+    return SSH_OK;
+
+fail:
+    mbedtls_ecdsa_free(key->ecdsa);
+    mbedtls_ecp_point_free(&Q);
+    mbedtls_ecp_group_free(&group);
+    mbedtls_ecp_keypair_free(&keypair);
+    SAFE_FREE(key->ecdsa);
+    return SSH_ERROR;
 }
 
 int pki_pubkey_build_ecdsa(ssh_key key, int nid, ssh_string e)
@@ -1277,6 +1470,18 @@ int pki_key_generate_ecdsa(ssh_key key, int parameter)
     }
 
     return SSH_OK;
+}
+
+int pki_privkey_build_dss(ssh_key key, ssh_string p, ssh_string q, ssh_string g,
+        ssh_string pubkey, ssh_string privkey)
+{
+    (void) key;
+    (void) p;
+    (void) q;
+    (void) g;
+    (void) pubkey;
+    (void) privkey;
+    return SSH_ERROR;
 }
 
 int pki_pubkey_build_dss(ssh_key key, ssh_string p, ssh_string q, ssh_string g,

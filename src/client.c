@@ -250,6 +250,8 @@ static int dh_handshake(ssh_session session) {
       switch(session->next_crypto->kex_type){
         case SSH_KEX_DH_GROUP1_SHA1:
         case SSH_KEX_DH_GROUP14_SHA1:
+        case SSH_KEX_DH_GROUP16_SHA512:
+        case SSH_KEX_DH_GROUP18_SHA512:
           rc = ssh_client_dh_init(session);
           break;
 #ifdef HAVE_ECDH

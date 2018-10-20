@@ -172,10 +172,65 @@ static ssh_string make_ecpoint_string(const EC_GROUP *g,
     return s;
 }
 
+int pki_privkey_build_ecdsa(ssh_key key, int nid, ssh_string e, ssh_string exp)
+{
+    EC_POINT *p = NULL;
+    const EC_GROUP *g = NULL;
+    int ok;
+    BIGNUM *bexp = NULL;
+
+    key->ecdsa_nid = nid;
+    key->type_c = pki_key_ecdsa_nid_to_name(nid);
+
+    key->ecdsa = EC_KEY_new_by_curve_name(key->ecdsa_nid);
+    if (key->ecdsa == NULL) {
+        return -1;
+    }
+
+    g = EC_KEY_get0_group(key->ecdsa);
+
+    p = EC_POINT_new(g);
+    if (p == NULL) {
+        return -1;
+    }
+
+    ok = EC_POINT_oct2point(g,
+                            p,
+                            ssh_string_data(e),
+                            ssh_string_len(e),
+                            NULL);
+    if (!ok) {
+        EC_POINT_free(p);
+        return -1;
+    }
+
+    /* EC_KEY_set_public_key duplicates p */
+    ok = EC_KEY_set_public_key(key->ecdsa, p);
+    EC_POINT_free(p);
+    if (!ok) {
+        return -1;
+    }
+
+    bexp = ssh_make_string_bn(exp);
+    if (bexp == NULL) {
+        EC_KEY_free(key->ecdsa);
+        return -1;
+    }
+    /* EC_KEY_set_private_key duplicates exp */
+    ok = EC_KEY_set_private_key(key->ecdsa, bexp);
+    BN_free(bexp);
+    if (!ok) {
+        EC_KEY_free(key->ecdsa);
+        return -1;
+    }
+
+    return 0;
+}
+
 int pki_pubkey_build_ecdsa(ssh_key key, int nid, ssh_string e)
 {
-    EC_POINT *p;
-    const EC_GROUP *g;
+    EC_POINT *p = NULL;
+    const EC_GROUP *g = NULL;
     int ok;
 
     key->ecdsa_nid = nid;
@@ -260,6 +315,7 @@ ssh_key pki_key_dup(const ssh_key key, int demote)
             goto fail;
         }
 
+        /* Memory management of np, nq and ng is transfered to DSA object */
         rc = DSA_set0_pqg(new->dsa, np, nq, ng);
         if (rc == 0) {
             BN_free(np);
@@ -274,6 +330,7 @@ ssh_key pki_key_dup(const ssh_key key, int demote)
             goto fail;
         }
 
+        /* Memory management of npubkey is transfered to DSA object */
         rc = DSA_set0_key(new->dsa, npub_key, NULL);
         if (rc == 0) {
             goto fail;
@@ -285,6 +342,7 @@ ssh_key pki_key_dup(const ssh_key key, int demote)
                 goto fail;
             }
 
+            /* Memory management of npriv_key is transfered to DSA object */
             rc = DSA_set0_key(new->dsa, NULL, npriv_key);
             if (rc == 0) {
                 goto fail;
@@ -321,6 +379,7 @@ ssh_key pki_key_dup(const ssh_key key, int demote)
             goto fail;
         }
 
+        /* Memory management of nn and ne is transfered to RSA object */
         rc = RSA_set0_key(new->rsa, nn, ne, NULL);
         if (rc == 0) {
             BN_free(nn);
@@ -338,6 +397,7 @@ ssh_key pki_key_dup(const ssh_key key, int demote)
                 goto fail;
             }
 
+            /* Memory management of nd is transfered to RSA object */
             rc = RSA_set0_key(new->rsa, NULL, NULL, nd);
             if (rc == 0) {
                 goto fail;
@@ -356,6 +416,7 @@ ssh_key pki_key_dup(const ssh_key key, int demote)
                     goto fail;
                 }
 
+                /* Memory management of np and nq is transfered to RSA object */
                 rc = RSA_set0_factors(new->rsa, np, nq);
                 if (rc == 0) {
                     BN_free(np);
@@ -376,6 +437,8 @@ ssh_key pki_key_dup(const ssh_key key, int demote)
                     goto fail;
                 }
 
+                /* Memory management of ndmp1, ndmq1 and niqmp is transfered
+                 * to RSA object */
                 rc =  RSA_set0_crt_params(new->rsa, ndmp1, ndmq1, niqmp);
                 if (rc == 0) {
                     BN_free(ndmp1);
@@ -888,13 +951,56 @@ fail:
     return NULL;
 }
 
+int pki_privkey_build_dss(ssh_key key,
+                          ssh_string p,
+                          ssh_string q,
+                          ssh_string g,
+                          ssh_string pubkey,
+                          ssh_string privkey)
+{
+    int rc;
+    BIGNUM *bp, *bq, *bg, *bpub_key, *bpriv_key;
+
+    key->dsa = DSA_new();
+    if (key->dsa == NULL) {
+        return SSH_ERROR;
+    }
+
+    bp = ssh_make_string_bn(p);
+    bq = ssh_make_string_bn(q);
+    bg = ssh_make_string_bn(g);
+    bpub_key = ssh_make_string_bn(pubkey);
+    bpriv_key = ssh_make_string_bn(privkey);
+    if (bp == NULL || bq == NULL ||
+        bg == NULL || bpub_key == NULL) {
+        goto fail;
+    }
+
+    /* Memory management of bp, qq and bg is transfered to DSA object */
+    rc = DSA_set0_pqg(key->dsa, bp, bq, bg);
+    if (rc == 0) {
+        goto fail;
+    }
+
+    /* Memory management of bpub_key and bpriv_key is transfered to DSA object */
+    rc = DSA_set0_key(key->dsa, bpub_key, bpriv_key);
+    if (rc == 0) {
+        goto fail;
+    }
+
+    return SSH_OK;
+fail:
+    DSA_free(key->dsa);
+    return SSH_ERROR;
+}
+
 int pki_pubkey_build_dss(ssh_key key,
                          ssh_string p,
                          ssh_string q,
                          ssh_string g,
                          ssh_string pubkey) {
     int rc;
-    BIGNUM *bp, *bq, *bg, *bpub_key;
+    BIGNUM *bp = NULL, *bq = NULL, *bg = NULL, *bpub_key = NULL;
 
     key->dsa = DSA_new();
     if (key->dsa == NULL) {
@@ -910,11 +1016,13 @@ int pki_pubkey_build_dss(ssh_key key,
         goto fail;
     }
 
+    /* Memory management of bp, bq and bg is transfered to DSA object */
     rc = DSA_set0_pqg(key->dsa, bp, bq, bg);
     if (rc == 0) {
         goto fail;
     }
 
+    /* Memory management of npub_key is transfered to DSA object */
     rc = DSA_set0_key(key->dsa, bpub_key, NULL);
     if (rc == 0) {
         goto fail;
@@ -926,11 +1034,63 @@ fail:
     return SSH_ERROR;
 }
 
+int pki_privkey_build_rsa(ssh_key key,
+                          ssh_string n,
+                          ssh_string e,
+                          ssh_string d,
+                          ssh_string iqmp,
+                          ssh_string p,
+                          ssh_string q)
+{
+    int rc;
+    BIGNUM *be, *bn, *bd/*, *biqmp*/, *bp, *bq;
+
+    key->rsa = RSA_new();
+    if (key->rsa == NULL) {
+        return SSH_ERROR;
+    }
+
+    bn = ssh_make_string_bn(n);
+    be = ssh_make_string_bn(e);
+    bd = ssh_make_string_bn(d);
+    /*biqmp = ssh_make_string_bn(iqmp);*/
+    bp = ssh_make_string_bn(p);
+    bq = ssh_make_string_bn(q);
+    if (be == NULL || bn == NULL || bd == NULL ||
+        /*biqmp == NULL ||*/ bp == NULL || bq == NULL) {
+        goto fail;
+    }
+
+    /* Memory management of be, bn and bd is transfered to RSA object */
+    rc = RSA_set0_key(key->rsa, bn, be, bd);
+    if (rc == 0) {
+        goto fail;
+    }
+
+    /* Memory management of bp and bq is transfered to RSA object */
+    rc = RSA_set0_factors(key->rsa, bp, bq);
+    if (rc == 0) {
+        goto fail;
+    }
+
+    /* p, q, dmp1, dmq1 and iqmp may be NULL in private keys, but the RSA
+     * operations are much faster when these values are available.
+     * https://www.openssl.org/docs/man1.0.2/crypto/rsa.html
+     */
+    /* RSA_set0_crt_params(key->rsa, biqmp, NULL, NULL);
+    TODO calculate missing crt_params */
+
+    return SSH_OK;
+fail:
+    RSA_free(key->rsa);
+    return SSH_ERROR;
+}
+
 int pki_pubkey_build_rsa(ssh_key key,
                          ssh_string e,
                          ssh_string n) {
     int rc;
-    BIGNUM *be, *bn;
+    BIGNUM *be = NULL, *bn = NULL;
 
     key->rsa = RSA_new();
     if (key->rsa == NULL) {
@@ -943,6 +1103,7 @@ int pki_pubkey_build_rsa(ssh_key key,
         goto fail;
     }
 
+    /* Memory management of bn and be is transfered to RSA object */
     rc = RSA_set0_key(key->rsa, bn, be, NULL);
     if (rc == 0) {
         goto fail;
@@ -1181,23 +1342,43 @@ fail:
  *
  * @param[in]  privkey   The private rsa key to use for signing.
  *
+ * @param[in]  hash_type The hash algorithm to use.
+ *
  * @return               A newly allocated rsa sig blob or NULL on error.
  */
-static ssh_string _RSA_do_sign(const unsigned char *digest,
-                               int dlen,
-                               RSA *privkey)
+static ssh_string _RSA_do_sign_hash(const unsigned char *digest,
+                                    int dlen,
+                                    RSA *privkey,
+                                    enum ssh_digest_e hash_type)
 {
     ssh_string sig_blob;
     unsigned char *sig;
     unsigned int slen;
     int ok;
+    int nid = 0;
+
+    switch (hash_type) {
+    case SSH_DIGEST_SHA1:
+    case SSH_DIGEST_AUTO:
+        nid = NID_sha1;
+        break;
+    case SSH_DIGEST_SHA256:
+        nid = NID_sha256;
+        break;
+    case SSH_DIGEST_SHA512:
+        nid = NID_sha512;
+        break;
+    default:
+        SSH_LOG(SSH_LOG_WARN, "Incomplatible hash type");
+        return NULL;
+    }
 
     sig = malloc(RSA_size(privkey));
     if (sig == NULL) {
         return NULL;
     }
 
-    ok = RSA_sign(NID_sha1, digest, dlen, sig, &slen, privkey);
+    ok = RSA_sign(nid, digest, dlen, sig, &slen, privkey);
     if (!ok) {
         SAFE_FREE(sig);
         return NULL;
@@ -1210,7 +1391,7 @@ static ssh_string _RSA_do_sign(const unsigned char *digest,
     }
 
     ssh_string_fill(sig_blob, sig, slen);
-    memset(sig, 'd', slen);
+    explicit_bzero(sig, slen);
     SAFE_FREE(sig);
 
     return sig_blob;
@@ -1409,7 +1590,8 @@ errout:
 
 ssh_signature pki_signature_from_blob(const ssh_key pubkey,
                                       const ssh_string sig_blob,
-                                      enum ssh_keytypes_e type)
+                                      enum ssh_keytypes_e type,
+                                      enum ssh_digest_e hash_type)
 {
     ssh_signature sig;
     ssh_string r;
@@ -1424,7 +1606,8 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
     }
 
     sig->type = type;
-    sig->type_c = ssh_key_type_to_char(type);
+    sig->hash_type = hash_type;
+    sig->type_c = ssh_key_signature_to_char(type, hash_type);
 
     len = ssh_string_len(sig_blob);
 
@@ -1478,6 +1661,8 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
                 return NULL;
             }
 
+            /* Memory management of pr and ps is transfered to DSA signature
+             * object */
             rc = DSA_SIG_set0(sig->dsa_sig, pr, ps);
             if (rc == 0) {
                 ssh_signature_free(sig);
@@ -1556,6 +1741,8 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
                     return NULL;
                 }
 
+                /* Memory management of pr and ps is transfered to
+                 * ECDSA signature object */
                 rc = ECDSA_SIG_set0(sig->ecdsa_sig, pr, ps);
                 if (rc == 0) {
                     ssh_signature_free(sig);
@@ -1598,6 +1785,7 @@ int pki_signature_verify(ssh_session session,
                          size_t hlen)
 {
     int rc;
+    int nid;
 
     switch(key->type) {
         case SSH_KEYTYPE_DSS:
@@ -1615,13 +1803,33 @@ int pki_signature_verify(ssh_session session,
             break;
         case SSH_KEYTYPE_RSA:
         case SSH_KEYTYPE_RSA1:
-            rc = RSA_verify(NID_sha1,
+            switch (sig->hash_type) {
+            case SSH_DIGEST_AUTO:
+            case SSH_DIGEST_SHA1:
+                nid = NID_sha1;
+                break;
+            case SSH_DIGEST_SHA256:
+                nid = NID_sha256;
+                break;
+            case SSH_DIGEST_SHA512:
+                nid = NID_sha512;
+                break;
+            default:
+                SSH_LOG(SSH_LOG_TRACE, "Unknown hash type %d", sig->hash_type);
+                ssh_set_error(session,
+                              SSH_FATAL,
+                              "Unexpected hash type %d during RSA verify",
+                              sig->hash_type);
+                return SSH_ERROR;
+            }
+            rc = RSA_verify(nid,
                             hash,
                             hlen,
                             ssh_string_data(sig->rsa_sig),
                             ssh_string_len(sig->rsa_sig),
                             key->rsa);
             if (rc <= 0) {
+                SSH_LOG(SSH_LOG_TRACE, "RSA verify failed");
                 ssh_set_error(session,
                               SSH_FATAL,
                               "RSA error: %s",
@@ -1655,6 +1863,7 @@ int pki_signature_verify(ssh_session session,
 #endif
         case SSH_KEYTYPE_UNKNOWN:
         default:
+            SSH_LOG(SSH_LOG_TRACE, "Unknown key type");
             ssh_set_error(session, SSH_FATAL, "Unknown public key type");
             return SSH_ERROR;
     }
@@ -1662,11 +1871,19 @@ int pki_signature_verify(ssh_session session,
     return SSH_OK;
 }
 
-ssh_signature pki_do_sign(const ssh_key privkey,
-                          const unsigned char *hash,
-                          size_t hlen) {
+ssh_signature pki_do_sign_hash(const ssh_key privkey,
+                               const unsigned char *hash,
+                               size_t hlen,
+                               enum ssh_digest_e hash_type)
+{
     ssh_signature sig;
     int rc;
+
+    /* Only RSA supports different signature algorithm types now */
+    if (privkey->type != SSH_KEYTYPE_RSA && hash_type != SSH_DIGEST_AUTO) {
+        SSH_LOG(SSH_LOG_WARN, "Incompatible signature algorithm passed");
+        return NULL;
+    }
 
     sig = ssh_signature_new();
     if (sig == NULL) {
@@ -1674,6 +1891,7 @@ ssh_signature pki_do_sign(const ssh_key privkey,
     }
 
     sig->type = privkey->type;
+    sig->hash_type = hash_type;
     sig->type_c = privkey->type_c;
 
     switch(privkey->type) {
@@ -1696,7 +1914,8 @@ ssh_signature pki_do_sign(const ssh_key privkey,
             break;
         case SSH_KEYTYPE_RSA:
         case SSH_KEYTYPE_RSA1:
-            sig->rsa_sig = _RSA_do_sign(hash, hlen, privkey->rsa);
+            sig->type_c = ssh_key_signature_to_char(privkey->type, hash_type);
+            sig->rsa_sig = _RSA_do_sign_hash(hash, hlen, privkey->rsa, hash_type);
             if (sig->rsa_sig == NULL) {
                 ssh_signature_free(sig);
                 return NULL;
@@ -1739,16 +1958,24 @@ ssh_signature pki_do_sign(const ssh_key privkey,
 }
 
 #ifdef WITH_SERVER
-ssh_signature pki_do_sign_sessionid(const ssh_key key,
-                                    const unsigned char *hash,
-                                    size_t hlen)
+ssh_signature pki_do_sign_sessionid_hash(const ssh_key key,
+                                         const unsigned char *hash,
+                                         size_t hlen,
+                                         enum ssh_digest_e hash_type)
 {
     ssh_signature sig;
+
+    /* Only RSA supports different signature algorithm types now */
+    if (key->type != SSH_KEYTYPE_RSA && hash_type != SSH_DIGEST_AUTO) {
+        SSH_LOG(SSH_LOG_WARN, "Incompatible signature algorithm passed");
+        return NULL;
+    }
 
     sig = ssh_signature_new();
     if (sig == NULL) {
         return NULL;
     }
+
     sig->type = key->type;
     sig->type_c = key->type_c;
 
@@ -1762,7 +1989,8 @@ ssh_signature pki_do_sign_sessionid(const ssh_key key,
             break;
         case SSH_KEYTYPE_RSA:
         case SSH_KEYTYPE_RSA1:
-            sig->rsa_sig = _RSA_do_sign(hash, hlen, key->rsa);
+            sig->type_c = ssh_key_signature_to_char(key->type, hash_type);
+            sig->rsa_sig = _RSA_do_sign_hash(hash, hlen, key->rsa, hash_type);
             if (sig->rsa_sig == NULL) {
                 ssh_signature_free(sig);
                 return NULL;

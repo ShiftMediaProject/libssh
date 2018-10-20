@@ -76,44 +76,46 @@ static ssh_channel channel_from_msg(ssh_session session, ssh_buffer packet);
  *
  * @return              A pointer to a newly allocated channel, NULL on error.
  */
-ssh_channel ssh_channel_new(ssh_session session) {
-  ssh_channel channel = NULL;
+ssh_channel ssh_channel_new(ssh_session session)
+{
+    ssh_channel channel = NULL;
 
-  if(session == NULL) {
-      return NULL;
-  }
+    if (session == NULL) {
+        return NULL;
+    }
 
-  channel = malloc(sizeof(struct ssh_channel_struct));
-  if (channel == NULL) {
-    ssh_set_error_oom(session);
-    return NULL;
-  }
-  memset(channel,0,sizeof(struct ssh_channel_struct));
+    channel = calloc(1, sizeof(struct ssh_channel_struct));
+    if (channel == NULL) {
+        ssh_set_error_oom(session);
+        return NULL;
+    }
 
-  channel->stdout_buffer = ssh_buffer_new();
-  if (channel->stdout_buffer == NULL) {
-    ssh_set_error_oom(session);
-    SAFE_FREE(channel);
-    return NULL;
-  }
+    channel->stdout_buffer = ssh_buffer_new();
+    if (channel->stdout_buffer == NULL) {
+        ssh_set_error_oom(session);
+        SAFE_FREE(channel);
+        return NULL;
+    }
 
-  channel->stderr_buffer = ssh_buffer_new();
-  if (channel->stderr_buffer == NULL) {
-    ssh_set_error_oom(session);
-    ssh_buffer_free(channel->stdout_buffer);
-    SAFE_FREE(channel);
-    return NULL;
-  }
+    channel->stderr_buffer = ssh_buffer_new();
+    if (channel->stderr_buffer == NULL) {
+        ssh_set_error_oom(session);
+        ssh_buffer_free(channel->stdout_buffer);
+        SAFE_FREE(channel);
+        return NULL;
+    }
 
-  channel->session = session;
-  channel->exit_status = -1;
-  channel->flags = SSH_CHANNEL_FLAG_NOT_BOUND;
+    channel->session = session;
+    channel->exit_status = -1;
+    channel->flags = SSH_CHANNEL_FLAG_NOT_BOUND;
 
-  if(session->channels == NULL) {
-    session->channels = ssh_list_new();
-  }
-  ssh_list_prepend(session->channels, channel);
-  return channel;
+    if (session->channels == NULL) {
+        session->channels = ssh_list_new();
+    }
+
+    ssh_list_prepend(session->channels, channel);
+
+    return channel;
 }
 
 /**
@@ -1005,22 +1007,24 @@ void ssh_channel_free(ssh_channel channel) {
  * @brief Effectively free a channel, without caring about flags
  */
 
-void ssh_channel_do_free(ssh_channel channel){
-  struct ssh_iterator *it;
-  ssh_session session = channel->session;
-  it = ssh_list_find(session->channels, channel);
-  if(it != NULL){
-    ssh_list_remove(session->channels, it);
-  }
-  ssh_buffer_free(channel->stdout_buffer);
-  ssh_buffer_free(channel->stderr_buffer);
-  if (channel->callbacks != NULL){
-    ssh_list_free(channel->callbacks);
-  }
+void ssh_channel_do_free(ssh_channel channel)
+{
+    struct ssh_iterator *it = NULL;
+    ssh_session session = channel->session;
 
-  /* debug trick to catch use after frees */
-  memset(channel, 'X', sizeof(struct ssh_channel_struct));
-  SAFE_FREE(channel);
+    it = ssh_list_find(session->channels, channel);
+    if (it != NULL) {
+        ssh_list_remove(session->channels, it);
+    }
+
+    ssh_buffer_free(channel->stdout_buffer);
+    ssh_buffer_free(channel->stderr_buffer);
+
+    if (channel->callbacks != NULL) {
+        ssh_list_free(channel->callbacks);
+    }
+
+    SAFE_FREE(channel);
 }
 
 /**
@@ -2631,7 +2635,11 @@ static int ssh_channel_read_termination(void *s){
  */
 int ssh_channel_read(ssh_channel channel, void *dest, uint32_t count, int is_stderr)
 {
-    return ssh_channel_read_timeout(channel, dest, count, is_stderr, -1);
+    return ssh_channel_read_timeout(channel,
+                                    dest,
+                                    count,
+                                    is_stderr,
+                                    SSH_TIMEOUT_DEFAULT);
 }
 
 /**
@@ -2712,7 +2720,7 @@ int ssh_channel_read_timeout(ssh_channel channel,
   ctx.count = 1;
 
   if (timeout_ms < 0) {
-      timeout_ms = SSH_TIMEOUT_DEFAULT;
+      timeout_ms = SSH_TIMEOUT_INFINITE;
   }
 
   rc = ssh_handle_packets_termination(session,
@@ -2722,7 +2730,12 @@ int ssh_channel_read_timeout(ssh_channel channel,
   if (rc == SSH_ERROR){
     return rc;
   }
-  if (session->session_state == SSH_SESSION_STATE_ERROR){
+
+  /*
+   * If the channel is closed or in an error state, reading from it is an error
+   */
+  if (session->session_state == SSH_SESSION_STATE_ERROR ||
+      channel->state == SSH_CHANNEL_STATE_CLOSED) {
       return SSH_ERROR;
   }
   if (channel->remote_eof && ssh_buffer_get_len(stdbuf) == 0) {

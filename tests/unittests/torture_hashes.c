@@ -57,6 +57,7 @@ static void torture_md5_hash(void **state)
     assert_true(rc == 0);
 
     hexa = ssh_get_hexa(hash, hlen);
+    ssh_string_free_char((char *)hash);
     assert_string_equal(hexa,
                         "50:15:a0:9b:92:bf:33:1c:01:c5:8c:fe:18:fa:ce:78");
 
@@ -75,6 +76,7 @@ static void torture_sha1_hash(void **state)
     assert_true(rc == 0);
 
     sha1 = ssh_get_b64_unpadded(hash, hlen);
+    ssh_string_free_char((char *)hash);
     assert_string_equal(sha1, "6wP+houujQmxLBiFugTcoeoODCM");
 
     ssh_string_free_char(sha1);
@@ -92,10 +94,35 @@ static void torture_sha256_hash(void **state)
     assert_true(rc == 0);
 
     sha256 = ssh_get_b64_unpadded(hash, hlen);
+    ssh_string_free_char((char *)hash);
     assert_string_equal(sha256, "jXstVLLe84fSDo1kEYGn6iumnPCSorhaiWxnJz8VTII");
 
     ssh_string_free_char(sha256);
 
+}
+
+static void torture_sha256_fingerprint(void **state)
+{
+    ssh_key pubkey = *state;
+    unsigned char *hash = NULL;
+    char *sha256 = NULL;
+    int rc = 0;
+    size_t hlen;
+
+    rc = ssh_get_publickey_hash(pubkey,
+                                SSH_PUBLICKEY_HASH_SHA256,
+                                &hash,
+                                &hlen);
+    assert_true(rc == 0);
+
+    sha256 = ssh_get_fingerprint_hash(SSH_PUBLICKEY_HASH_SHA256,
+                                      hash,
+                                      hlen);
+    ssh_string_free_char(discard_const(hash));
+    assert_string_equal(sha256,
+                        "SHA256:jXstVLLe84fSDo1kEYGn6iumnPCSorhaiWxnJz8VTII");
+
+    ssh_string_free_char(sha256);
 }
 
 int torture_run_tests(void) {
@@ -108,6 +135,9 @@ int torture_run_tests(void) {
                                         setup_rsa_key,
                                         teardown),
         cmocka_unit_test_setup_teardown(torture_sha256_hash,
+                                        setup_rsa_key,
+                                        teardown),
+        cmocka_unit_test_setup_teardown(torture_sha256_fingerprint,
                                         setup_rsa_key,
                                         teardown),
     };

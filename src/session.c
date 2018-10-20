@@ -282,6 +282,7 @@ void ssh_free(ssh_session session) {
   SAFE_FREE(session->opts.ProxyCommand);
   SAFE_FREE(session->opts.gss_server_identity);
   SAFE_FREE(session->opts.gss_client_identity);
+  SAFE_FREE(session->opts.pubkey_accepted_types);
 
   for (i = 0; i < 10; i++) {
       if (session->opts.wanted_methods[i]) {
@@ -341,6 +342,10 @@ const char* ssh_get_kex_algo(ssh_session session) {
             return "diffie-hellman-group1-sha1";
         case SSH_KEX_DH_GROUP14_SHA1:
             return "diffie-hellman-group14-sha1";
+        case SSH_KEX_DH_GROUP16_SHA512:
+            return "diffie-hellman-group16-sha512";
+        case SSH_KEX_DH_GROUP18_SHA512:
+            return "diffie-hellman-group18-sha512";
         case SSH_KEX_ECDH_SHA2_NISTP256:
             return "ecdh-sha2-nistp256";
         case SSH_KEX_ECDH_SHA2_NISTP384:

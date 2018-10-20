@@ -25,6 +25,7 @@
 
 #include <limits.h>
 #include <stdarg.h>
+#include <stdbool.h>
 
 #ifndef _WIN32
 #include <netinet/in.h>
@@ -35,6 +36,24 @@
 #include "libssh/buffer.h"
 #include "libssh/misc.h"
 #include "libssh/bignum.h"
+
+/*
+ * Describes a buffer state
+ * [XXXXXXXXXXXXDATA PAYLOAD       XXXXXXXXXXXXXXXXXXXXXXXX]
+ * ^            ^                  ^                       ^]
+ * \_data points\_pos points here  \_used points here |    /
+ *   here                                          Allocated
+ */
+struct ssh_buffer_struct {
+    bool secure;
+    size_t used;
+    size_t allocated;
+    size_t pos;
+    uint8_t *data;
+};
+
+/* Buffer size maximum is 256M */
+#define BUFFER_SIZE_MAX 0x10000000
 
 /**
  * @defgroup libssh_buffer The SSH buffer functions.
@@ -54,24 +73,38 @@
  *
  * @param[in]  buf      The buffer to check.
  */
-static void buffer_verify(ssh_buffer buf){
-  int doabort=0;
-  if(buf->data == NULL)
-    return;
-  if(buf->used > buf->allocated){
-    fprintf(stderr,"Buffer error : allocated %u, used %u\n",buf->allocated, buf->used);
-    doabort=1;
-  }
-  if(buf->pos > buf->used){
-    fprintf(stderr,"Buffer error : position %u, used %u\n",buf->pos, buf->used);
-    doabort=1;
-  }
-  if(buf->pos > buf->allocated){
-      fprintf(stderr,"Buffer error : position %u, allocated %u\n",buf->pos, buf->allocated);
-      doabort=1;
-  }
-  if(doabort)
-    abort();
+static void buffer_verify(ssh_buffer buf)
+{
+    bool do_abort = false;
+
+    if (buf->data == NULL) {
+        return;
+    }
+
+    if (buf->used > buf->allocated) {
+        fprintf(stderr,
+                "BUFFER ERROR: allocated %zu, used %zu\n",
+                buf->allocated,
+                buf->used);
+        do_abort = true;
+    }
+    if (buf->pos > buf->used) {
+        fprintf(stderr,
+                "BUFFER ERROR: position %zu, used %zu\n",
+                buf->pos,
+                buf->used);
+        do_abort = true;
+    }
+    if (buf->pos > buf->allocated) {
+        fprintf(stderr,
+                "BUFFER ERROR: position %zu, allocated %zu\n",
+                buf->pos,
+                buf->allocated);
+        do_abort = true;
+    }
+    if (do_abort) {
+        abort();
+    }
 }
 
 #else
@@ -83,15 +116,29 @@ static void buffer_verify(ssh_buffer buf){
  *
  * @return A newly initialized SSH buffer, NULL on error.
  */
-struct ssh_buffer_struct *ssh_buffer_new(void) {
-  struct ssh_buffer_struct *buf =
-      calloc(1, sizeof(struct ssh_buffer_struct));
-  if (buf == NULL) {
-    return NULL;
-  }
+struct ssh_buffer_struct *ssh_buffer_new(void)
+{
+    struct ssh_buffer_struct *buf = NULL;
+    int rc;
 
-  buffer_verify(buf);
-  return buf;
+    buf = calloc(1, sizeof(struct ssh_buffer_struct));
+    if (buf == NULL) {
+        return NULL;
+    }
+
+    /*
+     * Always preallocate 64 bytes.
+     *
+     * -1 for ralloc_buffer magic.
+     */
+    rc = ssh_buffer_allocate_size(buf, 64 - 1);
+    if (rc != 0) {
+        SAFE_FREE(buf);
+        return NULL;
+    }
+    buffer_verify(buf);
+
+    return buf;
 }
 
 /**
@@ -99,19 +146,23 @@ struct ssh_buffer_struct *ssh_buffer_new(void) {
  *
  * \param[in]  buffer   The buffer to free.
  */
-void ssh_buffer_free(struct ssh_buffer_struct *buffer) {
-  if (buffer == NULL) {
-    return;
-  }
-  buffer_verify(buffer);
+void ssh_buffer_free(struct ssh_buffer_struct *buffer)
+{
+    if (buffer == NULL) {
+        return;
+    }
+    buffer_verify(buffer);
 
-  if (buffer->data) {
-    /* burn the data */
-    explicit_bzero(buffer->data, buffer->allocated);
-    SAFE_FREE(buffer->data);
-  }
-  explicit_bzero(buffer, sizeof(struct ssh_buffer_struct));
-  SAFE_FREE(buffer);
+    if (buffer->secure && buffer->allocated > 0) {
+        /* burn the data */
+        explicit_bzero(buffer->data, buffer->allocated);
+        SAFE_FREE(buffer->data);
+
+        explicit_bzero(buffer, sizeof(struct ssh_buffer_struct));
+    } else {
+        SAFE_FREE(buffer->data);
+    }
+    SAFE_FREE(buffer);
 }
 
 /**
@@ -122,13 +173,15 @@ void ssh_buffer_free(struct ssh_buffer_struct *buffer) {
  *
  * @param[in] buffer buffer to set secure.
  */
-void ssh_buffer_set_secure(ssh_buffer buffer){
-	buffer->secure = 1;
+void ssh_buffer_set_secure(ssh_buffer buffer)
+{
+    buffer->secure = true;
 }
 
-static int realloc_buffer(struct ssh_buffer_struct *buffer, size_t needed) {
+static int realloc_buffer(struct ssh_buffer_struct *buffer, size_t needed)
+{
     size_t smallest = 1;
-    char *new;
+    uint8_t *new = NULL;
 
     buffer_verify(buffer);
 
@@ -140,25 +193,28 @@ static int realloc_buffer(struct ssh_buffer_struct *buffer, size_t needed) {
         smallest <<= 1;
     }
     needed = smallest;
-    if (buffer->secure){
+
+    if (needed > BUFFER_SIZE_MAX) {
+        return -1;
+    }
+
+    if (buffer->secure) {
         new = malloc(needed);
         if (new == NULL) {
             return -1;
         }
-        if (buffer->used > 0) {
-            memcpy(new, buffer->data,buffer->used);
-            explicit_bzero(buffer->data, buffer->used);
-            SAFE_FREE(buffer->data);
-        }
+        memcpy(new, buffer->data, buffer->used);
+        explicit_bzero(buffer->data, buffer->used);
+        SAFE_FREE(buffer->data);
     } else {
         new = realloc(buffer->data, needed);
         if (new == NULL) {
-            buffer->data = NULL;
             return -1;
         }
     }
     buffer->data = new;
     buffer->allocated = needed;
+
     buffer_verify(buffer);
     return 0;
 }
@@ -167,26 +223,34 @@ static int realloc_buffer(struct ssh_buffer_struct *buffer, size_t needed) {
  * @brief shifts a buffer to remove unused data in the beginning
  * @param buffer SSH buffer
  */
-static void buffer_shift(ssh_buffer buffer){
-  uint32_t burn_pos = buffer->pos;
+static void buffer_shift(ssh_buffer buffer)
+{
+    size_t burn_pos = buffer->pos;
 
-  buffer_verify(buffer);
-  if(buffer->pos==0)
-    return;
-  memmove(buffer->data, buffer->data + buffer->pos, buffer->used - buffer->pos);
-  buffer->used -= buffer->pos;
-  buffer->pos=0;
+    buffer_verify(buffer);
 
-  if (buffer->secure){
-	  void *ptr = buffer->data + buffer->used;
-	  explicit_bzero(ptr, burn_pos);
-  }
+    if (buffer->pos == 0) {
+        return;
+    }
+    memmove(buffer->data,
+            buffer->data + buffer->pos,
+            buffer->used - buffer->pos);
+    buffer->used -= buffer->pos;
+    buffer->pos = 0;
 
-  buffer_verify(buffer);
+    if (buffer->secure) {
+        void *ptr = buffer->data + buffer->used;
+        explicit_bzero(ptr, burn_pos);
+    }
+
+    buffer_verify(buffer);
 }
 
 /**
  * @brief Reinitialize a SSH buffer.
+ *
+ * In case the buffer has exceeded 64K in size, the buffer will be reallocated
+ * to 64K.
  *
  * @param[in]  buffer   The buffer to reinitialize.
  *
@@ -194,18 +258,29 @@ static void buffer_shift(ssh_buffer buffer){
  */
 int ssh_buffer_reinit(struct ssh_buffer_struct *buffer)
 {
+    if (buffer == NULL) {
+        return -1;
+    }
+
     buffer_verify(buffer);
-    if (buffer->used > 0) {
-        explicit_bzero(buffer->data, buffer->used);
+
+    if (buffer->secure && buffer->allocated > 0) {
+        explicit_bzero(buffer->data, buffer->allocated);
     }
     buffer->used = 0;
     buffer->pos = 0;
 
-    if (buffer->allocated > 127) {
-        if (realloc_buffer(buffer, 127) < 0) {
+    /* If the buffer is bigger then 64K, reset it to 64K */
+    if (buffer->allocated > 65536) {
+        int rc;
+
+        /* -1 for realloc_buffer magic */
+        rc = realloc_buffer(buffer, 65536 - 1);
+        if (rc != 0) {
             return -1;
         }
     }
+
     buffer_verify(buffer);
 
     return 0;
@@ -683,32 +758,153 @@ int ssh_buffer_validate_length(struct ssh_buffer_struct *buffer, size_t len)
  *
  * @returns             The SSH String, NULL on error.
  */
-struct ssh_string_struct *ssh_buffer_get_ssh_string(struct ssh_buffer_struct *buffer) {
-  uint32_t stringlen;
-  uint32_t hostlen;
-  struct ssh_string_struct *str = NULL;
-  int rc;
+struct ssh_string_struct *
+ssh_buffer_get_ssh_string(struct ssh_buffer_struct *buffer)
+{
+    uint32_t stringlen;
+    uint32_t hostlen;
+    struct ssh_string_struct *str = NULL;
+    int rc;
 
-  if (ssh_buffer_get_u32(buffer, &stringlen) == 0) {
-    return NULL;
-  }
-  hostlen = ntohl(stringlen);
-  /* verify if there is enough space in buffer to get it */
-  rc = ssh_buffer_validate_length(buffer, hostlen);
-  if (rc != SSH_OK) {
-    return NULL; /* it is indeed */
-  }
-  str = ssh_string_new(hostlen);
-  if (str == NULL) {
-    return NULL;
-  }
-  if (ssh_buffer_get_data(buffer, ssh_string_data(str), hostlen) != hostlen) {
-    /* should never happen */
-    SAFE_FREE(str);
-    return NULL;
-  }
+    rc = ssh_buffer_get_u32(buffer, &stringlen);
+    if (rc == 0) {
+        return NULL;
+    }
+    hostlen = ntohl(stringlen);
+    /* verify if there is enough space in buffer to get it */
+    rc = ssh_buffer_validate_length(buffer, hostlen);
+    if (rc != SSH_OK) {
+      return NULL; /* it is indeed */
+    }
+    str = ssh_string_new(hostlen);
+    if (str == NULL) {
+        return NULL;
+    }
 
-  return str;
+    stringlen = ssh_buffer_get_data(buffer, ssh_string_data(str), hostlen);
+    if (stringlen != hostlen) {
+        /* should never happen */
+        SAFE_FREE(str);
+        return NULL;
+    }
+
+    return str;
+}
+
+/**
+ * @brief Pre-calculate the size we need for packing the buffer.
+ *
+ * This makes sure that enough memory is allocated for packing the buffer and
+ * we only have to do one memory allocation.
+ *
+ * @param[in]  buffer    The buffer to allocate
+ *
+ * @param[in]  format    A format string of arguments.
+ *
+ * @param[in]  argc      The number of arguments.
+ *
+ * @param[in]  ap        The va_list of arguments.
+ *
+ * @return SSH_OK on success, SSH_ERROR on error.
+ */
+static int ssh_buffer_pack_allocate_va(struct ssh_buffer_struct *buffer,
+                                       const char *format,
+                                       int argc,
+                                       va_list ap)
+{
+    const char *p = NULL;
+    ssh_string string = NULL;
+    char *cstring = NULL;
+    size_t needed_size = 0;
+    size_t count;
+    size_t len;
+    int rc = SSH_OK;
+
+    for (p = format, count = 0; *p != '\0'; p++, count++) {
+        /* Invalid number of arguments passed */
+        if (argc != -1 && count > argc) {
+            return SSH_ERROR;
+        }
+
+        switch(*p) {
+        case 'b':
+            va_arg(ap, unsigned int);
+            needed_size += sizeof(uint8_t);
+            break;
+        case 'w':
+            va_arg(ap, unsigned int);
+            needed_size += sizeof(uint16_t);
+            break;
+        case 'd':
+            va_arg(ap, uint32_t);
+            needed_size += sizeof(uint32_t);
+            break;
+        case 'q':
+            va_arg(ap, uint64_t);
+            needed_size += sizeof(uint64_t);
+            break;
+        case 'S':
+            string = va_arg(ap, ssh_string);
+            needed_size += 4 + ssh_string_len(string);
+            string = NULL;
+            break;
+        case 's':
+            cstring = va_arg(ap, char *);
+            needed_size += sizeof(uint32_t) + strlen(cstring);
+            cstring = NULL;
+            break;
+        case 'P':
+            len = va_arg(ap, size_t);
+            needed_size += len;
+            va_arg(ap, void *);
+            count++; /* increase argument count */
+            break;
+        case 'B':
+            va_arg(ap, bignum);
+            /*
+             * Use a fixed size for a bignum
+             * (they should normaly be around 32)
+             */
+            needed_size += 64;
+            break;
+        case 't':
+            cstring = va_arg(ap, char *);
+            needed_size += strlen(cstring);
+            cstring = NULL;
+            break;
+        default:
+            SSH_LOG(SSH_LOG_WARN, "Invalid buffer format %c", *p);
+            rc = SSH_ERROR;
+        }
+        if (rc != SSH_OK){
+            break;
+        }
+    }
+
+    if (argc != -1 && argc != count) {
+        return SSH_ERROR;
+    }
+
+    if (rc != SSH_ERROR){
+        /*
+         * Check if our canary is intact, if not, something really bad happened.
+         */
+        uint32_t canary = va_arg(ap, uint32_t);
+        if (canary != SSH_BUFFER_PACK_END) {
+            if (argc == -1){
+                return SSH_ERROR;
+            } else {
+                abort();
+            }
+        }
+    }
+
+    rc = ssh_buffer_allocate_size(buffer, needed_size);
+    if (rc != 0) {
+        return SSH_ERROR;
+    }
+
+    return SSH_OK;
 }
 
 /** @internal
@@ -861,8 +1057,17 @@ int _ssh_buffer_pack(struct ssh_buffer_struct *buffer,
     int rc;
 
     va_start(ap, argc);
+    rc = ssh_buffer_pack_allocate_va(buffer, format, argc, ap);
+    va_end(ap);
+
+    if (rc != SSH_OK) {
+        return rc;
+    }
+
+    va_start(ap, argc);
     rc = ssh_buffer_pack_va(buffer, format, argc, ap);
     va_end(ap);
+
     return rc;
 }
 
@@ -903,8 +1108,8 @@ int ssh_buffer_unpack_va(struct ssh_buffer_struct *buffer,
     for (p = format, count = 0; *p != '\0'; p++, count++) {
         /* Invalid number of arguments passed */
         if (argc != -1 && count > argc) {
-            va_end(ap_copy);
-            return SSH_ERROR;
+            rc = SSH_ERROR;
+            goto cleanup;
         }
 
         switch (*p) {
@@ -1016,8 +1221,9 @@ int ssh_buffer_unpack_va(struct ssh_buffer_struct *buffer,
         rc = SSH_ERROR;
     }
 
+cleanup:
     if (rc != SSH_ERROR){
-        /* Check if our canary is intact, if not somthing really bad happened */
+        /* Check if our canary is intact, if not something really bad happened */
         uint32_t canary = va_arg(ap, uint32_t);
         if (canary != SSH_BUFFER_PACK_END){
             if (argc == -1){
@@ -1034,22 +1240,53 @@ int ssh_buffer_unpack_va(struct ssh_buffer_struct *buffer,
         for(p=format;p<last;++p){
             switch(*p){
             case 'b':
+                o.byte = va_arg(ap_copy, uint8_t *);
+                if (buffer->secure) {
+                    explicit_bzero(o.byte, sizeof(uint8_t));
+                    break;
+                }
+                break;
             case 'w':
+                o.word = va_arg(ap_copy, uint16_t *);
+                if (buffer->secure) {
+                    explicit_bzero(o.word, sizeof(uint16_t));
+                    break;
+                }
+                break;
             case 'd':
+                o.dword = va_arg(ap_copy, uint32_t *);
+                if (buffer->secure) {
+                    explicit_bzero(o.dword, sizeof(uint32_t));
+                    break;
+                }
+                break;
             case 'q':
-                (void)va_arg(ap_copy, void *);
+                o.qword = va_arg(ap_copy, uint64_t *);
+                if (buffer->secure) {
+                    explicit_bzero(o.qword, sizeof(uint64_t));
+                    break;
+                }
                 break;
             case 'S':
-                o.string=va_arg(ap_copy, ssh_string *);
+                o.string = va_arg(ap_copy, ssh_string *);
+                if (buffer->secure) {
+                    ssh_string_burn(*o.string);
+                }
                 SAFE_FREE(*o.string);
                 break;
             case 's':
-                o.cstring=va_arg(ap_copy, char **);
+                o.cstring = va_arg(ap_copy, char **);
+                if (buffer->secure) {
+                    explicit_bzero(*o.cstring, strlen(*o.cstring));
+                }
                 SAFE_FREE(*o.cstring);
                 break;
             case 'P':
-                (void)va_arg(ap_copy, size_t);
+                len = va_arg(ap_copy, size_t);
                 o.data = va_arg(ap_copy, void **);
+                if (buffer->secure) {
+                    explicit_bzero(*o.data, len);
+                }
                 SAFE_FREE(*o.data);
                 break;
             default:
