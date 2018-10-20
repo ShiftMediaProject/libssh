@@ -74,7 +74,10 @@
 #define HAVE_ECC 1
 
 /* Define to 1 if you have DSA */
-#define  HAVE_DSA 1
+#define HAVE_DSA 1
+
+/* Define to 1 if you have gl_flags as a glob_t sturct member */
+/* #undef HAVE_GLOB_GL_FLAGS_MEMBER */
 
 /*************************** FUNCTIONS ***************************/
 

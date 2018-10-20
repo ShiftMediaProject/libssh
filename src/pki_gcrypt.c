@@ -2020,10 +2020,11 @@ int pki_signature_verify(ssh_session session,
                          const unsigned char *hash,
                          size_t hlen)
 {
-#ifdef _MSC_VER
+#if defined(_MSC_VER) && (_MSC_VER <= 1915)
     unsigned char * ghash = (char *)_alloca( sizeof( char )*( hlen + 1 ) );
 #else
     unsigned char ghash[hlen + 1];
+#endif
     const char *hash_type = NULL;
     gcry_sexp_t sexp;
     gcry_error_t err;
@@ -2153,7 +2154,11 @@ ssh_signature pki_do_sign_hash(const ssh_key privkey,
                                size_t hlen,
                                enum ssh_digest_e hash_type)
 {
+#if defined(_MSC_VER) && (_MSC_VER <= 1915)
+    unsigned char * ghash = (char *)_alloca(sizeof(char)*(hlen + 1));
+#else
     unsigned char ghash[hlen + 1];
+#endif
     const char *hash_c = NULL;
     ssh_signature sig;
     gcry_sexp_t sexp;
@@ -2277,6 +2282,7 @@ ssh_signature pki_do_sign_sessionid_hash(const ssh_key key,
     unsigned char * ghash = (char *)_alloca( sizeof( char )*( hlen + 1 ) );
 #else
     unsigned char ghash[hlen + 1];
+#endif
     const char *hash_c = NULL;
     ssh_signature sig;
     gcry_sexp_t sexp;
