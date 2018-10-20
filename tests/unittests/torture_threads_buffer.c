@@ -87,7 +87,7 @@ static void *thread_growing_buffer(void *threadid)
     }
 
     /* Teardown */
-    ssh_buffer_free(buffer);
+    SSH_BUFFER_FREE(buffer);
     pthread_exit(NULL);
 }
 
@@ -134,14 +134,14 @@ static void *thread_growing_buffer_shifting(void *threadid)
             if (ssh_buffer_get_len(buffer) * 4 < buffer->allocated) {
                 assert_true(ssh_buffer_get_len(buffer) * 4 >= buffer->allocated);
                 /* Teardown */
-                ssh_buffer_free(buffer);
+                SSH_BUFFER_FREE(buffer);
                 pthread_exit(NULL);
             }
         }
     }
 
     /* Teardown */
-    ssh_buffer_free(buffer);
+    SSH_BUFFER_FREE(buffer);
     pthread_exit(NULL);
 }
 
@@ -198,7 +198,7 @@ static void *thread_buffer_prepend(void *threadid)
     assert_memory_equal(ssh_buffer_get(buffer), "12345bcdef", 10);
 
     /* Teardown */
-    ssh_buffer_free(buffer);
+    SSH_BUFFER_FREE(buffer);
     pthread_exit(NULL);
 }
 
@@ -247,9 +247,9 @@ static void *thread_ssh_buffer_get_ssh_string(void *threadid)
                 for (l = 0; l < k; ++l) {
                     ssh_string str = ssh_buffer_get_ssh_string(buffer);
                     assert_null(str);
-                    ssh_string_free(str);
+                    SSH_STRING_FREE(str);
                 }
-                ssh_buffer_free(buffer);
+                SSH_BUFFER_FREE(buffer);
             }
         }
     }
@@ -316,10 +316,10 @@ static void *thread_ssh_buffer_add_format(void *threadid)
     assert_int_equal(len, sizeof(verif) - 1);
     assert_memory_equal(ssh_buffer_get(buffer), verif, sizeof(verif) -1);
 
-    ssh_string_free(s);
+    SSH_STRING_FREE(s);
 
     /* Teardown */
-    ssh_buffer_free(buffer);
+    SSH_BUFFER_FREE(buffer);
     pthread_exit(NULL);
 }
 
@@ -397,7 +397,7 @@ static void *thread_ssh_buffer_get_format(void *threadid) {
     SAFE_FREE(s2);
 
     /* Teardown */
-    ssh_buffer_free(buffer);
+    SSH_BUFFER_FREE(buffer);
     pthread_exit(NULL);
 }
 
@@ -458,7 +458,7 @@ static void *thread_ssh_buffer_get_format_error(void *threadid)
     assert_true(s2 == NULL);
 
     /* Teardown */
-    ssh_buffer_free(buffer);
+    SSH_BUFFER_FREE(buffer);
     pthread_exit(NULL);
 }
 
@@ -514,7 +514,7 @@ static void *thread_buffer_pack_badformat(void *threadid)
      * it could crash the process */
 
     /* Teardown */
-    ssh_buffer_free(buffer);
+    SSH_BUFFER_FREE(buffer);
     pthread_exit(NULL);
 }
 

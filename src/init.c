@@ -272,7 +272,7 @@ BOOL WINAPI DllMain(HINSTANCE hinstDLL,
 
     return TRUE;
 }
-#endif /* _MSC_VER */
+#endif /* _MSC_VER && !LIBSSH_STATIC */
 
 #endif /* _WIN32 */
 

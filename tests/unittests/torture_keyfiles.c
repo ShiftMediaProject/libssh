@@ -111,7 +111,7 @@ static void torture_pubkey_from_file(void **state) {
 
     assert_true(rc == 0);
 
-    ssh_string_free(pubkey);
+    SSH_STRING_FREE(pubkey);
 
     /* test if it returns 1 if pubkey doesn't exist */
     unlink(LIBSSH_RSA_TESTKEY ".pub");
@@ -119,11 +119,17 @@ static void torture_pubkey_from_file(void **state) {
     rc = ssh_try_publickey_from_file(session, LIBSSH_RSA_TESTKEY, &pubkey, &type);
     assert_true(rc == 1);
 
+    /* This free is unnecessary, but the static analyser does not know */
+    SSH_STRING_FREE(pubkey);
+
     /* test if it returns -1 if privkey doesn't exist */
     unlink(LIBSSH_RSA_TESTKEY);
 
     rc = ssh_try_publickey_from_file(session, LIBSSH_RSA_TESTKEY, &pubkey, &type);
     assert_true(rc == -1);
+
+    /* This free is unnecessary, but the static analyser does not know */
+    SSH_STRING_FREE(pubkey);
 }
 
 static int torture_read_one_line(const char *filename, char *buffer, size_t len) {
@@ -210,8 +216,8 @@ static void torture_pubkey_generate_from_privkey(void **state) {
 
     assert_string_equal(pubkey_line_orig, pubkey_line_new);
 
-    ssh_string_free(pubkey_orig);
-    ssh_string_free(pubkey_new);
+    SSH_STRING_FREE(pubkey_orig);
+    SSH_STRING_FREE(pubkey_new);
 }
 
 /**

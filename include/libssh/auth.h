@@ -76,6 +76,14 @@ enum ssh_auth_state_e {
   SSH_AUTH_STATE_GSSAPI_TOKEN,
   /** We have sent the MIC and expecting to be authenticated */
   SSH_AUTH_STATE_GSSAPI_MIC_SENT,
+  /** We have offered a pubkey to check if it is supported */
+  SSH_AUTH_STATE_PUBKEY_OFFER_SENT,
+  /** We have sent pubkey and signature expecting to be authenticated */
+  SSH_AUTH_STATE_PUBKEY_AUTH_SENT,
+  /** We have sent a password expecting to be authenticated */
+  SSH_AUTH_STATE_PASSWORD_AUTH_SENT,
+  /** We have sent a request without auth information (method 'none') */
+  SSH_AUTH_STATE_AUTH_NONE_SENT,
 };
 
 /** @internal

@@ -171,6 +171,15 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_open_conf){
       "Received a CHANNEL_OPEN_CONFIRMATION for channel %d:%d",
       channel->local_channel,
       channel->remote_channel);
+
+  if (channel->state != SSH_CHANNEL_STATE_OPENING) {
+      SSH_LOG(SSH_LOG_RARE,
+              "SSH2_MSG_CHANNEL_OPEN_CONFIRMATION received in incorrect "
+              "channel state %d",
+              channel->state);
+      goto error;
+  }
+
   SSH_LOG(SSH_LOG_PROTOCOL,
       "Remote window : %lu, maxpacket : %lu",
       (long unsigned int) channel->remote_window,
@@ -211,6 +220,14 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_open_fail){
       return SSH_PACKET_USED;
   }
 
+  if (channel->state != SSH_CHANNEL_STATE_OPENING) {
+      SSH_LOG(SSH_LOG_RARE,
+              "SSH2_MSG_CHANNEL_OPEN_FAILURE received in incorrect channel "
+              "state %d",
+              channel->state);
+      goto error;
+  }
+
   ssh_set_error(session, SSH_REQUEST_DENIED,
       "Channel opening failure: channel %u error (%lu) %s",
       channel->local_channel,
@@ -218,6 +235,10 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_open_fail){
       error);
   SAFE_FREE(error);
   channel->state=SSH_CHANNEL_STATE_OPEN_DENIED;
+  return SSH_PACKET_USED;
+
+error:
+  ssh_set_error(session, SSH_FATAL, "Invalid packet");
   return SSH_PACKET_USED;
 }
 
