@@ -1,6 +1,17 @@
 ChangeLog
 ==========
 
+version 0.8.5 (released 2018-10-29)
+  * Added support to get known_hosts locations with ssh_options_get()
+  * Fixed preferred algorithm for known hosts negotiations
+  * Fixed KEX with some server implementations (e.g. Cisco)
+  * Fixed issues with MSVC
+  * Fixed keyboard-interactive auth in server mode
+    (regression from CVE-2018-10933)
+  * Fixed gssapi auth in server mode (regression from CVE-2018-10933)
+  * Fixed socket fd handling with proxy command
+  * Fixed a memory leak with OpenSSL
+
 version 0.8.4 (released 2018-10-16)
   * Fixed CVE-2018-10933
   * Fixed building without globbing support
