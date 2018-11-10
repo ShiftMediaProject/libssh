@@ -26,6 +26,7 @@
 #include <string.h>
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 
 #include "libssh/priv.h"
 #include "libssh/buffer.h"
@@ -592,9 +593,11 @@ void ssh_list_kex(struct ssh_kex_struct *kex) {
  * @returns a cstring containing a comma-separated list of hostkey methods.
  *          NULL if no method matches
  */
-static char *ssh_client_select_hostkeys(ssh_session session)
+char *ssh_client_select_hostkeys(ssh_session session)
 {
     char methods_buffer[128]={0};
+    char tail_buffer[128]={0};
+    char *new_hostkeys = NULL;
     static const char *preferred_hostkeys[] = {
         "ssh-ed25519",
         "ecdsa-sha2-nistp521",
@@ -610,7 +613,7 @@ static char *ssh_client_select_hostkeys(ssh_session session)
     struct ssh_iterator *it = NULL;
     size_t algo_count;
     int needcomma = 0;
-    int i;
+    size_t i, len;
 
     algo_list = ssh_known_hosts_get_algorithms(session);
     if (algo_list == NULL) {
@@ -624,9 +627,11 @@ static char *ssh_client_select_hostkeys(ssh_session session)
     }
 
     for (i = 0; preferred_hostkeys[i] != NULL; ++i) {
+        bool found = false;
+
         for (it = ssh_list_get_iterator(algo_list);
              it != NULL;
-             it = ssh_list_get_iterator(algo_list)) {
+             it = it->next) {
             const char *algo = ssh_iterator_value(const char *, it);
             int cmp;
             int ok;
@@ -644,10 +649,18 @@ static char *ssh_client_select_hostkeys(ssh_session session)
                             algo,
                             sizeof(methods_buffer) - strlen(methods_buffer) - 1);
                     needcomma = 1;
+                    found = true;
                 }
             }
-
-            ssh_list_remove(algo_list, it);
+        }
+        /* Collect the rest of the algorithms in other buffer, that will
+         * follow the preferred buffer. This will signalize all the algorithms
+         * we are willing to accept.
+         */
+        if (!found) {
+            snprintf(tail_buffer + strlen(tail_buffer),
+                     sizeof(tail_buffer) - strlen(tail_buffer),
+                     ",%s", preferred_hostkeys[i]);
         }
     }
     ssh_list_free(algo_list);
@@ -658,11 +671,23 @@ static char *ssh_client_select_hostkeys(ssh_session session)
         return NULL;
     }
 
+    /* Append the supported list to the preferred.
+     * The length is maximum 128 + 128 + 1, which will not overflow
+     */
+    len = strlen(methods_buffer) + strlen(tail_buffer) + 1;
+    new_hostkeys = malloc(len);
+    if (new_hostkeys == NULL) {
+        ssh_set_error_oom(session);
+        return NULL;
+    }
+    snprintf(new_hostkeys, len,
+             "%s%s", methods_buffer, tail_buffer);
+
     SSH_LOG(SSH_LOG_DEBUG,
             "Changing host key method to \"%s\"",
-            methods_buffer);
+            new_hostkeys);
 
-    return strdup(methods_buffer);
+    return new_hostkeys;
 }
 
 /**

@@ -42,18 +42,24 @@ static int setup_knownhosts_file(void **state)
 
     nwritten = fwrite(LOCALHOST_PATTERN_ED25519,
                       sizeof(char),
-                      sizeof(LOCALHOST_PATTERN_ED25519),
+                      strlen(LOCALHOST_PATTERN_ED25519),
                       fp);
-    if (nwritten != sizeof(LOCALHOST_PATTERN_ED25519)) {
+    if (nwritten != strlen(LOCALHOST_PATTERN_ED25519)) {
+        fclose(fp);
+        return -1;
+    }
+
+    nwritten = fwrite("\n", sizeof(char), 1, fp);
+    if (nwritten != 1) {
         fclose(fp);
         return -1;
     }
 
     nwritten = fwrite(LOCALHOST_RSA_LINE,
                       sizeof(char),
-                      sizeof(LOCALHOST_RSA_LINE),
+                      strlen(LOCALHOST_RSA_LINE),
                       fp);
-    if (nwritten != sizeof(LOCALHOST_RSA_LINE)) {
+    if (nwritten != strlen(LOCALHOST_RSA_LINE)) {
         fclose(fp);
         return -1;
     }
@@ -210,6 +216,8 @@ static void torture_knownhosts_read_file(void **state)
     const char *knownhosts_file = *state;
     struct ssh_list *entry_list = NULL;
     struct ssh_iterator *it = NULL;
+    struct ssh_knownhosts_entry *entry = NULL;
+    enum ssh_keytypes_e type;
     int rc;
 
     rc = ssh_known_hosts_read_entries("localhost",
@@ -219,22 +227,27 @@ static void torture_knownhosts_read_file(void **state)
     assert_non_null(entry_list);
     it = ssh_list_get_iterator(entry_list);
     assert_non_null(it);
-    for (;it != NULL; it = it->next) {
-        struct ssh_knownhosts_entry *entry = NULL;
-        enum ssh_keytypes_e type;
 
-        entry = ssh_iterator_value(struct ssh_knownhosts_entry *, it);
-        assert_non_null(entry);
+    /* First key in known hosts file is ED25519 */
+    entry = ssh_iterator_value(struct ssh_knownhosts_entry *, it);
+    assert_non_null(entry);
 
-        assert_string_equal(entry->hostname, "localhost");
-        type = ssh_key_type(entry->publickey);
-        assert_int_equal(type, SSH_KEYTYPE_ED25519);
-    }
+    assert_string_equal(entry->hostname, "localhost");
+    type = ssh_key_type(entry->publickey);
+    assert_int_equal(type, SSH_KEYTYPE_ED25519);
+
+    it = it->next;
+
+    /* Second key in known hosts file is RSA */
+    entry = ssh_iterator_value(struct ssh_knownhosts_entry *, it);
+    assert_non_null(entry);
+
+    assert_string_equal(entry->hostname, "localhost");
+    type = ssh_key_type(entry->publickey);
+    assert_int_equal(type, SSH_KEYTYPE_RSA);
 
     it = ssh_list_get_iterator(entry_list);
     for (;it != NULL; it = it->next) {
-        struct ssh_knownhosts_entry *entry = NULL;
-
         entry = ssh_iterator_value(struct ssh_knownhosts_entry *, it);
         SSH_KNOWNHOSTS_ENTRY_FREE(entry);
     }
@@ -252,6 +265,8 @@ static void torture_knownhosts_host_exists(void **state)
 
     ssh_options_set(session, SSH_OPTIONS_HOST, "localhost");
     ssh_options_set(session, SSH_OPTIONS_KNOWNHOSTS, knownhosts_file);
+    /* This makes sure the system's known_hosts are not used */
+    ssh_options_set(session, SSH_OPTIONS_GLOBAL_KNOWNHOSTS, "/dev/null");
 
     found = ssh_session_has_known_hosts_entry(session);
     assert_int_equal(found, SSH_KNOWN_HOSTS_OK);
@@ -260,6 +275,89 @@ static void torture_knownhosts_host_exists(void **state)
     ssh_options_set(session, SSH_OPTIONS_HOST, "wurstbrot");
     found = ssh_session_has_known_hosts_entry(session);
     assert_true(found == SSH_KNOWN_HOSTS_UNKNOWN);
+
+    ssh_free(session);
+}
+
+static void torture_knownhosts_host_exists_global(void **state)
+{
+    const char *knownhosts_file = *state;
+    enum ssh_known_hosts_e found;
+    ssh_session session;
+
+    session = ssh_new();
+    assert_non_null(session);
+
+    ssh_options_set(session, SSH_OPTIONS_HOST, "localhost");
+    /* This makes sure the user's known_hosts are not used */
+    ssh_options_set(session, SSH_OPTIONS_KNOWNHOSTS, "/dev/null");
+    ssh_options_set(session, SSH_OPTIONS_GLOBAL_KNOWNHOSTS, knownhosts_file);
+
+    found = ssh_session_has_known_hosts_entry(session);
+    assert_int_equal(found, SSH_KNOWN_HOSTS_OK);
+    assert_true(found == SSH_KNOWN_HOSTS_OK);
+
+    ssh_options_set(session, SSH_OPTIONS_HOST, "wurstbrot");
+    found = ssh_session_has_known_hosts_entry(session);
+    assert_true(found == SSH_KNOWN_HOSTS_UNKNOWN);
+
+    ssh_free(session);
+}
+
+static void
+torture_knownhosts_algorithms(void **state)
+{
+    const char *knownhosts_file = *state;
+    char *algo_list = NULL;
+    ssh_session session;
+    const char *expect = "ssh-ed25519,ssh-rsa,ecdsa-sha2-nistp521,"
+                         "ecdsa-sha2-nistp384,ecdsa-sha2-nistp256"
+#ifdef HAVE_DSA
+                         ",ssh-dss"
+#endif
+    ;
+
+    session = ssh_new();
+    assert_non_null(session);
+
+    ssh_options_set(session, SSH_OPTIONS_HOST, "localhost");
+    ssh_options_set(session, SSH_OPTIONS_KNOWNHOSTS, knownhosts_file);
+    /* This makes sure the system's known_hosts are not used */
+    ssh_options_set(session, SSH_OPTIONS_GLOBAL_KNOWNHOSTS, "/dev/null");
+
+    algo_list = ssh_client_select_hostkeys(session);
+    assert_non_null(algo_list);
+    assert_string_equal(algo_list, expect);
+    free(algo_list);
+
+    ssh_free(session);
+}
+
+static void
+torture_knownhosts_algorithms_global(void **state)
+{
+    const char *knownhosts_file = *state;
+    char *algo_list = NULL;
+    ssh_session session;
+    const char *expect = "ssh-ed25519,ssh-rsa,ecdsa-sha2-nistp521,"
+                         "ecdsa-sha2-nistp384,ecdsa-sha2-nistp256"
+#ifdef HAVE_DSA
+                         ",ssh-dss"
+#endif
+    ;
+
+    session = ssh_new();
+    assert_non_null(session);
+
+    ssh_options_set(session, SSH_OPTIONS_HOST, "localhost");
+    /* This makes sure the current-user's known hosts are not used */
+    ssh_options_set(session, SSH_OPTIONS_KNOWNHOSTS, "/dev/null");
+    ssh_options_set(session, SSH_OPTIONS_GLOBAL_KNOWNHOSTS, knownhosts_file);
+
+    algo_list = ssh_client_select_hostkeys(session);
+    assert_non_null(algo_list);
+    assert_string_equal(algo_list, expect);
+    free(algo_list);
 
     ssh_free(session);
 }
@@ -277,6 +375,15 @@ int torture_run_tests(void) {
                                         setup_knownhosts_file,
                                         teardown_knownhosts_file),
         cmocka_unit_test_setup_teardown(torture_knownhosts_host_exists,
+                                        setup_knownhosts_file,
+                                        teardown_knownhosts_file),
+        cmocka_unit_test_setup_teardown(torture_knownhosts_host_exists_global,
+                                        setup_knownhosts_file,
+                                        teardown_knownhosts_file),
+        cmocka_unit_test_setup_teardown(torture_knownhosts_algorithms,
+                                        setup_knownhosts_file,
+                                        teardown_knownhosts_file),
+        cmocka_unit_test_setup_teardown(torture_knownhosts_algorithms_global,
                                         setup_knownhosts_file,
                                         teardown_knownhosts_file),
     };
