@@ -897,6 +897,14 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
     ssh_signature sig = NULL;
     int rc;
 
+    if (type != pubkey->type) {
+        SSH_LOG(SSH_LOG_WARN,
+                "Incompatible public key provided (%d) expecting (%d)",
+                type,
+                pubkey->type);
+        return NULL;
+    }
+
     sig = ssh_signature_new();
     if (sig == NULL) {
         return NULL;
@@ -904,11 +912,12 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
 
     sig->type = type;
     sig->hash_type = hash_type;
-    sig->type_c = ssh_key_signature_to_char(type, hash_type);
+    sig->type_c = pubkey->type_c; /* for all types but RSA */
 
     switch(type) {
         case SSH_KEYTYPE_RSA:
             sig = pki_signature_from_rsa_blob(pubkey, sig_blob, sig);
+            sig->type_c = ssh_key_signature_to_char(type, hash_type);
             break;
         case SSH_KEYTYPE_ECDSA: {
             ssh_buffer b;
@@ -998,6 +1007,14 @@ int pki_signature_verify(ssh_session session, const ssh_signature sig, const
 {
     int rc;
     mbedtls_md_type_t md = 0;
+
+    if (key->type != sig->type) {
+        SSH_LOG(SSH_LOG_WARN,
+                "Can not verify %s signature with %s key",
+                sig->type_c,
+                key->type_c);
+        return SSH_ERROR;
+    }
 
     switch (key->type) {
         case SSH_KEYTYPE_RSA:
@@ -1439,7 +1456,7 @@ int pki_key_generate_ecdsa(ssh_key key, int parameter)
         case 384:
             nid = NID_mbedtls_nistp384;
             break;
-        case 512:
+        case 521:
             nid = NID_mbedtls_nistp521;
             break;
         case 256:

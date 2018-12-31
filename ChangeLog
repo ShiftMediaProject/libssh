@@ -1,6 +1,17 @@
 ChangeLog
 ==========
 
+version 0.8.6 (released 2018-12-24)
+  * Fixed compilation issues with different OpenSSL versions
+  * Fixed StrictHostKeyChecking in new knownhosts API
+  * Fixed ssh_send_keepalive() with packet filter
+  * Fixed possible crash with knownhosts options
+  * Fixed issus with rekeying
+  * Fixed strong ECDSA keys
+  * Fixed some issues with rsa-sha2 extentions
+  * Fixed access violation in ssh_init() (static linking)
+  * Fixed ssh_channel_close() handling
+
 version 0.8.5 (released 2018-10-29)
   * Added support to get known_hosts locations with ssh_options_get()
   * Fixed preferred algorithm for known hosts negotiations

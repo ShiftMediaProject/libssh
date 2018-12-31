@@ -1348,7 +1348,7 @@ int pki_key_generate_ecdsa(ssh_key key, int parameter) {
         case 384:
             nid = NID_gcrypt_nistp384;
             break;
-        case 512:
+        case 521:
             nid = NID_gcrypt_nistp521;
             break;
         case 256:
@@ -1848,6 +1848,14 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
     size_t rsalen;
     int rc;
 
+    if (type != pubkey->type) {
+        SSH_LOG(SSH_LOG_WARN,
+                "Incompatible public key provided (%d) expecting (%d)",
+                type,
+                pubkey->type);
+        return NULL;
+    }
+
     sig = ssh_signature_new();
     if (sig == NULL) {
         return NULL;
@@ -1855,7 +1863,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
 
     sig->type = type;
     sig->hash_type = hash_type;
-    sig->type_c = ssh_key_signature_to_char(type, hash_type);
+    sig->type_c = pubkey->type_c; /* for all types but RSA */
 
     len = ssh_string_len(sig_blob);
 
@@ -1921,6 +1929,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
                 ssh_signature_free(sig);
                 return NULL;
             }
+            sig->type_c = ssh_key_signature_to_char(type, hash_type);
             break;
         case SSH_KEYTYPE_ED25519:
 		rc = pki_ed25519_sig_from_blob(sig, sig_blob);
@@ -2029,6 +2038,14 @@ int pki_signature_verify(ssh_session session,
     gcry_sexp_t sexp;
     gcry_error_t err;
 
+    if (key->type != sig->type) {
+        SSH_LOG(SSH_LOG_WARN,
+                "Can not verify %s signature with %s key",
+                sig->type_c,
+                key->type_c);
+        return SSH_ERROR;
+    }
+
     switch(key->type) {
         case SSH_KEYTYPE_DSS:
             /* That is to mark the number as positive */
@@ -2128,7 +2145,6 @@ int pki_signature_verify(ssh_session session,
             gcry_sexp_release(sexp);
             if (err) {
                 ssh_set_error(session, SSH_FATAL, "Invalid ECDSA signature");
-                abort();
                 if (gcry_err_code(err) != GPG_ERR_BAD_SIGNATURE) {
                     ssh_set_error(session,
                             SSH_FATAL,

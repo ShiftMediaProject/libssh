@@ -214,6 +214,7 @@ ssh_key_signature_to_char(enum ssh_keytypes_e type,
     case SSH_DIGEST_SHA512:
         return "rsa-sha2-512";
     case SSH_DIGEST_SHA1:
+    case SSH_DIGEST_AUTO:
         return "ssh-rsa";
     default:
         return NULL;
@@ -271,13 +272,14 @@ static enum ssh_digest_e ssh_key_hash_from_name(const char *name)
     /* we do not care for others now */
     return SSH_DIGEST_AUTO;
 }
+
 /**
  * @brief Checks the given key against the configured allowed
  * public key algorithm types
  *
  * @param[in] session The SSH session
- * @parma[in] type    The key algorithm to check
- * @returns           1 if the key algorithm is allowed 0 otherwise
+ * @param[in] type    The key algorithm to check
+ * @returns           1 if the key algorithm is allowed, 0 otherwise
  */
 int ssh_key_algorithm_allowed(ssh_session session, const char *type)
 {
@@ -1534,7 +1536,7 @@ int ssh_pki_import_cert_file(const char *filename, ssh_key *pkey)
  * @param[in] parameter Parameter to the creation of key:
  *                      rsa : length of the key in bits (e.g. 1024, 2048, 4096)
  *                      dsa : length of the key in bits (e.g. 1024, 2048, 3072)
- *                      ecdsa : bits of the key (e.g. 256, 384, 512)
+ *                      ecdsa : bits of the key (e.g. 256, 384, 521)
  * @param[out] pkey     A pointer to store the allocated private key. You need
  *                      to free the memory.
  *
@@ -1863,10 +1865,10 @@ int ssh_pki_import_signature_blob(const ssh_string sig_blob,
                                   const ssh_key pubkey,
                                   ssh_signature *psig)
 {
-    ssh_signature sig;
+    ssh_signature sig = NULL;
     enum ssh_keytypes_e type;
     enum ssh_digest_e hash_type;
-    ssh_string str;
+    ssh_string algorithm = NULL, blob = NULL;
     ssh_buffer buf;
     const char *alg = NULL;
     int rc;
@@ -1888,25 +1890,25 @@ int ssh_pki_import_signature_blob(const ssh_string sig_blob,
         return SSH_ERROR;
     }
 
-    str = ssh_buffer_get_ssh_string(buf);
-    if (str == NULL) {
+    algorithm = ssh_buffer_get_ssh_string(buf);
+    if (algorithm == NULL) {
         ssh_buffer_free(buf);
         return SSH_ERROR;
     }
 
-    alg = ssh_string_get_char(str);
+    alg = ssh_string_get_char(algorithm);
     type = ssh_key_type_from_signature_name(alg);
     hash_type = ssh_key_hash_from_name(alg);
-    ssh_string_free(str);
+    ssh_string_free(algorithm);
 
-    str = ssh_buffer_get_ssh_string(buf);
+    blob = ssh_buffer_get_ssh_string(buf);
     ssh_buffer_free(buf);
-    if (str == NULL) {
+    if (blob == NULL) {
         return SSH_ERROR;
     }
 
-    sig = pki_signature_from_blob(pubkey, str, type, hash_type);
-    ssh_string_free(str);
+    sig = pki_signature_from_blob(pubkey, blob, type, hash_type);
+    ssh_string_free(blob);
     if (sig == NULL) {
         return SSH_ERROR;
     }
@@ -1915,24 +1917,24 @@ int ssh_pki_import_signature_blob(const ssh_string sig_blob,
     return SSH_OK;
 }
 
-int ssh_pki_signature_verify_blob(ssh_session session,
-                                  ssh_string sig_blob,
-                                  const ssh_key key,
-                                  unsigned char *digest,
-                                  size_t dlen)
+int ssh_pki_signature_verify(ssh_session session,
+                             ssh_signature sig,
+                             const ssh_key key,
+                             unsigned char *digest,
+                             size_t dlen)
 {
-    ssh_signature sig;
     int rc;
-
-    rc = ssh_pki_import_signature_blob(sig_blob, key, &sig);
-    if (rc < 0) {
-        return SSH_ERROR;
-    }
 
     SSH_LOG(SSH_LOG_FUNCTIONS,
             "Going to verify a %s type signature",
             sig->type_c);
 
+    if (key->type != sig->type) {
+        SSH_LOG(SSH_LOG_WARN,
+                "Can not verify %s signature with %s key",
+                sig->type_c, key->type_c);
+        return SSH_ERROR;
+    }
 
     if (key->type == SSH_KEYTYPE_ECDSA) {
 #if HAVE_ECC
@@ -1995,8 +1997,6 @@ int ssh_pki_signature_verify_blob(ssh_session session,
                                   hash,
                                   hlen);
     }
-
-    ssh_signature_free(sig);
 
     return rc;
 }

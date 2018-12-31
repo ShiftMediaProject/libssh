@@ -12,6 +12,7 @@
 #include <libssh/session.h>
 #include <libssh/misc.h>
 #include <libssh/pki_priv.h>
+#include <libssh/options.h>
 
 static int setup(void **state)
 {
@@ -392,6 +393,16 @@ static void torture_options_set_knownhosts(void **state)
     assert_ssh_return_code(session, rc);
     assert_string_equal(session->opts.knownhosts,
                         "/home/libssh/.ssh/known_hosts");
+
+    /* The NULL value should not crash the libssh */
+    rc = ssh_options_set(session, SSH_OPTIONS_KNOWNHOSTS, NULL);
+    assert_ssh_return_code(session, rc);
+    assert_null(session->opts.knownhosts);
+
+    /* ssh_options_apply() should set the path to correct value */
+    rc = ssh_options_apply(session);
+    assert_ssh_return_code(session, rc);
+    assert_true(session->opts.knownhosts != NULL);
 }
 
 static void torture_options_get_knownhosts(void **state)
@@ -651,7 +662,7 @@ static void torture_bind_options_import_key(void **state)
     assert_int_equal(rc, 0);
 #endif
     /* set ecdsa key */
-    base64_key = torture_get_testkey(SSH_KEYTYPE_ECDSA, 512, 0);
+    base64_key = torture_get_testkey(SSH_KEYTYPE_ECDSA, 521, 0);
     rc = ssh_pki_import_privkey_base64(base64_key, NULL, NULL, NULL, &key);
     assert_int_equal(rc, SSH_OK);
     assert_non_null(key);

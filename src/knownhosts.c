@@ -306,7 +306,8 @@ struct ssh_list *ssh_known_hosts_get_algorithms(ssh_session session)
     int list_error = 0;
     int rc;
 
-    if (session->opts.knownhosts == NULL) {
+    if (session->opts.knownhosts == NULL ||
+        session->opts.global_knownhosts == NULL) {
         if (ssh_options_apply(session) < 0) {
             ssh_set_error(session,
                           SSH_REQUEST_DENIED,
@@ -882,6 +883,9 @@ ssh_session_get_known_hosts_entry(ssh_session session,
 
     /* If we did not find any match at all:  we report the previous result */
     if (rv == SSH_KNOWN_HOSTS_UNKNOWN) {
+        if (session->opts.StrictHostKeyChecking == 0) {
+            return SSH_KNOWN_HOSTS_OK;
+        }
         return old_rv;
     }
 

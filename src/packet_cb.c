@@ -138,6 +138,7 @@ error:
 
 SSH_PACKET_CALLBACK(ssh_packet_newkeys){
   ssh_string sig_blob = NULL;
+  ssh_signature sig = NULL;
   int rc;
   (void)packet;
   (void)user;
@@ -185,30 +186,36 @@ SSH_PACKET_CALLBACK(ssh_packet_newkeys){
     /* get the server public key */
     server_key = ssh_dh_get_next_server_publickey(session);
     if (server_key == NULL) {
-        return SSH_ERROR;
+        goto error;
     }
 
-    /* check if public key from server matches user preferences */
+    rc = ssh_pki_import_signature_blob(sig_blob, server_key, &sig);
+    if (rc != SSH_OK) {
+        goto error;
+    }
+
+    /* Check if signature from server matches user preferences */
     if (session->opts.wanted_methods[SSH_HOSTKEYS]) {
-        if(!ssh_match_group(session->opts.wanted_methods[SSH_HOSTKEYS],
-                            server_key->type_c)) {
+        if (!ssh_match_group(session->opts.wanted_methods[SSH_HOSTKEYS],
+                             sig->type_c)) {
             ssh_set_error(session,
                           SSH_FATAL,
                           "Public key from server (%s) doesn't match user "
                           "preference (%s)",
-                          server_key->type_c,
+                          sig->type_c,
                           session->opts.wanted_methods[SSH_HOSTKEYS]);
-            return -1;
+            goto error;
         }
     }
 
-    rc = ssh_pki_signature_verify_blob(session,
-                                       sig_blob,
-                                       server_key,
-                                       session->next_crypto->secret_hash,
-                                       session->next_crypto->digest_len);
+    rc = ssh_pki_signature_verify(session,
+                                  sig,
+                                  server_key,
+                                  session->next_crypto->secret_hash,
+                                  session->next_crypto->digest_len);
     ssh_string_burn(sig_blob);
     ssh_string_free(sig_blob);
+    ssh_signature_free(sig);
     sig_blob = NULL;
     if (rc == SSH_ERROR) {
       goto error;

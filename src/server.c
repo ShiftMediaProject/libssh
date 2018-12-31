@@ -518,20 +518,22 @@ static void ssh_server_connection_callback(ssh_session session){
                     goto error;
                 }
 
+                /*
+                 * If the client supports extension negotiation, we will send
+                 * our supported extensions now. This is the first message after
+                 * sending NEWKEYS message and after turning on crypto.
+                 */
+                if (session->extensions &&
+                    session->session_state != SSH_SESSION_STATE_AUTHENTICATED) {
+                    ssh_server_send_extensions(session);
+                }
+
                 set_status(session,1.0f);
                 session->connected = 1;
                 session->session_state=SSH_SESSION_STATE_AUTHENTICATING;
                 if (session->flags & SSH_SESSION_FLAG_AUTHENTICATED)
                     session->session_state = SSH_SESSION_STATE_AUTHENTICATED;
 
-               /*
-                * If the client supports extension negotiation, we will send
-                * our supported extensions now. This is the first message after
-                * sending NEWKEYS message and after turning on crypto.
-                */
-               if (session->extensions) {
-                   ssh_server_send_extensions(session);
-               }
             }
             break;
         case SSH_SESSION_STATE_AUTHENTICATING:
@@ -1253,30 +1255,10 @@ int ssh_execute_message_callbacks(ssh_session session){
 
 int ssh_send_keepalive(ssh_session session)
 {
-  int rc;
+    /* Client denies the request, so the error code is not meaningful */
+    (void)ssh_global_request(session, "keepalive@openssh.com", NULL, 1);
 
-  rc = ssh_buffer_pack(session->out_buffer,
-                       "bsb",
-                       SSH2_MSG_GLOBAL_REQUEST,
-                       "keepalive@openssh.com",
-                       1);
-  if (rc != SSH_OK) {
-    goto err;
-  }
-
-  if (ssh_packet_send(session) == SSH_ERROR) {
-    goto err;
-  }
-
-  ssh_handle_packets(session, SSH_TIMEOUT_NONBLOCKING);
-
-  SSH_LOG(SSH_LOG_PACKET, "Sent a keepalive");
-  return SSH_OK;
-
-err:
-  ssh_set_error_oom(session);
-  ssh_buffer_reinit(session->out_buffer);
-  return SSH_ERROR;
+    return SSH_OK;
 }
 
 /** @} */

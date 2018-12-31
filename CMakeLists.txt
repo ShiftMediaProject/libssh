@@ -10,7 +10,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules")
 include(DefineCMakeDefaults)
 include(DefineCompilerFlags)
 
-project(libssh VERSION 0.8.5 LANGUAGES C)
+project(libssh VERSION 0.8.6 LANGUAGES C)
 
 # global needed variable
 set(APPLICATION_NAME ${PROJECT_NAME})
@@ -22,7 +22,7 @@ set(APPLICATION_NAME ${PROJECT_NAME})
 #     Increment AGE. Set REVISION to 0
 #   If the source code was changed, but there were no interface changes:
 #     Increment REVISION.
-set(LIBRARY_VERSION "4.7.2")
+set(LIBRARY_VERSION "4.7.3")
 set(LIBRARY_SOVERSION "4")
 
 # where to look first for cmake modules, before ${CMAKE_ROOT}/Modules/ is checked
@@ -38,6 +38,9 @@ include(CompilerChecks.cmake)
 # disallow in-source build
 include(MacroEnsureOutOfSourceBuild)
 macro_ensure_out_of_source_build("${PROJECT_NAME} requires an out of source build. Please create a separate build directory and run 'cmake /path/to/${PROJECT_NAME} [options]' there.")
+
+# Copy library files to a lib sub-directory
+set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/lib")
 
 # search for libraries
 if (WITH_ZLIB)
@@ -116,11 +119,22 @@ install(
 )
 endif (UNIX)
 
-# cmake config files
+# CMake config files
+include(CMakePackageConfigHelpers)
+
 set(LIBSSH_LIBRARY_NAME ${CMAKE_SHARED_LIBRARY_PREFIX}ssh${CMAKE_SHARED_LIBRARY_SUFFIX})
 
-configure_file(${PROJECT_NAME}-config.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake @ONLY)
-configure_file(${PROJECT_NAME}-config-version.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config-version.cmake @ONLY)
+# libssh-config-version.cmake
+write_basic_package_version_file(libssh-config-version.cmake
+                                 VERSION ${PROJECT_VERSION}
+                                 COMPATIBILITY SameMajorVersion)
+
+# libssh-config.cmake
+configure_package_config_file(${PROJECT_NAME}-config.cmake.in
+                              ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
+                              INSTALL_DESTINATION ${CMAKE_INSTALL_DIR}/${PROJECT_NAME}
+                              PATH_VARS INCLUDE_INSTALL_DIR LIB_INSTALL_DIR)
+
 install(
     FILES
         ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}-config.cmake
@@ -130,10 +144,6 @@ install(
     COMPONENT
         devel
 )
-
-
-# in tree build settings
-configure_file(libssh-build-tree-settings.cmake.in ${CMAKE_CURRENT_BINARY_DIR}/libssh-build-tree-settings.cmake @ONLY)
 
 if (WITH_EXAMPLES)
     add_subdirectory(examples)

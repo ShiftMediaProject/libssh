@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <errno.h>
 #include <time.h>
+#include <stdbool.h>
 
 #ifndef _WIN32
 #include <netinet/in.h>
@@ -999,28 +1000,50 @@ error:
  *
  * @warning Any data unread on this channel will be lost.
  */
-void ssh_channel_free(ssh_channel channel) {
-  ssh_session session;
+void ssh_channel_free(ssh_channel channel)
+{
+    ssh_session session;
 
-  if (channel == NULL) {
-    return;
-  }
+    if (channel == NULL) {
+        return;
+    }
 
-  session = channel->session;
-  if (session->alive && channel->state == SSH_CHANNEL_STATE_OPEN) {
-    ssh_channel_close(channel);
-  }
-  channel->flags |= SSH_CHANNEL_FLAG_FREED_LOCAL;
+    session = channel->session;
+    if (session->alive) {
+        bool send_close = false;
 
-  /* The idea behind the flags is the following : it is well possible
-   * that a client closes a channel that stills exists on the server side.
-   * We definitively close the channel when we receive a close message *and*
-   * the user closed it.
-   */
-  if((channel->flags & SSH_CHANNEL_FLAG_CLOSED_REMOTE)
-      || (channel->flags & SSH_CHANNEL_FLAG_NOT_BOUND)){
-    ssh_channel_do_free(channel);
-  }
+        switch (channel->state) {
+        case SSH_CHANNEL_STATE_OPEN:
+            send_close = true;
+            break;
+        case SSH_CHANNEL_STATE_CLOSED:
+            if (channel->flags & SSH_CHANNEL_FLAG_CLOSED_REMOTE) {
+                send_close = true;
+            }
+            if (channel->flags & SSH_CHANNEL_FLAG_CLOSED_LOCAL) {
+                send_close = false;
+            }
+            break;
+        default:
+            send_close = false;
+            break;
+        }
+
+        if (send_close) {
+            ssh_channel_close(channel);
+        }
+    }
+    channel->flags |= SSH_CHANNEL_FLAG_FREED_LOCAL;
+
+    /* The idea behind the flags is the following : it is well possible
+     * that a client closes a channel that stills exists on the server side.
+     * We definitively close the channel when we receive a close message *and*
+     * the user closed it.
+     */
+    if ((channel->flags & SSH_CHANNEL_FLAG_CLOSED_REMOTE) ||
+        (channel->flags & SSH_CHANNEL_FLAG_NOT_BOUND)) {
+        ssh_channel_do_free(channel);
+    }
 }
 
 /**
@@ -1128,52 +1151,60 @@ error:
  * @see ssh_channel_free()
  * @see ssh_channel_is_eof()
  */
-int ssh_channel_close(ssh_channel channel){
-  ssh_session session;
-  int rc = 0;
+int ssh_channel_close(ssh_channel channel)
+{
+    ssh_session session;
+    int rc = 0;
 
-  if(channel == NULL) {
-    return SSH_ERROR;
-  }
+    if(channel == NULL) {
+        return SSH_ERROR;
+    }
 
-  session = channel->session;
+    /* If the channel close has already been sent we're done here. */
+    if (channel->flags & SSH_CHANNEL_FLAG_CLOSED_LOCAL) {
+        return SSH_OK;
+    }
 
-  if (channel->local_eof == 0) {
-    rc = ssh_channel_send_eof(channel);
-  }
+    session = channel->session;
 
-  if (rc != SSH_OK) {
+    if (channel->local_eof == 0) {
+        rc = ssh_channel_send_eof(channel);
+    }
+
+    if (rc != SSH_OK) {
+        return rc;
+    }
+
+    rc = ssh_buffer_pack(session->out_buffer,
+                         "bd",
+                         SSH2_MSG_CHANNEL_CLOSE,
+                         channel->remote_channel);
+    if (rc != SSH_OK) {
+        ssh_set_error_oom(session);
+        goto error;
+    }
+
+    rc = ssh_packet_send(session);
+    SSH_LOG(SSH_LOG_PACKET,
+            "Sent a close on client channel (%d:%d)",
+            channel->local_channel,
+            channel->remote_channel);
+
+    if (rc == SSH_OK) {
+        channel->state = SSH_CHANNEL_STATE_CLOSED;
+        channel->flags |= SSH_CHANNEL_FLAG_CLOSED_LOCAL;
+    }
+
+    rc = ssh_channel_flush(channel);
+    if(rc == SSH_ERROR) {
+        goto error;
+    }
+
     return rc;
-  }
-
-  rc = ssh_buffer_pack(session->out_buffer,
-                       "bd",
-                       SSH2_MSG_CHANNEL_CLOSE,
-                       channel->remote_channel);
-  if (rc != SSH_OK) {
-    ssh_set_error_oom(session);
-    goto error;
-  }
-
-  rc = ssh_packet_send(session);
-  SSH_LOG(SSH_LOG_PACKET,
-      "Sent a close on client channel (%d:%d)",
-      channel->local_channel,
-      channel->remote_channel);
-
-  if(rc == SSH_OK) {
-    channel->state=SSH_CHANNEL_STATE_CLOSED;
-  }
-
-  rc = ssh_channel_flush(channel);
-  if(rc == SSH_ERROR)
-    goto error;
-
-  return rc;
 error:
-  ssh_buffer_reinit(session->out_buffer);
+    ssh_buffer_reinit(session->out_buffer);
 
-  return rc;
+    return rc;
 }
 
 /* this termination function waits for a window growing condition */
@@ -2082,8 +2113,11 @@ static int ssh_global_request_termination(void *s){
  *                      SSH_AGAIN if in nonblocking mode and call has
  *                      to be done again.
  */
-static int global_request(ssh_session session, const char *request,
-    ssh_buffer buffer, int reply) {
+int ssh_global_request(ssh_session session,
+                       const char *request,
+                       ssh_buffer buffer,
+                       int reply)
+{
   int rc;
 
   switch (session->global_req_state) {
@@ -2214,7 +2248,7 @@ int ssh_channel_listen_forward(ssh_session session,
     goto error;
   }
 pending:
-  rc = global_request(session, "tcpip-forward", buffer, 1);
+  rc = ssh_global_request(session, "tcpip-forward", buffer, 1);
 
   /* TODO: FIXME no guarantee the last packet we received contains
    * that info */
@@ -2294,7 +2328,7 @@ int ssh_channel_cancel_forward(ssh_session session,
       goto error;
   }
 pending:
-  rc = global_request(session, "cancel-tcpip-forward", buffer, 1);
+  rc = ssh_global_request(session, "cancel-tcpip-forward", buffer, 1);
 
 error:
   ssh_buffer_free(buffer);
