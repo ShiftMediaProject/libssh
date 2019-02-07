@@ -1,6 +1,12 @@
 ChangeLog
 ==========
 
+version 0.8.7 (released 2019-02-25)
+  * Fixed handling extension flags in the server implementation
+  * Fixed exporting ed25519 private keys
+  * Fixed corner cases for rsa-sha2 signatures
+  * Fixed some issues with connector
+
 version 0.8.6 (released 2018-12-24)
   * Fixed compilation issues with different OpenSSL versions
   * Fixed StrictHostKeyChecking in new knownhosts API
