@@ -38,6 +38,7 @@
 #include "libssh/curve25519.h"
 #include "libssh/knownhosts.h"
 #include "libssh/misc.h"
+#include "libssh/pki.h"
 
 #ifdef HAVE_LIBGCRYPT
 # define BLOWFISH "blowfish-cbc,"
@@ -420,6 +421,7 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit){
     int server_kex=session->server;
     ssh_string str = NULL;
     char *strings[KEX_METHODS_SIZE] = {0};
+    char *rsa_sig_ext = NULL;
     int rc = SSH_ERROR;
 
     uint8_t first_kex_packet_follows = 0;
@@ -526,13 +528,52 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit){
         ok = ssh_match_group(session->next_crypto->client_kex.methods[SSH_KEX],
                              KEX_EXTENSION_CLIENT);
         if (ok) {
+            const char *hostkeys = NULL;
+
+            /* The client supports extension negotiation */
+            session->extensions |= SSH_EXT_NEGOTIATION;
             /*
-             * Enable all the supported extensions and when the time comes
-             * (after NEWKEYS) send them to the client.
+             * RFC 8332 Section 3.1: Use for Server Authentication
+             * Check what algorithms were provided in the SSH_HOSTKEYS list
+             * by the client and enable the respective extensions to provide
+             * correct signature in the next packet if RSA is negotiated
              */
+            hostkeys = session->next_crypto->client_kex.methods[SSH_HOSTKEYS];
+            ok = ssh_match_group(hostkeys, "rsa-sha2-512");
+            if (ok) {
+                session->extensions |= SSH_EXT_SIG_RSA_SHA512;
+            }
+            ok = ssh_match_group(hostkeys, "rsa-sha2-256");
+            if (ok) {
+                session->extensions |= SSH_EXT_SIG_RSA_SHA256;
+            }
+
+            /*
+             * Ensure that the client preference is honored for the case
+             * both signature types are enabled.
+             */
+            if ((session->extensions & SSH_EXT_SIG_RSA_SHA256) &&
+                (session->extensions & SSH_EXT_SIG_RSA_SHA512)) {
+                session->extensions &= ~(SSH_EXT_SIG_RSA_SHA256 | SSH_EXT_SIG_RSA_SHA512);
+                rsa_sig_ext = ssh_find_matching("rsa-sha2-512,rsa-sha2-256",
+                                                session->next_crypto->client_kex.methods[SSH_HOSTKEYS]);
+                if (rsa_sig_ext == NULL) {
+                    goto error; /* should never happen */
+                } else if (strcmp(rsa_sig_ext, "rsa-sha2-512") == 0) {
+                    session->extensions |= SSH_EXT_SIG_RSA_SHA512;
+                } else if (strcmp(rsa_sig_ext, "rsa-sha2-256") == 0) {
+                    session->extensions |= SSH_EXT_SIG_RSA_SHA256;
+                } else {
+                    SAFE_FREE(rsa_sig_ext);
+                    goto error; /* should never happen */
+                }
+                SAFE_FREE(rsa_sig_ext);
+            }
+
             SSH_LOG(SSH_LOG_DEBUG, "The client supports extension "
-                    "negotiation: enabling all extensions");
-            session->extensions = SSH_EXT_ALL;
+                    "negotiation. Enabled signature algorithms: %s%s",
+                    session->extensions & SSH_EXT_SIG_RSA_SHA256 ? "SHA256" : "",
+                    session->extensions & SSH_EXT_SIG_RSA_SHA512 ? " SHA512" : "");
         }
 
         /*
@@ -603,6 +644,8 @@ char *ssh_client_select_hostkeys(ssh_session session)
         "ecdsa-sha2-nistp521",
         "ecdsa-sha2-nistp384",
         "ecdsa-sha2-nistp256",
+        "rsa-sha2-512",
+        "rsa-sha2-256",
         "ssh-rsa",
 #ifdef HAVE_DSA
         "ssh-dss",
@@ -628,29 +671,30 @@ char *ssh_client_select_hostkeys(ssh_session session)
 
     for (i = 0; preferred_hostkeys[i] != NULL; ++i) {
         bool found = false;
+        /* This is a signature type: We list also the SHA2 extensions */
+        enum ssh_keytypes_e base_preferred =
+            ssh_key_type_from_signature_name(preferred_hostkeys[i]);
 
         for (it = ssh_list_get_iterator(algo_list);
              it != NULL;
              it = it->next) {
             const char *algo = ssh_iterator_value(const char *, it);
-            int cmp;
-            int ok;
+            /* This is always key type so we do not have to care for the
+             * SHA2 extension */
+            enum ssh_keytypes_e base_algo = ssh_key_type_from_name(algo);
 
-            cmp = strcmp(preferred_hostkeys[i], algo);
-            if (cmp == 0) {
-                ok = ssh_verify_existing_algo(SSH_HOSTKEYS, algo);
-                if (ok) {
-                    if (needcomma) {
-                        strncat(methods_buffer,
-                                ",",
-                                sizeof(methods_buffer) - strlen(methods_buffer) - 1);
-                    }
+            if (base_preferred == base_algo) {
+                /* Matching the keys already verified it is a known type */
+                if (needcomma) {
                     strncat(methods_buffer,
-                            algo,
+                            ",",
                             sizeof(methods_buffer) - strlen(methods_buffer) - 1);
-                    needcomma = 1;
-                    found = true;
                 }
+                strncat(methods_buffer,
+                        preferred_hostkeys[i],
+                        sizeof(methods_buffer) - strlen(methods_buffer) - 1);
+                needcomma = 1;
+                found = true;
             }
         }
         /* Collect the rest of the algorithms in other buffer, that will
@@ -712,10 +756,10 @@ int ssh_set_client_kex(ssh_session session)
 
     memset(client->methods, 0, KEX_METHODS_SIZE * sizeof(char **));
     /* first check if we have specific host key methods */
-    if(session->opts.wanted_methods[SSH_HOSTKEYS] == NULL){
+    if (session->opts.wanted_methods[SSH_HOSTKEYS] == NULL) {
     	/* Only if no override */
     	session->opts.wanted_methods[SSH_HOSTKEYS] =
-    			ssh_client_select_hostkeys(session);
+            ssh_client_select_hostkeys(session);
     }
 
     for (i = 0; i < KEX_METHODS_SIZE; i++) {

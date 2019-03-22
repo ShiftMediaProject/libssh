@@ -453,6 +453,7 @@ static void ssh_server_connection_callback(ssh_session session){
 
             /* from now, the packet layer is handling incoming packets */
             session->socket_callbacks.data=ssh_packet_socket_callback;
+            ssh_packet_register_socket_callback(session, session->socket);
 
             ssh_packet_set_default_callbacks(session);
             set_status(session, 0.5f);
@@ -523,7 +524,7 @@ static void ssh_server_connection_callback(ssh_session session){
                  * our supported extensions now. This is the first message after
                  * sending NEWKEYS message and after turning on crypto.
                  */
-                if (session->extensions &&
+                if (session->extensions & SSH_EXT_NEGOTIATION &&
                     session->session_state != SSH_SESSION_STATE_AUTHENTICATED) {
                     ssh_server_send_extensions(session);
                 }

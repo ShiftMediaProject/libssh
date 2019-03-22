@@ -357,5 +357,5 @@ mingw32:
     paths:
       - obj/
 
-Debian.cross.mips-linux-gnu:
+.Debian.cross.mips-linux-gnu:
   <<: *Debian_cross_template

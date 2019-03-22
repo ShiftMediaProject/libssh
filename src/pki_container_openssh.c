@@ -409,7 +409,7 @@ static int pki_openssh_export_privkey_blob(const ssh_key privkey,
         return SSH_ERROR;
     }
     if (privkey->ed25519_privkey == NULL ||
-            privkey->ed25519_pubkey == NULL){
+        privkey->ed25519_pubkey == NULL) {
         return SSH_ERROR;
     }
     rc = ssh_buffer_pack(buffer,
@@ -442,7 +442,6 @@ static int pki_private_key_encrypt(ssh_buffer privkey_buffer,
     char passphrase_buffer[128];
     int rc;
     int i;
-    uint8_t padding = 1;
     int cmp;
 
     cmp = strcmp(ciphername, "none");
@@ -469,14 +468,6 @@ static int pki_private_key_encrypt(ssh_buffer privkey_buffer,
         SSH_LOG(SSH_LOG_WARN, "Unsupported KDF %s", kdfname);
         return SSH_ERROR;
     }
-    while (ssh_buffer_get_len(privkey_buffer) % cipher.blocksize != 0) {
-        rc = ssh_buffer_add_u8(privkey_buffer, padding);
-        if (rc < 0) {
-            return SSH_ERROR;
-        }
-        padding++;
-    }
-
     /* We need material for key (keysize bits / 8) and IV (blocksize)  */
     key_material_len =  cipher.keysize/8 + cipher.blocksize;
     if (key_material_len > sizeof(key_material)){
@@ -553,6 +544,7 @@ ssh_string ssh_pki_openssh_privkey_export(const ssh_key privkey,
     int to_encrypt=0;
     unsigned char *b64;
     uint32_t str_len, len;
+    uint8_t padding = 1;
     int ok;
     int rc;
 
@@ -601,6 +593,18 @@ ssh_string ssh_pki_openssh_privkey_export(const ssh_key privkey,
     rc = ssh_buffer_pack(privkey_buffer, "s", "" /* comment */);
     if (rc == SSH_ERROR){
         goto error;
+    }
+
+    /* Add padding regardless encryption because it is expected
+     * by OpenSSH tools.
+     * XXX Using 16 B as we use only AES cipher below anyway.
+     */
+    while (ssh_buffer_get_len(privkey_buffer) % 16 != 0) {
+        rc = ssh_buffer_add_u8(privkey_buffer, padding);
+        if (rc < 0) {
+            goto error;
+        }
+        padding++;
     }
 
     if (to_encrypt){
