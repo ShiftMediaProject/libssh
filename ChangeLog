@@ -15,6 +15,71 @@ version 0.9.0 (released 2019-02-xx)
   * Improved documentation
   * Improved OpenSSL API usage for KEX, DH, and signatures
 
+version 0.8.7 (released 2019-02-25)
+  * Fixed handling extension flags in the server implementation
+  * Fixed exporting ed25519 private keys
+  * Fixed corner cases for rsa-sha2 signatures
+  * Fixed some issues with connector
+
+version 0.8.6 (released 2018-12-24)
+  * Fixed compilation issues with different OpenSSL versions
+  * Fixed StrictHostKeyChecking in new knownhosts API
+  * Fixed ssh_send_keepalive() with packet filter
+  * Fixed possible crash with knownhosts options
+  * Fixed issus with rekeying
+  * Fixed strong ECDSA keys
+  * Fixed some issues with rsa-sha2 extentions
+  * Fixed access violation in ssh_init() (static linking)
+  * Fixed ssh_channel_close() handling
+
+version 0.8.5 (released 2018-10-29)
+  * Added support to get known_hosts locations with ssh_options_get()
+  * Fixed preferred algorithm for known hosts negotiations
+  * Fixed KEX with some server implementations (e.g. Cisco)
+  * Fixed issues with MSVC
+  * Fixed keyboard-interactive auth in server mode
+    (regression from CVE-2018-10933)
+  * Fixed gssapi auth in server mode (regression from CVE-2018-10933)
+  * Fixed socket fd handling with proxy command
+  * Fixed a memory leak with OpenSSL
+
+version 0.8.4 (released 2018-10-16)
+  * Fixed CVE-2018-10933
+  * Fixed building without globbing support
+  * Fixed possible memory leaks
+  * Avoid SIGPIPE on sockets
+
+version 0.8.3 (released 2018-09-21)
+  * Added support for rsa-sha2
+  * Added support to parse private keys in openssh container format
+    (other than ed25519)
+  * Added support for diffie-hellman-group18-sha512 and
+    diffie-hellman-group16-sha512
+  * Added ssh_get_fingerprint_hash()
+  * Added ssh_pki_export_privkey_base64()
+  * Added support for Match keyword in config file
+  * Improved performance and reduced memory footprint for sftp
+  * Fixed ecdsa publickey auth
+  * Fixed reading a closed channel
+  * Added support to announce posix-rename@openssh.com and
+    hardlink@openssh.com in the sftp server
+
+version 0.8.2 (released 2018-08-30)
+  * Added sha256 fingerprints for pubkeys
+  * Improved compiler flag detection
+  * Fixed race condition in reading sftp messages
+  * Fixed doxygen generation and added modern style
+  * Fixed library initialization on Windows
+  * Fixed __bounded__ attribute detection
+  * Fixed a bug in the options parser
+  * Fixed documentation for new knwon_hosts API
+
+version 0.8.1 (released 2018-08-13)
+  * Fixed version number in the header
+  * Fixed version number in pkg-config and cmake config
+  * Fixed library initialization
+  * Fixed attribute detection
+
 version 0.8.0 (released 2018-08-10)
   * Removed support for deprecated SSHv1 protocol
   * Added new connector API for clients
