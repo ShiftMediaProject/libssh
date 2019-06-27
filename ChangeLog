@@ -1,7 +1,7 @@
 ChangeLog
 ==========
 
-version 0.9.0 (released 2019-02-xx)
+version 0.9.0 (released 2019-06-28)
   * Added support for AES-GCM
   * Added improved rekeying support
   * Added performance improvements
