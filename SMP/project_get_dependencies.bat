@@ -4,6 +4,7 @@ SETLOCAL EnableDelayedExpansion
 SET UPSTREAMURL=https://github.com/ShiftMediaProject
 SET DEPENDENCIES=( ^
 libgcrypt, ^
+libgpg-error, ^
 zlib ^
 )
 

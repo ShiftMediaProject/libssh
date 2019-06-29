@@ -207,6 +207,24 @@
     <ClCompile Include="..\src\threads\libgcrypt.c">
       <Filter>Source Files\external</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\bind_config.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\config_parser.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\dh_key.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\dh-gex.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\kdf.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\token.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\libssh\agent.h">
@@ -225,9 +243,6 @@
       <Filter>Header Files\libssh</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\channels.h">
-      <Filter>Header Files\libssh</Filter>
-    </ClInclude>
-    <ClInclude Include="..\include\libssh\crc32.h">
       <Filter>Header Files\libssh</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\crypto.h">
@@ -336,6 +351,24 @@
       <Filter>Header Files\libssh</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\poly1305.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\bind_config.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\bytearray.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\config.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\config_parser.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\dh-gex.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\token.h">
       <Filter>Header Files\libssh</Filter>
     </ClInclude>
   </ItemGroup>
