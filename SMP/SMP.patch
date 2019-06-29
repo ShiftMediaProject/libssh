@@ -1,0 +1,183 @@
+diff --git a/src/connect.c b/src/connect.c
+index 124b9f56..936611ff 100644
+--- a/src/connect.c
++++ b/src/connect.c
+@@ -33,6 +33,7 @@
+ #include "libssh/misc.h"
+ 
+ #ifdef _WIN32
++#if !defined(WINAPI_FAMILY) || !(WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
+ /*
+  * Only use Windows API functions available on Windows 2000 SP4 or later.
+  * The available constants are in <sdkddkver.h>.
+@@ -49,6 +50,7 @@
+ #undef NTDDI_VERSION
+ #define NTDDI_VERSION 0x05010000 /* NTDDI_WINXP */
+ #endif
++#endif
+ 
+ #if _MSC_VER >= 1400
+ #include <io.h>
+diff --git a/src/getpass.c b/src/getpass.c
+index 99627665..7c9941f3 100644
+--- a/src/getpass.c
++++ b/src/getpass.c
+@@ -122,6 +122,9 @@ int ssh_getpass(const char *prompt,
+                 size_t len,
+                 int echo,
+                 int verify) {
++#if defined(WINAPI_FAMILY) || (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
++    return -1;
++#else
+     HANDLE h;
+     DWORD mode = 0;
+     int ok;
+@@ -158,6 +161,7 @@ int ssh_getpass(const char *prompt,
+     buf[len - 1] = '\0';
+ 
+     return 0;
++#endif
+ }
+ 
+ #else
+diff --git a/src/init.c b/src/init.c
+index a8dfe030..b74cf6dd 100644
+--- a/src/init.c
++++ b/src/init.c
+@@ -32,17 +32,40 @@
+ #include <winsock2.h>
+ #endif
+ 
++#if defined(_WIN32) && defined(_MSC_VER) && defined(LIBSSH_STATIC)
++# define CONSTRUCTOR_ATTRIBUTE_(_func,p) static void _func(void); \
++    static int _func ## _wrapper(void) { _func(); return 0; } \
++    __pragma(section(".CRT$XCU",read)) \
++    __declspec(allocate(".CRT$XCU")) int (* _func##_)(void) = _func ## _wrapper; \
++    __pragma(comment(linker,"/include:" p #_func "_"))
++#ifdef _WIN64
++#define CONSTRUCTOR_ATTRIBUTE(f) CONSTRUCTOR_ATTRIBUTE_(f,"")
++#else
++#define CONSTRUCTOR_ATTRIBUTE(f) CONSTRUCTOR_ATTRIBUTE_(f,"_")
++#endif
++# define DESTRUCTOR_ATTRIBUTE_(_func,p) static void _func(void); \
++    static int _func ## _constructor(void) { atexit (_func); return 0; } \
++    __pragma(section(".CRT$XCU",read)) \
++    __declspec(allocate(".CRT$XCU")) int (* _func##_)(void) = _func ## _constructor; \
++    __pragma(comment(linker,"/include:" p #_func "_"))
++#ifdef _WIN64
++#define DESTRUCTOR_ATTRIBUTE(f) DESTRUCTOR_ATTRIBUTE_(f,"")
++#else
++#define DESTRUCTOR_ATTRIBUTE(f) DESTRUCTOR_ATTRIBUTE_(f,"_")
++#endif
++#else
+ #ifdef HAVE_CONSTRUCTOR_ATTRIBUTE
+-#define CONSTRUCTOR_ATTRIBUTE __attribute__((constructor))
++##define CONSTRUCTOR_ATTRIBUTE(_func) void _func(void) __attribute__((constructor))
+ #else
+-#define CONSTRUCTOR_ATTRIBUTE
++#define CONSTRUCTOR_ATTRIBUTE(_func)
+ #endif /* HAVE_CONSTRUCTOR_ATTRIBUTE */
+ 
+ #ifdef HAVE_DESTRUCTOR_ATTRIBUTE
+-#define DESTRUCTOR_ATTRIBUTE __attribute__((destructor))
++#define DESTRUCTOR_ATTRIBUTE(_func) void _func(void) __attribute__((destructor))
+ #else
+-#define DESTRUCTOR_ATTRIBUTE
++#define DESTRUCTOR_ATTRIBUTE(_func)
+ #endif /* HAVE_DESTRUCTOR_ATTRIBUTE */
++#endif
+ 
+ /* Declare static mutex */
+ static SSH_MUTEX ssh_init_mutex = SSH_MUTEX_STATIC_INIT;
+@@ -53,8 +76,8 @@ static int _ssh_initialized = 0;
+ /* Cache the returned value */
+ static int _ssh_init_ret = 0;
+ 
+-void libssh_constructor(void) CONSTRUCTOR_ATTRIBUTE;
+-void libssh_destructor(void) DESTRUCTOR_ATTRIBUTE;
++CONSTRUCTOR_ATTRIBUTE(libssh_constructor);
++DESTRUCTOR_ATTRIBUTE(libssh_destructor);
+ 
+ static int _ssh_init(unsigned constructor) {
+ 
+diff --git a/src/misc.c b/src/misc.c
+index 0c6b570c..c365e62b 100644
+--- a/src/misc.c
++++ b/src/misc.c
+@@ -50,9 +50,10 @@
+ 
+ 
+ #ifdef _WIN32
+-
+-#ifndef _WIN32_IE
+-# define _WIN32_IE 0x0501 // SHGetSpecialFolderPath
++#if !defined(WINAPI_FAMILY) || !(WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
++# ifndef _WIN32_IE
++#  define _WIN32_IE 0x0501 // SHGetSpecialFolderPath
++# endif
+ #endif
+ 
+ #include <winsock2.h> // Must be the first to include
+@@ -105,6 +106,9 @@
+ 
+ #ifdef _WIN32
+ char *ssh_get_user_home_dir(void) {
++#if defined(WINAPI_FAMILY) || (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
++    return NULL;
++#else
+   char tmp[MAX_PATH] = {0};
+   char *szPath = NULL;
+ 
+@@ -119,6 +123,7 @@ char *ssh_get_user_home_dir(void) {
+   }
+ 
+   return NULL;
++#endif
+ }
+ 
+ /* we have read access on file */
+@@ -147,22 +152,26 @@ int gettimeofday(struct timeval *__p, void *__t) {
+ }
+ 
+ char *ssh_get_local_username(void) {
++#if defined(WINAPI_FAMILY) || (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
++    return NULL;
++#else
+     DWORD size = 0;
+     char *user;
+ 
+     /* get the size */
+-    GetUserName(NULL, &size);
++    GetUserNameA(NULL, &size);
+ 
+     user = (char *) malloc(size);
+     if (user == NULL) {
+         return NULL;
+     }
+ 
+-    if (GetUserName(user, &size)) {
++    if (GetUserNameA(user, &size)) {
+         return user;
+     }
+ 
+     return NULL;
++#endif
+ }
+ 
+ int ssh_is_ipaddr_v4(const char *str) {
+diff --git a/src/pki_gcrypt.c b/src/pki_gcrypt.c
+index 705830c0..8ecbbdde 100644
+--- a/src/pki_gcrypt.c
++++ b/src/pki_gcrypt.c
+@@ -2140,7 +2140,11 @@ ssh_signature pki_do_sign_hash(const ssh_key privkey,
+                                size_t hlen,
+                                enum ssh_digest_e hash_type)
+ {
++#if defined(_MSC_VER)
++    unsigned char* ghash = (char*)_alloca(sizeof(char) * (hlen + 1));
++#else
+     unsigned char ghash[hlen + 1];
++#endif
+     const char *hash_c = NULL;
+     ssh_signature sig;
+     gcry_sexp_t sexp;
