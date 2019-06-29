@@ -16,19 +16,23 @@ static int setup_rsa_key(void **state)
 
     const char *q;
 
-    b64_key = strdup(torture_get_testkey_pub(SSH_KEYTYPE_RSA, 0));
-    assert_true(b64_key != NULL);
+    b64_key = strdup(torture_get_testkey_pub(SSH_KEYTYPE_RSA));
+    assert_non_null(b64_key);
 
     q = p = b64_key;
-    while (*p != ' ') p++;
-    *p = '\0';
+    while (p != NULL && *p != '\0' && *p != ' ') p++;
+    if (p != NULL) {
+        *p = '\0';
+    }
 
     type = ssh_key_type_from_name(q);
     assert_true(type == SSH_KEYTYPE_RSA);
 
     q = ++p;
-    while (*p != ' ') p++;
-    *p = '\0';
+    while (p != NULL && *p != '\0' && *p != ' ') p++;
+    if (p != NULL) {
+        *p = '\0';
+    }
 
     rc = ssh_pki_import_pubkey_base64(q, type, &key);
     assert_true(rc == 0);
@@ -53,16 +57,25 @@ static void torture_md5_hash(void **state)
     size_t hlen;
     int rc = 0;
 
+    if (ssh_fips_mode()) {
+        skip();
+    }
+
     rc = ssh_get_publickey_hash(pubkey, SSH_PUBLICKEY_HASH_MD5,
                                 (unsigned char **)&hash, &hlen);
-    assert_true(rc == 0);
+    if (ssh_fips_mode()) {
+        /* When in FIPS mode, expect the call to fail */
+        assert_int_equal(rc, SSH_ERROR);
+    } else {
+        assert_int_equal(rc, SSH_OK);
 
-    hexa = ssh_get_hexa((unsigned char *)hash, hlen);
-    SSH_STRING_FREE_CHAR(hash);
-    assert_string_equal(hexa,
-                        "50:15:a0:9b:92:bf:33:1c:01:c5:8c:fe:18:fa:ce:78");
+        hexa = ssh_get_hexa((unsigned char *)hash, hlen);
+        SSH_STRING_FREE_CHAR(hash);
+        assert_string_equal(hexa,
+                            "50:15:a0:9b:92:bf:33:1c:01:c5:8c:fe:18:fa:ce:78");
 
-    SSH_STRING_FREE_CHAR(hexa);
+        SSH_STRING_FREE_CHAR(hexa);
+    }
 }
 
 static void torture_sha1_hash(void **state)

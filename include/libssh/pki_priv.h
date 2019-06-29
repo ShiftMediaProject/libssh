@@ -61,6 +61,8 @@ int pki_key_compare(const ssh_key k1,
                     const ssh_key k2,
                     enum ssh_keycmp_e what);
 
+int pki_key_check_hash_compatible(ssh_key key,
+                                  enum ssh_digest_e hash_type);
 /* SSH Private Key Functions */
 enum ssh_keytypes_e pki_privatekey_type_from_string(const char *privkey);
 ssh_key pki_private_key_from_base64(const char *b64_key,
@@ -109,6 +111,14 @@ int pki_privkey_build_ecdsa(ssh_key key,
 ssh_string pki_publickey_to_blob(const ssh_key key);
 
 /* SSH Signature Functions */
+ssh_signature pki_sign_data(const ssh_key privkey,
+                            enum ssh_digest_e hash_type,
+                            const unsigned char *input,
+                            size_t input_len);
+int pki_verify_data_signature(ssh_signature signature,
+                              const ssh_key pubkey,
+                              const unsigned char *input,
+                              size_t input_len);
 ssh_string pki_signature_to_blob(const ssh_signature sign);
 ssh_signature pki_signature_from_blob(const ssh_key pubkey,
                                       const ssh_string sig_blob,
@@ -117,22 +127,18 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
 int pki_signature_verify(ssh_session session,
                          const ssh_signature sig,
                          const ssh_key key,
-                         const unsigned char *hash,
-                         size_t hlen);
+                         const unsigned char *input,
+                         size_t input_len);
 
 /* SSH Signing Functions */
-#define pki_do_sign(key, hash, hlen) \
-    pki_do_sign_hash(key, hash, hlen, SSH_DIGEST_AUTO)
+ssh_signature pki_do_sign(const ssh_key privkey,
+                          const unsigned char *input,
+                          size_t input_len,
+                          enum ssh_digest_e hash_type);
 ssh_signature pki_do_sign_hash(const ssh_key privkey,
                                const unsigned char *hash,
                                size_t hlen,
                                enum ssh_digest_e hash_type);
-#define pki_do_sign_sessionid(key, hash, hlen) \
-    pki_do_sign_sessionid_hash(key, hash, hlen, SSH_DIGEST_AUTO)
-ssh_signature pki_do_sign_sessionid_hash(const ssh_key key,
-                                        const unsigned char *hash,
-                                        size_t hlen,
-                                        enum ssh_digest_e hash_type);
 int pki_ed25519_sign(const ssh_key privkey, ssh_signature sig,
         const unsigned char *hash, size_t hlen);
 int pki_ed25519_verify(const ssh_key pubkey, ssh_signature sig,

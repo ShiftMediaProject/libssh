@@ -106,6 +106,9 @@ int ssh_client_ecdh_init(ssh_session session)
     session->next_crypto->ecdh_client_pubkey = client_pubkey;
     client_pubkey = NULL;
 
+    /* register the packet callbacks */
+    ssh_packet_set_callbacks(session, &ssh_ecdh_client_callbacks);
+    session->dh_handshake_state = DH_STATE_INIT_SENT;
     rc = ssh_packet_send(session);
 
 out:
@@ -151,16 +154,16 @@ int ecdh_build_k(ssh_session session)
         goto out;
     }
 
-    session->next_crypto->k = malloc(sizeof(mbedtls_mpi));
-    if (session->next_crypto->k == NULL) {
+    session->next_crypto->shared_secret = malloc(sizeof(mbedtls_mpi));
+    if (session->next_crypto->shared_secret == NULL) {
         rc = SSH_ERROR;
         goto out;
     }
 
-    mbedtls_mpi_init(session->next_crypto->k);
+    mbedtls_mpi_init(session->next_crypto->shared_secret);
 
     rc = mbedtls_ecdh_compute_shared(&grp,
-                                     session->next_crypto->k,
+                                     session->next_crypto->shared_secret,
                                      &pubkey,
                                      &session->next_crypto->ecdh_privkey->d,
                                      mbedtls_ctr_drbg_random,
@@ -179,8 +182,8 @@ out:
 }
 
 #ifdef WITH_SERVER
-int ssh_server_ecdh_init(ssh_session session, ssh_buffer packet)
-{
+
+SSH_PACKET_CALLBACK(ssh_packet_server_ecdh_init){
     ssh_string q_c_string = NULL;
     ssh_string q_s_string = NULL;
     mbedtls_ecp_group grp;
@@ -189,7 +192,10 @@ int ssh_server_ecdh_init(ssh_session session, ssh_buffer packet)
     ssh_string pubkey_blob = NULL;
     int rc;
     mbedtls_ecp_group_id curve;
+    (void)type;
+    (void)user;
 
+    ssh_packet_remove_callbacks(session, &ssh_ecdh_server_callbacks);
     curve = ecdh_kex_type_to_curve(session->next_crypto->kex_type);
     if (curve == MBEDTLS_ECP_DP_NONE) {
         return SSH_ERROR;
@@ -305,7 +311,11 @@ int ssh_server_ecdh_init(ssh_session session, ssh_buffer packet)
 
 out:
     mbedtls_ecp_group_free(&grp);
-    return rc;
+    if (rc == SSH_ERROR) {
+        ssh_buffer_reinit(session->out_buffer);
+        session->session_state = SSH_SESSION_STATE_ERROR;
+    }
+    return SSH_PACKET_USED;
 }
 
 #endif /* WITH_SERVER */

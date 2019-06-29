@@ -69,7 +69,7 @@ static int ssh_userauth_request_service(ssh_session session) {
     int rc;
 
     rc = ssh_service_request(session, "ssh-userauth");
-    if (rc != SSH_OK) {
+    if ((rc != SSH_OK) && (rc != SSH_AGAIN)) {
         SSH_LOG(SSH_LOG_WARN,
                 "Failed to request \"ssh-userauth\" service");
     }
@@ -282,7 +282,10 @@ end:
  *
  * It is also used to communicate the new to the upper levels.
  */
-SSH_PACKET_CALLBACK(ssh_packet_userauth_success) {
+SSH_PACKET_CALLBACK(ssh_packet_userauth_success)
+{
+  struct ssh_crypto_struct *crypto = NULL;
+
   (void)packet;
   (void)type;
   (void)user;
@@ -294,13 +297,16 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_success) {
   session->session_state = SSH_SESSION_STATE_AUTHENTICATED;
   session->flags |= SSH_SESSION_FLAG_AUTHENTICATED;
 
-  if (session->current_crypto && session->current_crypto->delayed_compress_out) {
+  crypto = ssh_packet_get_current_crypto(session, SSH_DIRECTION_OUT);
+  if (crypto != NULL && crypto->delayed_compress_out) {
       SSH_LOG(SSH_LOG_DEBUG, "Enabling delayed compression OUT");
-      session->current_crypto->do_compress_out = 1;
+      crypto->do_compress_out = 1;
   }
-  if (session->current_crypto && session->current_crypto->delayed_compress_in) {
+
+  crypto = ssh_packet_get_current_crypto(session, SSH_DIRECTION_IN);
+  if (crypto != NULL && crypto->delayed_compress_in) {
       SSH_LOG(SSH_LOG_DEBUG, "Enabling delayed compression IN");
-      session->current_crypto->do_compress_in = 1;
+      crypto->do_compress_in = 1;
   }
 
     /* Reset errors by previous authentication methods. */
@@ -509,26 +515,13 @@ int ssh_userauth_try_publickey(ssh_session session,
             return SSH_ERROR;
     }
 
-    switch (pubkey->type) {
-    case SSH_KEYTYPE_UNKNOWN:
-        ssh_set_error(session,
-                      SSH_REQUEST_DENIED,
+    /* Check if the given public key algorithm is allowed */
+    sig_type_c = ssh_key_get_signature_algorithm(session, pubkey->type);
+    if (sig_type_c == NULL) {
+        ssh_set_error(session, SSH_REQUEST_DENIED,
                       "Invalid key type (unknown)");
         return SSH_AUTH_DENIED;
-    case SSH_KEYTYPE_ECDSA:
-        sig_type_c = ssh_pki_key_ecdsa_name(pubkey);
-        break;
-    case SSH_KEYTYPE_DSS:
-    case SSH_KEYTYPE_RSA:
-    case SSH_KEYTYPE_RSA1:
-    case SSH_KEYTYPE_ED25519:
-    case SSH_KEYTYPE_DSS_CERT01:
-    case SSH_KEYTYPE_RSA_CERT01:
-        sig_type_c = ssh_key_get_signature_algorithm(session, pubkey->type);
-        break;
     }
-
-    /* Check if the given public key algorithm is allowed */
     if (!ssh_key_algorithm_allowed(session, sig_type_c)) {
         ssh_set_error(session, SSH_REQUEST_DENIED,
                       "The key algorithm '%s' is not allowed to be used by"
@@ -620,6 +613,7 @@ int ssh_userauth_publickey(ssh_session session,
     int rc;
     const char *sig_type_c = NULL;
     enum ssh_keytypes_e key_type;
+    enum ssh_digest_e hash_type;
 
     if (session == NULL) {
         return SSH_AUTH_ERROR;
@@ -645,26 +639,13 @@ int ssh_userauth_publickey(ssh_session session,
     /* Cert auth requires presenting the cert type name (*-cert@openssh.com) */
     key_type = privkey->cert != NULL ? privkey->cert_type : privkey->type;
 
-    switch (key_type) {
-    case SSH_KEYTYPE_UNKNOWN:
-        ssh_set_error(session,
-                      SSH_REQUEST_DENIED,
+    /* Check if the given public key algorithm is allowed */
+    sig_type_c = ssh_key_get_signature_algorithm(session, key_type);
+    if (sig_type_c == NULL) {
+        ssh_set_error(session, SSH_REQUEST_DENIED,
                       "Invalid key type (unknown)");
         return SSH_AUTH_DENIED;
-    case SSH_KEYTYPE_ECDSA:
-        sig_type_c = ssh_pki_key_ecdsa_name(privkey);
-        break;
-    case SSH_KEYTYPE_DSS:
-    case SSH_KEYTYPE_RSA:
-    case SSH_KEYTYPE_RSA1:
-    case SSH_KEYTYPE_ED25519:
-    case SSH_KEYTYPE_DSS_CERT01:
-    case SSH_KEYTYPE_RSA_CERT01:
-        sig_type_c = ssh_key_get_signature_algorithm(session, key_type);
-        break;
     }
-
-    /* Check if the given public key algorithm is allowed */
     if (!ssh_key_algorithm_allowed(session, sig_type_c)) {
         ssh_set_error(session, SSH_REQUEST_DENIED,
                       "The key algorithm '%s' is not allowed to be used by"
@@ -701,8 +682,11 @@ int ssh_userauth_publickey(ssh_session session,
     }
     ssh_string_free(str);
 
+    /* Get the hash type to be used in the signature based on the key type */
+    hash_type = ssh_key_type_to_hash(session, privkey->type);
+
     /* sign the buffer with the private key */
-    str = ssh_pki_do_sign(session, session->out_buffer, privkey);
+    str = ssh_pki_do_sign(session, session->out_buffer, privkey, hash_type);
     if (str == NULL) {
         goto fail;
     }
@@ -771,9 +755,15 @@ static int ssh_userauth_agent_publickey(ssh_session session,
     if (rc < 0) {
         goto fail;
     }
-    sig_type_c = ssh_key_get_signature_algorithm(session, pubkey->type);
 
     /* Check if the given public key algorithm is allowed */
+    sig_type_c = ssh_key_get_signature_algorithm(session, pubkey->type);
+    if (sig_type_c == NULL) {
+        ssh_set_error(session, SSH_REQUEST_DENIED,
+                      "Invalid key type (unknown)");
+        SSH_STRING_FREE(pubkey_s);
+        return SSH_AUTH_DENIED;
+    }
     if (!ssh_key_algorithm_allowed(session, sig_type_c)) {
         ssh_set_error(session, SSH_REQUEST_DENIED,
                       "The key algorithm '%s' is not allowed to be used by"
@@ -1270,6 +1260,9 @@ int ssh_userauth_password(ssh_session session,
     if (rc < 0) {
         goto fail;
     }
+
+    /* Set the buffer as secure to be explicitly zeroed when freed */
+    ssh_buffer_set_secure(session->out_buffer);
 
     session->auth.current_method = SSH_AUTH_METHOD_PASSWORD;
     session->auth.state = SSH_AUTH_STATE_PASSWORD_AUTH_SENT;

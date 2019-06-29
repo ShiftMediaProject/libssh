@@ -19,9 +19,9 @@ static int setup_rsa_key(void **state)
     unlink(LIBSSH_RSA_TESTKEY ".pub");
 
     torture_write_file(LIBSSH_RSA_TESTKEY,
-                       torture_get_testkey(SSH_KEYTYPE_RSA, 0, 0));
+                       torture_get_testkey(SSH_KEYTYPE_RSA, 0));
     torture_write_file(LIBSSH_RSA_TESTKEY ".pub",
-                       torture_get_testkey_pub(SSH_KEYTYPE_RSA, 0));
+                       torture_get_testkey_pub(SSH_KEYTYPE_RSA));
 
     session = ssh_new();
     *state = session;
@@ -38,9 +38,9 @@ static int setup_dsa_key(void **state)
     unlink(LIBSSH_DSA_TESTKEY ".pub");
 
     torture_write_file(LIBSSH_DSA_TESTKEY,
-                       torture_get_testkey(SSH_KEYTYPE_DSS, 0, 0));
+                       torture_get_testkey(SSH_KEYTYPE_DSS, 0));
     torture_write_file(LIBSSH_DSA_TESTKEY ".pub",
-                       torture_get_testkey_pub(SSH_KEYTYPE_DSS, 0));
+                       torture_get_testkey_pub(SSH_KEYTYPE_DSS));
 
     session = ssh_new();
     *state = session;
@@ -70,15 +70,15 @@ static int setup_both_keys_passphrase(void **state)
     ssh_session session;
 
     torture_write_file(LIBSSH_RSA_TESTKEY,
-                       torture_get_testkey(SSH_KEYTYPE_RSA, 0, 1));
+                       torture_get_testkey(SSH_KEYTYPE_RSA, 1));
     torture_write_file(LIBSSH_RSA_TESTKEY ".pub",
-                       torture_get_testkey_pub(SSH_KEYTYPE_RSA, 0));
+                       torture_get_testkey_pub(SSH_KEYTYPE_RSA));
 
 #ifdef HAVE_DSA
     torture_write_file(LIBSSH_DSA_TESTKEY,
-                       torture_get_testkey(SSH_KEYTYPE_DSS, 0, 1));
+                       torture_get_testkey(SSH_KEYTYPE_DSS, 1));
     torture_write_file(LIBSSH_DSA_TESTKEY ".pub",
-                       torture_get_testkey_pub(SSH_KEYTYPE_DSS, 0));
+                       torture_get_testkey_pub(SSH_KEYTYPE_DSS));
 #endif
 
     session = ssh_new();
@@ -104,7 +104,7 @@ static int teardown(void **state)
 
 static void torture_pubkey_from_file(void **state) {
     ssh_session session = *state;
-    ssh_string pubkey;
+    ssh_string pubkey = NULL;
     int type, rc;
 
     rc = ssh_try_publickey_from_file(session, LIBSSH_RSA_TESTKEY, &pubkey, &type);
@@ -132,25 +132,26 @@ static void torture_pubkey_from_file(void **state) {
     SSH_STRING_FREE(pubkey);
 }
 
-static int torture_read_one_line(const char *filename, char *buffer, size_t len) {
-  FILE *fp;
-  size_t rc;
+static int torture_read_one_line(const char *filename, char *buffer, size_t len)
+{
+    FILE *fp;
+    size_t nmemb;
 
-  fp = fopen(filename, "r");
-  if (fp == NULL) {
-    return -1;
-  }
+    fp = fopen(filename, "r");
+    if (fp == NULL) {
+        return -1;
+    }
 
-  rc = fread(buffer, len, 1, fp);
-  if (rc != 0 || ferror(fp)) {
+    nmemb = fread(buffer, len - 2, 1, fp);
+    if (nmemb != 0 || ferror(fp)) {
+        fclose(fp);
+        return -1;
+    }
+    buffer[len - 1] = '\0';
+
     fclose(fp);
-    return -1;
-  }
-  buffer[len - 1] = '\0';
 
-  fclose(fp);
-
-  return 0;
+    return 0;
 }
 
 static void torture_pubkey_generate_from_privkey(void **state) {
@@ -170,7 +171,7 @@ static void torture_pubkey_generate_from_privkey(void **state) {
     rc = ssh_try_publickey_from_file(session, LIBSSH_RSA_TESTKEY, &pubkey_orig,
         &type_orig);
     assert_true(rc == 0);
-    assert_true(pubkey_orig != NULL);
+    assert_non_null(pubkey_orig);
 
     rc = torture_read_one_line(LIBSSH_RSA_TESTKEY ".pub", pubkey_line_orig,
         sizeof(pubkey_line_orig));
@@ -180,17 +181,17 @@ static void torture_pubkey_generate_from_privkey(void **state) {
     unlink(LIBSSH_RSA_TESTKEY ".pub");
 
     privkey = privatekey_from_file(session, LIBSSH_RSA_TESTKEY, 0, NULL);
-    assert_true(privkey != NULL);
+    assert_non_null(privkey);
 
     pubkey = publickey_from_privatekey(privkey);
-    assert_true(pubkey != NULL);
+    assert_non_null(pubkey);
     type_new = privkey->type;
     privatekey_free(privkey);
 
     pubkey_new = publickey_to_string(pubkey);
     publickey_free(pubkey);
 
-    assert_true(pubkey_new != NULL);
+    assert_non_null(pubkey_new);
 
     assert_true(ssh_string_len(pubkey_orig) == ssh_string_len(pubkey_new));
     assert_memory_equal(ssh_string_data(pubkey_orig),
@@ -228,7 +229,7 @@ static void torture_privatekey_from_file(void **state) {
     ssh_private_key key = NULL;
 
     key = privatekey_from_file(session, LIBSSH_RSA_TESTKEY, SSH_KEYTYPE_RSA, NULL);
-    assert_true(key != NULL);
+    assert_non_null(key);
     if (key != NULL) {
         privatekey_free(key);
         key = NULL;
@@ -236,7 +237,7 @@ static void torture_privatekey_from_file(void **state) {
 
 #ifdef HAVE_DSA
     key = privatekey_from_file(session, LIBSSH_DSA_TESTKEY, SSH_KEYTYPE_DSS, NULL);
-    assert_true(key != NULL);
+    assert_non_null(key);
     if (key != NULL) {
         privatekey_free(key);
         key = NULL;
@@ -245,7 +246,7 @@ static void torture_privatekey_from_file(void **state) {
 
     /* Test the automatic type discovery */
     key = privatekey_from_file(session, LIBSSH_RSA_TESTKEY, 0, NULL);
-    assert_true(key != NULL);
+    assert_non_null(key);
     if (key != NULL) {
         privatekey_free(key);
         key = NULL;
@@ -253,7 +254,7 @@ static void torture_privatekey_from_file(void **state) {
 
 #ifdef HAVE_DSA
     key = privatekey_from_file(session, LIBSSH_DSA_TESTKEY, 0, NULL);
-    assert_true(key != NULL);
+    assert_non_null(key);
     if (key != NULL) {
         privatekey_free(key);
         key = NULL;
@@ -269,7 +270,7 @@ static void torture_privatekey_from_file_passphrase(void **state) {
     ssh_private_key key = NULL;
 
     key = privatekey_from_file(session, LIBSSH_RSA_TESTKEY, SSH_KEYTYPE_RSA, TORTURE_TESTKEY_PASSWORD);
-    assert_true(key != NULL);
+    assert_non_null(key);
     if (key != NULL) {
         privatekey_free(key);
         key = NULL;
@@ -277,7 +278,7 @@ static void torture_privatekey_from_file_passphrase(void **state) {
 
 #ifdef HAVE_DSA
     key = privatekey_from_file(session, LIBSSH_DSA_TESTKEY, SSH_KEYTYPE_DSS, TORTURE_TESTKEY_PASSWORD);
-    assert_true(key != NULL);
+    assert_non_null(key);
     if (key != NULL) {
         privatekey_free(key);
         key = NULL;
@@ -286,7 +287,7 @@ static void torture_privatekey_from_file_passphrase(void **state) {
 
     /* Test the automatic type discovery */
     key = privatekey_from_file(session, LIBSSH_RSA_TESTKEY, 0, TORTURE_TESTKEY_PASSWORD);
-    assert_true(key != NULL);
+    assert_non_null(key);
     if (key != NULL) {
         privatekey_free(key);
         key = NULL;
@@ -294,7 +295,7 @@ static void torture_privatekey_from_file_passphrase(void **state) {
 
 #ifdef HAVE_DSA
     key = privatekey_from_file(session, LIBSSH_DSA_TESTKEY, 0, TORTURE_TESTKEY_PASSWORD);
-    assert_true(key != NULL);
+    assert_non_null(key);
     if (key != NULL) {
         privatekey_free(key);
         key = NULL;

@@ -40,7 +40,7 @@
 
 static int sshd_setup(void **state)
 {
-    torture_setup_sshd_server(state);
+    torture_setup_sshd_server(state, false);
 
     return 0;
 }
@@ -68,6 +68,7 @@ static int session_setup(void **state)
     assert_non_null(s->ssh.session);
 
     ssh_options_set(s->ssh.session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
+    ssh_options_set(s->ssh.session, SSH_OPTIONS_HOST, BLACKHOLE);
 
     return 0;
 }

@@ -41,6 +41,7 @@ if (UNIX)
     add_c_compiler_flag("-Werror=strict-overflow" SUPPORTED_COMPILER_FLAGS)
     add_c_compiler_flag("-Wstrict-overflow=2" SUPPORTED_COMPILER_FLAGS)
     add_c_compiler_flag("-Wno-format-zero-length" SUPPORTED_COMPILER_FLAGS)
+    add_c_compiler_flag("-Wmissing-field-initializers" SUPPORTED_COMPILER_FLAGS)
 
     check_c_compiler_flag("-Wformat" REQUIRED_FLAGS_WFORMAT)
     if (REQUIRED_FLAGS_WFORMAT)
@@ -51,7 +52,10 @@ if (UNIX)
     add_c_compiler_flag("-Werror=format-security" SUPPORTED_COMPILER_FLAGS)
 
     # Allow zero for a variadic macro argument
-    add_c_compiler_flag("-Wno-gnu-zero-variadic-macro-arguments" SUPPORTED_COMPILER_FLAGS)
+    string(TOLOWER "${CMAKE_C_COMPILER_ID}" _C_COMPILER_ID)
+    if ("${_C_COMPILER_ID}" STREQUAL "clang")
+        add_c_compiler_flag("-Wno-gnu-zero-variadic-macro-arguments" SUPPORTED_COMPILER_FLAGS)
+    endif()
 
     add_c_compiler_flag("-fno-common" SUPPORTED_COMPILER_FLAGS)
 
@@ -65,10 +69,18 @@ if (UNIX)
     check_c_compiler_flag_ssp("-fstack-protector-strong" WITH_STACK_PROTECTOR_STRONG)
     if (WITH_STACK_PROTECTOR_STRONG)
         list(APPEND SUPPORTED_COMPILER_FLAGS "-fstack-protector-strong")
+        # This is needed as Solaris has a seperate libssp
+        if (SOLARIS)
+            list(APPEND SUPPORTED_LINKER_FLAGS "-fstack-protector-strong")
+        endif()
     else (WITH_STACK_PROTECTOR_STRONG)
         check_c_compiler_flag_ssp("-fstack-protector" WITH_STACK_PROTECTOR)
         if (WITH_STACK_PROTECTOR)
             list(APPEND SUPPORTED_COMPILER_FLAGS "-fstack-protector")
+            # This is needed as Solaris has a seperate libssp
+            if (SOLARIS)
+                list(APPEND SUPPORTED_LINKER_FLAGS "-fstack-protector")
+            endif()
         endif()
     endif (WITH_STACK_PROTECTOR_STRONG)
 
@@ -81,6 +93,8 @@ if (UNIX)
         add_c_compiler_flag("-Wno-error=deprecated-declarations" SUPPORTED_COMPILER_FLAGS)
         add_c_compiler_flag("-Wno-error=tautological-compare" SUPPORTED_COMPILER_FLAGS)
     endif()
+
+    add_c_compiler_flag("-Wno-deprecated-declarations" DEPRECATION_COMPILER_FLAGS)
 
     # Unset CMAKE_REQUIRED_FLAGS
     unset(CMAKE_REQUIRED_FLAGS)
@@ -100,3 +114,8 @@ if (OSX)
 endif()
 
 set(DEFAULT_C_COMPILE_FLAGS ${SUPPORTED_COMPILER_FLAGS} CACHE INTERNAL "Default C Compiler Flags" FORCE)
+set(DEFAULT_LINK_FLAGS ${SUPPORTED_LINKER_FLAGS} CACHE INTERNAL "Default C Linker Flags" FORCE)
+
+if (DEPRECATION_COMPILER_FLAGS)
+    set(DEFAULT_C_NO_DEPRECATION_FLAGS ${DEPRECATION_COMPILER_FLAGS} CACHE INTERNAL "Default no deprecation flags" FORCE)
+endif()

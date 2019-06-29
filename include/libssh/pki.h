@@ -44,23 +44,23 @@ struct ssh_key_struct {
     int flags;
     const char *type_c; /* Don't free it ! it is static */
     int ecdsa_nid;
-#ifdef HAVE_LIBGCRYPT
+#if defined(HAVE_LIBGCRYPT)
     gcry_sexp_t dsa;
     gcry_sexp_t rsa;
     gcry_sexp_t ecdsa;
-#elif HAVE_LIBMBEDCRYPTO
+#elif defined(HAVE_LIBMBEDCRYPTO)
     mbedtls_pk_context *rsa;
     mbedtls_ecdsa_context *ecdsa;
     void *dsa;
-#elif HAVE_LIBCRYPTO
+#elif defined(HAVE_LIBCRYPTO)
     DSA *dsa;
     RSA *rsa;
-#ifdef HAVE_OPENSSL_ECC
+# if defined(HAVE_OPENSSL_ECC)
     EC_KEY *ecdsa;
-#else
+# else
     void *ecdsa;
-#endif /* HAVE_OPENSSL_EC_H */
-#endif
+# endif /* HAVE_OPENSSL_EC_H */
+#endif /* HAVE_LIBGCRYPT */
     ed25519_pubkey *ed25519_pubkey;
     ed25519_privkey *ed25519_privkey;
     void *cert;
@@ -71,23 +71,16 @@ struct ssh_signature_struct {
     enum ssh_keytypes_e type;
     enum ssh_digest_e hash_type;
     const char *type_c;
-#ifdef HAVE_LIBGCRYPT
+#if defined(HAVE_LIBGCRYPT)
     gcry_sexp_t dsa_sig;
     gcry_sexp_t rsa_sig;
     gcry_sexp_t ecdsa_sig;
-#elif defined HAVE_LIBCRYPTO
-    DSA_SIG *dsa_sig;
-    ssh_string rsa_sig;
-# ifdef HAVE_OPENSSL_ECC
-    ECDSA_SIG *ecdsa_sig;
-# else
-    void *ecdsa_sig;
-# endif
-#elif defined HAVE_LIBMBEDCRYPTO
+#elif defined(HAVE_LIBMBEDCRYPTO)
     ssh_string rsa_sig;
     struct mbedtls_ecdsa_sig ecdsa_sig;
-#endif
+#endif /* HAVE_LIBGCRYPT */
     ed25519_signature *ed25519_sig;
+    ssh_string raw_sig;
 };
 
 typedef struct ssh_signature_struct *ssh_signature;
@@ -100,6 +93,18 @@ const char *
 ssh_key_get_signature_algorithm(ssh_session session,
                                 enum ssh_keytypes_e type);
 enum ssh_keytypes_e ssh_key_type_from_signature_name(const char *name);
+enum ssh_keytypes_e ssh_key_type_plain(enum ssh_keytypes_e type);
+enum ssh_digest_e ssh_key_type_to_hash(ssh_session session,
+                                       enum ssh_keytypes_e type);
+
+#define is_ecdsa_key_type(t) \
+    ((t) >= SSH_KEYTYPE_ECDSA_P256 && (t) <= SSH_KEYTYPE_ECDSA_P521)
+
+#define is_cert_type(kt)\
+      ((kt) == SSH_KEYTYPE_DSS_CERT01 ||\
+       (kt) == SSH_KEYTYPE_RSA_CERT01 ||\
+      ((kt) >= SSH_KEYTYPE_ECDSA_P256_CERT01 &&\
+       (kt) <= SSH_KEYTYPE_ED25519_CERT01))
 
 /* SSH Signature Functions */
 ssh_signature ssh_signature_new(void);
@@ -128,7 +133,7 @@ int ssh_pki_import_cert_blob(const ssh_string cert_blob,
 
 /* SSH Signing Functions */
 ssh_string ssh_pki_do_sign(ssh_session session, ssh_buffer sigbuf,
-    const ssh_key privatekey);
+    const ssh_key privatekey, enum ssh_digest_e hash_type);
 ssh_string ssh_pki_do_sign_agent(ssh_session session,
                                  struct ssh_buffer_struct *buf,
                                  const ssh_key pubkey);

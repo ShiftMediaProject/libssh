@@ -78,8 +78,8 @@
 
 /* libssh version */
 #define LIBSSH_VERSION_MAJOR  0
-#define LIBSSH_VERSION_MINOR  8
-#define LIBSSH_VERSION_MICRO  7
+#define LIBSSH_VERSION_MINOR  9
+#define LIBSSH_VERSION_MICRO  0
 
 #define LIBSSH_VERSION_INT SSH_VERSION_INT(LIBSSH_VERSION_MAJOR, \
                                            LIBSSH_VERSION_MINOR, \
@@ -293,10 +293,17 @@ enum ssh_keytypes_e{
   SSH_KEYTYPE_DSS=1,
   SSH_KEYTYPE_RSA,
   SSH_KEYTYPE_RSA1,
-  SSH_KEYTYPE_ECDSA,
+  SSH_KEYTYPE_ECDSA, /* deprecated */
   SSH_KEYTYPE_ED25519,
   SSH_KEYTYPE_DSS_CERT01,
-  SSH_KEYTYPE_RSA_CERT01
+  SSH_KEYTYPE_RSA_CERT01,
+  SSH_KEYTYPE_ECDSA_P256,
+  SSH_KEYTYPE_ECDSA_P384,
+  SSH_KEYTYPE_ECDSA_P521,
+  SSH_KEYTYPE_ECDSA_P256_CERT01,
+  SSH_KEYTYPE_ECDSA_P384_CERT01,
+  SSH_KEYTYPE_ECDSA_P521_CERT01,
+  SSH_KEYTYPE_ED25519_CERT01,
 };
 
 enum ssh_keycmp_e {
@@ -405,6 +412,9 @@ enum ssh_options_e {
   SSH_OPTIONS_GLOBAL_KNOWNHOSTS,
   SSH_OPTIONS_NODELAY,
   SSH_OPTIONS_PUBLICKEY_ACCEPTED_TYPES,
+  SSH_OPTIONS_PROCESS_CONFIG,
+  SSH_OPTIONS_REKEY_DATA,
+  SSH_OPTIONS_REKEY_TIME,
 };
 
 enum {
@@ -451,6 +461,8 @@ LIBSSH_API ssh_channel ssh_channel_new(ssh_session session);
 LIBSSH_API int ssh_channel_open_auth_agent(ssh_channel channel);
 LIBSSH_API int ssh_channel_open_forward(ssh_channel channel, const char *remotehost,
     int remoteport, const char *sourcehost, int localport);
+LIBSSH_API int ssh_channel_open_forward_unix(ssh_channel channel, const char *remotepath,
+    const char *sourcehost, int localport);
 LIBSSH_API int ssh_channel_open_session(ssh_channel channel);
 LIBSSH_API int ssh_channel_open_x11(ssh_channel channel, const char *orig_addr, int orig_port);
 LIBSSH_API int ssh_channel_poll(ssh_channel channel, int is_stderr);
@@ -543,6 +555,11 @@ SSH_DEPRECATED LIBSSH_API ssh_channel ssh_forward_accept(ssh_session session, in
 SSH_DEPRECATED LIBSSH_API int ssh_forward_cancel(ssh_session session, const char *address, int port);
 SSH_DEPRECATED LIBSSH_API int ssh_forward_listen(ssh_session session, const char *address, int port, int *bound_port);
 SSH_DEPRECATED LIBSSH_API int ssh_get_publickey(ssh_session session, ssh_key *key);
+SSH_DEPRECATED LIBSSH_API int ssh_write_knownhost(ssh_session session);
+SSH_DEPRECATED LIBSSH_API char *ssh_dump_knownhost(ssh_session session);
+SSH_DEPRECATED LIBSSH_API int ssh_is_server_known(ssh_session session);
+SSH_DEPRECATED LIBSSH_API void ssh_print_hexa(const char *descr, const unsigned char *what, size_t len);
+
 
 
 LIBSSH_API int ssh_get_random(void *where,int len,int strong);
@@ -552,7 +569,6 @@ LIBSSH_API int ssh_get_poll_flags(ssh_session session);
 LIBSSH_API int ssh_init(void);
 LIBSSH_API int ssh_is_blocking(ssh_session session);
 LIBSSH_API int ssh_is_connected(ssh_session session);
-LIBSSH_API int ssh_is_server_known(ssh_session session);
 
 /* KNOWN HOSTS */
 LIBSSH_API void ssh_knownhosts_entry_free(struct ssh_knownhosts_entry *entry);
@@ -572,9 +588,8 @@ LIBSSH_API int ssh_session_export_known_hosts_entry(ssh_session session,
                                                     char **pentry_string);
 LIBSSH_API int ssh_session_update_known_hosts(ssh_session session);
 
-LIBSSH_API enum ssh_known_hosts_e
-ssh_session_get_known_hosts_entry(ssh_session session,
-                                  struct ssh_knownhosts_entry **pentry);
+LIBSSH_API enum ssh_known_hosts_e ssh_session_get_known_hosts_entry(ssh_session session,
+        struct ssh_knownhosts_entry **pentry);
 LIBSSH_API enum ssh_known_hosts_e ssh_session_is_known_server(ssh_session session);
 
 /* LOGGING */
@@ -592,7 +607,10 @@ SSH_DEPRECATED LIBSSH_API void ssh_log(ssh_session session,
                                        const char *format, ...) PRINTF_ATTRIBUTE(3, 4);
 
 LIBSSH_API ssh_channel ssh_message_channel_request_open_reply_accept(ssh_message msg);
+LIBSSH_API int ssh_message_channel_request_open_reply_accept_channel(ssh_message msg, ssh_channel chan);
 LIBSSH_API int ssh_message_channel_request_reply_success(ssh_message msg);
+#define SSH_MESSAGE_FREE(x) \
+    do { if ((x) != NULL) { ssh_message_free(x); (x) = NULL; } } while(0)
 LIBSSH_API void ssh_message_free(ssh_message msg);
 LIBSSH_API ssh_message ssh_message_get(ssh_session session);
 LIBSSH_API int ssh_message_subtype(ssh_message msg);
@@ -693,7 +711,6 @@ LIBSSH_API char *ssh_get_fingerprint_hash(enum ssh_publickey_hash_type type,
                                           unsigned char *hash,
                                           size_t len);
 LIBSSH_API void ssh_print_hash(enum ssh_publickey_hash_type type, unsigned char *hash, size_t len);
-LIBSSH_API void ssh_print_hexa(const char *descr, const unsigned char *what, size_t len);
 LIBSSH_API int ssh_send_ignore (ssh_session session, const char *data);
 LIBSSH_API int ssh_send_debug (ssh_session session, const char *message, int always_display);
 LIBSSH_API void ssh_gssapi_set_creds(ssh_session session, const ssh_gssapi_creds creds);
@@ -760,8 +777,6 @@ LIBSSH_API int ssh_userauth_kbdint_setanswer(ssh_session session, unsigned int i
     const char *answer);
 LIBSSH_API int ssh_userauth_gssapi(ssh_session session);
 LIBSSH_API const char *ssh_version(int req_version);
-LIBSSH_API int ssh_write_knownhost(ssh_session session);
-LIBSSH_API char *ssh_dump_knownhost(ssh_session session);
 
 LIBSSH_API void ssh_string_burn(ssh_string str);
 LIBSSH_API ssh_string ssh_string_copy(ssh_string str);

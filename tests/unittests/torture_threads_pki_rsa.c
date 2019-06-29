@@ -38,7 +38,13 @@
 
 #define NUM_THREADS 10
 
+const char template[] = "temp_dir_XXXXXX";
 const unsigned char RSA_HASH[] = "12345678901234567890";
+
+struct pki_st {
+    char *cwd;
+    char *temp_dir;
+};
 
 static int run_on_threads(void *(*func)(void *))
 {
@@ -67,35 +73,62 @@ static int run_on_threads(void *(*func)(void *))
 
 static int setup_rsa_key(void **state)
 {
-    (void) state; /* unused */
+    struct pki_st *test_state = NULL;
+    char *cwd = NULL;
+    char *tmp_dir = NULL;
+    int rc = 0;
 
-    unlink(LIBSSH_RSA_TESTKEY);
-    unlink(LIBSSH_RSA_TESTKEY_PASSPHRASE);
-    unlink(LIBSSH_RSA_TESTKEY ".pub");
-    unlink(LIBSSH_RSA_TESTKEY "-cert.pub");
+    test_state = (struct pki_st *)malloc(sizeof(struct pki_st));
+    assert_non_null(test_state);
+
+    cwd = torture_get_current_working_dir();
+    assert_non_null(cwd);
+
+    tmp_dir = torture_make_temp_dir(template);
+    assert_non_null(tmp_dir);
+
+    test_state->cwd = cwd;
+    test_state->temp_dir = tmp_dir;
+
+    *state = test_state;
+
+    rc = torture_change_dir(tmp_dir);
+    assert_int_equal(rc, 0);
+
+    printf("Changed directory to: %s\n", tmp_dir);
 
     torture_write_file(LIBSSH_RSA_TESTKEY,
-                       torture_get_testkey(SSH_KEYTYPE_RSA, 0, 0));
+                       torture_get_testkey(SSH_KEYTYPE_RSA, 0));
     torture_write_file(LIBSSH_RSA_TESTKEY_PASSPHRASE,
-                       torture_get_testkey(SSH_KEYTYPE_RSA, 0, 1));
+                       torture_get_testkey(SSH_KEYTYPE_RSA, 1));
     torture_write_file(LIBSSH_RSA_TESTKEY ".pub",
-                       torture_get_testkey_pub(SSH_KEYTYPE_RSA, 0));
-    torture_write_file(LIBSSH_RSA_TESTKEY ".pub",
-                       torture_get_testkey_pub(SSH_KEYTYPE_RSA, 0));
+                       torture_get_testkey_pub(SSH_KEYTYPE_RSA));
     torture_write_file(LIBSSH_RSA_TESTKEY "-cert.pub",
-                       torture_get_testkey_pub(SSH_KEYTYPE_RSA_CERT01, 0));
+                       torture_get_testkey_pub(SSH_KEYTYPE_RSA_CERT01));
 
     return 0;
 }
 
-static int teardown(void **state)
-{
-    (void) state; /* unused */
+static int teardown(void **state) {
 
-    unlink(LIBSSH_RSA_TESTKEY);
-    unlink(LIBSSH_RSA_TESTKEY_PASSPHRASE);
-    unlink(LIBSSH_RSA_TESTKEY ".pub");
-    unlink(LIBSSH_RSA_TESTKEY "-cert.pub");
+    struct pki_st *test_state = NULL;
+    int rc = 0;
+
+    test_state = *((struct pki_st **)state);
+
+    assert_non_null(test_state);
+    assert_non_null(test_state->cwd);
+    assert_non_null(test_state->temp_dir);
+
+    rc = torture_change_dir(test_state->cwd);
+    assert_int_equal(rc, 0);
+
+    rc = torture_rmdirs(test_state->temp_dir);
+    assert_int_equal(rc, 0);
+
+    SAFE_FREE(test_state->temp_dir);
+    SAFE_FREE(test_state->cwd);
+    SAFE_FREE(test_state);
 
     return 0;
 }
@@ -164,11 +197,15 @@ static void *thread_pki_rsa_import_privkey_base64_NULL_key(void *threadid)
 {
     int rc;
     const char *passphrase = torture_get_testkey_passphrase();
+    const char *testkey;
 
     (void) threadid; /* unused */
 
+    testkey = torture_get_testkey(SSH_KEYTYPE_RSA, 0);
+    assert_non_null(testkey);
+
     /* test if it returns -1 if key is NULL */
-    rc = ssh_pki_import_privkey_base64(torture_get_testkey(SSH_KEYTYPE_RSA, 0, 0),
+    rc = ssh_pki_import_privkey_base64(testkey,
                                        passphrase,
                                        NULL,
                                        NULL,
@@ -261,6 +298,7 @@ static void torture_pki_rsa_import_privkey_base64(void **state)
 static void *thread_pki_rsa_publickey_from_privatekey(void *threadid)
 {
     const char *passphrase = NULL;
+    const char *testkey;
     ssh_key pubkey = NULL;
     ssh_key key = NULL;
     int rc;
@@ -268,7 +306,8 @@ static void *thread_pki_rsa_publickey_from_privatekey(void *threadid)
 
     (void) threadid; /* unused */
 
-    rc = ssh_pki_import_privkey_base64(torture_get_testkey(SSH_KEYTYPE_RSA, 0, 0),
+    testkey = torture_get_testkey(SSH_KEYTYPE_RSA, 0);
+    rc = ssh_pki_import_privkey_base64(testkey,
                                        passphrase,
                                        NULL,
                                        NULL,
@@ -307,6 +346,7 @@ static void *thread_pki_rsa_copy_cert_to_privkey(void *threadid)
      * all supported key types.
      */
     const char *passphrase = torture_get_testkey_passphrase();
+    const char *testkey = NULL;
     ssh_key pubkey = NULL;
     ssh_key privkey = NULL;
     ssh_key cert = NULL;
@@ -316,16 +356,22 @@ static void *thread_pki_rsa_copy_cert_to_privkey(void *threadid)
 
     rc = ssh_pki_import_cert_file(LIBSSH_RSA_TESTKEY "-cert.pub", &cert);
     assert_true(rc == SSH_OK);
+    assert_non_null(cert);
 
     rc = ssh_pki_import_pubkey_file(LIBSSH_RSA_TESTKEY ".pub", &pubkey);
     assert_true(rc == SSH_OK);
+    assert_non_null(pubkey);
 
-    rc = ssh_pki_import_privkey_base64(torture_get_testkey(SSH_KEYTYPE_RSA, 0, 0),
+    testkey = torture_get_testkey(SSH_KEYTYPE_RSA, 0);
+    assert_non_null(testkey);
+
+    rc = ssh_pki_import_privkey_base64(testkey,
                                        passphrase,
                                        NULL,
                                        NULL,
                                        &privkey);
     assert_true(rc == SSH_OK);
+    assert_non_null(privkey);
 
     /* Basic sanity. */
     rc = ssh_pki_copy_cert_to_privkey(NULL, privkey);
@@ -335,7 +381,6 @@ static void *thread_pki_rsa_copy_cert_to_privkey(void *threadid)
     assert_true(rc == SSH_ERROR);
 
     /* A public key doesn't have a cert, copy should fail. */
-    assert_true(pubkey->cert == NULL);
     rc = ssh_pki_copy_cert_to_privkey(pubkey, privkey);
     assert_true(rc == SSH_ERROR);
 
@@ -369,13 +414,14 @@ static void torture_pki_rsa_copy_cert_to_privkey(void **state)
 static void *thread_pki_rsa_import_cert_file(void *threadid)
 {
     int rc;
-    ssh_key cert;
+    ssh_key cert = NULL;
     enum ssh_keytypes_e type;
 
     (void) threadid; /* unused */
 
     rc = ssh_pki_import_cert_file(LIBSSH_RSA_TESTKEY "-cert.pub", &cert);
     assert_true(rc == 0);
+    assert_non_null(cert);
 
     type = ssh_key_type(cert);
     assert_true(type == SSH_KEYTYPE_RSA_CERT01);
@@ -401,14 +447,14 @@ static void torture_pki_rsa_import_cert_file(void **state)
 static void *thread_pki_rsa_publickey_base64(void *threadid)
 {
     enum ssh_keytypes_e type;
-    char *b64_key, *key_buf, *p;
-    const char *q;
+    char *b64_key = NULL, *key_buf = NULL, *p = NULL;
+    const char *q = NULL;
     ssh_key key;
     int rc;
 
     (void) threadid; /* unused */
 
-    key_buf = strdup(torture_get_testkey_pub(SSH_KEYTYPE_RSA, 0));
+    key_buf = strdup(torture_get_testkey_pub(SSH_KEYTYPE_RSA));
     assert_non_null(key_buf);
 
     q = p = key_buf;
@@ -424,9 +470,11 @@ static void *thread_pki_rsa_publickey_base64(void *threadid)
 
     rc = ssh_pki_import_pubkey_base64(q, type, &key);
     assert_true(rc == 0);
+    assert_non_null(key);
 
     rc = ssh_pki_export_pubkey_base64(key, &b64_key);
     assert_true(rc == 0);
+    assert_non_null(b64_key);
 
     assert_string_equal(q, b64_key);
 
@@ -449,11 +497,11 @@ static void torture_pki_rsa_publickey_base64(void **state)
 
 static void *thread_pki_rsa_duplicate_key(void *threadid)
 {
-    char *b64_key;
-    char *b64_key_gen;
-    ssh_key pubkey;
-    ssh_key privkey;
-    ssh_key privkey_dup;
+    char *b64_key = NULL;
+    char *b64_key_gen = NULL;
+    ssh_key pubkey = NULL;
+    ssh_key privkey = NULL;
+    ssh_key privkey_dup = NULL;
     int cmp;
     int rc;
 
@@ -461,10 +509,12 @@ static void *thread_pki_rsa_duplicate_key(void *threadid)
 
     rc = ssh_pki_import_pubkey_file(LIBSSH_RSA_TESTKEY ".pub", &pubkey);
     assert_true(rc == 0);
+    assert_non_null(pubkey);
 
     rc = ssh_pki_export_pubkey_base64(pubkey, &b64_key);
     assert_true(rc == 0);
     SSH_KEY_FREE(pubkey);
+    assert_non_null(b64_key);
 
     rc = ssh_pki_import_privkey_file(LIBSSH_RSA_TESTKEY,
                                      NULL,
@@ -472,6 +522,7 @@ static void *thread_pki_rsa_duplicate_key(void *threadid)
                                      NULL,
                                      &privkey);
     assert_true(rc == 0);
+    assert_non_null(privkey);
 
     privkey_dup = ssh_key_dup(privkey);
     assert_non_null(privkey_dup);
@@ -511,7 +562,7 @@ static void torture_pki_rsa_duplicate_key(void **state)
 static void *thread_pki_rsa_generate_key(void *threadid)
 {
     int rc;
-    ssh_key key = NULL;
+    ssh_key key = NULL, pubkey = NULL;
     ssh_signature sign = NULL;
     ssh_session session = NULL;
 
@@ -524,42 +575,55 @@ static void *thread_pki_rsa_generate_key(void *threadid)
     assert_ssh_return_code(session, rc);
     assert_non_null(key);
 
-    sign = pki_do_sign(key, RSA_HASH, 20);
+    rc = ssh_pki_export_privkey_to_pubkey(key, &pubkey);
+    assert_int_equal(rc, SSH_OK);
+    assert_non_null(pubkey);
+
+    sign = pki_do_sign(key, RSA_HASH, 20, SSH_DIGEST_SHA256);
     assert_non_null(sign);
 
-    rc = pki_signature_verify(session,sign,key,RSA_HASH,20);
+    rc = pki_signature_verify(session, sign, pubkey, RSA_HASH, 20);
     assert_ssh_return_code(session, rc);
 
     ssh_signature_free(sign);
     SSH_KEY_FREE(key);
+    SSH_KEY_FREE(pubkey);
 
     rc = ssh_pki_generate(SSH_KEYTYPE_RSA, 2048, &key);
     assert_ssh_return_code(session, rc);
     assert_non_null(key);
 
-    sign = pki_do_sign(key, RSA_HASH, 20);
+    rc = ssh_pki_export_privkey_to_pubkey(key, &pubkey);
+    assert_int_equal(rc, SSH_OK);
+    assert_non_null(pubkey);
+
+    sign = pki_do_sign(key, RSA_HASH, 20, SSH_DIGEST_SHA256);
     assert_non_null(sign);
 
-    rc = pki_signature_verify(session,sign,key,RSA_HASH,20);
+    rc = pki_signature_verify(session, sign, pubkey, RSA_HASH, 20);
     assert_ssh_return_code(session, rc);
 
     ssh_signature_free(sign);
     SSH_KEY_FREE(key);
-
+    SSH_KEY_FREE(pubkey);
 
     rc = ssh_pki_generate(SSH_KEYTYPE_RSA, 4096, &key);
     assert_true(rc == SSH_OK);
     assert_non_null(key);
 
-    sign = pki_do_sign(key, RSA_HASH, 20);
+    rc = ssh_pki_export_privkey_to_pubkey(key, &pubkey);
+    assert_int_equal(rc, SSH_OK);
+    assert_non_null(pubkey);
+
+    sign = pki_do_sign(key, RSA_HASH, 20, SSH_DIGEST_SHA256);
     assert_non_null(sign);
 
-    rc = pki_signature_verify(session,sign,key,RSA_HASH,20);
+    rc = pki_signature_verify(session, sign, pubkey, RSA_HASH, 20);
     assert_true(rc == SSH_OK);
 
     ssh_signature_free(sign);
     SSH_KEY_FREE(key);
-    key = NULL;
+    SSH_KEY_FREE(pubkey);
 
     ssh_free(session);
     pthread_exit(NULL);
@@ -581,10 +645,14 @@ static void *thread_pki_rsa_import_privkey_base64_passphrase(void *threadid)
     int rc;
     ssh_key key = NULL;
     const char *passphrase = torture_get_testkey_passphrase();
+    const char *testkey;
 
     (void) threadid; /* unused */
 
-    rc = ssh_pki_import_privkey_base64(torture_get_testkey(SSH_KEYTYPE_RSA, 0, 1),
+    testkey = torture_get_testkey(SSH_KEYTYPE_RSA, 1);
+    assert_non_null(testkey);
+
+    rc = ssh_pki_import_privkey_base64(testkey,
                                        passphrase,
                                        NULL,
                                        NULL,
@@ -597,7 +665,7 @@ static void *thread_pki_rsa_import_privkey_base64_passphrase(void *threadid)
     SSH_KEY_FREE(key);
 
     /* test if it returns -1 if passphrase is wrong */
-    rc = ssh_pki_import_privkey_base64(torture_get_testkey(SSH_KEYTYPE_RSA, 0, 1),
+    rc = ssh_pki_import_privkey_base64(testkey,
                                        "wrong passphrase !!",
                                        NULL,
                                        NULL,
@@ -608,7 +676,7 @@ static void *thread_pki_rsa_import_privkey_base64_passphrase(void *threadid)
 #ifndef HAVE_LIBCRYPTO
     /* test if it returns -1 if passphrase is NULL */
     /* libcrypto asks for a passphrase, so skip this test */
-    rc = ssh_pki_import_privkey_base64(torture_get_testkey(SSH_KEYTYPE_RSA, 0, 1),
+    rc = ssh_pki_import_privkey_base64(testkey,
                                        NULL,
                                        NULL,
                                        NULL,

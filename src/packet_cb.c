@@ -92,50 +92,6 @@ SSH_PACKET_CALLBACK(ssh_packet_ignore_callback){
 	return SSH_PACKET_USED;
 }
 
-SSH_PACKET_CALLBACK(ssh_packet_dh_reply){
-  int rc;
-  (void)type;
-  (void)user;
-  SSH_LOG(SSH_LOG_PROTOCOL,"Received SSH_KEXDH_REPLY");
-  if (session->session_state != SSH_SESSION_STATE_DH ||
-		session->dh_handshake_state != DH_STATE_INIT_SENT){
-	ssh_set_error(session,SSH_FATAL,"ssh_packet_dh_reply called in wrong state : %d:%d",
-			session->session_state,session->dh_handshake_state);
-	goto error;
-  }
-  switch(session->next_crypto->kex_type){
-    case SSH_KEX_DH_GROUP1_SHA1:
-    case SSH_KEX_DH_GROUP14_SHA1:
-    case SSH_KEX_DH_GROUP16_SHA512:
-    case SSH_KEX_DH_GROUP18_SHA512:
-      rc=ssh_client_dh_reply(session, packet);
-      break;
-#ifdef HAVE_ECDH
-    case SSH_KEX_ECDH_SHA2_NISTP256:
-    case SSH_KEX_ECDH_SHA2_NISTP384:
-    case SSH_KEX_ECDH_SHA2_NISTP521:
-      rc = ssh_client_ecdh_reply(session, packet);
-      break;
-#endif
-#ifdef HAVE_CURVE25519
-    case SSH_KEX_CURVE25519_SHA256:
-    case SSH_KEX_CURVE25519_SHA256_LIBSSH_ORG:
-      rc = ssh_client_curve25519_reply(session, packet);
-      break;
-#endif
-    default:
-      ssh_set_error(session,SSH_FATAL,"Wrong kex type in ssh_packet_dh_reply");
-      goto error;
-  }
-  if(rc==SSH_OK) {
-    session->dh_handshake_state = DH_STATE_NEWKEYS_SENT;
-    return SSH_PACKET_USED;
-  }
-error:
-  session->session_state=SSH_SESSION_STATE_ERROR;
-  return SSH_PACKET_USED;
-}
-
 SSH_PACKET_CALLBACK(ssh_packet_newkeys){
   ssh_string sig_blob = NULL;
   ssh_signature sig = NULL;
@@ -161,23 +117,6 @@ SSH_PACKET_CALLBACK(ssh_packet_newkeys){
     ssh_key server_key;
 
     /* client */
-    rc = ssh_make_sessionid(session);
-    if (rc != SSH_OK) {
-      goto error;
-    }
-
-    /*
-     * Set the cryptographic functions for the next crypto
-     * (it is needed for ssh_generate_session_keys for key lengths)
-     */
-    rc = crypt_set_algorithms_client(session);
-    if (rc < 0) {
-        goto error;
-    }
-
-    if (ssh_generate_session_keys(session) < 0) {
-      goto error;
-    }
 
     /* Verify the host's signature. FIXME do it sooner */
     sig_blob = session->next_crypto->dh_server_signature;
@@ -222,45 +161,18 @@ SSH_PACKET_CALLBACK(ssh_packet_newkeys){
     }
     SSH_LOG(SSH_LOG_PROTOCOL,"Signature verified and valid");
 
-    /*
-     * Once we got SSH2_MSG_NEWKEYS we can switch next_crypto and
-     * current_crypto
-     */
-    if (session->current_crypto) {
-      crypto_free(session->current_crypto);
-      session->current_crypto=NULL;
-    }
-
-    /* FIXME later, include a function to change keys */
-    session->current_crypto = session->next_crypto;
-
-    session->next_crypto = crypto_new();
-    if (session->next_crypto == NULL) {
-      ssh_set_error_oom(session);
-      goto error;
-    }
-    session->next_crypto->session_id = malloc(session->current_crypto->digest_len);
-    if (session->next_crypto->session_id == NULL) {
-      ssh_set_error_oom(session);
-      goto error;
-    }
-    memcpy(session->next_crypto->session_id, session->current_crypto->session_id,
-            session->current_crypto->digest_len);
-    if (session->current_crypto->in_cipher->set_decrypt_key(session->current_crypto->in_cipher, session->current_crypto->decryptkey,
-        session->current_crypto->decryptIV) < 0) {
-      goto error;
-    }
-    if (session->current_crypto->out_cipher->set_encrypt_key(session->current_crypto->out_cipher, session->current_crypto->encryptkey,
-        session->current_crypto->encryptIV) < 0) {
-      goto error;
+    /* When receiving this packet, we switch on the incomming crypto. */
+    rc = ssh_packet_set_newkeys(session, SSH_DIRECTION_IN);
+    if (rc != SSH_OK) {
+        goto error;
     }
   }
   session->dh_handshake_state = DH_STATE_FINISHED;
   session->ssh_connection_callback(session);
-	return SSH_PACKET_USED;
+  return SSH_PACKET_USED;
 error:
-	session->session_state=SSH_SESSION_STATE_ERROR;
-	return SSH_PACKET_USED;
+  session->session_state = SSH_SESSION_STATE_ERROR;
+  return SSH_PACKET_USED;
 }
 
 /**

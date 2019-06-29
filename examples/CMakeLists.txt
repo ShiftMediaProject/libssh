@@ -53,6 +53,10 @@ if (UNIX AND NOT WIN32)
             add_executable(proxy proxy.c)
             target_compile_options(proxy PRIVATE ${DEFAULT_C_COMPILE_FLAGS})
             target_link_libraries(proxy ${LIBSSH_SHARED_LIBRARY} ${ARGP_LIBRARY})
+
+            add_executable(sshd_direct-tcpip sshd_direct-tcpip.c)
+            target_compile_options(sshd_direct-tcpip PRIVATE ${DEFAULT_C_COMPILE_FLAGS})
+            target_link_libraries(sshd_direct-tcpip ${LIBSSH_SHARED_LIBRARY} ${ARGP_LIBRARY})
         endif (WITH_GSSAPI AND GSSAPI_FOUND)
 
         add_executable(samplesshd-kbdint samplesshd-kbdint.c)
@@ -69,6 +73,10 @@ target_link_libraries(exec ${LIBSSH_SHARED_LIBRARY})
 add_executable(senddata senddata.c ${examples_SRCS})
 target_compile_options(senddata PRIVATE ${DEFAULT_C_COMPILE_FLAGS})
 target_link_libraries(senddata ${LIBSSH_SHARED_LIBRARY})
+
+add_executable(keygen keygen.c)
+target_compile_options(keygen PRIVATE ${DEFAULT_C_COMPILE_FLAGS})
+target_link_libraries(keygen ${LIBSSH_SHARED_LIBRARY})
 
 add_executable(libsshpp libsshpp.cpp)
 target_link_libraries(libsshpp ${LIBSSH_SHARED_LIBRARY})

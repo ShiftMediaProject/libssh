@@ -64,6 +64,7 @@ check_include_file(sys/param.h HAVE_SYS_PARAM_H)
 check_include_file(arpa/inet.h HAVE_ARPA_INET_H)
 check_include_file(byteswap.h HAVE_BYTESWAP_H)
 check_include_file(glob.h HAVE_GLOB_H)
+check_include_file(valgrind/valgrind.h HAVE_VALGRIND_VALGRIND_H)
 
 if (WIN32)
   check_include_file(io.h HAVE_IO_H)
@@ -88,8 +89,10 @@ if (OPENSSL_FOUND)
         message(FATAL_ERROR "Could not detect openssl/aes.h")
     endif()
 
-    set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
-    check_include_file(openssl/blowfish.h HAVE_OPENSSL_BLOWFISH_H)
+    if (WITH_BLOWFISH_CIPHER)
+        set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
+        check_include_file(openssl/blowfish.h HAVE_OPENSSL_BLOWFISH_H)
+    endif()
 
     set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
     check_include_file(openssl/ecdh.h HAVE_OPENSSL_ECDH_H)
@@ -110,6 +113,10 @@ if (OPENSSL_FOUND)
 
     set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
     set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_CRYPTO_LIBRARY})
+    check_function_exists(EVP_aes_128_gcm HAVE_OPENSSL_EVP_AES_GCM)
+
+    set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
+    set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_CRYPTO_LIBRARY})
     check_function_exists(CRYPTO_THREADID_set_callback HAVE_OPENSSL_CRYPTO_THREADID_SET_CALLBACK)
 
     set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
@@ -122,7 +129,13 @@ if (OPENSSL_FOUND)
 
     set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
     set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_CRYPTO_LIBRARY})
+    check_function_exists(EVP_KDF_CTX_new_id HAVE_OPENSSL_EVP_KDF_CTX_NEW_ID)
+
+    set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
+    set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_CRYPTO_LIBRARY})
     check_function_exists(RAND_priv_bytes HAVE_OPENSSL_RAND_PRIV_BYTES)
+
+    check_function_exists(OPENSSL_ia32cap_loc HAVE_OPENSSL_IA32CAP_LOC)
 
     unset(CMAKE_REQUIRED_INCLUDES)
     unset(CMAKE_REQUIRED_LIBRARIES)
@@ -254,6 +267,14 @@ if (CMAKE_USE_PTHREADS_INIT)
     set(HAVE_PTHREAD 1)
 endif (CMAKE_USE_PTHREADS_INIT)
 
+if (UNIT_TESTING)
+    if (CMOCKA_FOUND)
+        set(CMAKE_REQUIRED_LIBRARIES ${CMOCKA_LIBRARIES})
+        check_function_exists(cmocka_set_test_filter HAVE_CMOCKA_SET_TEST_FILTER)
+        unset(CMAKE_REQUIRED_LIBRARIES)
+    endif ()
+endif ()
+
 # OPTIONS
 check_c_source_compiles("
 __thread int tls;
@@ -272,19 +293,19 @@ int main(void) {
 ###########################################################
 # For detecting attributes we need to treat warnings as
 # errors
-if (UNIX)
+if (UNIX OR MINGW)
     # Get warnings for attributs
-    check_c_compiler_flag("-Wattributs" REQUIRED_FLAGS_WERROR)
+    check_c_compiler_flag("-Wattributes" REQUIRED_FLAGS_WERROR)
     if (REQUIRED_FLAGS_WERROR)
-        set(CMAKE_REQUIRED_FLAGS "-Wattributes")
+        string(APPEND CMAKE_REQUIRED_FLAGS "-Wattributes ")
     endif()
 
     # Turn warnings into errors
     check_c_compiler_flag("-Werror" REQUIRED_FLAGS_WERROR)
     if (REQUIRED_FLAGS_WERROR)
-        set(CMAKE_REQUIRED_FLAGS "-Werror")
+        string(APPEND CMAKE_REQUIRED_FLAGS "-Werror ")
     endif()
-endif (UNIX)
+endif ()
 
 check_c_source_compiles("
 void test_constructor_attribute(void) __attribute__ ((constructor));
@@ -328,6 +349,28 @@ int main(void) {
     return 0;
 }" HAVE_FALLTHROUGH_ATTRIBUTE)
 
+if (NOT WIN32)
+    check_c_source_compiles("
+    #define __unused __attribute__((unused))
+
+    static int do_nothing(int i __unused)
+    {
+        return 0;
+    }
+
+    int main(void)
+    {
+        int i;
+
+        i = do_nothing(5);
+        if (i > 5) {
+            return 1;
+        }
+
+        return 0;
+    }" HAVE_UNUSED_ATTRIBUTE)
+endif()
+
 check_c_source_compiles("
 #include <string.h>
 
@@ -339,18 +382,6 @@ int main(void)
 
     return 0;
 }" HAVE_GCC_VOLATILE_MEMORY_PROTECTION)
-
-check_c_source_compiles("
-#include <stdio.h>
-#define __VA_NARG__(...) (__VA_NARG_(_0, ## __VA_ARGS__, __RSEQ_N()) - 1)
-#define __VA_NARG_(...) __VA_ARG_N(__VA_ARGS__)
-#define __VA_ARG_N( _1, _2, _3, _4, _5, _6, _7, _8, _9,_10,N,...) N
-#define __RSEQ_N() 10, 9,  8,  7,  6,  5,  4,  3,  2,  1,  0
-#define myprintf(format, ...) printf((format), __VA_NARG__(__VA_ARGS__), __VA_ARGS__)
-int main(void) {
-    myprintf(\"%d %d %d %d\",1,2,3);
-    return 0;
-}" HAVE_GCC_NARG_MACRO)
 
 check_c_source_compiles("
 #include <stdio.h>
@@ -366,6 +397,8 @@ int main(void) {
     return 0;
 }" HAVE_COMPILER__FUNCTION__)
 
+# This is only available with OpenBSD's gcc implementation */
+if (OPENBSD)
 check_c_source_compiles("
 #define ARRAY_LEN 16
 void test_attr(const unsigned char *k)
@@ -374,6 +407,7 @@ void test_attr(const unsigned char *k)
 int main(void) {
     return 0;
 }" HAVE_GCC_BOUNDED_ATTRIBUTE)
+endif(OPENBSD)
 
 # Stop treating warnings as errors
 unset(CMAKE_REQUIRED_FLAGS)

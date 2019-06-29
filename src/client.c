@@ -38,6 +38,9 @@
 #include "libssh/socket.h"
 #include "libssh/session.h"
 #include "libssh/dh.h"
+#ifdef WITH_GEX
+#include "libssh/dh-gex.h"
+#endif /* WITH_GEX */
 #include "libssh/ecdh.h"
 #include "libssh/threads.h"
 #include "libssh/misc.h"
@@ -180,7 +183,6 @@ int ssh_send_banner(ssh_session session, int server)
 
     if (server == 1) {
         if (session->opts.custombanner == NULL){
-            len = strlen(banner);
             session->serverbanner = strdup(banner);
             if (session->serverbanner == NULL) {
                 goto end;
@@ -254,6 +256,12 @@ static int dh_handshake(ssh_session session) {
         case SSH_KEX_DH_GROUP18_SHA512:
           rc = ssh_client_dh_init(session);
           break;
+#ifdef WITH_GEX
+        case SSH_KEX_DH_GEX_SHA1:
+        case SSH_KEX_DH_GEX_SHA256:
+          rc = ssh_client_dhgex_init(session);
+          break;
+#endif /* WITH_GEX */
 #ifdef HAVE_ECDH
         case SSH_KEX_ECDH_SHA2_NISTP256:
         case SSH_KEX_ECDH_SHA2_NISTP384:
@@ -271,11 +279,7 @@ static int dh_handshake(ssh_session session) {
           rc = SSH_ERROR;
       }
 
-      if (rc == SSH_ERROR) {
-          return SSH_ERROR;
-      }
-
-      session->dh_handshake_state = DH_STATE_INIT_SENT;
+      break;
     case DH_STATE_INIT_SENT:
     	/* wait until ssh_packet_dh_reply is called */
     	break;
@@ -395,7 +399,7 @@ static void ssh_client_connection_callback(ssh_session session)
                 goto error;
             }
             set_status(session, 0.4f);
-            SSH_LOG(SSH_LOG_RARE,
+            SSH_LOG(SSH_LOG_PROTOCOL,
                     "SSH server banner: %s", session->serverbanner);
 
             /* Here we analyze the different protocols the server allows. */
@@ -525,6 +529,16 @@ int ssh_connect(ssh_session session) {
       session->opts.ProxyCommand == NULL) {
     ssh_set_error(session, SSH_FATAL, "Hostname required");
     return SSH_ERROR;
+  }
+
+  /* If the system configuration files were not yet processed, do it now */
+  if (!session->opts.config_processed) {
+    ret = ssh_options_parse_config(session, NULL);
+    if (ret != 0) {
+      ssh_set_error(session, SSH_FATAL,
+                    "Failed to process system configuration files");
+      return SSH_ERROR;
+    }
   }
 
   ret = ssh_options_apply(session);
@@ -736,7 +750,7 @@ error:
 }
 
 const char *ssh_copyright(void) {
-    return SSH_STRINGIFY(LIBSSH_VERSION) " (c) 2003-2018 "
+    return SSH_STRINGIFY(LIBSSH_VERSION) " (c) 2003-2019 "
            "Aris Adamantiadis, Andreas Schneider "
            "and libssh contributors. "
            "Distributed under the LGPL, please refer to COPYING "

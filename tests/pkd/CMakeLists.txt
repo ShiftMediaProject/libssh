@@ -5,8 +5,6 @@ if (WITH_SERVER AND UNIX AND NOT WIN32)
 include_directories(
   ${LIBSSH_PUBLIC_INCLUDE_DIRS}
   ${CMOCKA_INCLUDE_DIR}
-  ${OPENSSL_INCLUDE_DIR}
-  ${GCRYPT_INCLUDE_DIR}
   ${ZLIB_INCLUDE_DIR}
   ${CMAKE_BINARY_DIR}
   ${CMAKE_SOURCE_DIR}/src
@@ -39,6 +37,11 @@ target_link_libraries(pkd_hello ${pkd_libs})
 # are not 100% reproducible.
 #
 add_test(pkd_hello_i1 ${CMAKE_CURRENT_BINARY_DIR}/pkd_hello -e -o -i1 -w /tmp/pkd_socket_wrapper_XXXXXX)
+
+#
+# pkd_hello_rekey is used to test server-side implementation of rekeying.
+#
+add_test(pkd_hello_rekey ${CMAKE_CURRENT_BINARY_DIR}/pkd_hello -t torture_pkd_openssh_rsa_rsa_default -i1 --rekey=16 -v -v -v -w /tmp/pkd_socket_wrapper_XXXXXX)
 
 #
 # Configure environment for cwrap socket wrapper.

@@ -95,7 +95,7 @@ fail:
 }
 
 /**
- * @brief decrypts an encrypted ed25519 private key blob
+ * @brief decrypts an encrypted private key blob in OpenSSH format.
  *
  */
 static int pki_private_key_decrypt(ssh_string blob,
@@ -313,6 +313,9 @@ ssh_pki_openssh_import(const char *text_key,
      */
     if (!private) {
         rc = ssh_pki_import_pubkey_blob(pubkey0, &key);
+        if (rc != SSH_OK) {
+            SSH_LOG(SSH_LOG_WARN, "Failed to import public key blob");
+        }
         /* in either case we clean up here */
         goto out;
     }
@@ -330,7 +333,6 @@ ssh_pki_openssh_import(const char *text_key,
 
     privkey_buffer = ssh_buffer_new();
     if (privkey_buffer == NULL) {
-        rc = SSH_ERROR;
         goto out;
     }
 

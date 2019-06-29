@@ -172,10 +172,10 @@ static void ssh_gssapi_log_error(int verb,
 
 out:
     if (msg_maj.value) {
-        dummy_maj = gss_release_buffer(&dummy_min, &msg_maj);
+        gss_release_buffer(&dummy_min, &msg_maj);
     }
     if (msg_min.value) {
-        dummy_maj = gss_release_buffer(&dummy_min, &msg_min);
+        gss_release_buffer(&dummy_min, &msg_min);
     }
 }
 
@@ -217,6 +217,15 @@ int ssh_gssapi_handle_userauth(ssh_session session, const char *user, uint32_t n
     gss_create_empty_oid_set(&min_stat, &both_supported);
 
     maj_stat = gss_indicate_mechs(&min_stat, &supported);
+    if (maj_stat != GSS_S_COMPLETE) {
+        SSH_LOG(SSH_LOG_WARNING, "indicate mecks %d, %d", maj_stat, min_stat);
+        ssh_gssapi_log_error(SSH_LOG_WARNING,
+                             "indicate mechs",
+                             maj_stat,
+                             min_stat);
+        return SSH_ERROR;
+    }
+
     for (i=0; i < supported->count; ++i){
         ptr = ssh_get_hexa(supported->elements[i].elements, supported->elements[i].length);
         SSH_LOG(SSH_LOG_DEBUG, "Supported mech %zu: %s", i, ptr);
@@ -319,7 +328,10 @@ static char *ssh_gssapi_name_to_char(gss_name_t name){
                          "converting name",
                          maj_stat,
                          min_stat);
-    ptr=malloc(buffer.length + 1);
+    ptr = malloc(buffer.length + 1);
+    if (ptr == NULL) {
+        return NULL;
+    }
     memcpy(ptr, buffer.value, buffer.length);
     ptr[buffer.length] = '\0';
     gss_release_buffer(&min_stat, &buffer);
@@ -426,8 +438,10 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_gssapi_token_server){
 
 #endif /* WITH_SERVER */
 
-static ssh_buffer ssh_gssapi_build_mic(ssh_session session){
-    ssh_buffer mic_buffer;
+static ssh_buffer ssh_gssapi_build_mic(ssh_session session)
+{
+    struct ssh_crypto_struct *crypto = NULL;
+    ssh_buffer mic_buffer = NULL;
     int rc;
 
     mic_buffer = ssh_buffer_new();
@@ -436,10 +450,11 @@ static ssh_buffer ssh_gssapi_build_mic(ssh_session session){
         return NULL;
     }
 
+    crypto = ssh_packet_get_current_crypto(session, SSH_DIRECTION_BOTH);
     rc = ssh_buffer_pack(mic_buffer,
                          "dPbsss",
-                         session->current_crypto->digest_len,
-                         (size_t)session->current_crypto->digest_len, session->current_crypto->session_id,
+                         crypto->digest_len,
+                         (size_t)crypto->digest_len, crypto->session_id,
                          SSH2_MSG_USERAUTH_REQUEST,
                          session->gssapi->user,
                          "ssh-connection",
@@ -782,6 +797,10 @@ static gss_OID ssh_gssapi_oid_from_string(ssh_string oid_s){
         return NULL;
     }
     ret->elements = malloc(len - 2);
+    if (ret->elements == NULL) {
+        SAFE_FREE(ret);
+        return NULL;
+    }
     memcpy(ret->elements, &data[2], len-2);
     ret->length = len-2;
 

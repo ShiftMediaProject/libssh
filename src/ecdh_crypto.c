@@ -108,6 +108,10 @@ int ssh_client_ecdh_init(ssh_session session){
   session->next_crypto->ecdh_privkey = key;
   session->next_crypto->ecdh_client_pubkey = client_pubkey;
 
+  /* register the packet callbacks */
+  ssh_packet_set_callbacks(session, &ssh_ecdh_client_callbacks);
+  session->dh_handshake_state = DH_STATE_INIT_SENT;
+
   rc = ssh_packet_send(session);
 
   return rc;
@@ -121,12 +125,6 @@ int ecdh_build_k(ssh_session session) {
   int len = (EC_GROUP_get_degree(group) + 7) / 8;
   bignum_CTX ctx = bignum_ctx_new();
   if (ctx == NULL) {
-    return -1;
-  }
-
-  session->next_crypto->k = bignum_new();
-  if (session->next_crypto->k == NULL) {
-    bignum_ctx_free(ctx);
     return -1;
   }
 
@@ -172,9 +170,13 @@ int ecdh_build_k(ssh_session session) {
       return -1;
   }
 
-  bignum_bin2bn(buffer, len, session->next_crypto->k);
+  bignum_bin2bn(buffer, len, &session->next_crypto->shared_secret);
   free(buffer);
-
+  if (session->next_crypto->shared_secret == NULL) {
+      EC_KEY_free(session->next_crypto->ecdh_privkey);
+      session->next_crypto->ecdh_privkey = NULL;
+      return -1;
+  }
   EC_KEY_free(session->next_crypto->ecdh_privkey);
   session->next_crypto->ecdh_privkey = NULL;
 
@@ -183,7 +185,7 @@ int ecdh_build_k(ssh_session session) {
                    session->next_crypto->server_kex.cookie, 16);
     ssh_print_hexa("Session client cookie",
                    session->next_crypto->client_kex.cookie, 16);
-    ssh_print_bignum("Shared secret key", session->next_crypto->k);
+    ssh_print_bignum("Shared secret key", session->next_crypto->shared_secret);
 #endif
 
   return 0;
@@ -191,11 +193,10 @@ int ecdh_build_k(ssh_session session) {
 
 #ifdef WITH_SERVER
 
-/** @brief Parse a SSH_MSG_KEXDH_INIT packet (server) and send a
+/** @brief Handle a SSH_MSG_KEXDH_INIT packet (server) and send a
  * SSH_MSG_KEXDH_REPLY
  */
-
-int ssh_server_ecdh_init(ssh_session session, ssh_buffer packet){
+SSH_PACKET_CALLBACK(ssh_packet_server_ecdh_init){
     /* ECDH keys */
     ssh_string q_c_string;
     ssh_string q_s_string;
@@ -210,12 +211,15 @@ int ssh_server_ecdh_init(ssh_session session, ssh_buffer packet){
     int curve;
     int len;
     int rc;
+    (void)type;
+    (void)user;
 
+    ssh_packet_remove_callbacks(session, &ssh_ecdh_server_callbacks);
     /* Extract the client pubkey from the init packet */
     q_c_string = ssh_buffer_get_ssh_string(packet);
     if (q_c_string == NULL) {
         ssh_set_error(session,SSH_FATAL, "No Q_C ECC point in packet");
-        return SSH_ERROR;
+        goto error;
     }
     session->next_crypto->ecdh_client_pubkey = q_c_string;
 
@@ -233,7 +237,7 @@ int ssh_server_ecdh_init(ssh_session session, ssh_buffer packet){
     if (ecdh_key == NULL) {
         ssh_set_error_oom(session);
         BN_CTX_free(ctx);
-        return SSH_ERROR;
+        goto error;
     }
 
     group = EC_KEY_get0_group(ecdh_key);
@@ -251,7 +255,7 @@ int ssh_server_ecdh_init(ssh_session session, ssh_buffer packet){
     if (q_s_string == NULL) {
         EC_KEY_free(ecdh_key);
         BN_CTX_free(ctx);
-        return SSH_ERROR;
+        goto error;
     }
 
     EC_POINT_point2oct(group,
@@ -269,25 +273,25 @@ int ssh_server_ecdh_init(ssh_session session, ssh_buffer packet){
     rc = ecdh_build_k(session);
     if (rc < 0) {
         ssh_set_error(session, SSH_FATAL, "Cannot build k number");
-        return SSH_ERROR;
+        goto error;
     }
 
     /* privkey is not allocated */
     rc = ssh_get_key_params(session, &privkey);
     if (rc == SSH_ERROR) {
-        return SSH_ERROR;
+        goto error;
     }
 
     rc = ssh_make_sessionid(session);
     if (rc != SSH_OK) {
         ssh_set_error(session, SSH_FATAL, "Could not create a session id");
-        return SSH_ERROR;
+        goto error;
     }
 
     sig_blob = ssh_srv_pki_do_sign_sessionid(session, privkey);
     if (sig_blob == NULL) {
         ssh_set_error(session, SSH_FATAL, "Could not sign the session id");
-        return SSH_ERROR;
+        goto error;
     }
 
     rc = ssh_dh_get_next_server_publickey_blob(session, &pubkey_blob);
@@ -309,26 +313,33 @@ int ssh_server_ecdh_init(ssh_session session, ssh_buffer packet){
 
     if (rc != SSH_OK) {
         ssh_set_error_oom(session);
-        return SSH_ERROR;
+        goto error;
     }
 
     SSH_LOG(SSH_LOG_PROTOCOL, "SSH_MSG_KEXDH_REPLY sent");
     rc = ssh_packet_send(session);
     if (rc == SSH_ERROR) {
-        return SSH_ERROR;
+        goto error;
     }
 
     /* Send the MSG_NEWKEYS */
     rc = ssh_buffer_add_u8(session->out_buffer, SSH2_MSG_NEWKEYS);
     if (rc < 0) {
-        return SSH_ERROR;;
+        goto error;
     }
 
     session->dh_handshake_state = DH_STATE_NEWKEYS_SENT;
     rc = ssh_packet_send(session);
+    if (rc == SSH_ERROR){
+        goto error;
+    }
     SSH_LOG(SSH_LOG_PROTOCOL, "SSH_MSG_NEWKEYS sent");
 
-    return rc;
+    return SSH_PACKET_USED;
+error:
+    ssh_buffer_reinit(session->out_buffer);
+    session->session_state = SSH_SESSION_STATE_ERROR;
+    return SSH_PACKET_USED;
 }
 
 #endif /* WITH_SERVER */

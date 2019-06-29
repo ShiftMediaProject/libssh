@@ -56,32 +56,12 @@
 #include "libssh/session.h"
 #include "libssh/poll.h"
 #include "libssh/pki.h"
+#include "libssh/bytearray.h"
 
 /* macro to check for "agent failure" message */
 #define agent_failed(x) \
   (((x) == SSH_AGENT_FAILURE) || ((x) == SSH_COM_AGENT2_FAILURE) || \
    ((x) == SSH2_AGENT_FAILURE))
-
-static uint32_t agent_get_u32(const void *vp) {
-  const uint8_t *p = (const uint8_t *)vp;
-  uint32_t v;
-
-  v  = (uint32_t)p[0] << 24;
-  v |= (uint32_t)p[1] << 16;
-  v |= (uint32_t)p[2] << 8;
-  v |= (uint32_t)p[3];
-
-  return v;
-}
-
-static void agent_put_u32(void *vp, uint32_t v) {
-  uint8_t *p = (uint8_t *)vp;
-
-  p[0] = (uint8_t)(v >> 24) & 0xff;
-  p[1] = (uint8_t)(v >> 16) & 0xff;
-  p[2] = (uint8_t)(v >> 8) & 0xff;
-  p[3] = (uint8_t)v & 0xff;
-}
 
 static size_t atomicio(struct ssh_agent_struct *agent, void *buf, size_t n, int do_read) {
   char *b = buf;
@@ -275,7 +255,7 @@ static int agent_talk(struct ssh_session_struct *session,
 
   len = ssh_buffer_get_len(request);
   SSH_LOG(SSH_LOG_TRACE, "Request length: %u", len);
-  agent_put_u32(payload, len);
+  PUSH_BE_U32(payload, 0, len);
 
   /* send length and then the request packet */
   if (atomicio(session->agent, payload, 4, 0) == 4) {
@@ -299,7 +279,7 @@ static int agent_talk(struct ssh_session_struct *session,
     return -1;
   }
 
-  len = agent_get_u32(payload);
+  len = PULL_BE_U32(payload, 0);
   if (len > 256 * 1024) {
     ssh_set_error(session, SSH_FATAL,
         "Authentication response too long: %u", len);
@@ -331,7 +311,7 @@ int ssh_agent_get_ident_count(struct ssh_session_struct *session) {
   ssh_buffer request = NULL;
   ssh_buffer reply = NULL;
   unsigned int type = 0;
-  uint32_t buf[1] = {0};
+  uint32_t count = 0;
   int rc;
 
   /* send message to the agent requesting the list of identities */
@@ -386,8 +366,15 @@ int ssh_agent_get_ident_count(struct ssh_session_struct *session) {
       return -1;
   }
 
-  ssh_buffer_get_u32(reply, (uint32_t *) buf);
-  session->agent->count = agent_get_u32(buf);
+  rc = ssh_buffer_get_u32(reply, &count);
+  if (rc != 4) {
+      ssh_set_error(session,
+                    SSH_FATAL,
+                    "Failed to read count");
+      ssh_buffer_free(reply);
+      return -1;
+  }
+  session->agent->count = ntohl(count);
   SSH_LOG(SSH_LOG_DEBUG, "Agent count: %d",
       session->agent->count);
   if (session->agent->count > 1024) {
@@ -549,7 +536,7 @@ ssh_string ssh_agent_sign_data(ssh_session session,
     }
 
     /* Add Flags: SHA2 extension (RFC 8332) if negotiated */
-    if (pubkey->type == SSH_KEYTYPE_RSA) {
+    if (ssh_key_type_plain(pubkey->type) == SSH_KEYTYPE_RSA) {
         if (session->extensions & SSH_EXT_SIG_RSA_SHA512) {
             flags |= SSH_AGENT_RSA_SHA2_512;
         } else if (session->extensions & SSH_EXT_SIG_RSA_SHA256) {

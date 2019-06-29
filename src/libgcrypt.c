@@ -31,14 +31,10 @@
 #include "libssh/crypto.h"
 #include "libssh/wrapper.h"
 #include "libssh/string.h"
+#include "libssh/misc.h"
 
 #ifdef HAVE_LIBGCRYPT
 #include <gcrypt.h>
-
-struct ssh_mac_ctx_struct {
-  enum ssh_mac_e mac_type;
-  gcry_md_hd_t ctx;
-};
 
 static int libgcrypt_initialized = 0;
 
@@ -82,7 +78,7 @@ void sha1_final(unsigned char *md, SHACTX c) {
   gcry_md_close(c);
 }
 
-void sha1(unsigned char *digest, int len, unsigned char *hash) {
+void sha1(const unsigned char *digest, int len, unsigned char *hash) {
   gcry_md_hash_buffer(GCRY_MD_SHA1, hash, digest, len);
 }
 
@@ -156,7 +152,7 @@ void sha256_final(unsigned char *md, SHACTX c) {
   gcry_md_close(c);
 }
 
-void sha256(unsigned char *digest, int len, unsigned char *hash){
+void sha256(const unsigned char *digest, int len, unsigned char *hash){
   gcry_md_hash_buffer(GCRY_MD_SHA256, hash, digest, len);
 }
 
@@ -177,7 +173,7 @@ void sha384_final(unsigned char *md, SHACTX c) {
   gcry_md_close(c);
 }
 
-void sha384(unsigned char *digest, int len, unsigned char *hash) {
+void sha384(const unsigned char *digest, int len, unsigned char *hash) {
   gcry_md_hash_buffer(GCRY_MD_SHA384, hash, digest, len);
 }
 
@@ -198,7 +194,7 @@ void sha512_final(unsigned char *md, SHACTX c) {
   gcry_md_close(c);
 }
 
-void sha512(unsigned char *digest, int len, unsigned char *hash) {
+void sha512(const unsigned char *digest, int len, unsigned char *hash) {
   gcry_md_hash_buffer(GCRY_MD_SHA512, hash, digest, len);
 }
 
@@ -219,57 +215,13 @@ void md5_final(unsigned char *md, MD5CTX c) {
   gcry_md_close(c);
 }
 
-ssh_mac_ctx ssh_mac_ctx_init(enum ssh_mac_e type){
-  ssh_mac_ctx ctx = malloc(sizeof(struct ssh_mac_ctx_struct));
-  if (ctx == NULL) {
-    return NULL;
-  }
-
-  ctx->mac_type=type;
-  switch(type){
-    case SSH_MAC_SHA1:
-      gcry_md_open(&ctx->ctx, GCRY_MD_SHA1, 0);
-      break;
-    case SSH_MAC_SHA256:
-      gcry_md_open(&ctx->ctx, GCRY_MD_SHA256, 0);
-      break;
-    case SSH_MAC_SHA384:
-      gcry_md_open(&ctx->ctx, GCRY_MD_SHA384, 0);
-      break;
-    case SSH_MAC_SHA512:
-      gcry_md_open(&ctx->ctx, GCRY_MD_SHA512, 0);
-      break;
-    default:
-      SAFE_FREE(ctx);
-      return NULL;
-  }
-  return ctx;
-}
-
-void ssh_mac_update(ssh_mac_ctx ctx, const void *data, unsigned long len) {
-  gcry_md_write(ctx->ctx,data,len);
-}
-
-void ssh_mac_final(unsigned char *md, ssh_mac_ctx ctx) {
-  size_t len = 0;
-  switch(ctx->mac_type){
-    case SSH_MAC_SHA1:
-      len=SHA_DIGEST_LEN;
-      break;
-    case SSH_MAC_SHA256:
-      len=SHA256_DIGEST_LEN;
-      break;
-    case SSH_MAC_SHA384:
-      len=SHA384_DIGEST_LEN;
-      break;
-    case SSH_MAC_SHA512:
-      len=SHA512_DIGEST_LEN;
-      break;
-  }
-  gcry_md_final(ctx->ctx);
-  memcpy(md, gcry_md_read(ctx->ctx, 0), len);
-  gcry_md_close(ctx->ctx);
-  SAFE_FREE(ctx);
+int ssh_kdf(struct ssh_crypto_struct *crypto,
+            unsigned char *key, size_t key_len,
+            int key_type, unsigned char *output,
+            size_t requested_len)
+{
+    return sshkdf_derive_key(crypto, key, key_len,
+                             key_type, output, requested_len);
 }
 
 HMACCTX hmac_init(const void *key, int len, enum ssh_hmac_e type) {
@@ -307,6 +259,7 @@ void hmac_final(HMACCTX c, unsigned char *hashmacbuf, unsigned int *len) {
   gcry_md_close(c);
 }
 
+#ifdef WITH_BLOWFISH_CIPHER
 /* the wrapper functions for blowfish */
 static int blowfish_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV){
   if (cipher->key == NULL) {
@@ -341,6 +294,7 @@ static void blowfish_decrypt(struct ssh_cipher_struct *cipher, void *in,
     void *out, unsigned long len) {
   gcry_cipher_decrypt(cipher->key[0], out, len, in, len);
 }
+#endif /* WITH_BLOWFISH_CIPHER */
 
 static int aes_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
   int mode=GCRY_CIPHER_MODE_CBC;
@@ -350,6 +304,8 @@ static int aes_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
     }
     if(strstr(cipher->name,"-ctr"))
       mode=GCRY_CIPHER_MODE_CTR;
+    if (strstr(cipher->name, "-gcm"))
+      mode = GCRY_CIPHER_MODE_GCM;
     switch (cipher->keysize) {
       case 128:
         if (gcry_cipher_open(&cipher->key[0], GCRY_CIPHER_AES128,
@@ -383,6 +339,11 @@ static int aes_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
         SAFE_FREE(cipher->key);
         return -1;
       }
+    } else if (mode == GCRY_CIPHER_MODE_GCM) {
+      /* Store the IV so we can handle the packet counter increments later
+       * The IV is passed to the cipher context later.
+       */
+      memcpy(cipher->last_iv, IV, AES_GCM_IVLEN);
     } else {
       if(gcry_cipher_setctr(cipher->key[0],IV,16)){
         SAFE_FREE(cipher->key);
@@ -394,14 +355,174 @@ static int aes_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
   return 0;
 }
 
-static void aes_encrypt(struct ssh_cipher_struct *cipher, void *in, void *out,
-    unsigned long len) {
-  gcry_cipher_encrypt(cipher->key[0], out, len, in, len);
+static void aes_encrypt(struct ssh_cipher_struct *cipher,
+                        void *in,
+                        void *out,
+                        size_t len)
+{
+    gcry_cipher_encrypt(cipher->key[0], out, len, in, len);
 }
 
-static void aes_decrypt(struct ssh_cipher_struct *cipher, void *in, void *out,
-    unsigned long len) {
-  gcry_cipher_decrypt(cipher->key[0], out, len, in, len);
+static void aes_decrypt(struct ssh_cipher_struct *cipher,
+                        void *in,
+                        void *out,
+                        size_t len)
+{
+    gcry_cipher_decrypt(cipher->key[0], out, len, in, len);
+}
+
+static int
+aes_aead_get_length(struct ssh_cipher_struct *cipher,
+                    void *in,
+                    uint8_t *out,
+                    size_t len,
+                    uint64_t seq)
+{
+    (void)cipher;
+    (void)seq;
+
+    /* The length is not encrypted: Copy it to the result buffer */
+    memcpy(out, in, len);
+
+    return SSH_OK;
+}
+
+static void
+aes_gcm_encrypt(struct ssh_cipher_struct *cipher,
+                void *in,
+                void *out,
+                size_t len,
+                uint8_t *tag,
+                uint64_t seq)
+{
+    gpg_error_t err;
+    size_t aadlen, authlen;
+
+    (void)seq;
+
+    aadlen = cipher->lenfield_blocksize;
+    authlen = cipher->tag_size;
+
+    /* increment IV */
+    err = gcry_cipher_setiv(cipher->key[0],
+                            cipher->last_iv,
+                            AES_GCM_IVLEN);
+    /* This actualy does not increment the packet counter for the
+     * current encryption operation, but for the next one. The first
+     * operation needs to be completed with the derived IV.
+     *
+     * The IV buffer has the following structure:
+     * [ 4B static IV ][ 8B packet counter ][ 4B block counter ]
+     */
+    uint64_inc(cipher->last_iv + 4);
+    if (err) {
+        SSH_LOG(SSH_LOG_WARNING, "gcry_cipher_setiv failed: %s",
+                gpg_strerror(err));
+        return;
+    }
+
+    /* Pass the authenticated data (packet_length) */
+    err = gcry_cipher_authenticate(cipher->key[0], in, aadlen);
+    if (err) {
+        SSH_LOG(SSH_LOG_WARNING, "gcry_cipher_authenticate failed: %s",
+                gpg_strerror(err));
+        return;
+    }
+    memcpy(out, in, aadlen);
+
+    /* Encrypt the rest of the data */
+    err = gcry_cipher_encrypt(cipher->key[0],
+                              (unsigned char *)out + aadlen,
+                              len - aadlen,
+                              (unsigned char *)in + aadlen,
+                              len - aadlen);
+    if (err) {
+        SSH_LOG(SSH_LOG_WARNING, "gcry_cipher_encrypt failed: %s",
+                gpg_strerror(err));
+        return;
+    }
+
+    /* Calculate the tag */
+    err = gcry_cipher_gettag(cipher->key[0],
+                             (void *)tag,
+                             authlen);
+    if (err) {
+        SSH_LOG(SSH_LOG_WARNING, "gcry_cipher_gettag failed: %s",
+                gpg_strerror(err));
+        return;
+    }
+}
+
+static int
+aes_gcm_decrypt(struct ssh_cipher_struct *cipher,
+                void *complete_packet,
+                uint8_t *out,
+                size_t encrypted_size,
+                uint64_t seq)
+{
+    gpg_error_t err;
+    size_t aadlen, authlen;
+
+    (void)seq;
+
+    aadlen = cipher->lenfield_blocksize;
+    authlen = cipher->tag_size;
+
+    /* increment IV */
+    err = gcry_cipher_setiv(cipher->key[0],
+                            cipher->last_iv,
+                            AES_GCM_IVLEN);
+    /* This actualy does not increment the packet counter for the
+     * current encryption operation, but for the next one. The first
+     * operation needs to be completed with the derived IV.
+     *
+     * The IV buffer has the following structure:
+     * [ 4B static IV ][ 8B packet counter ][ 4B block counter ]
+     */
+    uint64_inc(cipher->last_iv + 4);
+    if (err) {
+        SSH_LOG(SSH_LOG_WARNING, "gcry_cipher_setiv failed: %s",
+                gpg_strerror(err));
+        return SSH_ERROR;
+    }
+
+    /* Pass the authenticated data (packet_length) */
+    err = gcry_cipher_authenticate(cipher->key[0],
+                                   complete_packet,
+                                   aadlen);
+    if (err) {
+        SSH_LOG(SSH_LOG_WARNING, "gcry_cipher_authenticate failed: %s",
+                gpg_strerror(err));
+        return SSH_ERROR;
+    }
+    /* Do not copy the length to the target buffer, because it is already processed */
+    //memcpy(out, complete_packet, aadlen);
+
+    /* Encrypt the rest of the data */
+    err = gcry_cipher_decrypt(cipher->key[0],
+                              out,
+                              encrypted_size,
+                              (unsigned char *)complete_packet + aadlen,
+                              encrypted_size);
+    if (err) {
+        SSH_LOG(SSH_LOG_WARNING, "gcry_cipher_decrypt failed: %s",
+                gpg_strerror(err));
+        return SSH_ERROR;
+    }
+
+    /* Check the tag */
+    err = gcry_cipher_checktag(cipher->key[0],
+                               (unsigned char *)complete_packet + aadlen + encrypted_size,
+                               authlen);
+    if (gpg_err_code(err) == GPG_ERR_CHECKSUM) {
+        SSH_LOG(SSH_LOG_WARNING, "The authentication tag does not match");
+        return SSH_ERROR;
+    } else if (err != GPG_ERR_NO_ERROR) {
+        SSH_LOG(SSH_LOG_WARNING, "General error while decryption: %s",
+                gpg_strerror(err));
+        return SSH_ERROR;
+    }
+    return SSH_OK;
 }
 
 static int des3_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
@@ -439,6 +560,7 @@ static void des3_decrypt(struct ssh_cipher_struct *cipher, void *in,
 
 /* the table of supported ciphers */
 static struct ssh_cipher_struct ssh_ciphertab[] = {
+#ifdef WITH_BLOWFISH_CIPHER
   {
     .name            = "blowfish-cbc",
     .blocksize       = 8,
@@ -450,6 +572,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .encrypt     = blowfish_encrypt,
     .decrypt     = blowfish_decrypt
   },
+#endif /* WITH_BLOWFISH_CIPHER */
   {
     .name            = "aes128-ctr",
     .blocksize       = 16,
@@ -515,6 +638,34 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .set_decrypt_key = aes_set_key,
     .encrypt     = aes_encrypt,
     .decrypt     = aes_decrypt
+  },
+  {
+    .name            = "aes128-gcm@openssh.com",
+    .blocksize       = 16,
+    .lenfield_blocksize = 4, /* not encrypted, but authenticated */
+    .keylen          = sizeof(gcry_cipher_hd_t),
+    .key             = NULL,
+    .keysize         = 128,
+    .tag_size        = AES_GCM_TAGLEN,
+    .set_encrypt_key = aes_set_key,
+    .set_decrypt_key = aes_set_key,
+    .aead_encrypt    = aes_gcm_encrypt,
+    .aead_decrypt_length = aes_aead_get_length,
+    .aead_decrypt    = aes_gcm_decrypt,
+  },
+  {
+    .name            = "aes256-gcm@openssh.com",
+    .blocksize       = 16,
+    .lenfield_blocksize = 4, /* not encrypted, but authenticated */
+    .keylen          = sizeof(gcry_cipher_hd_t),
+    .key             = NULL,
+    .keysize         = 256,
+    .tag_size        = AES_GCM_TAGLEN,
+    .set_encrypt_key = aes_set_key,
+    .set_decrypt_key = aes_set_key,
+    .aead_encrypt    = aes_gcm_encrypt,
+    .aead_decrypt_length = aes_aead_get_length,
+    .aead_decrypt    = aes_gcm_decrypt,
   },
   {
     .name            = "3des-cbc",

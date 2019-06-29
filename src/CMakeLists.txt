@@ -48,7 +48,7 @@ if (MBEDTLS_CRYPTO_LIBRARY)
   )
 endif (MBEDTLS_CRYPTO_LIBRARY)
 
-if (GCRYPT_LIBRARY)
+if (GCRYPT_LIBRARIES)
   set(LIBSSH_PRIVATE_INCLUDE_DIRS
     ${LIBSSH_PRIVATE_INCLUDE_DIRS}
     ${GCRYPT_INCLUDE_DIR}
@@ -56,9 +56,8 @@ if (GCRYPT_LIBRARY)
 
   set(LIBSSH_LINK_LIBRARIES
     ${LIBSSH_LINK_LIBRARIES}
-    ${GCRYPT_LIBRARY}
-  )
-endif (GCRYPT_LIBRARY)
+    ${GCRYPT_LIBRARIES})
+endif()
 
 if (WITH_ZLIB)
   set(LIBSSH_PRIVATE_INCLUDE_DIRS
@@ -131,6 +130,7 @@ set(libssh_SRCS
   error.c
   getpass.c
   init.c
+  kdf.c
   kex.c
   known_hosts.c
   knownhosts.c
@@ -163,7 +163,15 @@ set(libssh_SRCS
   external/poly1305.c
   external/sc25519.c
   chachapoly.c
+  config_parser.c
+  token.c
 )
+
+if (DEFAULT_C_NO_DEPRECATION_FLAGS)
+    set_source_files_properties(known_hosts.c
+                                PROPERTIES
+                                    COMPILE_FLAGS ${DEFAULT_C_NO_DEPRECATION_FLAGS})
+endif()
 
 if (CMAKE_USE_PTHREADS_INIT)
     set(libssh_SRCS
@@ -192,6 +200,7 @@ if (WITH_GCRYPT)
         gcrypt_missing.c
         pki_gcrypt.c
         ecdh_gcrypt.c
+        dh_key.c
        )
 elseif (WITH_MBEDTLS)
     set(libssh_SRCS
@@ -201,6 +210,7 @@ elseif (WITH_MBEDTLS)
         mbedcrypto_missing.c
         pki_mbedcrypto.c
         ecdh_mbedcrypto.c
+        dh_key.c
        )
 else (WITH_GCRYPT)
     set(libssh_SRCS
@@ -209,6 +219,7 @@ else (WITH_GCRYPT)
         pki_crypto.c
         ecdh_crypto.c
         libcrypto.c
+        dh_crypto.c
        )
     if(OPENSSL_VERSION VERSION_LESS "1.1.0")
         set(libssh_SRCS ${libssh_SRCS} libcrypto-compat.c)
@@ -234,8 +245,16 @@ if (WITH_SERVER)
     ${libssh_SRCS}
     server.c
     bind.c
+    bind_config.c
   )
 endif (WITH_SERVER)
+
+if (WITH_GEX)
+  set(libssh_SRCS
+    ${libssh_SRCS}
+    dh-gex.c
+  )
+endif (WITH_GEX)
 
 if (WITH_ZLIB)
   set(libssh_SRCS
@@ -295,7 +314,10 @@ if (WITH_SYMBOL_VERSIONING AND HAVE_LD_VERSION_SCRIPT AND ABIMAP_FOUND)
 endif (WITH_SYMBOL_VERSIONING AND HAVE_LD_VERSION_SCRIPT AND ABIMAP_FOUND)
 
 add_library(${LIBSSH_SHARED_LIBRARY} SHARED ${libssh_SRCS})
-target_compile_options(${LIBSSH_SHARED_LIBRARY} PRIVATE ${DEFAULT_C_COMPILE_FLAGS})
+target_compile_options(${LIBSSH_SHARED_LIBRARY}
+                       PRIVATE
+                           ${DEFAULT_C_COMPILE_FLAGS}
+                           -D_GNU_SOURCE)
 
 target_link_libraries(${LIBSSH_SHARED_LIBRARY} ${LIBSSH_LINK_LIBRARIES})
 
@@ -343,7 +365,10 @@ install(
 
 if (BUILD_STATIC_LIB)
   add_library(${LIBSSH_STATIC_LIBRARY} STATIC ${libssh_SRCS})
-  target_compile_options(${LIBSSH_STATIC_LIBRARY} PRIVATE ${DEFAULT_C_COMPILE_FLAGS})
+  target_compile_options(${LIBSSH_STATIC_LIBRARY}
+                         PRIVATE
+                            ${DEFAULT_C_COMPILE_FLAGS}
+                            -D_GNU_SOURCE)
 
   if (MSVC)
     set(OUTPUT_SUFFIX static)

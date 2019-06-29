@@ -11,7 +11,7 @@
 
 static int sshd_setup(void **state)
 {
-    torture_setup_sshd_server(state);
+    torture_setup_sshd_server(state, false);
 
     return 0;
 }
@@ -34,7 +34,8 @@ static int session_setup(void **state)
     rc = setuid(pwd->pw_uid);
     assert_return_code(rc, errno);
 
-    s->ssh.session = torture_ssh_session(TORTURE_SSH_SERVER,
+    s->ssh.session = torture_ssh_session(s,
+                                         TORTURE_SSH_SERVER,
                                          NULL,
                                          TORTURE_SSH_USER_ALICE,
                                          NULL);

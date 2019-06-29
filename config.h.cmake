@@ -12,6 +12,12 @@
 #cmakedefine BINARYDIR "${BINARYDIR}"
 #cmakedefine SOURCEDIR "${SOURCEDIR}"
 
+/* Global bind configuration file path */
+#cmakedefine GLOBAL_BIND_CONFIG "${GLOBAL_BIND_CONFIG}"
+
+/* Global client configuration file path */
+#cmakedefine GLOBAL_CLIENT_CONFIG "${GLOBAL_CLIENT_CONFIG}"
+
 /************************** HEADER FILES *************************/
 
 /* Define to 1 if you have the <argp.h> header file. */
@@ -22,6 +28,9 @@
 
 /* Define to 1 if you have the <glob.h> header file. */
 #cmakedefine HAVE_GLOB_H 1
+
+/* Define to 1 if you have the <valgrind/valgrind.h> header file. */
+#cmakedefine HAVE_VALGRIND_VALGRIND_H 1
 
 /* Define to 1 if you have the <pty.h> header file. */
 #cmakedefine HAVE_PTY_H 1
@@ -100,6 +109,9 @@
 /* Define to 1 if you have the `EVP_aes128_cbc' function. */
 #cmakedefine HAVE_OPENSSL_EVP_AES_CBC 1
 
+/* Define to 1 if you have the `EVP_aes128_gcm' function. */
+#cmakedefine HAVE_OPENSSL_EVP_AES_GCM 1
+
 /* Define to 1 if you have the `CRYPTO_THREADID_set_callback' function. */
 #cmakedefine HAVE_OPENSSL_CRYPTO_THREADID_SET_CALLBACK 1
 
@@ -108,6 +120,12 @@
 
 /* Define to 1 if you have the `EVP_CIPHER_CTX_new' function. */
 #cmakedefine HAVE_OPENSSL_EVP_CIPHER_CTX_NEW 1
+
+/* Define to 1 if you have the `EVP_KDF_CTX_new_id' function. */
+#cmakedefine HAVE_OPENSSL_EVP_KDF_CTX_NEW_ID 1
+
+/* Define to 1 if you have the `OPENSSL_ia32cap_loc' function. */
+#cmakedefine HAVE_OPENSSL_IA32CAP_LOC 1
 
 /* Define to 1 if you have the `snprintf' function. */
 #cmakedefine HAVE_SNPRINTF 1
@@ -178,6 +196,9 @@
 /* Define to 1 if you have the `SecureZeroMemory' function. */
 #cmakedefine HAVE_SECURE_ZERO_MEMORY 1
 
+/* Define to 1 if you have the `cmocka_set_test_filter' function. */
+#cmakedefine HAVE_CMOCKA_SET_TEST_FILTER 1
+
 /*************************** LIBRARIES ***************************/
 
 /* Define to 1 if you have the `crypto' library (-lcrypto). */
@@ -192,18 +213,21 @@
 /* Define to 1 if you have the `pthread' library (-lpthread). */
 #cmakedefine HAVE_PTHREAD 1
 
+/* Define to 1 if you have the `cmocka' library (-lcmocka). */
+#cmakedefine HAVE_CMOCKA 1
+
 /**************************** OPTIONS ****************************/
 
 #cmakedefine HAVE_GCC_THREAD_LOCAL_STORAGE 1
 #cmakedefine HAVE_MSC_THREAD_LOCAL_STORAGE 1
 
 #cmakedefine HAVE_FALLTHROUGH_ATTRIBUTE 1
+#cmakedefine HAVE_UNUSED_ATTRIBUTE 1
 
 #cmakedefine HAVE_CONSTRUCTOR_ATTRIBUTE 1
 #cmakedefine HAVE_DESTRUCTOR_ATTRIBUTE 1
 
 #cmakedefine HAVE_GCC_VOLATILE_MEMORY_PROTECTION 1
-#cmakedefine HAVE_GCC_NARG_MACRO 1
 
 #cmakedefine HAVE_COMPILER__FUNC__ 1
 #cmakedefine HAVE_COMPILER__FUNCTION__ 1
@@ -221,6 +245,12 @@
 
 /* Define to 1 if you want to enable server support */
 #cmakedefine WITH_SERVER 1
+
+/* Define to 1 if you want to enable DH group exchange algorithms */
+#cmakedefine WITH_GEX 1
+
+/* Define to 1 if you want to enable blowfish cipher support */
+#cmakedefine WITH_BLOWFISH_CIPHER 1
 
 /* Define to 1 if you want to enable debug output for crypto functions */
 #cmakedefine DEBUG_CRYPTO 1

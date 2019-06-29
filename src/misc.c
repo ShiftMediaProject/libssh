@@ -327,18 +327,75 @@ char *ssh_lowercase(const char* str) {
   return new;
 }
 
-char *ssh_hostport(const char *host, int port){
-    char *dest;
+char *ssh_hostport(const char *host, int port)
+{
+    char *dest = NULL;
     size_t len;
-    if(host==NULL)
+
+    if (host == NULL) {
         return NULL;
+    }
+
     /* 3 for []:, 5 for 65536 and 1 for nul */
-    len=strlen(host) + 3 + 5 + 1;
-    dest=malloc(len);
-    if(dest==NULL)
+    len = strlen(host) + 3 + 5 + 1;
+    dest = malloc(len);
+    if (dest == NULL) {
         return NULL;
-    snprintf(dest,len,"[%s]:%d",host,port);
+    }
+    snprintf(dest, len, "[%s]:%d", host, port);
+
     return dest;
+}
+
+/**
+ * @brief Convert a buffer into a colon separated hex string.
+ * The caller has to free the memory.
+ *
+ * @param  what         What should be converted to a hex string.
+ *
+ * @param  len          Length of the buffer to convert.
+ *
+ * @return              The hex string or NULL on error.
+ *
+ * @see ssh_string_free_char()
+ */
+char *ssh_get_hexa(const unsigned char *what, size_t len) {
+    const char h[] = "0123456789abcdef";
+    char *hexa;
+    size_t i;
+    size_t hlen = len * 3;
+
+    if (len > (UINT_MAX - 1) / 3) {
+        return NULL;
+    }
+
+    hexa = malloc(hlen + 1);
+    if (hexa == NULL) {
+        return NULL;
+    }
+
+    for (i = 0; i < len; i++) {
+        hexa[i * 3] = h[(what[i] >> 4) & 0xF];
+        hexa[i * 3 + 1] = h[what[i] & 0xF];
+        hexa[i * 3 + 2] = ':';
+    }
+    hexa[hlen - 1] = '\0';
+
+    return hexa;
+}
+
+/**
+ * @deprecated          Please use ssh_print_hash() instead
+ */
+void ssh_print_hexa(const char *descr, const unsigned char *what, size_t len) {
+    char *hexa = ssh_get_hexa(what, len);
+
+    if (hexa == NULL) {
+      return;
+    }
+    fprintf(stderr, "%s: %s\n", descr, hexa);
+
+    free(hexa);
 }
 
 /**
@@ -437,9 +494,17 @@ static struct ssh_iterator *ssh_iterator_new(const void *data){
 }
 
 int ssh_list_append(struct ssh_list *list,const void *data){
-  struct ssh_iterator *iterator=ssh_iterator_new(data);
-  if(!iterator)
-    return SSH_ERROR;
+  struct ssh_iterator *iterator = NULL;
+
+  if (list == NULL) {
+      return SSH_ERROR;
+  }
+
+  iterator = ssh_iterator_new(data);
+  if (iterator == NULL) {
+      return SSH_ERROR;
+  }
+
   if(!list->end){
     /* list is empty */
     list->root=list->end=iterator;
@@ -452,8 +517,13 @@ int ssh_list_append(struct ssh_list *list,const void *data){
 }
 
 int ssh_list_prepend(struct ssh_list *list, const void *data){
-  struct ssh_iterator *it = ssh_iterator_new(data);
+  struct ssh_iterator *it = NULL;
 
+  if (list == NULL) {
+      return SSH_ERROR;
+  }
+
+  it = ssh_iterator_new(data);
   if (it == NULL) {
     return SSH_ERROR;
   }
@@ -472,6 +542,11 @@ int ssh_list_prepend(struct ssh_list *list, const void *data){
 
 void ssh_list_remove(struct ssh_list *list, struct ssh_iterator *iterator){
   struct ssh_iterator *ptr,*prev;
+
+  if (list == NULL) {
+      return;
+  }
+
   prev=NULL;
   ptr=list->root;
   while(ptr && ptr != iterator){
@@ -506,10 +581,17 @@ void ssh_list_remove(struct ssh_list *list, struct ssh_iterator *iterator){
  *                      if the list is empty.
  */
 const void *_ssh_list_pop_head(struct ssh_list *list){
-  struct ssh_iterator *iterator=list->root;
-  const void *data;
-  if(!list->root)
-    return NULL;
+  struct ssh_iterator *iterator = NULL;
+  const void *data = NULL;
+
+  if (list == NULL) {
+      return NULL;
+  }
+
+  iterator = list->root;
+  if (iterator == NULL) {
+      return NULL;
+  }
   data=iterator->data;
   list->root=iterator->next;
   if(list->end==iterator)
@@ -871,7 +953,7 @@ int ssh_analyze_banner(ssh_session session, int server)
           return -1;
     }
 
-    SSH_LOG(SSH_LOG_RARE, "Analyzing banner: %s", banner);
+    SSH_LOG(SSH_LOG_PROTOCOL, "Analyzing banner: %s", banner);
 
     switch (banner[4]) {
         case '2':
@@ -921,7 +1003,7 @@ int ssh_analyze_banner(ssh_session session, int server)
 
             session->openssh = SSH_VERSION_INT(((int) major), ((int) minor), 0);
 
-            SSH_LOG(SSH_LOG_RARE,
+            SSH_LOG(SSH_LOG_PROTOCOL,
                     "We are talking to an OpenSSH client version: %lu.%lu (%x)",
                     major, minor, session->openssh);
         }
@@ -1016,8 +1098,8 @@ int ssh_timeout_elapsed(struct ssh_timestamp *ts, int timeout) {
                   * session->timeout, session->timeout_usec.
                   */
             SSH_LOG(SSH_LOG_WARN, "ssh_timeout_elapsed called with -2. this needs to "
-                            "be fixed. please set a breakpoint on %s:%d and "
-                            "fix the caller\n", __FILE__, __LINE__);
+                            "be fixed. please set a breakpoint on misc.c:%d and "
+                            "fix the caller\n", __LINE__);
             return 0;
         case -1: /* -1 means infinite timeout */
             return 0;
@@ -1116,5 +1198,18 @@ char *strndup(const char *s, size_t n)
     return x;
 }
 #endif /* ! HAVE_STRNDUP */
+
+/* Increment 64b integer in network byte order */
+void
+uint64_inc(unsigned char *counter)
+{
+    int i;
+
+    for (i = 7; i >= 0; i--) {
+        counter[i]++;
+        if (counter[i])
+          return;
+    }
+}
 
 /** @} */

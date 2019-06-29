@@ -63,7 +63,7 @@ int authenticate_pubkey(ssh_session session)
 {
   int rc;
 
-  rc = ssh_userauth_publickey_auto(session, NULL);
+  rc = ssh_userauth_publickey_auto(session, NULL, NULL);
 
   if (rc == SSH_AUTH_ERROR)
   {
@@ -281,7 +281,7 @@ pass, ssh_userauth_none() might answer SSH_AUTH_SUCCESS.
 The following example shows how to perform "none" authentication:
 
 @code
-int authenticate_kbdint(ssh_session session)
+int authenticate_none(ssh_session session)
 {
   int rc;
 

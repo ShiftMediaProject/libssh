@@ -63,14 +63,15 @@
  * @{
  */
 
-static ssh_message ssh_message_new(ssh_session session){
-  ssh_message msg = malloc(sizeof(struct ssh_message_struct));
-  if (msg == NULL) {
-    return NULL;
-  }
-  ZERO_STRUCTP(msg);
-  msg->session = session;
-  return msg;
+static ssh_message ssh_message_new(ssh_session session)
+{
+    ssh_message msg = calloc(1, sizeof(struct ssh_message_struct));
+    if (msg == NULL) {
+        return NULL;
+    }
+    msg->session = session;
+
+    return msg;
 }
 
 #ifndef WITH_SERVER
@@ -155,6 +156,11 @@ static int ssh_execute_server_request(ssh_session session, ssh_message msg)
                         session->server_callbacks->userdata);
                 if (channel != NULL) {
                     rc = ssh_message_channel_request_open_reply_accept_channel(msg, channel);
+                    if (rc != SSH_OK) {
+                        SSH_LOG(SSH_LOG_WARNING,
+                                "Failed to send reply for accepting a channel "
+                                "open");
+                    }
                     return SSH_OK;
                 } else {
                     ssh_message_reply_default(msg);
@@ -227,6 +233,10 @@ static int ssh_execute_server_request(ssh_session session, ssh_message msg)
                                                     msg->channel_request.height,
                                                     msg->channel_request.pxwidth,
                                                     msg->channel_request.pxheight);
+                    if (rc != SSH_OK) {
+                        SSH_LOG(SSH_LOG_WARNING,
+                                "Failed to iterate callbacks for window change");
+                    }
                     return SSH_OK;
                 }
                 ssh_callbacks_iterate_end();
@@ -372,16 +382,16 @@ static int ssh_execute_message_callback(ssh_session session, ssh_message msg) {
                 session->ssh_message_callback_data);
         if(ret == 1) {
             ret = ssh_message_reply_default(msg);
-            ssh_message_free(msg);
+            SSH_MESSAGE_FREE(msg);
             if(ret != SSH_OK) {
                 return ret;
             }
         } else {
-            ssh_message_free(msg);
+            SSH_MESSAGE_FREE(msg);
         }
     } else {
         ret = ssh_message_reply_default(msg);
-        ssh_message_free(msg);
+        SSH_MESSAGE_FREE(msg);
         if(ret != SSH_OK) {
             return ret;
         }
@@ -399,46 +409,60 @@ static int ssh_execute_message_callback(ssh_session session, ssh_message msg) {
  *
  * @param[in]  message  The message to add to the queue.
  */
-void ssh_message_queue(ssh_session session, ssh_message message){
-    if (message != NULL) {
+static void ssh_message_queue(ssh_session session, ssh_message message)
+{
 #ifdef WITH_SERVER
-	int ret;
-        /* probably not the best place to execute server callbacks, but still better
-         * than nothing.
-         */
-        ret = ssh_execute_server_callbacks(session, message);
-        if (ret == SSH_OK){
-            ssh_message_free(message);
-            return;
-        }
+    int ret;
+#endif
+
+    if (message == NULL) {
+        return;
+    }
+
+#ifdef WITH_SERVER
+    /* probably not the best place to execute server callbacks, but still better
+     * than nothing.
+     */
+    ret = ssh_execute_server_callbacks(session, message);
+    if (ret == SSH_OK) {
+        SSH_MESSAGE_FREE(message);
+        return;
+    }
 #endif /* WITH_SERVER */
-        if(session->ssh_message_callback != NULL) {
-            ssh_execute_message_callback(session, message);
-            return;
-        }
-        if (session->server_callbacks != NULL){
-            /* if we have server callbacks, but nothing was executed, it means we are
-             * in non-synchronous mode, and we just don't care about the message we
-             * received. Just send a default response. Do not queue it.
+
+    if (session->ssh_message_callback != NULL) {
+        /* This will transfer the message, do not free. */
+        ssh_execute_message_callback(session, message);
+        return;
+    }
+
+    if (session->server_callbacks != NULL) {
+        /* if we have server callbacks, but nothing was executed, it means we are
+         * in non-synchronous mode, and we just don't care about the message we
+         * received. Just send a default response. Do not queue it.
+         */
+        ssh_message_reply_default(message);
+        SSH_MESSAGE_FREE(message);
+        return;
+    }
+
+    if (session->ssh_message_list == NULL) {
+        session->ssh_message_list = ssh_list_new();
+        if (session->ssh_message_list == NULL) {
+            /*
+             * If the message list couldn't be allocated, the message can't be
+             * enqueued
              */
             ssh_message_reply_default(message);
-            ssh_message_free(message);
-            return;
-        }
-        if(session->ssh_message_list == NULL) {
-            session->ssh_message_list = ssh_list_new();
-        }
-        if (session->ssh_message_list != NULL) {
-            ssh_list_append(session->ssh_message_list, message);
-        } else {
-            /* If the message list couldn't be allocated, the message can't be
-             * enqueued */
-            ssh_message_reply_default(message);
             ssh_set_error_oom(session);
-            ssh_message_free(message);
+            SSH_MESSAGE_FREE(message);
             return;
         }
     }
+
+    /* This will transfer the message, do not free. */
+    ssh_list_append(session->ssh_message_list, message);
+    return;
 }
 
 /**
@@ -611,38 +635,42 @@ void ssh_message_free(ssh_message msg){
 
 #ifdef WITH_SERVER
 
-SSH_PACKET_CALLBACK(ssh_packet_service_request){
-  ssh_string service = NULL;
-  char *service_c = NULL;
-  ssh_message msg=NULL;
+SSH_PACKET_CALLBACK(ssh_packet_service_request)
+{
+    char *service_c = NULL;
+    ssh_message msg = NULL;
+    int rc;
 
-  (void)type;
-  (void)user;
-  service = ssh_buffer_get_ssh_string(packet);
-  if (service == NULL) {
-    ssh_set_error(session, SSH_FATAL, "Invalid SSH_MSG_SERVICE_REQUEST packet");
-    goto error;
-  }
+    (void)type;
+    (void)user;
 
-  service_c = ssh_string_to_char(service);
-  if (service_c == NULL) {
-    goto error;
-  }
-  SSH_LOG(SSH_LOG_PACKET,
-        "Received a SERVICE_REQUEST for service %s", service_c);
-  msg=ssh_message_new(session);
-  if(!msg){
-    SAFE_FREE(service_c);
-    goto error;
-  }
-  msg->type=SSH_REQUEST_SERVICE;
-  msg->service_request.service=service_c;
+    rc = ssh_buffer_unpack(packet,
+                           "s",
+                           &service_c);
+    if (rc != SSH_OK) {
+        ssh_set_error(session,
+                      SSH_FATAL,
+                      "Invalid SSH_MSG_SERVICE_REQUEST packet");
+        goto error;
+    }
+
+    SSH_LOG(SSH_LOG_PACKET,
+            "Received a SERVICE_REQUEST for service %s",
+            service_c);
+
+    msg = ssh_message_new(session);
+    if (msg == NULL) {
+        SAFE_FREE(service_c);
+        goto error;
+    }
+
+    msg->type = SSH_REQUEST_SERVICE;
+    msg->service_request.service = service_c;
+
+    ssh_message_queue(session, msg);
 error:
-  ssh_string_free(service);
-  if(msg != NULL)
-    ssh_message_queue(session,msg);
 
-  return SSH_PACKET_USED;
+    return SSH_PACKET_USED;
 }
 
 
@@ -655,12 +683,12 @@ static ssh_buffer ssh_msg_userauth_build_digest(ssh_session session,
                                                 const char *service,
                                                 ssh_string algo)
 {
-    struct ssh_crypto_struct *crypto =
-        session->current_crypto ? session->current_crypto :
-                                  session->next_crypto;
+    struct ssh_crypto_struct *crypto = NULL;
     ssh_buffer buffer;
     ssh_string str=NULL;
     int rc;
+
+    crypto = ssh_packet_get_current_crypto(session, SSH_DIRECTION_IN);
 
     buffer = ssh_buffer_new();
     if (buffer == NULL) {
@@ -840,11 +868,28 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_request){
                                            msg->auth_request.pubkey,
                                            &sig);
         if (rc == SSH_OK) {
-            rc = ssh_pki_signature_verify(session,
-                                          sig,
-                                          msg->auth_request.pubkey,
-                                          ssh_buffer_get(digest),
-                                          ssh_buffer_get_len(digest));
+            /* Check if the signature from client matches server preferences */
+            if (session->opts.pubkey_accepted_types) {
+                if (!ssh_match_group(session->opts.pubkey_accepted_types,
+                            sig->type_c))
+                {
+                    ssh_set_error(session,
+                            SSH_FATAL,
+                            "Public key from client (%s) doesn't match server "
+                            "preference (%s)",
+                            sig->type_c,
+                            session->opts.pubkey_accepted_types);
+                    rc = SSH_ERROR;
+                }
+            }
+
+            if (rc == SSH_OK) {
+                rc = ssh_pki_signature_verify(session,
+                                              sig,
+                                              msg->auth_request.pubkey,
+                                              ssh_buffer_get(digest),
+                                              ssh_buffer_get_len(digest));
+            }
         }
         ssh_string_free(sig_blob);
         ssh_buffer_free(digest);
@@ -852,7 +897,7 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_request){
         if (rc < 0) {
             SSH_LOG(
                     SSH_LOG_PACKET,
-                    "Received an invalid  signature from peer");
+                    "Received an invalid signature from peer");
             msg->auth_request.signature_state = SSH_PUBLICKEY_STATE_WRONG;
             goto error;
         }
@@ -909,7 +954,7 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_request){
      /* bypass the message queue thing */
      SAFE_FREE(service);
      SAFE_FREE(method);
-     ssh_message_free(msg);
+     SSH_MESSAGE_FREE(msg);
 
      return SSH_PACKET_USED;
   }
@@ -922,7 +967,7 @@ error:
   SAFE_FREE(service);
   SAFE_FREE(method);
 
-  ssh_message_free(msg);
+  SSH_MESSAGE_FREE(msg);
 
   return SSH_PACKET_USED;
 end:
@@ -1065,7 +1110,7 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_info_response){
   return SSH_PACKET_USED;
 
 error:
-  ssh_message_free(msg);
+  SSH_MESSAGE_FREE(msg);
 
   return SSH_PACKET_USED;
 }
@@ -1164,8 +1209,7 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_open){
   goto end;
 
 error:
-  ssh_message_free(msg);
-  msg=NULL;
+  SSH_MESSAGE_FREE(msg);
 end:
   SAFE_FREE(type_c);
   if(msg != NULL)
@@ -1174,6 +1218,17 @@ end:
   return SSH_PACKET_USED;
 }
 
+/**
+ * @internal
+ *
+ * @brief This function accepts a channel open request for the specified channel.
+ *
+ * @param[in]  msg      The message.
+ *
+ * @param[in]  chan     The channel the request is made on.
+ *
+ * @returns             SSH_OK on success, SSH_ERROR if an error occured.
+ */
 int ssh_message_channel_request_open_reply_accept_channel(ssh_message msg, ssh_channel chan) {
     ssh_session session;
     int rc;
@@ -1214,7 +1269,17 @@ int ssh_message_channel_request_open_reply_accept_channel(ssh_message msg, ssh_c
     return rc;
 }
 
-
+/**
+ * @internal
+ *
+ * @brief This function accepts a channel open request.
+ *
+ * @param[in]  msg      The message.
+ *
+ * @returns a valid ssh_channel handle if the request is to be allowed
+ *
+ * @returns NULL in case of error
+ */
 ssh_channel ssh_message_channel_request_open_reply_accept(ssh_message msg) {
 	ssh_channel chan;
 	int rc;
@@ -1362,7 +1427,7 @@ end:
 
   return SSH_OK;
 error:
-  ssh_message_free(msg);
+  SSH_MESSAGE_FREE(msg);
 
   return SSH_ERROR;
 }
@@ -1426,12 +1491,18 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request){
     msg->type = SSH_REQUEST_GLOBAL;
 
     if (strcmp(request, "tcpip-forward") == 0) {
+
+        /* According to RFC4254, the client SHOULD reject this message */
+        if (session->client) {
+            goto reply_with_failure;
+        }
+
         r = ssh_buffer_unpack(packet, "sd",
                 &msg->global_request.bind_address,
                 &msg->global_request.bind_port
                 );
         if (r != SSH_OK){
-            goto error;
+            goto reply_with_failure;
         }
         msg->global_request.type = SSH_GLOBAL_REQUEST_TCPIP_FORWARD;
         msg->global_request.want_reply = want_reply;
@@ -1451,11 +1522,17 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request){
             return rc;
         }
     } else if (strcmp(request, "cancel-tcpip-forward") == 0) {
+
+        /* According to RFC4254, the client SHOULD reject this message */
+        if (session->client) {
+            goto reply_with_failure;
+        }
+
         r = ssh_buffer_unpack(packet, "sd",
                 &msg->global_request.bind_address,
                 &msg->global_request.bind_port);
         if (r != SSH_OK){
-            goto error;
+            goto reply_with_failure;
         }
         msg->global_request.type = SSH_GLOBAL_REQUEST_CANCEL_TCPIP_FORWARD;
         msg->global_request.want_reply = want_reply;
@@ -1481,18 +1558,41 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request){
             ssh_message_global_request_reply_success(msg, 0);
         }
     } else {
-        SSH_LOG(SSH_LOG_PROTOCOL, "UNKNOWN SSH_MSG_GLOBAL_REQUEST %s %d", request, want_reply);
-        rc = SSH_PACKET_NOT_USED;
+        SSH_LOG(SSH_LOG_PROTOCOL, "UNKNOWN SSH_MSG_GLOBAL_REQUEST %s, "
+                "want_reply = %d", request, want_reply);
+        goto reply_with_failure;
     }
 
     SAFE_FREE(msg);
     SAFE_FREE(request);
     return rc;
+
+reply_with_failure:
+    /* Only report the failure if requested */
+    if (want_reply) {
+        r = ssh_buffer_add_u8(session->out_buffer,
+                SSH2_MSG_REQUEST_FAILURE);
+        if (r < 0) {
+            ssh_set_error_oom(session);
+            goto error;
+        }
+
+        r = ssh_packet_send(session);
+        if (r != SSH_OK) {
+            goto error;
+        }
+    } else {
+        SSH_LOG(SSH_LOG_PACKET,
+                "The requester doesn't want to know the request failed!");
+    }
+
+    /* Consume the message to avoid sending UNIMPLEMENTED later */
+    rc = SSH_PACKET_USED;
 error:
     SAFE_FREE(msg);
     SAFE_FREE(request);
     SSH_LOG(SSH_LOG_WARNING, "Invalid SSH_MSG_GLOBAL_REQUEST packet");
-    return SSH_PACKET_NOT_USED;
+    return rc;
 }
 
 #endif /* WITH_SERVER */

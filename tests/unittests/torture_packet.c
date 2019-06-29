@@ -41,9 +41,10 @@ static SSH_PACKET_CALLBACK(copy_packet_data){
     return 0;
 }
 
-static void torture_packet(const char *cipher,
-        const char *mac_type, size_t payload_len) {
-
+static void
+torture_packet(const char *cipher, const char *mac_type,
+               const char *comp_type, size_t payload_len)
+{
     ssh_session session = ssh_new();
     int verbosity = torture_libssh_verbosity();
     struct ssh_crypto_struct *crypto;
@@ -61,6 +62,7 @@ static void torture_packet(const char *cipher,
             .callbacks=callbacks,
             .user=response
     };
+    int cmp;
 
     assert_non_null(session);
     ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
@@ -75,8 +77,8 @@ static void torture_packet(const char *cipher,
     crypto->kex_methods[SSH_CRYPT_S_C] = strdup(cipher);
     crypto->kex_methods[SSH_MAC_C_S] = strdup(mac_type);
     crypto->kex_methods[SSH_MAC_S_C] = strdup(mac_type);
-    crypto->kex_methods[SSH_COMP_C_S] = strdup("none");
-    crypto->kex_methods[SSH_COMP_S_C] = strdup("none");
+    crypto->kex_methods[SSH_COMP_C_S] = strdup(comp_type);
+    crypto->kex_methods[SSH_COMP_S_C] = strdup(comp_type);
     crypto->kex_methods[SSH_LANG_C_S] = strdup("none");
     crypto->kex_methods[SSH_LANG_S_C] = strdup("none");
     rc = crypt_set_algorithms_client(session);
@@ -100,6 +102,7 @@ static void torture_packet(const char *cipher,
     rc = out_cipher->set_encrypt_key(out_cipher,
                                      session->current_crypto->encryptkey,
                                      session->current_crypto->encryptIV);
+    session->current_crypto->used = SSH_DIRECTION_BOTH;
     assert_int_equal(rc, SSH_OK);
 
     assert_non_null(session->out_buffer);
@@ -112,7 +115,12 @@ static void torture_packet(const char *cipher,
     rc = recv(sockets[1], buffer, sizeof(buffer), 0);
     assert_true(rc > 0);
     encrypted_packet_len = rc;
-    assert_in_range(encrypted_packet_len, payload_len + 4, payload_len + (32 * 3));
+    cmp = strcmp(comp_type, "none");
+    if (cmp == 0) {
+        assert_in_range(encrypted_packet_len,
+                        payload_len + 4,
+                        payload_len + (32 * 3));
+    }
     rc = send(sockets[0], buffer, encrypted_packet_len, 0);
     assert_int_equal(rc, encrypted_packet_len);
 
@@ -129,12 +137,36 @@ static void torture_packet(const char *cipher,
     ssh_free(session);
 }
 
+static void torture_packet_aes128_ctr_etm(UNUSED_PARAM(void **state))
+{
+    int i;
+    for (i = 1; i < 256; ++i) {
+        torture_packet("aes128-ctr", "hmac-sha1-etm@openssh.com", "none", i);
+    }
+}
+
+static void torture_packet_aes192_ctr_etm(UNUSED_PARAM(void **state))
+{
+    int i;
+    for (i = 1; i < 256; ++i) {
+        torture_packet("aes192-ctr", "hmac-sha1-etm@openssh.com", "none", i);
+    }
+}
+
+static void torture_packet_aes256_ctr_etm(UNUSED_PARAM(void **state))
+{
+    int i;
+    for (i = 1; i < 256; ++i) {
+        torture_packet("aes256-ctr", "hmac-sha1-etm@openssh.com", "none", i);
+    }
+}
+
 static void torture_packet_aes128_ctr(void **state)
 {
     int i;
     (void)state; /* unused */
     for (i=1;i<256;++i){
-        torture_packet("aes128-ctr","hmac-sha1",i);
+        torture_packet("aes128-ctr", "hmac-sha1", "none", i);
     }
 }
 
@@ -143,7 +175,7 @@ static void torture_packet_aes192_ctr(void **state)
     int i;
     (void)state; /* unused */
     for (i=1;i<256;++i){
-        torture_packet("aes192-ctr","hmac-sha1",i);
+        torture_packet("aes192-ctr", "hmac-sha1", "none", i);
     }
 }
 
@@ -152,7 +184,7 @@ static void torture_packet_aes256_ctr(void **state)
     int i;
     (void)state; /* unused */
     for (i=1;i<256;++i){
-        torture_packet("aes256-ctr","hmac-sha1",i);
+        torture_packet("aes256-ctr", "hmac-sha1", "none", i);
     }
 }
 
@@ -161,7 +193,7 @@ static void torture_packet_aes128_cbc(void **state)
     int i;
     (void)state; /* unused */
     for (i=1;i<256;++i){
-        torture_packet("aes128-cbc","hmac-sha1",i);
+        torture_packet("aes128-cbc", "hmac-sha1", "none", i);
     }
 }
 
@@ -170,7 +202,7 @@ static void torture_packet_aes192_cbc(void **state)
     int i;
     (void)state; /* unused */
     for (i=1;i<256;++i){
-        torture_packet("aes192-cbc","hmac-sha1",i);
+        torture_packet("aes192-cbc", "hmac-sha1", "none", i);
     }
 }
 
@@ -179,7 +211,31 @@ static void torture_packet_aes256_cbc(void **state)
     int i;
     (void)state; /* unused */
     for (i=1;i<256;++i){
-        torture_packet("aes256-cbc","hmac-sha1",i);
+        torture_packet("aes256-cbc", "hmac-sha1", "none", i);
+    }
+}
+
+static void torture_packet_aes128_cbc_etm(UNUSED_PARAM(void **state))
+{
+    int i;
+    for (i = 1; i < 256; ++i) {
+        torture_packet("aes128-cbc", "hmac-sha1-etm@openssh.com", "none", i);
+    }
+}
+
+static void torture_packet_aes192_cbc_etm(UNUSED_PARAM(void **state))
+{
+    int i;
+    for (i = 1; i < 256; ++i) {
+        torture_packet("aes192-cbc", "hmac-sha1-etm@openssh.com", "none", i);
+    }
+}
+
+static void torture_packet_aes256_cbc_etm(UNUSED_PARAM(void **state))
+{
+    int i;
+    for (i = 1; i < 256; ++i) {
+        torture_packet("aes256-cbc", "hmac-sha1-etm@openssh.com", "none", i);
     }
 }
 
@@ -188,7 +244,15 @@ static void torture_packet_3des_cbc(void **state)
     int i;
     (void)state; /* unused */
     for (i=1;i<256;++i){
-        torture_packet("3des-cbc","hmac-sha1",i);
+        torture_packet("3des-cbc", "hmac-sha1", "none", i);
+    }
+}
+
+static void torture_packet_3des_cbc_etm(UNUSED_PARAM(void **state))
+{
+    int i;
+    for (i = 1; i < 256; ++i) {
+        torture_packet("3des-cbc", "hmac-sha1-etm@openssh.com", "none", i);
     }
 }
 
@@ -197,7 +261,43 @@ static void torture_packet_chacha20(void **state)
     int i;
     (void)state; /* unused */
     for (i=1;i<256;++i){
-        torture_packet("chacha20-poly1305@openssh.com","none",i);
+        torture_packet("chacha20-poly1305@openssh.com", "none", "none", i);
+    }
+}
+
+static void torture_packet_aes128_gcm(void **state)
+{
+    int i;
+    (void)state; /* unused */
+    for (i=1;i<256;++i){
+        torture_packet("aes128-gcm@openssh.com", "none", "none", i);
+    }
+}
+
+static void torture_packet_aes256_gcm(void **state)
+{
+    int i;
+    (void)state; /* unused */
+    for (i=1;i<256;++i){
+        torture_packet("aes256-gcm@openssh.com", "none", "none", i);
+    }
+}
+
+static void torture_packet_compress_zlib(void **state)
+{
+    int i;
+    (void)state; /* unused */
+    for (i=1;i<256;++i){
+        torture_packet("aes256-ctr", "hmac-sha1", "zlib", i);
+    }
+}
+
+static void torture_packet_compress_zlib_openssh(void **state)
+{
+    int i;
+    (void)state; /* unused */
+    for (i=1;i<256;++i){
+        torture_packet("aes256-ctr", "hmac-sha1", "zlib@openssh.com", i);
     }
 }
 
@@ -207,11 +307,22 @@ int torture_run_tests(void) {
         cmocka_unit_test(torture_packet_aes128_ctr),
         cmocka_unit_test(torture_packet_aes192_ctr),
         cmocka_unit_test(torture_packet_aes256_ctr),
+        cmocka_unit_test(torture_packet_aes128_ctr_etm),
+        cmocka_unit_test(torture_packet_aes192_ctr_etm),
+        cmocka_unit_test(torture_packet_aes256_ctr_etm),
         cmocka_unit_test(torture_packet_aes128_cbc),
         cmocka_unit_test(torture_packet_aes192_cbc),
         cmocka_unit_test(torture_packet_aes256_cbc),
+        cmocka_unit_test(torture_packet_aes128_cbc_etm),
+        cmocka_unit_test(torture_packet_aes192_cbc_etm),
+        cmocka_unit_test(torture_packet_aes256_cbc_etm),
         cmocka_unit_test(torture_packet_3des_cbc),
-        cmocka_unit_test(torture_packet_chacha20)
+        cmocka_unit_test(torture_packet_3des_cbc_etm),
+        cmocka_unit_test(torture_packet_chacha20),
+        cmocka_unit_test(torture_packet_aes128_gcm),
+        cmocka_unit_test(torture_packet_aes256_gcm),
+        cmocka_unit_test(torture_packet_compress_zlib),
+        cmocka_unit_test(torture_packet_compress_zlib_openssh),
     };
 
     ssh_init();

@@ -44,7 +44,7 @@ static void torture_get_user_home_dir(void **state) {
     (void) state;
 
     user = ssh_get_user_home_dir();
-    assert_false(user == NULL);
+    assert_non_null(user);
 #ifndef _WIN32
     assert_string_equal(user, pwd->pw_dir);
 #endif /* _WIN32 */
@@ -58,11 +58,11 @@ static void torture_basename(void **state) {
     (void) state;
 
     path=ssh_basename(TORTURE_TEST_DIR "/test");
-    assert_true(path != NULL);
+    assert_non_null(path);
     assert_string_equal(path, "test");
     SAFE_FREE(path);
     path=ssh_basename(TORTURE_TEST_DIR "/test/");
-    assert_true(path != NULL);
+    assert_non_null(path);
     assert_string_equal(path, "test");
     SAFE_FREE(path);
 }
@@ -73,11 +73,11 @@ static void torture_dirname(void **state) {
     (void) state;
 
     path=ssh_dirname(TORTURE_TEST_DIR "/test");
-    assert_true(path != NULL);
+    assert_non_null(path);
     assert_string_equal(path, TORTURE_TEST_DIR );
     SAFE_FREE(path);
     path=ssh_dirname(TORTURE_TEST_DIR "/test/");
-    assert_true(path != NULL);
+    assert_non_null(path);
     assert_string_equal(path, TORTURE_TEST_DIR);
     SAFE_FREE(path);
 }
@@ -109,7 +109,7 @@ static void torture_path_expand_tilde_win(void **state) {
     (void) state;
 
     d = ssh_path_expand_tilde("~\\.ssh");
-    assert_false(d == NULL);
+    assert_non_null(d);
     print_message("Expanded path: %s\n", d);
     free(d);
 

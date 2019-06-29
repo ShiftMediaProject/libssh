@@ -182,6 +182,29 @@ static int known_hosts_read_line(FILE *fp,
     return -1;
 }
 
+static int
+ssh_known_hosts_entries_compare(struct ssh_knownhosts_entry *k1,
+                                struct ssh_knownhosts_entry *k2)
+{
+    int cmp;
+
+    if (k1 == NULL || k2 == NULL) {
+        return 1;
+    }
+
+    cmp = strcmp(k1->hostname, k2->hostname);
+    if (cmp != 0) {
+        return cmp;
+    }
+
+    cmp = ssh_key_cmp(k1->publickey, k2->publickey, SSH_KEY_CMP_PUBLIC);
+    if (cmp != 0) {
+        return cmp;
+    }
+
+    return 0;
+}
+
 /* This method reads the known_hosts file referenced by the path
  * in  filename  argument, and entries matching the  match  argument
  * will be added to the list in  entries  argument.
@@ -218,7 +241,8 @@ static int ssh_known_hosts_read_entries(const char *match,
          rc == 0;
          rc = known_hosts_read_line(fp, line, sizeof(line), &len, &lineno)) {
         struct ssh_knownhosts_entry *entry = NULL;
-        char *p;
+        struct ssh_iterator *it = NULL;
+        char *p = NULL;
 
         if (line[len] != '\n') {
             len = strcspn(line, "\n");
@@ -233,6 +257,12 @@ static int ssh_known_hosts_read_entries(const char *match,
             continue;
         }
 
+        /* Skip lines starting with markers (@cert-authority, @revoked):
+         * we do not completely support them anyway */
+        if (p[0] == '@') {
+            continue;
+        }
+
         rc = ssh_known_hosts_parse_line(match,
                                         line,
                                         &entry);
@@ -241,7 +271,24 @@ static int ssh_known_hosts_read_entries(const char *match,
         } else if (rc != SSH_OK) {
             goto error;
         }
-        ssh_list_append(*entries, entry);
+
+        /* Check for duplicates */
+        for (it = ssh_list_get_iterator(*entries);
+             it != NULL;
+             it = it->next) {
+            struct ssh_knownhosts_entry *entry2;
+            int cmp;
+            entry2 = ssh_iterator_value(struct ssh_knownhosts_entry *, it);
+            cmp = ssh_known_hosts_entries_compare(entry, entry2);
+            if (cmp == 0) {
+                ssh_knownhosts_entry_free(entry);
+                entry = NULL;
+                break;
+            }
+        }
+        if (entry != NULL) {
+            ssh_list_append(*entries, entry);
+        }
     }
 
     fclose(fp);
@@ -259,7 +306,7 @@ static char *ssh_session_get_host_port(ssh_session session)
     if (session->opts.host == NULL) {
         ssh_set_error(session,
                       SSH_FATAL,
-                      "Can't verify server inn known hosts if the host we "
+                      "Can't verify server in known hosts if the host we "
                       "should connect to has not been set");
 
         return NULL;
@@ -362,15 +409,32 @@ struct ssh_list *ssh_known_hosts_get_algorithms(ssh_session session)
     for (it = ssh_list_get_iterator(entry_list);
          it != NULL;
          it = ssh_list_get_iterator(entry_list)) {
+        struct ssh_iterator *it2 = NULL;
         struct ssh_knownhosts_entry *entry = NULL;
         const char *algo = NULL;
+        bool present = false;
 
         entry = ssh_iterator_value(struct ssh_knownhosts_entry *, it);
         algo = entry->publickey->type_c;
 
-        rc = ssh_list_append(list, algo);
-        if (rc != SSH_OK) {
-            list_error = 1;
+        /* Check for duplicates */
+        for (it2 = ssh_list_get_iterator(list);
+             it2 != NULL;
+             it2 = it2->next) {
+            char *alg2 = ssh_iterator_value(char *, it2);
+            int cmp = strcmp(alg2, algo);
+            if (cmp == 0) {
+                present = true;
+                break;
+            }
+        }
+
+        /* Add to the new list only if it is unique */
+        if (!present) {
+            rc = ssh_list_append(list, algo);
+            if (rc != SSH_OK) {
+               list_error = 1;
+            }
         }
 
         ssh_knownhosts_entry_free(entry);
@@ -434,8 +498,8 @@ int ssh_known_hosts_parse_line(const char *hostname,
     }
 
     if (hostname != NULL) {
-        char *match_pattern = NULL;
-        char *q;
+        char *host_port = NULL;
+        char *q = NULL;
 
         /* Hashed */
         if (p[0] == '|') {
@@ -447,13 +511,30 @@ int ssh_known_hosts_parse_line(const char *hostname,
              q = strtok(NULL, ",")) {
             int cmp;
 
-            cmp = match_hostname(hostname, q, strlen(q));
+            if (q[0] == '[' && hostname[0] != '[') {
+                /* Corner case: We have standard port so we do not have
+                 * hostname in square braces. But the patern is enclosed
+                 * in braces with, possibly standard or wildcard, port.
+                 * We need to test against [host]:port pair here.
+                 */
+                if (host_port == NULL) {
+                    host_port = ssh_hostport(hostname, 22);
+                    if (host_port == NULL) {
+                        rc = SSH_ERROR;
+                        goto out;
+                    }
+                }
+
+                cmp = match_hostname(host_port, q, strlen(q));
+            } else {
+                cmp = match_hostname(hostname, q, strlen(q));
+            }
             if (cmp == 1) {
                 match = 1;
                 break;
             }
         }
-        SAFE_FREE(match_pattern);
+        free(host_port);
 
         if (match == 0) {
             rc = SSH_AGAIN;
@@ -557,16 +638,52 @@ enum ssh_known_hosts_e ssh_session_has_known_hosts_entry(ssh_session session)
     struct ssh_list *entry_list = NULL;
     struct ssh_iterator *it = NULL;
     char *host_port = NULL;
+    bool global_known_hosts_found = false;
+    bool known_hosts_found = false;
     int rc;
 
     if (session->opts.knownhosts == NULL) {
         if (ssh_options_apply(session) < 0) {
             ssh_set_error(session,
                           SSH_REQUEST_DENIED,
-                          "Can't find a known_hosts file");
+                          "Cannot find a known_hosts file");
 
             return SSH_KNOWN_HOSTS_NOT_FOUND;
         }
+    }
+
+    if (session->opts.knownhosts == NULL &&
+        session->opts.global_knownhosts == NULL) {
+            ssh_set_error(session,
+                          SSH_REQUEST_DENIED,
+                          "No path set for a known_hosts file");
+
+            return SSH_KNOWN_HOSTS_NOT_FOUND;
+    }
+
+    if (session->opts.knownhosts != NULL) {
+        known_hosts_found = ssh_file_readaccess_ok(session->opts.knownhosts);
+        if (!known_hosts_found) {
+            SSH_LOG(SSH_LOG_WARN, "Cannot access file %s",
+                    session->opts.knownhosts);
+        }
+    }
+
+    if (session->opts.global_knownhosts != NULL) {
+        global_known_hosts_found =
+                ssh_file_readaccess_ok(session->opts.global_knownhosts);
+        if (!global_known_hosts_found) {
+            SSH_LOG(SSH_LOG_WARN, "Cannot access file %s",
+                    session->opts.global_knownhosts);
+        }
+    }
+
+    if ((!known_hosts_found) && (!global_known_hosts_found)) {
+        ssh_set_error(session,
+                      SSH_REQUEST_DENIED,
+                      "Cannot find a known_hosts file");
+
+        return SSH_KNOWN_HOSTS_NOT_FOUND;
     }
 
     host_port = ssh_session_get_host_port(session);
@@ -574,21 +691,26 @@ enum ssh_known_hosts_e ssh_session_has_known_hosts_entry(ssh_session session)
         return SSH_KNOWN_HOSTS_ERROR;
     }
 
-    rc = ssh_known_hosts_read_entries(host_port,
-                                      session->opts.knownhosts,
-                                      &entry_list);
-    if (rc != 0) {
-        ssh_list_free(entry_list);
-        return SSH_KNOWN_HOSTS_UNKNOWN;
+    if (session->opts.knownhosts != NULL) {
+        rc = ssh_known_hosts_read_entries(host_port,
+                                          session->opts.knownhosts,
+                                          &entry_list);
+        if (rc != 0) {
+            SAFE_FREE(host_port);
+            ssh_list_free(entry_list);
+            return SSH_KNOWN_HOSTS_ERROR;
+        }
     }
 
-    rc = ssh_known_hosts_read_entries(host_port,
-                                      session->opts.global_knownhosts,
-                                      &entry_list);
-    SAFE_FREE(host_port);
-    if (rc != 0) {
-        ssh_list_free(entry_list);
-        return SSH_KNOWN_HOSTS_UNKNOWN;
+    if (session->opts.global_knownhosts != NULL) {
+        rc = ssh_known_hosts_read_entries(host_port,
+                                          session->opts.global_knownhosts,
+                                          &entry_list);
+        SAFE_FREE(host_port);
+        if (rc != 0) {
+            ssh_list_free(entry_list);
+            return SSH_KNOWN_HOSTS_ERROR;
+        }
     }
 
     if (ssh_list_count(entry_list) == 0) {
@@ -727,12 +849,14 @@ int ssh_session_update_known_hosts(ssh_session session)
     } else {
         rc = 0;
     }
-    SAFE_FREE(dir);
+
     if (rc != 0) {
         ssh_set_error(session, SSH_FATAL,
                       "Cannot create %s directory.", dir);
+        SAFE_FREE(dir);
         return SSH_ERROR;
     }
+    SAFE_FREE(dir);
 
     fp = fopen(session->opts.knownhosts, "a");
     if (fp == NULL) {

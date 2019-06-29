@@ -55,7 +55,7 @@
 #endif
 #else
 #ifdef HAVE_CONSTRUCTOR_ATTRIBUTE
-#define CONSTRUCTOR_ATTRIBUTE(_func) void _func(void) __attribute__((constructor))
+##define CONSTRUCTOR_ATTRIBUTE(_func) void _func(void) __attribute__((constructor))
 #else
 #define CONSTRUCTOR_ATTRIBUTE(_func)
 #endif /* HAVE_CONSTRUCTOR_ATTRIBUTE */
@@ -166,7 +166,7 @@ void libssh_constructor(void)
  * If the library is already initialized, increments the _ssh_initialized
  * counter and return the error code cached in _ssh_init_ret.
  *
- * @returns             0 on success, -1 if an error occured.
+ * @returns             SSH_OK on success, SSH_ERROR if an error occurred.
  */
 int ssh_init(void) {
     return _ssh_init(0);
@@ -211,7 +211,7 @@ _ret:
  *
  * This function is automatically called when the library is unloaded.
  *
- * @returns             0 on succes, -1 if an error occured.
+ * @returns             SSH_OK on success, SSH_ERROR if an error occurred.
  *
  */
 void libssh_destructor(void)
