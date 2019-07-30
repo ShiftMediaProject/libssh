@@ -1127,6 +1127,7 @@ char *ssh_path_expand_escape(ssh_session session, const char *s) {
 
     for (i = 0; *p != '\0'; p++) {
         if (*p != '%') {
+        escape:
             buf[i] = *p;
             i++;
             if (i >= MAX_BUF_SIZE) {
@@ -1143,6 +1144,8 @@ char *ssh_path_expand_escape(ssh_session session, const char *s) {
         }
 
         switch (*p) {
+            case '%':
+                goto escape;
             case 'd':
                 x = strdup(session->opts.sshdir);
                 break;
