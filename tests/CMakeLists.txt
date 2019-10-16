@@ -12,7 +12,8 @@ include_directories(${OPENSSL_INCLUDE_DIR}
                     ${libssh_BINARY_DIR}/include
                     ${libssh_BINARY_DIR}
                     ${libssh_SOURCE_DIR}/src
-                    ${CMAKE_CURRENT_SOURCE_DIR})
+                    ${CMAKE_CURRENT_SOURCE_DIR}
+                    ${CMAKE_BINARY_DIR}/tests)
 
 set(TORTURE_LINK_LIBRARIES
     ${CMOCKA_LIBRARY}
