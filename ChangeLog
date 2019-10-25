@@ -1,6 +1,20 @@
 ChangeLog
 ==========
 
+version 0.9.1 (released 2019-10-25)
+  * Added support for Ed25519 via OpenSSL
+  * Added support for X25519 via OpenSSL
+  * Added support for localuser in Match keyword
+  * Fixed Match keyword to be case sensitive
+  * Fixed compilation with LibreSSL
+  * Fixed error report of channel open (T75)
+  * Fixed sftp documentation (T137)
+  * Fixed known_hosts parsing (T156)
+  * Fixed build issue with MinGW (T157)
+  * Fixed build with gcc 9 (T164)
+  * Fixed deprecation issues (T165)
+  * Fixed known_hosts directory creation (T166)
+
 version 0.9.0 (released 2019-06-28)
   * Added support for AES-GCM
   * Added improved rekeying support
