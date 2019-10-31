@@ -274,10 +274,8 @@ static int
 ssh_config_match(char *value, const char *pattern, bool negate)
 {
     int ok, result = 0;
-    char *lowervalue;
 
-    lowervalue = (value) ? ssh_lowercase(value) : NULL;
-    ok = match_pattern_list(lowervalue, pattern, strlen(pattern), 0);
+    ok = match_pattern_list(value, pattern, strlen(pattern), 0);
     if (ok <= 0 && negate == true) {
         result = 1;
     } else if (ok > 0 && negate == false) {
@@ -286,7 +284,6 @@ ssh_config_match(char *value, const char *pattern, bool negate)
     SSH_LOG(SSH_LOG_TRACE, "%s '%s' against pattern '%s'%s (ok=%d)",
             result == 1 ? "Matched" : "Not matched", value, pattern,
             negate == true ? " (negated)" : "", ok);
-    SAFE_FREE(lowervalue);
     return result;
 }
 
@@ -450,6 +447,7 @@ ssh_config_parse_line(ssh_session session,
         int result = 1;
         size_t args = 0;
         enum ssh_config_match_e opt;
+        char *localuser = NULL;
 
         *parsing = 0;
         do {
@@ -515,8 +513,29 @@ ssh_config_parse_line(ssh_session session,
                 result = 0;
                 break;
 
-            case MATCH_ORIGINALHOST:
             case MATCH_LOCALUSER:
+                /* Here we match only one argument */
+                p = ssh_config_get_str_tok(&s, NULL);
+                if (p == NULL || p[0] == '\0') {
+                    ssh_set_error(session, SSH_FATAL,
+                                  "line %d: ERROR - Match user keyword "
+                                  "requires argument", count);
+                    SAFE_FREE(x);
+                    return -1;
+                }
+                localuser = ssh_get_local_username();
+                if (localuser == NULL) {
+                    SSH_LOG(SSH_LOG_WARN, "line %d: Can not get local username "
+                            "for conditional matching.", count);
+                    SAFE_FREE(x);
+                    return -1;
+                }
+                result &= ssh_config_match(localuser, p, negate);
+                SAFE_FREE(localuser);
+                args++;
+                break;
+
+            case MATCH_ORIGINALHOST:
                 /* Skip one argument */
                 p = ssh_config_get_str_tok(&s, NULL);
                 if (p == NULL || p[0] == '\0') {

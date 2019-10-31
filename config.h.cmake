@@ -4,10 +4,6 @@
 /* Version number of package */
 #cmakedefine VERSION "${PROJECT_VERSION}"
 
-#cmakedefine LOCALEDIR "${LOCALE_INSTALL_DIR}"
-#cmakedefine DATADIR "${DATADIR}"
-#cmakedefine LIBDIR "${LIBDIR}"
-#cmakedefine PLUGINDIR "${PLUGINDIR}"
 #cmakedefine SYSCONFDIR "${SYSCONFDIR}"
 #cmakedefine BINARYDIR "${BINARYDIR}"
 #cmakedefine SOURCEDIR "${SOURCEDIR}"
@@ -101,6 +97,12 @@
 /* Define to 1 if you have gl_flags as a glob_t sturct member */
 #cmakedefine HAVE_GLOB_GL_FLAGS_MEMBER 1
 
+/* Define to 1 if you have OpenSSL with Ed25519 support */
+#cmakedefine HAVE_OPENSSL_ED25519 1
+
+/* Define to 1 if you have OpenSSL with X25519 support */
+#cmakedefine HAVE_OPENSSL_X25519 1
+
 /*************************** FUNCTIONS ***************************/
 
 /* Define to 1 if you have the `EVP_aes128_ctr' function. */
@@ -123,6 +125,15 @@
 
 /* Define to 1 if you have the `EVP_KDF_CTX_new_id' function. */
 #cmakedefine HAVE_OPENSSL_EVP_KDF_CTX_NEW_ID 1
+
+/* Define to 1 if you have the `FIPS_mode' function. */
+#cmakedefine HAVE_OPENSSL_FIPS_MODE 1
+
+/* Define to 1 if you have the `EVP_DigestSign' function. */
+#cmakedefine HAVE_OPENSSL_EVP_DIGESTSIGN 1
+
+/* Define to 1 if you have the `EVP_DigestVerify' function. */
+#cmakedefine HAVE_OPENSSL_EVP_DIGESTVERIFY 1
 
 /* Define to 1 if you have the `OPENSSL_ia32cap_loc' function. */
 #cmakedefine HAVE_OPENSSL_IA32CAP_LOC 1

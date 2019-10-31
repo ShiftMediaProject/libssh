@@ -1832,7 +1832,7 @@ ssh_string pki_signature_to_blob(const ssh_signature sig)
             gcry_sexp_release(sexp);
             break;
         case SSH_KEYTYPE_ED25519:
-		sig_blob = pki_ed25519_sig_to_blob(sig);
+		sig_blob = pki_ed25519_signature_to_blob(sig);
 		break;
         case SSH_KEYTYPE_ECDSA_P256:
         case SSH_KEYTYPE_ECDSA_P384:
@@ -1945,7 +1945,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
             SSH_LOG(SSH_LOG_DEBUG,
                     "DSA signature len: %lu",
                     (unsigned long)len);
-            ssh_print_hexa("DSA signature", ssh_string_data(sig_blob), len);
+            ssh_log_hexdump("DSA signature", ssh_string_data(sig_blob), len);
 #endif
 
             err = gcry_sexp_build(&sig->dsa_sig,
@@ -1980,7 +1980,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
 
 #ifdef DEBUG_CRYPTO
             SSH_LOG(SSH_LOG_DEBUG, "RSA signature len: %lu", (unsigned long)len);
-            ssh_print_hexa("RSA signature", ssh_string_data(sig_blob), len);
+            ssh_log_hexdump("RSA signature", ssh_string_data(sig_blob), len);
 #endif
 
             err = gcry_sexp_build(&sig->rsa_sig,
@@ -1994,7 +1994,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
             }
             break;
         case SSH_KEYTYPE_ED25519:
-		rc = pki_ed25519_sig_from_blob(sig, sig_blob);
+		rc = pki_signature_from_ed25519_blob(sig, sig_blob);
 		if (rc != SSH_OK){
 			ssh_signature_free(sig);
 			return NULL;
@@ -2055,8 +2055,8 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
                 }
 
 #ifdef DEBUG_CRYPTO
-                ssh_print_hexa("r", ssh_string_data(r), ssh_string_len(r));
-                ssh_print_hexa("s", ssh_string_data(s), ssh_string_len(s));
+                ssh_log_hexdump("r", ssh_string_data(r), ssh_string_len(r));
+                ssh_log_hexdump("s", ssh_string_data(s), ssh_string_len(s));
 #endif
 
                 err = gcry_sexp_build(&sig->ecdsa_sig,
@@ -2085,54 +2085,6 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
     }
 
     return sig;
-}
-
-int pki_signature_verify(ssh_session session,
-                         const ssh_signature sig,
-                         const ssh_key key,
-                         const unsigned char *input,
-                         size_t input_len)
-{
-    int rc;
-
-    if (session == NULL || sig == NULL || key == NULL || input == NULL) {
-        SSH_LOG(SSH_LOG_TRACE, "Bad parameter provided to "
-                               "pki_signature_verify()");
-        return SSH_ERROR;
-    }
-
-    if (ssh_key_type_plain(key->type) != sig->type) {
-        SSH_LOG(SSH_LOG_WARN,
-                "Can not verify %s signature with %s key",
-                sig->type_c,
-                key->type_c);
-        return SSH_ERROR;
-    }
-
-    /* Check if public key and hash type are compatible */
-    rc = pki_key_check_hash_compatible(key, sig->hash_type);
-    if (rc != SSH_OK) {
-        return SSH_ERROR;
-    }
-
-    /* For ed25519 keys, verify using the input directly */
-    if (key->type == SSH_KEYTYPE_ED25519 ||
-        key->type == SSH_KEYTYPE_ED25519_CERT01)
-    {
-        rc = pki_ed25519_verify(key, sig, input, input_len);
-    } else {
-        /* For the other key types, calculate the hash and verify the signature */
-        rc = pki_verify_data_signature(sig, key, input, input_len);
-    }
-
-    if (rc != SSH_OK){
-        ssh_set_error(session,
-                      SSH_FATAL,
-                      "Signature verification error");
-        return SSH_ERROR;
-    }
-
-    return SSH_OK;
 }
 
 ssh_signature pki_do_sign_hash(const ssh_key privkey,
@@ -2272,6 +2224,7 @@ ssh_signature pki_sign_data(const ssh_key privkey,
                             size_t input_len)
 {
     unsigned char hash[SHA512_DIGEST_LEN] = {0};
+    const unsigned char *sign_input = NULL;
     uint32_t hlen = 0;
     int rc;
 
@@ -2291,27 +2244,38 @@ ssh_signature pki_sign_data(const ssh_key privkey,
     case SSH_DIGEST_SHA256:
         sha256(input, input_len, hash);
         hlen = SHA256_DIGEST_LEN;
+        sign_input = hash;
         break;
     case SSH_DIGEST_SHA384:
         sha384(input, input_len, hash);
         hlen = SHA384_DIGEST_LEN;
+        sign_input = hash;
         break;
     case SSH_DIGEST_SHA512:
         sha512(input, input_len, hash);
         hlen = SHA512_DIGEST_LEN;
+        sign_input = hash;
         break;
     case SSH_DIGEST_SHA1:
         sha1(input, input_len, hash);
         hlen = SHA_DIGEST_LEN;
+        sign_input = hash;
         break;
     case SSH_DIGEST_AUTO:
+        if (privkey->type == SSH_KEYTYPE_ED25519) {
+            /* SSH_DIGEST_AUTO should only be used with ed25519 */
+            sign_input = input;
+            hlen = input_len;
+            break;
+        }
+        FALL_THROUGH;
     default:
         SSH_LOG(SSH_LOG_TRACE, "Unknown hash algorithm for type: %d",
                 hash_type);
         return NULL;
     }
 
-    return pki_do_sign_hash(privkey, hash, hlen, hash_type);
+    return pki_do_sign_hash(privkey, sign_input, hlen, hash_type);
 }
 
 /**
@@ -2340,6 +2304,8 @@ int pki_verify_data_signature(ssh_signature signature,
     unsigned char *hash = ghash + 1;
     uint32_t hlen = 0;
 
+    const unsigned char *verify_input = NULL;
+
     int rc;
 
     if (pubkey == NULL || ssh_key_is_private(pubkey) || input == NULL ||
@@ -2361,23 +2327,35 @@ int pki_verify_data_signature(ssh_signature signature,
         sha256(input, input_len, hash);
         hlen = SHA256_DIGEST_LEN;
         hash_type = "sha256";
+        verify_input = hash;
         break;
     case SSH_DIGEST_SHA384:
         sha384(input, input_len, hash);
         hlen = SHA384_DIGEST_LEN;
         hash_type = "sha384";
+        verify_input = hash;
         break;
     case SSH_DIGEST_SHA512:
         sha512(input, input_len, hash);
         hlen = SHA512_DIGEST_LEN;
         hash_type = "sha512";
+        verify_input = hash;
         break;
     case SSH_DIGEST_SHA1:
         sha1(input, input_len, hash);
         hlen = SHA_DIGEST_LEN;
         hash_type = "sha1";
+        verify_input = hash;
         break;
     case SSH_DIGEST_AUTO:
+        if (pubkey->type == SSH_KEYTYPE_ED25519 ||
+            pubkey->type == SSH_KEYTYPE_ED25519_CERT01)
+        {
+            verify_input = input;
+            hlen = input_len;
+            break;
+        }
+        FALL_THROUGH;
     default:
         SSH_LOG(SSH_LOG_TRACE, "Unknown sig->hash_type: %d", signature->hash_type);
         return SSH_ERROR;
@@ -2465,6 +2443,14 @@ int pki_verify_data_signature(ssh_signature signature,
             }
             break;
 #endif
+        case SSH_KEYTYPE_ED25519:
+        case SSH_KEYTYPE_ED25519_CERT01:
+            rc = pki_ed25519_verify(pubkey, signature, verify_input, hlen);
+            if (rc != SSH_OK) {
+                SSH_LOG(SSH_LOG_TRACE, "ED25519 error: Signature invalid");
+                return SSH_ERROR;
+            }
+            break;
         case SSH_KEYTYPE_RSA1:
         case SSH_KEYTYPE_UNKNOWN:
         default:

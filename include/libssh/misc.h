@@ -26,6 +26,7 @@
 char *ssh_get_user_home_dir(void);
 char *ssh_get_local_username(void);
 int ssh_file_readaccess_ok(const char *file);
+int ssh_dir_writeable(const char *path);
 
 char *ssh_path_expand_tilde(const char *d);
 char *ssh_path_expand_escape(ssh_session session, const char *s);
@@ -82,5 +83,9 @@ int ssh_timeout_update(struct ssh_timestamp *ts, int timeout);
 int ssh_match_group(const char *group, const char *object);
 
 void uint64_inc(unsigned char *counter);
+
+void ssh_log_hexdump(const char *descr, const unsigned char *what, size_t len);
+
+int ssh_mkdirs(const char *pathname, mode_t mode);
 
 #endif /* MISC_H_ */
