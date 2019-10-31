@@ -101,7 +101,7 @@ index a8dfe030..b74cf6dd 100644
  static int _ssh_init(unsigned constructor) {
  
 diff --git a/src/misc.c b/src/misc.c
-index 0c6b570c..c365e62b 100644
+index 8bd378f3..0fabd593 100644
 --- a/src/misc.c
 +++ b/src/misc.c
 @@ -50,9 +50,10 @@
@@ -136,7 +136,7 @@ index 0c6b570c..c365e62b 100644
  }
  
  /* we have read access on file */
-@@ -147,22 +152,26 @@ int gettimeofday(struct timeval *__p, void *__t) {
+@@ -172,22 +177,26 @@ int gettimeofday(struct timeval *__p, void *__t) {
  }
  
  char *ssh_get_local_username(void) {
@@ -166,10 +166,10 @@ index 0c6b570c..c365e62b 100644
  
  int ssh_is_ipaddr_v4(const char *str) {
 diff --git a/src/pki_gcrypt.c b/src/pki_gcrypt.c
-index 705830c0..8ecbbdde 100644
+index 6e00194a..cadf4ff4 100644
 --- a/src/pki_gcrypt.c
 +++ b/src/pki_gcrypt.c
-@@ -2140,7 +2140,11 @@ ssh_signature pki_do_sign_hash(const ssh_key privkey,
+@@ -2092,7 +2092,11 @@ ssh_signature pki_do_sign_hash(const ssh_key privkey,
                                 size_t hlen,
                                 enum ssh_digest_e hash_type)
  {

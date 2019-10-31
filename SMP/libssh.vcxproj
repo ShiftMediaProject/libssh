@@ -136,6 +136,7 @@
     <ClCompile Include="..\src\pki.c" />
     <ClCompile Include="..\src\pki_container_openssh.c" />
     <ClCompile Include="..\src\pki_ed25519.c" />
+    <ClCompile Include="..\src\pki_ed25519_common.c" />
     <ClCompile Include="..\src\pki_gcrypt.c" />
     <ClCompile Include="..\src\poll.c" />
     <ClCompile Include="..\src\scp.c" />

@@ -82,6 +82,12 @@
 /* Define to 1 if you have gl_flags as a glob_t sturct member */
 /* #undef HAVE_GLOB_GL_FLAGS_MEMBER */
 
+/* Define to 1 if you have OpenSSL with Ed25519 support */
+/* #undef HAVE_OPENSSL_ED25519 */
+
+/* Define to 1 if you have OpenSSL with X25519 support */
+/* #undef HAVE_OPENSSL_X25519 */
+
 /*************************** FUNCTIONS ***************************/
 
 /* Define to 1 if you have the `EVP_aes128_ctr' function. */
@@ -103,10 +109,19 @@
 /* #undef HAVE_OPENSSL_EVP_CIPHER_CTX_NEW */
 
 /* Define to 1 if you have the `EVP_KDF_CTX_new_id' function. */
-/* #undef HAVE_OPENSSL_EVP_KDF_CTX_NEW_ID 1
+/* #undef HAVE_OPENSSL_EVP_KDF_CTX_NEW_ID */
+
+/* Define to 1 if you have the `FIPS_mode' function. */
+/* #undef HAVE_OPENSSL_FIPS_MODE */
+
+/* Define to 1 if you have the `EVP_DigestSign' function. */
+/* #undef HAVE_OPENSSL_EVP_DIGESTSIGN */
+
+/* Define to 1 if you have the `EVP_DigestVerify' function. */
+/* #undef HAVE_OPENSSL_EVP_DIGESTVERIFY */
 
 /* Define to 1 if you have the `OPENSSL_ia32cap_loc' function. */
-/* #undef HAVE_OPENSSL_IA32CAP_LOC 1
+/* #undef HAVE_OPENSSL_IA32CAP_LOC */
 
 /* Define to 1 if you have the `snprintf' function. */
 /* #undef HAVE_SNPRINTF */
