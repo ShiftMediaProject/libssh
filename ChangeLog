@@ -1,6 +1,21 @@
 ChangeLog
 ==========
 
+version 0.9.3 (released 2019-12-10)
+  * Fixed CVE-2019-14889 - SCP: Unsanitized location leads to command execution
+  * SSH-01-003 Client: Missing NULL check leads to crash in erroneous state
+  * SSH-01-006 General: Various unchecked Null-derefs cause DOS
+  * SSH-01-007 PKI Gcrypt: Potential UAF/double free with RSA pubkeys
+  * SSH-01-010 SSH: Deprecated hash function in fingerprinting
+  * SSH-01-013 Conf-Parsing: Recursive wildcards in hostnames lead to DOS
+  * SSH-01-014 Conf-Parsing: Integer underflow leads to OOB array access
+  * SSH-01-001 State Machine: Initial machine states should be set explicitly
+  * SSH-01-002 Kex: Differently bound macros used to iterate same array
+  * SSH-01-005 Code-Quality: Integer sign confusion during assignments
+  * SSH-01-008 SCP: Protocol Injection via unescaped File Names
+  * SSH-01-009 SSH: Update documentation which RFCs are implemented
+  * SSH-01-012 PKI: Information leak via uninitialized stack buffer
+
 version 0.9.2 (released 2019-11-07)
   * Fixed libssh-config.cmake
   * Fixed issues with rsa algorithm negotiation (T191)
