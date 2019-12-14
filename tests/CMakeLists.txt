@@ -6,20 +6,16 @@ endif (BSD OR SOLARIS OR OSX)
 
 set(TORTURE_LIBRARY torture)
 
-include_directories(
-  ${LIBSSH_PUBLIC_INCLUDE_DIRS}
-  ${OPENSSL_INCLUDE_DIR}
-  ${CMOCKA_INCLUDE_DIR}
-  ${ZLIB_INCLUDE_DIR}
-  ${CMAKE_BINARY_DIR}
-  ${CMAKE_SOURCE_DIR}/src
-  ${CMAKE_CURRENT_SOURCE_DIR}
-)
+include_directories(${OPENSSL_INCLUDE_DIR}
+                    ${CMOCKA_INCLUDE_DIR}
+                    ${ZLIB_INCLUDE_DIR}
+                    ${libssh_BINARY_DIR}
+                    ${libssh_SOURCE_DIR}/src
+                    ${CMAKE_CURRENT_SOURCE_DIR})
 
 set(TORTURE_LINK_LIBRARIES
     ${CMOCKA_LIBRARY}
-    ${LIBSSH_STATIC_LIBRARY}
-    ${LIBSSH_LINK_LIBRARIES})
+    ssh::static)
 
 # create test library
 add_library(${TORTURE_LIBRARY}
@@ -47,7 +43,7 @@ set(TEST_TARGET_LIBRARIES
 
 add_subdirectory(unittests)
 
-if (CLIENT_TESTING)
+if (CLIENT_TESTING OR SERVER_TESTING)
     find_package(socket_wrapper 1.1.5 REQUIRED)
     find_package(nss_wrapper 1.1.2 REQUIRED)
     find_package(uid_wrapper 1.2.0 REQUIRED)
@@ -92,7 +88,7 @@ if (CLIENT_TESTING)
     # ssh_ping
     add_executable(ssh_ping ssh_ping.c)
     target_compile_options(ssh_ping PRIVATE ${DEFAULT_C_COMPILE_FLAGS})
-    target_link_libraries(ssh_ping ${LIBSSH_SHARED_LIBRARY})
+    target_link_libraries(ssh_ping ssh::ssh)
 
     # homedir will be used in passwd
     set(HOMEDIR ${CMAKE_CURRENT_BINARY_DIR}/home)
@@ -139,18 +135,20 @@ if (CLIENT_TESTING)
     file(COPY keys/certauth/id_rsa-cert.pub DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/home/bob/.ssh_cert/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
 
     message(STATUS "TORTURE_ENVIRONMENT=${TORTURE_ENVIRONMENT}")
-
-    add_subdirectory(client)
-endif (CLIENT_TESTING)
+endif ()
 
 if (WITH_BENCHMARKS)
     add_subdirectory(benchmarks)
-endif (WITH_BENCHMARKS)
+endif ()
+
+if (CLIENT_TESTING)
+    add_subdirectory(client)
+endif ()
 
 if (WITH_SERVER AND SERVER_TESTING)
     add_subdirectory(pkd)
     add_subdirectory(server)
-endif (WITH_SERVER AND SERVER_TESTING)
+endif ()
 
 if (FUZZ_TESTING)
     add_subdirectory(fuzz)
