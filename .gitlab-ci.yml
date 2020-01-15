@@ -456,9 +456,11 @@ tumbleweed/static-analysis:
       - obj/scan
 
 visualstudio/x86_64:
+  variables:
+    ErrorActionPreference: STOP
   script:
   - $env:VCPKG_DEFAULT_TRIPLET="x64-windows"
-  - cd obj
+  - mkdir -p obj; if ($?) {cd obj}; if (! $?) {exit 1}
   - cmake
       -A x64
       -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_TOOLCHAIN_FILE"
@@ -484,9 +486,11 @@ visualstudio/x86_64:
       - obj/
 
 visualstudio/x86:
+  variables:
+    ErrorActionPreference: STOP
   script:
   - $env:VCPKG_DEFAULT_TRIPLET="x86-windows"
-  - cd obj
+  - mkdir -p obj; if ($?) {cd obj}; if (! $?) {exit 1}
   - cmake
       -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_TOOLCHAIN_FILE"
       -DPICKY_DEVELOPER=ON
