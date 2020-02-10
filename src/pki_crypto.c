@@ -94,7 +94,7 @@ static int pki_key_ecdsa_to_nid(EC_KEY *k)
 
 static enum ssh_keytypes_e pki_key_ecdsa_to_key_type(EC_KEY *k)
 {
-    static int nid;
+    int nid;
 
     nid = pki_key_ecdsa_to_nid(k);
 
