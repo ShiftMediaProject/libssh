@@ -112,6 +112,16 @@ clang-format:
   # the format is not always matching our intentions
   allow_failure: true
 
+git-log-check:
+  variables:
+    GIT_DEPTH: 100
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
+  stage: review
+  script:
+    - ./.gitlab-ci/git-check-signoff-trailer.sh ${CI_MERGE_REQUEST_DIFF_BASE_SHA}
+  only:
+    - merge_requests
+
 ###############################################################################
 #                               CentOS builds                                 #
 ###############################################################################
