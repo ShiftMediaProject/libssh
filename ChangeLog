@@ -1,6 +1,12 @@
 ChangeLog
 ==========
 
+version 0.9.4 (released 2020-04-09)
+  * Fixed CVE-2020-1730 - Possible DoS in client and server when handling
+    AES-CTR keys with OpenSSL
+  * Added diffie-hellman-group14-sha256
+  * Fixed serveral possible memory leaks
+
 version 0.9.3 (released 2019-12-10)
   * Fixed CVE-2019-14889 - SCP: Unsanitized location leads to command execution
   * SSH-01-003 Client: Missing NULL check leads to crash in erroneous state
