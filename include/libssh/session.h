@@ -145,7 +145,7 @@ struct ssh_session_struct {
     /* where it was before being interrupted */
     enum ssh_pending_call_e pending_call_state;
     enum ssh_session_state_e session_state;
-    int packet_state;
+    enum ssh_packet_state_e packet_state;
     enum ssh_dh_state_e dh_handshake_state;
     enum ssh_channel_request_state_e global_req_state;
     struct ssh_agent_state_struct *agent_state;
@@ -213,7 +213,7 @@ struct ssh_session_struct {
         char *sshdir;
         char *knownhosts;
         char *global_knownhosts;
-        char *wanted_methods[10];
+        char *wanted_methods[SSH_KEX_METHODS];
         char *pubkey_accepted_types;
         char *ProxyCommand;
         char *custombanner;

@@ -154,7 +154,7 @@ int ssh_options_copy(ssh_session src, ssh_session *dest)
         }
     }
 
-    for (i = 0; i < 10; i++) {
+    for (i = 0; i < SSH_KEX_METHODS; i++) {
         if (src->opts.wanted_methods[i] != NULL) {
             new->opts.wanted_methods[i] = strdup(src->opts.wanted_methods[i]);
             if (new->opts.wanted_methods[i] == NULL) {
@@ -531,7 +531,7 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                     return -1;
                 }
 
-                session->opts.port = *x & 0xffff;
+                session->opts.port = *x & 0xffffU;
             }
             break;
         case SSH_OPTIONS_PORT_STR:
@@ -555,7 +555,7 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                     return -1;
                 }
 
-                session->opts.port = i & 0xffff;
+                session->opts.port = i & 0xffffU;
             }
             break;
         case SSH_OPTIONS_FD:
@@ -693,7 +693,7 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                     return -1;
                 }
 
-                session->opts.timeout = *x & 0xffffffff;
+                session->opts.timeout = *x & 0xffffffffU;
             }
             break;
         case SSH_OPTIONS_TIMEOUT_USEC:
@@ -707,7 +707,7 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                     return -1;
                 }
 
-                session->opts.timeout_usec = *x & 0xffffffff;
+                session->opts.timeout_usec = *x & 0xffffffffU;
             }
             break;
         case SSH_OPTIONS_SSH1:
@@ -725,8 +725,8 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                     return -1;
                 }
 
-                session->common.log_verbosity = *x & 0xffff;
-                ssh_set_log_level(*x & 0xffff);
+                session->common.log_verbosity = *x & 0xffffU;
+                ssh_set_log_level(*x & 0xffffU);
             }
             break;
         case SSH_OPTIONS_LOG_VERBOSITY_STR:
@@ -751,8 +751,8 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                     return -1;
                 }
 
-                session->common.log_verbosity = i & 0xffff;
-                ssh_set_log_level(i & 0xffff);
+                session->common.log_verbosity = i & 0xffffU;
+                ssh_set_log_level(i & 0xffffU);
             }
             break;
         case SSH_OPTIONS_CIPHERS_C_S:
@@ -1805,12 +1805,12 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
         return -1;
       } else {
         int *x = (int *) value;
-        sshbind->bindport = *x & 0xffff;
+        sshbind->bindport = *x & 0xffffU;
       }
       break;
     case SSH_BIND_OPTIONS_BINDPORT_STR:
       if (value == NULL) {
-        sshbind->bindport = 22 & 0xffff;
+        sshbind->bindport = 22 & 0xffffU;
       } else {
         q = strdup(value);
         if (q == NULL) {
@@ -1823,7 +1823,7 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
         }
         SAFE_FREE(q);
 
-        sshbind->bindport = i & 0xffff;
+        sshbind->bindport = i & 0xffffU;
       }
       break;
     case SSH_BIND_OPTIONS_LOG_VERBOSITY:
@@ -1832,7 +1832,7 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
         return -1;
       } else {
         int *x = (int *) value;
-        ssh_set_log_level(*x & 0xffff);
+        ssh_set_log_level(*x & 0xffffU);
       }
       break;
     case SSH_BIND_OPTIONS_LOG_VERBOSITY_STR:
@@ -1850,7 +1850,7 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
         }
         SAFE_FREE(q);
 
-        ssh_set_log_level(i & 0xffff);
+        ssh_set_log_level(i & 0xffffU);
       }
       break;
     case SSH_BIND_OPTIONS_DSAKEY:

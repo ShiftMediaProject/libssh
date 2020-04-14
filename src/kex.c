@@ -159,8 +159,6 @@
     GEX_SHA1 \
     KEY_EXCHANGE
 
-#define KEX_METHODS_SIZE 10
-
 /* RFC 8308 */
 #define KEX_EXTENSION_CLIENT "ext-info-c"
 
@@ -257,7 +255,7 @@ static const char *ssh_kex_descriptions[] = {
 
 const char *ssh_kex_get_default_methods(uint32_t algo)
 {
-    if (algo >= KEX_METHODS_SIZE) {
+    if (algo >= SSH_KEX_METHODS) {
         return NULL;
     }
 
@@ -266,7 +264,7 @@ const char *ssh_kex_get_default_methods(uint32_t algo)
 
 const char *ssh_kex_get_supported_method(uint32_t algo)
 {
-    if (algo >= KEX_METHODS_SIZE) {
+    if (algo >= SSH_KEX_METHODS) {
         return NULL;
     }
 
@@ -274,7 +272,7 @@ const char *ssh_kex_get_supported_method(uint32_t algo)
 }
 
 const char *ssh_kex_get_description(uint32_t algo) {
-  if (algo >= KEX_METHODS_SIZE) {
+  if (algo >= SSH_KEX_METHODS) {
     return NULL;
   }
 
@@ -282,7 +280,7 @@ const char *ssh_kex_get_description(uint32_t algo) {
 }
 
 const char *ssh_kex_get_fips_methods(uint32_t algo) {
-  if (algo >= KEX_METHODS_SIZE) {
+  if (algo >= SSH_KEX_METHODS) {
     return NULL;
   }
 
@@ -333,9 +331,10 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
     int i, ok;
     int server_kex = session->server;
     ssh_string str = NULL;
-    char *strings[KEX_METHODS_SIZE] = {0};
+    char *strings[SSH_KEX_METHODS] = {0};
     char *rsa_sig_ext = NULL;
     int rc = SSH_ERROR;
+    size_t len;
 
     uint8_t first_kex_packet_follows = 0;
     uint32_t kexinit_reserved = 0;
@@ -351,32 +350,32 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
     }
 
     if (server_kex) {
-        rc = ssh_buffer_get_data(packet,session->next_crypto->client_kex.cookie, 16);
-        if (rc != 16) {
+        len = ssh_buffer_get_data(packet,session->next_crypto->client_kex.cookie, 16);
+        if (len != 16) {
             ssh_set_error(session, SSH_FATAL, "ssh_packet_kexinit: no cookie in packet");
             goto error;
         }
 
-        rc = ssh_hashbufin_add_cookie(session, session->next_crypto->client_kex.cookie);
-        if (rc < 0) {
+        len = ssh_hashbufin_add_cookie(session, session->next_crypto->client_kex.cookie);
+        if (len < 0) {
             ssh_set_error(session, SSH_FATAL, "ssh_packet_kexinit: adding cookie failed");
             goto error;
         }
     } else {
-        rc = ssh_buffer_get_data(packet,session->next_crypto->server_kex.cookie, 16);
-        if (rc != 16) {
+        len = ssh_buffer_get_data(packet,session->next_crypto->server_kex.cookie, 16);
+        if (len != 16) {
             ssh_set_error(session, SSH_FATAL, "ssh_packet_kexinit: no cookie in packet");
             goto error;
         }
 
-        rc = ssh_hashbufin_add_cookie(session, session->next_crypto->server_kex.cookie);
-        if (rc < 0) {
+        len = ssh_hashbufin_add_cookie(session, session->next_crypto->server_kex.cookie);
+        if (len < 0) {
             ssh_set_error(session, SSH_FATAL, "ssh_packet_kexinit: adding cookie failed");
             goto error;
         }
     }
 
-    for (i = 0; i < KEX_METHODS_SIZE; i++) {
+    for (i = 0; i < SSH_KEX_METHODS; i++) {
         str = ssh_buffer_get_ssh_string(packet);
         if (str == NULL) {
           goto error;
@@ -393,7 +392,7 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
             ssh_set_error_oom(session);
             goto error;
         }
-        ssh_string_free(str);
+        SSH_STRING_FREE(str);
         str = NULL;
     }
 
@@ -528,7 +527,7 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
     return SSH_PACKET_USED;
 
 error:
-    ssh_string_free(str);
+    SSH_STRING_FREE(str);
     for (i = 0; i < SSH_KEX_METHODS; i++) {
         if (server_kex) {
             session->next_crypto->client_kex.methods[i] = NULL;
@@ -677,11 +676,11 @@ int ssh_set_client_kex(ssh_session session)
         return SSH_ERROR;
     }
 
-    memset(client->methods, 0, KEX_METHODS_SIZE * sizeof(char **));
+    memset(client->methods, 0, SSH_KEX_METHODS * sizeof(char **));
 
     /* Set the list of allowed algorithms in order of preference, if it hadn't
      * been set yet. */
-    for (i = 0; i < KEX_METHODS_SIZE; i++) {
+    for (i = 0; i < SSH_KEX_METHODS; i++) {
         if (i == SSH_HOSTKEYS) {
             /* Set the hostkeys in the following order:
              * - First: keys present in known_hosts files ordered by preference
@@ -750,7 +749,7 @@ int ssh_kex_select_methods (ssh_session session){
         ext_start[0] = '\0';
     }
 
-    for (i = 0; i < KEX_METHODS_SIZE; i++) {
+    for (i = 0; i < SSH_KEX_METHODS; i++) {
         session->next_crypto->kex_methods[i]=ssh_find_matching(server->methods[i],client->methods[i]);
         if(session->next_crypto->kex_methods[i] == NULL && i < SSH_LANG_C_S){
             ssh_set_error(session,SSH_FATAL,"kex error : no match for method %s: server [%s], client [%s]",
@@ -823,7 +822,7 @@ int ssh_send_kex(ssh_session session, int server_kex) {
 
   ssh_list_kex(kex);
 
-  for (i = 0; i < KEX_METHODS_SIZE; i++) {
+  for (i = 0; i < SSH_KEX_METHODS; i++) {
     str = ssh_string_from_char(kex->methods[i]);
     if (str == NULL) {
       goto error;
@@ -835,7 +834,7 @@ int ssh_send_kex(ssh_session session, int server_kex) {
     if (ssh_buffer_add_ssh_string(session->out_buffer, str) < 0) {
       goto error;
     }
-    ssh_string_free(str);
+    SSH_STRING_FREE(str);
     str = NULL;
   }
 
@@ -856,7 +855,7 @@ int ssh_send_kex(ssh_session session, int server_kex) {
 error:
   ssh_buffer_reinit(session->out_buffer);
   ssh_buffer_reinit(session->out_hashbuf);
-  ssh_string_free(str);
+  SSH_STRING_FREE(str);
 
   return -1;
 }
@@ -1019,7 +1018,7 @@ int ssh_make_sessionid(ssh_session session)
                          ssh_buffer_get_len(server_hash),
                          ssh_buffer_get(server_hash),
                          server_pubkey_blob);
-    ssh_string_free(server_pubkey_blob);
+    SSH_STRING_FREE(server_pubkey_blob);
     if(rc != SSH_OK){
         goto error;
     }
@@ -1201,14 +1200,14 @@ int ssh_make_sessionid(ssh_session session)
 
     rc = SSH_OK;
 error:
-    ssh_buffer_free(buf);
-    ssh_buffer_free(client_hash);
-    ssh_buffer_free(server_hash);
+    SSH_BUFFER_FREE(buf);
+    SSH_BUFFER_FREE(client_hash);
+    SSH_BUFFER_FREE(server_hash);
 
     session->in_hashbuf = NULL;
     session->out_hashbuf = NULL;
 
-    ssh_string_free(num);
+    SSH_STRING_FREE(num);
 
     return rc;
 }
@@ -1398,7 +1397,7 @@ int ssh_generate_session_keys(ssh_session session)
     rc = 0;
 error:
     ssh_string_burn(k_string);
-    ssh_string_free(k_string);
+    SSH_STRING_FREE(k_string);
     if (rc != 0) {
         free(IV_cli_to_srv);
         free(IV_srv_to_cli);

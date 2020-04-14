@@ -939,18 +939,38 @@ struct ssh_crypto_struct *
 ssh_packet_get_current_crypto(ssh_session session,
                               enum ssh_crypto_direction_e direction)
 {
+    struct ssh_crypto_struct *crypto = NULL;
+
     if (session == NULL) {
         return NULL;
     }
 
     if (session->current_crypto != NULL &&
         session->current_crypto->used & direction) {
-        return session->current_crypto;
+        crypto = session->current_crypto;
+    } else if (session->next_crypto != NULL &&
+               session->next_crypto->used & direction) {
+        crypto = session->next_crypto;
+    } else {
+        return NULL;
     }
 
-    if (session->next_crypto != NULL &&
-        session->next_crypto->used & direction) {
-        return session->next_crypto;
+    switch (direction) {
+    case SSH_DIRECTION_IN:
+        if (crypto->in_cipher != NULL) {
+            return crypto;
+        }
+        break;
+    case SSH_DIRECTION_OUT:
+        if (crypto->out_cipher != NULL) {
+            return crypto;
+        }
+        break;
+    case SSH_DIRECTION_BOTH:
+        if (crypto->in_cipher != NULL &&
+            crypto->out_cipher != NULL) {
+            return crypto;
+        }
     }
 
     return NULL;
@@ -1039,8 +1059,8 @@ static bool ssh_packet_need_rekey(ssh_session session,
 int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
 {
     ssh_session session = (ssh_session)user;
-    unsigned int blocksize = 8;
-    unsigned int lenfield_blocksize = 8;
+    uint32_t blocksize = 8;
+    uint32_t lenfield_blocksize = 8;
     size_t current_macsize = 0;
     uint8_t *ptr = NULL;
     int to_be_read;
@@ -1055,7 +1075,7 @@ int ssh_packet_socket_callback(const void *data, size_t receivedlen, void *user)
     enum ssh_packet_filter_result_e filter_result;
     struct ssh_crypto_struct *crypto = NULL;
     bool etm = false;
-    int etm_packet_offset = 0;
+    uint32_t etm_packet_offset = 0;
     bool ok;
 
     crypto = ssh_packet_get_current_crypto(session, SSH_DIRECTION_IN);
@@ -1806,7 +1826,7 @@ int ssh_packet_send(ssh_session session)
                 SSH_LOG(SSH_LOG_PACKET, "Queued packet triggered rekey");
                 return ssh_send_rekex(session);
             }
-            ssh_buffer_free(session->out_buffer);
+            SSH_BUFFER_FREE(session->out_buffer);
             session->out_buffer = ssh_list_pop_head(struct ssh_buffer_struct *,
                                                     session->out_queue);
             payload = (uint8_t *)ssh_buffer_get(session->out_buffer);
@@ -1863,6 +1883,10 @@ ssh_packet_set_newkeys(ssh_session session,
             "called, direction =%s%s",
             direction & SSH_DIRECTION_IN ? " IN " : "",
             direction & SSH_DIRECTION_OUT ? " OUT " : "");
+
+    if (session->next_crypto == NULL) {
+        return SSH_ERROR;
+    }
 
     session->next_crypto->used |= direction;
     if (session->current_crypto != NULL) {
@@ -1926,6 +1950,11 @@ ssh_packet_set_newkeys(ssh_session session,
     }
 
     if (ssh_generate_session_keys(session) < 0) {
+        return SSH_ERROR;
+    }
+
+    if (session->next_crypto->in_cipher == NULL ||
+        session->next_crypto->out_cipher == NULL) {
         return SSH_ERROR;
     }
 

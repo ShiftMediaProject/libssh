@@ -10,7 +10,7 @@ set(CPACK_PACKAGE_VERSION ${PROJECT_VERSION})
 
 # SOURCE GENERATOR
 set(CPACK_SOURCE_GENERATOR "TXZ")
-set(CPACK_SOURCE_IGNORE_FILES "~$;[.]swp$;/[.]git/;/[.]clangd/;.gitignore;/build*;/obj*;tags;cscope.*;compile_commands.json")
+set(CPACK_SOURCE_IGNORE_FILES "~$;[.]swp$;/[.]git/;/[.]clangd/;.gitignore;/build*;/obj*;tags;cscope.*;compile_commands.json;.*\.patch")
 set(CPACK_SOURCE_PACKAGE_FILE_NAME "${CPACK_PACKAGE_NAME}-${CPACK_PACKAGE_VERSION}")
 
 ### NSIS INSTALLER
@@ -23,7 +23,7 @@ if (WIN32)
         set(CPACK_GENERATOR "${CPACK_GENERATOR};NSIS")
         set(CPACK_NSIS_DISPLAY_NAME "The SSH Library")
         set(CPACK_NSIS_COMPRESSOR "/SOLID zlib")
-        set(CPACK_NSIS_MENU_LINKS "http://www.libssh.org/" "libssh homepage")
+        set(CPACK_NSIS_MENU_LINKS "https://www.libssh.org/" "libssh homepage")
     endif (NSIS_MAKE)
 endif (WIN32)
 

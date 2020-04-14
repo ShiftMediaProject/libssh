@@ -108,11 +108,11 @@ static int pki_private_key_decrypt(ssh_string blob,
 {
     struct ssh_cipher_struct *ciphers = ssh_get_ciphertab();
     struct ssh_cipher_struct cipher;
-    uint8_t key_material[128];
-    char passphrase_buffer[128];
+    uint8_t key_material[128] = {0};
+    char passphrase_buffer[128] = {0};
     size_t key_material_len;
-    ssh_buffer buffer;
-    ssh_string salt;
+    ssh_buffer buffer = NULL;
+    ssh_string salt = NULL;
     uint32_t rounds;
     int cmp;
     int rc;
@@ -159,7 +159,7 @@ static int pki_private_key_decrypt(ssh_string blob,
     if (rc != SSH_ERROR){
         rc = ssh_buffer_unpack(buffer, "Sd", &salt, &rounds);
     }
-    ssh_buffer_free(buffer);
+    SSH_BUFFER_FREE(buffer);
     if (rc == SSH_ERROR){
         return SSH_ERROR;
     }
@@ -364,11 +364,11 @@ ssh_pki_openssh_import(const char *text_key,
     }
 out:
     if (buffer != NULL) {
-        ssh_buffer_free(buffer);
+        SSH_BUFFER_FREE(buffer);
         buffer = NULL;
     }
     if (privkey_buffer != NULL) {
-        ssh_buffer_free(privkey_buffer);
+        SSH_BUFFER_FREE(privkey_buffer);
         privkey_buffer = NULL;
     }
     SAFE_FREE(magic);
@@ -440,9 +440,9 @@ static int pki_private_key_encrypt(ssh_buffer privkey_buffer,
 {
     struct ssh_cipher_struct *ciphers = ssh_get_ciphertab();
     struct ssh_cipher_struct cipher;
-    uint8_t key_material[128];
+    uint8_t key_material[128] = {0};
     size_t key_material_len;
-    char passphrase_buffer[128];
+    char passphrase_buffer[128] = {0};
     int rc;
     int i;
     int cmp;
@@ -620,26 +620,26 @@ ssh_string ssh_pki_openssh_privkey_export(const ssh_key privkey,
 
         salt = ssh_string_new(16);
         if (salt == NULL){
-            ssh_buffer_free(kdf_buf);
+            SSH_BUFFER_FREE(kdf_buf);
             goto error;
         }
 
         ok = ssh_get_random(ssh_string_data(salt), 16, 0);
         if (!ok) {
-            ssh_buffer_free(kdf_buf);
+            SSH_BUFFER_FREE(kdf_buf);
             goto error;
         }
 
         ssh_buffer_pack(kdf_buf, "Sd", salt, rounds);
         kdf_options = ssh_string_new(ssh_buffer_get_len(kdf_buf));
         if (kdf_options == NULL){
-            ssh_buffer_free(kdf_buf);
+            SSH_BUFFER_FREE(kdf_buf);
             goto error;
         }
         memcpy(ssh_string_data(kdf_options),
                ssh_buffer_get(kdf_buf),
                ssh_buffer_get_len(kdf_buf));
-        ssh_buffer_free(kdf_buf);
+        SSH_BUFFER_FREE(kdf_buf);
         rc = pki_private_key_encrypt(privkey_buffer,
                                      passphrase,
                                      "aes128-cbc",
@@ -701,7 +701,7 @@ ssh_string ssh_pki_openssh_privkey_export(const ssh_key privkey,
     str_len = ssh_buffer_get_len(buffer);
     len = ssh_buffer_get_data(buffer, ssh_string_data(str), str_len);
     if (str_len != len) {
-        ssh_string_free(str);
+        SSH_STRING_FREE(str);
         str = NULL;
     }
 
@@ -709,13 +709,13 @@ error:
     if (privkey_buffer != NULL) {
         void *bufptr = ssh_buffer_get(privkey_buffer);
         explicit_bzero(bufptr, ssh_buffer_get_len(privkey_buffer));
-        ssh_buffer_free(privkey_buffer);
+        SSH_BUFFER_FREE(privkey_buffer);
     }
     SAFE_FREE(pubkey_s);
     SAFE_FREE(kdf_options);
     SAFE_FREE(salt);
     if (buffer != NULL) {
-        ssh_buffer_free(buffer);
+        SSH_BUFFER_FREE(buffer);
     }
 
     return str;
