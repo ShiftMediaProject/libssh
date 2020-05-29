@@ -1,8 +1,8 @@
 diff --git a/src/connect.c b/src/connect.c
-index 124b9f56..936611ff 100644
+index 252e2c63..6712b39c 100644
 --- a/src/connect.c
 +++ b/src/connect.c
-@@ -33,6 +33,7 @@
+@@ -34,6 +34,7 @@
  #include "libssh/misc.h"
  
  #ifdef _WIN32
@@ -10,7 +10,7 @@ index 124b9f56..936611ff 100644
  /*
   * Only use Windows API functions available on Windows 2000 SP4 or later.
   * The available constants are in <sdkddkver.h>.
-@@ -49,6 +50,7 @@
+@@ -50,6 +51,7 @@
  #undef NTDDI_VERSION
  #define NTDDI_VERSION 0x05010000 /* NTDDI_WINXP */
  #endif
@@ -26,7 +26,7 @@ index 99627665..7c9941f3 100644
                  size_t len,
                  int echo,
                  int verify) {
-+#if defined(WINAPI_FAMILY) || (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
++#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
 +    return -1;
 +#else
      HANDLE h;
@@ -101,7 +101,7 @@ index a8dfe030..b74cf6dd 100644
  static int _ssh_init(unsigned constructor) {
  
 diff --git a/src/misc.c b/src/misc.c
-index 8bd378f3..0fabd593 100644
+index 0f1a7d49..262fe9f7 100644
 --- a/src/misc.c
 +++ b/src/misc.c
 @@ -50,9 +50,10 @@
@@ -122,7 +122,7 @@ index 8bd378f3..0fabd593 100644
  
  #ifdef _WIN32
  char *ssh_get_user_home_dir(void) {
-+#if defined(WINAPI_FAMILY) || (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
++#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
 +    return NULL;
 +#else
    char tmp[MAX_PATH] = {0};
@@ -140,7 +140,7 @@ index 8bd378f3..0fabd593 100644
  }
  
  char *ssh_get_local_username(void) {
-+#if defined(WINAPI_FAMILY) || (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
++#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
 +    return NULL;
 +#else
      DWORD size = 0;
@@ -166,7 +166,7 @@ index 8bd378f3..0fabd593 100644
  
  int ssh_is_ipaddr_v4(const char *str) {
 diff --git a/src/pki_gcrypt.c b/src/pki_gcrypt.c
-index 6e00194a..cadf4ff4 100644
+index 4bfcb9f6..03bdded0 100644
 --- a/src/pki_gcrypt.c
 +++ b/src/pki_gcrypt.c
 @@ -2092,7 +2092,11 @@ ssh_signature pki_do_sign_hash(const ssh_key privkey,

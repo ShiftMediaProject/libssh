@@ -106,7 +106,7 @@
 
 #ifdef _WIN32
 char *ssh_get_user_home_dir(void) {
-#if defined(WINAPI_FAMILY) || (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
+#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
     return NULL;
 #else
   char tmp[MAX_PATH] = {0};
@@ -177,7 +177,7 @@ int gettimeofday(struct timeval *__p, void *__t) {
 }
 
 char *ssh_get_local_username(void) {
-#if defined(WINAPI_FAMILY) || (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
+#if defined(WINAPI_FAMILY) && (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
     return NULL;
 #else
     DWORD size = 0;
