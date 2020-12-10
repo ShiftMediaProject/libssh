@@ -831,7 +831,11 @@ ssh_string pki_private_key_to_pem(const ssh_key key,
         goto err;
     }
 
-    ssh_string_fill(blob, buf->data, buf->length);
+    rc = ssh_string_fill(blob, buf->data, buf->length);
+    if (rc < 0) {
+        goto err;
+    }
+
     BIO_free(mem);
 
     return blob;
@@ -1383,6 +1387,7 @@ static ssh_string pki_dsa_signature_to_blob(const ssh_signature sig)
 
     const unsigned char *raw_sig_data = NULL;
     size_t raw_sig_len;
+    int rc;
 
     DSA_SIG *dsa_sig;
 
@@ -1439,7 +1444,11 @@ static ssh_string pki_dsa_signature_to_blob(const ssh_signature sig)
         return NULL;
     }
 
-    ssh_string_fill(sig_blob, buffer, 40);
+    rc = ssh_string_fill(sig_blob, buffer, 40);
+    if (rc < 0) {
+        SSH_STRING_FREE(sig_blob);
+        return NULL;
+    }
 
     return sig_blob;
 
@@ -1516,7 +1525,10 @@ static ssh_string pki_ecdsa_signature_to_blob(const ssh_signature sig)
         goto error;
     }
 
-    ssh_string_fill(sig_blob, ssh_buffer_get(buf), ssh_buffer_get_len(buf));
+    rc = ssh_string_fill(sig_blob, ssh_buffer_get(buf), ssh_buffer_get_len(buf));
+    if (rc < 0) {
+        goto error;
+    }
 
     SSH_STRING_FREE(r);
     SSH_STRING_FREE(s);
@@ -1526,6 +1538,7 @@ static ssh_string pki_ecdsa_signature_to_blob(const ssh_signature sig)
     return sig_blob;
 
 error:
+    SSH_STRING_FREE(sig_blob);
     SSH_STRING_FREE(r);
     SSH_STRING_FREE(s);
     ECDSA_SIG_free(ecdsa_sig);
@@ -1670,7 +1683,11 @@ static int pki_signature_from_dsa_blob(UNUSED_PARAM(const ssh_key pubkey),
     if (r == NULL) {
         goto error;
     }
-    ssh_string_fill(r, ssh_string_data(sig_blob), 20);
+    rc = ssh_string_fill(r, ssh_string_data(sig_blob), 20);
+    if (rc < 0) {
+        SSH_STRING_FREE(r);
+        goto error;
+    }
 
     pr = ssh_make_string_bn(r);
     ssh_string_burn(r);
@@ -1683,7 +1700,11 @@ static int pki_signature_from_dsa_blob(UNUSED_PARAM(const ssh_key pubkey),
     if (s == NULL) {
         goto error;
     }
-    ssh_string_fill(s, (char *)ssh_string_data(sig_blob) + 20, 20);
+    rc = ssh_string_fill(s, (char *)ssh_string_data(sig_blob) + 20, 20);
+    if (rc < 0) {
+        SSH_STRING_FREE(s);
+        goto error;
+    }
 
     ps = ssh_make_string_bn(s);
     ssh_string_burn(s);
