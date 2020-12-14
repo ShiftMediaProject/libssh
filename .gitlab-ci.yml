@@ -82,6 +82,20 @@ stages:
     - update-crypto-policies --set FIPS
     - update-crypto-policies --show
 
+###############################################################################
+#                                   Review                                    #
+###############################################################################
+clang-format:
+  variables:
+    GIT_DEPTH: 100
+  stage: review
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
+  script:
+    - ./.gitlab-ci/clang-format-check.sh
+  only:
+    - merge_requests
+  # the format is not always matching our intentions
+  allow_failure: true
 
 ###############################################################################
 #                               CentOS builds                                 #
