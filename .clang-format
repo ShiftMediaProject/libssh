@@ -10,7 +10,7 @@ BraceWrapping:
     AfterFunction: true
     AfterStruct: false
     AfterUnion: false
-    AfterExternBlock: true
+    AfterExternBlock: false
     BeforeElse: false
     BeforeWhile: false
 IndentCaseLabels: false
@@ -22,6 +22,6 @@ BinPackArguments: false
 BinPackParameters: false
 AllowAllArgumentsOnNextLine: false
 AllowShortFunctionsOnASingleLine: Empty
-AlwaysBreakAfterReturnType: None
+AlwaysBreakAfterReturnType: AllDefinitions
 AlignEscapedNewlines: Left
 ForEachMacros: ['ssh_callbacks_iterate']
