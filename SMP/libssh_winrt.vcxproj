@@ -1,194 +1,14 @@
 ﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="12.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Label="Globals">
-    <ProjectGuid>{17D28A05-3CF7-4F15-B19C-6495EC7579B8}</ProjectGuid>
+    <ProjectGuid>{A7D28A05-3CF7-4F15-B19C-6495EC7579B8}</ProjectGuid>
     <RootNamespace>ssh</RootNamespace>
   </PropertyGroup>
   <ImportGroup Label="PropertySheets">
-    <Import Project="smp_deps.props" />
+    <Import Project="smp_winrt_deps.props" />
     <Import Project="libssh_files.props" />
   </ImportGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <ClCompile>
-      <PreprocessorDefinitions>LIBSSH_STATIC;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.\;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
-    </ClCompile>
-    <Lib>
-      <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>libzlibd.lib;libgcryptd.lib;libgpg-errord.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-    </Lib>
-    <PostBuildEvent>
-      <Command>mkdir "$(OutDir)"\include
-mkdir "$(OutDir)"\include\libssh
-copy ..\include\libssh\callbacks.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\legacy.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
-mkdir $(OutDir)\licenses
-copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
-    </PostBuildEvent>
-    <PreBuildEvent>
-      <Command>if exist ..\libssh_config.h (
-del ..\libssh_config.h
-)
-if exist "$(OutDir)"\include\libssh (
-rd /s /q "$(OutDir)"\include\libssh
-cd ../
-cd $(ProjectDir)
-)</Command>
-    </PreBuildEvent>
-    <CustomBuildStep>
-      <Message>Custom Clean Step</Message>
-    </CustomBuildStep>
-    <CustomBuildStep>
-      <Outputs>force_clean</Outputs>
-      <Command>if exist "$(OutDir)"\include\libssh (
-rmdir /s /q "$(OutDir)"\include\libssh
-)
-if exist $(OutDir)\licenses\libssh.txt (
-del /f /q $(OutDir)\licenses\libssh.txt
-)</Command>
-    </CustomBuildStep>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <ClCompile>
-      <PreprocessorDefinitions>LIBSSH_STATIC;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.\;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
-    </ClCompile>
-    <Lib>
-      <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>libzlibd.lib;libgcryptd.lib;libgpg-errord.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-    </Lib>
-    <PostBuildEvent>
-      <Command>mkdir "$(OutDir)"\include
-mkdir "$(OutDir)"\include\libssh
-copy ..\include\libssh\callbacks.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\legacy.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
-mkdir $(OutDir)\licenses
-copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
-    </PostBuildEvent>
-    <PreBuildEvent>
-      <Command>if exist ..\libssh_config.h (
-del ..\libssh_config.h
-)
-if exist "$(OutDir)"\include\libssh (
-rd /s /q "$(OutDir)"\include\libssh
-cd ../
-cd $(ProjectDir)
-)</Command>
-    </PreBuildEvent>
-    <CustomBuildStep>
-      <Message>Custom Clean Step</Message>
-    </CustomBuildStep>
-    <CustomBuildStep>
-      <Outputs>force_clean</Outputs>
-      <Command>if exist "$(OutDir)"\include\libssh (
-rmdir /s /q "$(OutDir)"\include\libssh
-)
-if exist $(OutDir)\licenses\libssh.txt (
-del /f /q $(OutDir)\licenses\libssh.txt
-)</Command>
-    </CustomBuildStep>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|Win32'">
-    <ClCompile>
-      <PreprocessorDefinitions>LIBSSH_EXPORTS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.\;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
-    </ClCompile>
-    <Link>
-      <AdditionalDependencies>zlibd.lib;gcryptd.lib;gpg-errord.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
-    </Link>
-    <PostBuildEvent>
-      <Command>mkdir "$(OutDir)"\include
-mkdir "$(OutDir)"\include\libssh
-copy ..\include\libssh\callbacks.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\legacy.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
-mkdir $(OutDir)\licenses
-copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
-    </PostBuildEvent>
-    <PreBuildEvent>
-      <Command>if exist ..\libssh_config.h (
-del ..\libssh_config.h
-)
-if exist "$(OutDir)"\include\libssh (
-rd /s /q "$(OutDir)"\include\libssh
-cd ../
-cd $(ProjectDir)
-)</Command>
-    </PreBuildEvent>
-    <CustomBuildStep>
-      <Message>Custom Clean Step</Message>
-    </CustomBuildStep>
-    <CustomBuildStep>
-      <Outputs>force_clean</Outputs>
-      <Command>if exist "$(OutDir)"\include\libssh (
-rmdir /s /q "$(OutDir)"\include\libssh
-)
-if exist $(OutDir)\licenses\libssh.txt (
-del /f /q $(OutDir)\licenses\libssh.txt
-)</Command>
-    </CustomBuildStep>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLL|x64'">
-    <ClCompile>
-      <PreprocessorDefinitions>LIBSSH_EXPORTS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
-      <AdditionalIncludeDirectories>.\;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
-      <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
-    </ClCompile>
-    <Link>
-      <AdditionalDependencies>zlibd.lib;gcryptd.lib;gpg-errord.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
-      <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
-    </Link>
-    <PostBuildEvent>
-      <Command>mkdir "$(OutDir)"\include
-mkdir "$(OutDir)"\include\libssh
-copy ..\include\libssh\callbacks.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\legacy.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
-copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
-mkdir $(OutDir)\licenses
-copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
-    </PostBuildEvent>
-    <PreBuildEvent>
-      <Command>if exist ..\libssh_config.h (
-del ..\libssh_config.h
-)
-if exist "$(OutDir)"\include\libssh (
-rd /s /q "$(OutDir)"\include\libssh
-cd ../
-cd $(ProjectDir)
-)</Command>
-    </PreBuildEvent>
-    <CustomBuildStep>
-      <Message>Custom Clean Step</Message>
-    </CustomBuildStep>
-    <CustomBuildStep>
-      <Outputs>force_clean</Outputs>
-      <Command>if exist "$(OutDir)"\include\libssh (
-rmdir /s /q "$(OutDir)"\include\libssh
-)
-if exist $(OutDir)\licenses\libssh.txt (
-del /f /q $(OutDir)\licenses\libssh.txt
-)</Command>
-    </CustomBuildStep>
-  </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugWinRT|Win32'">
     <ClCompile>
       <PreprocessorDefinitions>LIBSSH_STATIC;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -196,7 +16,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
     </ClCompile>
     <Lib>
       <AdditionalOptions>/IGNORE:4006,4221,4264  %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>libzlib.lib;libgcrypt.lib;libgpg-error.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libzlibd_winrt.lib;libgcryptd_winrt.lib;libgpg-errord_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <PostBuildEvent>
       <Command>mkdir "$(OutDir)"\include
@@ -233,7 +53,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
 )</Command>
     </CustomBuildStep>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugWinRT|x64'">
     <ClCompile>
       <PreprocessorDefinitions>LIBSSH_STATIC;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
@@ -241,7 +61,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
     </ClCompile>
     <Lib>
       <AdditionalOptions>/IGNORE:4006,4221,4264  %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>libzlib.lib;libgcrypt.lib;libgpg-error.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libzlibd_winrt.lib;libgcryptd_winrt.lib;libgpg-errord_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <PostBuildEvent>
       <Command>mkdir "$(OutDir)"\include
@@ -278,14 +98,14 @@ del /f /q $(OutDir)\licenses\libssh.txt
 )</Command>
     </CustomBuildStep>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLWinRT|Win32'">
     <ClCompile>
       <PreprocessorDefinitions>LIBSSH_EXPORTS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>zlib.lib;gcrypt.lib;gpg-error.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>zlibd_winrt.lib;gcryptd_winrt.lib;gpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
@@ -323,14 +143,14 @@ del /f /q $(OutDir)\licenses\libssh.txt
 )</Command>
     </CustomBuildStep>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLStaticDeps|Win32'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='DebugDLLWinRT|x64'">
     <ClCompile>
       <PreprocessorDefinitions>LIBSSH_EXPORTS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libzlib.lib;libgcrypt.lib;libgpg-error.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>zlibd_winrt.lib;gcryptd_winrt.lib;gpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
@@ -368,14 +188,104 @@ del /f /q $(OutDir)\licenses\libssh.txt
 )</Command>
     </CustomBuildStep>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLL|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWinRT|Win32'">
+    <ClCompile>
+      <PreprocessorDefinitions>LIBSSH_STATIC;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+    <Lib>
+      <AdditionalOptions>/IGNORE:4006,4221,4264  %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalDependencies>libzlib_winrt.lib;libgcrypt_winrt.lib;libgpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
+    <PostBuildEvent>
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\libssh
+copy ..\include\libssh\callbacks.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\legacy.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
+mkdir $(OutDir)\licenses
+copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if exist ..\libssh_config.h (
+del ..\libssh_config.h
+)
+if exist "$(OutDir)"\include\libssh (
+rd /s /q "$(OutDir)"\include\libssh
+cd ../
+cd $(ProjectDir)
+)</Command>
+    </PreBuildEvent>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist "$(OutDir)"\include\libssh (
+rmdir /s /q "$(OutDir)"\include\libssh
+)
+if exist $(OutDir)\licenses\libssh.txt (
+del /f /q $(OutDir)\licenses\libssh.txt
+)</Command>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseWinRT|x64'">
+    <ClCompile>
+      <PreprocessorDefinitions>LIBSSH_STATIC;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+    <Lib>
+      <AdditionalOptions>/IGNORE:4006,4221,4264  %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalDependencies>libzlib_winrt.lib;libgcrypt_winrt.lib;libgpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Lib>
+    <PostBuildEvent>
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\libssh
+copy ..\include\libssh\callbacks.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\legacy.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
+mkdir $(OutDir)\licenses
+copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if exist ..\libssh_config.h (
+del ..\libssh_config.h
+)
+if exist "$(OutDir)"\include\libssh (
+rd /s /q "$(OutDir)"\include\libssh
+cd ../
+cd $(ProjectDir)
+)</Command>
+    </PreBuildEvent>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist "$(OutDir)"\include\libssh (
+rmdir /s /q "$(OutDir)"\include\libssh
+)
+if exist $(OutDir)\licenses\libssh.txt (
+del /f /q $(OutDir)\licenses\libssh.txt
+)</Command>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLWinRT|Win32'">
     <ClCompile>
       <PreprocessorDefinitions>LIBSSH_EXPORTS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>zlib.lib;gcrypt.lib;gpg-error.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>zlib_winrt.lib;gcrypt_winrt.lib;gpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
@@ -413,14 +323,104 @@ del /f /q $(OutDir)\licenses\libssh.txt
 )</Command>
     </CustomBuildStep>
   </ItemDefinitionGroup>
-  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLStaticDeps|x64'">
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLWinRTStaticDeps|Win32'">
     <ClCompile>
       <PreprocessorDefinitions>LIBSSH_EXPORTS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <AdditionalIncludeDirectories>.\;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libzlib.lib;libgcrypt.lib;libgpg-error.lib;ws2_32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>libzlib_winrt.lib;libgcrypt_winrt.lib;libgpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+    <PostBuildEvent>
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\libssh
+copy ..\include\libssh\callbacks.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\legacy.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
+mkdir $(OutDir)\licenses
+copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if exist ..\libssh_config.h (
+del ..\libssh_config.h
+)
+if exist "$(OutDir)"\include\libssh (
+rd /s /q "$(OutDir)"\include\libssh
+cd ../
+cd $(ProjectDir)
+)</Command>
+    </PreBuildEvent>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist "$(OutDir)"\include\libssh (
+rmdir /s /q "$(OutDir)"\include\libssh
+)
+if exist $(OutDir)\licenses\libssh.txt (
+del /f /q $(OutDir)\licenses\libssh.txt
+)</Command>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLWinRT|x64'">
+    <ClCompile>
+      <PreprocessorDefinitions>LIBSSH_EXPORTS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>zlib_winrt.lib;gcrypt_winrt.lib;gpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
+    </Link>
+    <PostBuildEvent>
+      <Command>mkdir "$(OutDir)"\include
+mkdir "$(OutDir)"\include\libssh
+copy ..\include\libssh\callbacks.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\legacy.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
+copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
+mkdir $(OutDir)\licenses
+copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
+    </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if exist ..\libssh_config.h (
+del ..\libssh_config.h
+)
+if exist "$(OutDir)"\include\libssh (
+rd /s /q "$(OutDir)"\include\libssh
+cd ../
+cd $(ProjectDir)
+)</Command>
+    </PreBuildEvent>
+    <CustomBuildStep>
+      <Message>Custom Clean Step</Message>
+    </CustomBuildStep>
+    <CustomBuildStep>
+      <Outputs>force_clean</Outputs>
+      <Command>if exist "$(OutDir)"\include\libssh (
+rmdir /s /q "$(OutDir)"\include\libssh
+)
+if exist $(OutDir)\licenses\libssh.txt (
+del /f /q $(OutDir)\licenses\libssh.txt
+)</Command>
+    </CustomBuildStep>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='ReleaseDLLWinRTStaticDeps|x64'">
+    <ClCompile>
+      <PreprocessorDefinitions>LIBSSH_EXPORTS;_WINSOCK_DEPRECATED_NO_WARNINGS;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalIncludeDirectories>.\;..\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
+    </ClCompile>
+    <Link>
+      <AdditionalDependencies>libzlib_winrt.lib;libgcrypt_winrt.lib;libgpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
