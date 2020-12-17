@@ -15,6 +15,17 @@ stages:
   - test
   - analysis
 
+# This is some black magic to select between branch pipelines and
+# merge request pipelines to avoid running same pipelines in twice
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
+
 .build:
   stage: build
   variables:
@@ -37,6 +48,10 @@ stages:
   # Do not use after_script as it does not make the targets fail
   tags:
     - shared
+  only:
+    - merge_requests
+    - branches
+
   except:
     - tags
   artifacts:
@@ -316,6 +331,11 @@ fedora/mingw32:
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
   before_script:
     - |
+      # for merge requests
+      if [[ -n "$CI_MERGE_REQUEST_DIFF_BASE_SHA" ]]; then
+          export CI_COMMIT_BEFORE_SHA="$CI_MERGE_REQUEST_DIFF_BASE_SHA"
+      fi
+      # for branches run
       if [[ -z "$CI_COMMIT_BEFORE_SHA" ]]; then
           export CI_COMMIT_BEFORE_SHA=$(git rev-parse "${CI_COMMIT_SHA}~20")
       fi
@@ -329,6 +349,8 @@ fedora/mingw32:
     - shared
   except:
     - tags
+  only:
+    - merge_requests
   artifacts:
     expire_in: 1 week
     when: on_failure
