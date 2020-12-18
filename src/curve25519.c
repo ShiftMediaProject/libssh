@@ -179,8 +179,8 @@ static int ssh_curve25519_build_k(ssh_session session)
 #ifdef HAVE_OPENSSL_X25519
     EVP_PKEY_CTX *pctx = NULL;
     EVP_PKEY *pkey = NULL, *pubkey = NULL;
-    size_t shared_key_len;
-    int rc;
+    size_t shared_key_len = sizeof(k);
+    int rc, ret = SSH_ERROR;
 
     pkey = EVP_PKEY_new_raw_private_key(EVP_PKEY_X25519, NULL,
                                         session->next_crypto->curve25519_privkey,
@@ -197,8 +197,7 @@ static int ssh_curve25519_build_k(ssh_session session)
         SSH_LOG(SSH_LOG_TRACE,
                 "Failed to initialize X25519 context: %s",
                 ERR_error_string(ERR_get_error(), NULL));
-        EVP_PKEY_free(pkey);
-        return SSH_ERROR;
+        goto out;
     }
 
     rc = EVP_PKEY_derive_init(pctx);
@@ -206,9 +205,7 @@ static int ssh_curve25519_build_k(ssh_session session)
         SSH_LOG(SSH_LOG_TRACE,
                 "Failed to initialize X25519 key derivation: %s",
                 ERR_error_string(ERR_get_error(), NULL));
-        EVP_PKEY_free(pkey);
-        EVP_PKEY_CTX_free(pctx);
-        return SSH_ERROR;
+        goto out;
     }
 
     if (session->server) {
@@ -224,9 +221,7 @@ static int ssh_curve25519_build_k(ssh_session session)
         SSH_LOG(SSH_LOG_TRACE,
                 "Failed to create X25519 public key EVP_PKEY: %s",
                 ERR_error_string(ERR_get_error(), NULL));
-        EVP_PKEY_free(pkey);
-        EVP_PKEY_CTX_free(pctx);
-        return SSH_ERROR;
+        goto out;
     }
 
     rc = EVP_PKEY_derive_set_peer(pctx, pubkey);
@@ -234,23 +229,23 @@ static int ssh_curve25519_build_k(ssh_session session)
         SSH_LOG(SSH_LOG_TRACE,
                 "Failed to set peer X25519 public key: %s",
                 ERR_error_string(ERR_get_error(), NULL));
-        EVP_PKEY_free(pkey);
-        EVP_PKEY_free(pubkey);
-        EVP_PKEY_CTX_free(pctx);
-        return SSH_ERROR;
+        goto out;
     }
 
-    rc = EVP_PKEY_derive(pctx,
-                         k,
-                         &shared_key_len);
+    rc = EVP_PKEY_derive(pctx, k, &shared_key_len);
     if (rc != 1) {
         SSH_LOG(SSH_LOG_TRACE,
                 "Failed to derive X25519 shared secret: %s",
                 ERR_error_string(ERR_get_error(), NULL));
-        EVP_PKEY_free(pkey);
-        EVP_PKEY_free(pubkey);
-        EVP_PKEY_CTX_free(pctx);
-        return SSH_ERROR;
+        goto out;
+    }
+    ret = SSH_OK;
+out:
+    EVP_PKEY_free(pkey);
+    EVP_PKEY_free(pubkey);
+    EVP_PKEY_CTX_free(pctx);
+    if (ret == SSH_ERROR) {
+        return ret;
     }
 #else
     if (session->server) {

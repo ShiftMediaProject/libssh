@@ -13,8 +13,11 @@ if (DOXYGEN_FOUND)
     set(DOXYGEN_TAB_SIZE 4)
     set(DOXYGEN_OPTIMIZE_OUTPUT_FOR_C YES)
     set(DOXYGEN_MARKDOWN_SUPPORT YES)
+    set(DOXYGEN_FULL_PATH_NAMES NO)
 
     set(DOXYGEN_PREDEFINED DOXYGEN
+                           WITH_SERVER
+                           WITH_SFTP
                            PRINTF_ATTRIBUTE(x,y))
 
     set(DOXYGEN_EXCLUDE ${CMAKE_CURRENT_SOURCE_DIR}/that_style)

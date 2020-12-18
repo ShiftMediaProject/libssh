@@ -72,7 +72,7 @@ static int session_setup(void **state)
     ssh_options_set(s->ssh.session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
     ssh_options_set(s->ssh.session, SSH_OPTIONS_HOST, TORTURE_SSH_SERVER);
 
-    /* Authenticate as alice with bob his pubkey */
+    /* Authenticate as alice with bob's pubkey */
     rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_USER, TORTURE_SSH_USER_ALICE);
     assert_int_equal(rc, SSH_OK);
 
@@ -283,7 +283,7 @@ static void torture_rekey_recv(void **state)
     memcpy(secret_hash, c->secret_hash, c->digest_len);
 
     /* Download a file */
-    file = sftp_open(s->ssh.tsftp->sftp, "/usr/bin/ssh", O_RDONLY, 0);
+    file = sftp_open(s->ssh.tsftp->sftp, SSH_EXECUTABLE, O_RDONLY, 0);
     assert_non_null(file);
 
     mask = umask(S_IRWXO | S_IRWXG);
@@ -473,7 +473,7 @@ static void torture_rekey_server_recv(void **state)
     memcpy(secret_hash, c->secret_hash, c->digest_len);
 
     /* Download a file */
-    file = sftp_open(s->ssh.tsftp->sftp, "/usr/bin/ssh", O_RDONLY, 0);
+    file = sftp_open(s->ssh.tsftp->sftp, SSH_EXECUTABLE, O_RDONLY, 0);
     assert_non_null(file);
 
     mask = umask(S_IRWXO | S_IRWXG);

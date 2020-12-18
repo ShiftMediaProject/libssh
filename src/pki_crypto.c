@@ -94,7 +94,7 @@ static int pki_key_ecdsa_to_nid(EC_KEY *k)
 
 static enum ssh_keytypes_e pki_key_ecdsa_to_key_type(EC_KEY *k)
 {
-    static int nid;
+    int nid;
 
     nid = pki_key_ecdsa_to_nid(k);
 
@@ -1569,9 +1569,9 @@ static int pki_signature_from_rsa_blob(const ssh_key pubkey,
                                        ssh_signature sig)
 {
     uint32_t pad_len = 0;
-    char *blob_orig;
-    char *blob_padded_data;
-    ssh_string sig_blob_padded;
+    char *blob_orig = NULL;
+    char *blob_padded_data = NULL;
+    ssh_string sig_blob_padded = NULL;
 
     size_t rsalen = 0;
     size_t len = ssh_string_len(sig_blob);
@@ -1629,6 +1629,7 @@ static int pki_signature_from_rsa_blob(const ssh_key pubkey,
     return SSH_OK;
 
 errout:
+    SSH_STRING_FREE(sig_blob_padded);
     return SSH_ERROR;
 }
 
@@ -1646,6 +1647,7 @@ static int pki_signature_from_dsa_blob(UNUSED_PARAM(const ssh_key pubkey),
 
     int raw_sig_len = 0;
     unsigned char *raw_sig_data = NULL;
+    unsigned char *temp_raw_sig = NULL;
 
     int rc;
 
@@ -1704,8 +1706,23 @@ static int pki_signature_from_dsa_blob(UNUSED_PARAM(const ssh_key pubkey),
     ps = NULL;
     pr = NULL;
 
-    raw_sig_len = i2d_DSA_SIG(dsa_sig, &raw_sig_data);
-    if (raw_sig_len < 0) {
+    /* Get the expected size of the buffer */
+    rc = i2d_DSA_SIG(dsa_sig, NULL);
+    if (rc <= 0) {
+        goto error;
+    }
+    raw_sig_len = rc;
+
+    raw_sig_data = (unsigned char *)calloc(1, raw_sig_len);
+    if (raw_sig_data == NULL) {
+        goto error;
+    }
+    temp_raw_sig = raw_sig_data;
+
+    /* It is necessary to use a temporary pointer as i2d_* "advances" the
+     * pointer */
+    raw_sig_len = i2d_DSA_SIG(dsa_sig, &temp_raw_sig);
+    if (raw_sig_len <= 0) {
         goto error;
     }
 
@@ -1749,6 +1766,7 @@ static int pki_signature_from_ecdsa_blob(UNUSED_PARAM(const ssh_key pubkey),
     uint32_t rlen;
 
     unsigned char *raw_sig_data = NULL;
+    unsigned char *temp_raw_sig = NULL;
     size_t raw_sig_len = 0;
 
     int rc;
@@ -1824,11 +1842,25 @@ static int pki_signature_from_ecdsa_blob(UNUSED_PARAM(const ssh_key pubkey),
     pr = NULL;
     ps = NULL;
 
-    rc = i2d_ECDSA_SIG(ecdsa_sig, &raw_sig_data);
-    if (rc < 0) {
+    /* Get the expected size of the buffer */
+    rc = i2d_ECDSA_SIG(ecdsa_sig, NULL);
+    if (rc <= 0) {
         goto error;
     }
     raw_sig_len = rc;
+
+    raw_sig_data = (unsigned char *)calloc(1, raw_sig_len);
+    if (raw_sig_data == NULL) {
+        goto error;
+    }
+    temp_raw_sig = raw_sig_data;
+
+    /* It is necessary to use a temporary pointer as i2d_* "advances" the
+     * pointer */
+    rc = i2d_ECDSA_SIG(ecdsa_sig, &temp_raw_sig);
+    if (rc <= 0) {
+        goto error;
+    }
 
     sig->raw_sig = ssh_string_new(raw_sig_len);
     if (sig->raw_sig == NULL) {

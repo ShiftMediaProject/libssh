@@ -328,6 +328,10 @@ static int aes_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
           return -1;
         }
         break;
+      default:
+        SSH_LOG(SSH_LOG_WARNING, "Unksupported key length %u.", cipher->keysize);
+        SAFE_FREE(cipher->key);
+        return -1;
     }
     if (gcry_cipher_setkey(cipher->key[0], key, cipher->keysize / 8)) {
       SAFE_FREE(cipher->key);

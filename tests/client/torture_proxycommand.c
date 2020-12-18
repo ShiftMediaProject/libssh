@@ -59,6 +59,7 @@ static int session_teardown(void **state)
     return 0;
 }
 
+#ifdef NC_EXECUTABLE
 static void torture_options_set_proxycommand(void **state)
 {
     struct torture_state *s = *state;
@@ -70,13 +71,13 @@ static void torture_options_set_proxycommand(void **state)
     int rc;
     socket_t fd;
 
-    rc = stat("/bin/nc", &sb);
+    rc = stat(NC_EXECUTABLE, &sb);
     if (rc != 0 || (sb.st_mode & S_IXOTH) == 0) {
-        SSH_LOG(SSH_LOG_WARNING, "Could not find /bin/nc: Skipping the test");
+        SSH_LOG(SSH_LOG_WARNING, "Could not find " NC_EXECUTABLE ": Skipping the test");
         skip();
     }
 
-    rc = snprintf(command, sizeof(command), "/bin/nc %s %d", address, port);
+    rc = snprintf(command, sizeof(command), NC_EXECUTABLE " %s %d", address, port);
     assert_true((size_t)rc < sizeof(command));
 
     rc = ssh_options_set(session, SSH_OPTIONS_PROXYCOMMAND, command);
@@ -88,6 +89,16 @@ static void torture_options_set_proxycommand(void **state)
     rc = fcntl(fd, F_GETFL);
     assert_int_equal(rc & O_RDWR, O_RDWR);
 }
+
+#else /* NC_EXECUTABLE */
+
+static void torture_options_set_proxycommand(void **state)
+{
+    (void) state;
+    skip();
+}
+
+#endif /* NC_EXECUTABLE */
 
 static void torture_options_set_proxycommand_notexist(void **state) {
     struct torture_state *s = *state;
@@ -110,7 +121,9 @@ static void torture_options_set_proxycommand_ssh(void **state)
     int rc;
     socket_t fd;
 
-    rc = snprintf(command, sizeof(command), "ssh -W [%%h]:%%p alice@%s", address);
+    rc = snprintf(command, sizeof(command),
+                  "ssh -oStrictHostKeyChecking=no -W [%%h]:%%p alice@%s",
+                  address);
     assert_true((size_t)rc < sizeof(command));
 
     rc = ssh_options_set(session, SSH_OPTIONS_PROXYCOMMAND, command);
@@ -132,7 +145,10 @@ static void torture_options_set_proxycommand_ssh_stderr(void **state)
     int rc;
     socket_t fd;
 
-    rc = snprintf(command, sizeof(command), "ssh -vvv -W [%%h]:%%p alice@%s", address);
+    /* The -vvv switches produce the desired output on the standard error */
+    rc = snprintf(command, sizeof(command),
+                  "ssh -vvv -oStrictHostKeyChecking=no -W [%%h]:%%p alice@%s",
+                  address);
     assert_true((size_t)rc < sizeof(command));
 
     rc = ssh_options_set(session, SSH_OPTIONS_PROXYCOMMAND, command);

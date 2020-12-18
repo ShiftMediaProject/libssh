@@ -315,7 +315,7 @@ static int privatekey_decrypt(int algo, int mode, unsigned int key_len,
   if (gcry_cipher_open(&cipher, algo, mode, 0)
       || gcry_cipher_setkey(cipher, key, key_len)
       || gcry_cipher_setiv(cipher, iv, iv_len)
-      || (tmp = calloc(ssh_buffer_get_len(data), sizeof(char))) == NULL
+      || (tmp = calloc(ssh_buffer_get_len(data), sizeof(unsigned char))) == NULL
       || gcry_cipher_decrypt(cipher, tmp, ssh_buffer_get_len(data),
                        ssh_buffer_get(data), ssh_buffer_get_len(data))) {
     gcry_cipher_close(cipher);
@@ -741,7 +741,7 @@ static int pki_key_ecdsa_to_nid(gcry_sexp_t k)
 
 static enum ssh_keytypes_e pki_key_ecdsa_to_key_type(gcry_sexp_t k)
 {
-    static int nid;
+    int nid;
 
     nid = pki_key_ecdsa_to_nid(k);
 
@@ -937,6 +937,8 @@ ssh_string pki_private_key_to_pem(const ssh_key key,
     (void) passphrase;
     (void) auth_fn;
     (void) auth_data;
+
+    SSH_LOG(SSH_LOG_WARN, "PEM export not supported by gcrypt backend!");
 
     return NULL;
 }

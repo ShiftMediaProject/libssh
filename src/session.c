@@ -372,6 +372,8 @@ const char* ssh_get_kex_algo(ssh_session session) {
             return "diffie-hellman-group1-sha1";
         case SSH_KEX_DH_GROUP14_SHA1:
             return "diffie-hellman-group14-sha1";
+        case SSH_KEX_DH_GROUP14_SHA256:
+            return "diffie-hellman-group14-sha256";
         case SSH_KEX_DH_GROUP16_SHA512:
             return "diffie-hellman-group16-sha512";
         case SSH_KEX_DH_GROUP18_SHA512:
@@ -687,7 +689,8 @@ int ssh_handle_packets(ssh_session session, int timeout) {
  * @param[in] fct       Termination function to be used to determine if it is
  *                      possible to stop polling.
  * @param[in] user      User parameter to be passed to fct termination function.
- * @return              SSH_OK on success, SSH_ERROR otherwise.
+ * @returns             SSH_OK on success, SSH_AGAIN if timeout occurred,
+ *                      SSH_ERROR otherwise.
  */
 int ssh_handle_packets_termination(ssh_session session,
                                    long timeout,

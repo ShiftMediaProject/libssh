@@ -64,7 +64,7 @@ static int pki_key_ecdsa_to_nid(mbedtls_ecdsa_context *ecdsa)
 
 static enum ssh_keytypes_e pki_key_ecdsa_to_key_type(mbedtls_ecdsa_context *ecdsa)
 {
-    static int nid;
+    int nid;
 
     nid = pki_key_ecdsa_to_nid(ecdsa);
 
@@ -113,7 +113,7 @@ ssh_key pki_private_key_from_base64(const char *b64_key, const char *passphrase,
                     valid = auth_fn("Passphrase for private key:", (char *) tmp,
                             MAX_PASSPHRASE_SIZE, 0, 0, auth_data);
                     if (valid < 0) {
-                        return NULL;
+                        goto fail;
                     }
                     /* TODO fix signedness and strlen */
                     valid = mbedtls_pk_parse_key(rsa,
@@ -155,7 +155,7 @@ ssh_key pki_private_key_from_base64(const char *b64_key, const char *passphrase,
                     valid = auth_fn("Passphrase for private key:", (char *) tmp,
                             MAX_PASSPHRASE_SIZE, 0, 0, auth_data);
                     if (valid < 0) {
-                        return NULL;
+                        goto fail;
                     }
                     valid = mbedtls_pk_parse_key(ecdsa,
                             (const unsigned char *) b64_key,
@@ -246,7 +246,7 @@ int pki_privkey_build_rsa(ssh_key key,
                           ssh_string n,
                           ssh_string e,
                           ssh_string d,
-                          ssh_string iqmp,
+                          UNUSED_PARAM(ssh_string iqmp),
                           ssh_string p,
                           ssh_string q)
 {
