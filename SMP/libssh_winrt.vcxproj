@@ -27,6 +27,7 @@ copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
+copy .\libssh\libssh_version.h "$(OutDir)"\include\libssh
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
     </PostBuildEvent>
@@ -72,6 +73,7 @@ copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
+copy .\libssh\libssh_version.h "$(OutDir)"\include\libssh
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
     </PostBuildEvent>
@@ -117,6 +119,7 @@ copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
+copy .\libssh\libssh_version.h "$(OutDir)"\include\libssh
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
     </PostBuildEvent>
@@ -162,6 +165,7 @@ copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
+copy .\libssh\libssh_version.h "$(OutDir)"\include\libssh
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
     </PostBuildEvent>
@@ -207,6 +211,7 @@ copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
+copy .\libssh\libssh_version.h "$(OutDir)"\include\libssh
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
     </PostBuildEvent>
@@ -252,6 +257,7 @@ copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
+copy .\libssh\libssh_version.h "$(OutDir)"\include\libssh
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
     </PostBuildEvent>
@@ -297,6 +303,7 @@ copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
+copy .\libssh\libssh_version.h "$(OutDir)"\include\libssh
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
     </PostBuildEvent>
@@ -342,6 +349,7 @@ copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
+copy .\libssh\libssh_version.h "$(OutDir)"\include\libssh
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
     </PostBuildEvent>
@@ -387,6 +395,7 @@ copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
+copy .\libssh\libssh_version.h "$(OutDir)"\include\libssh
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
     </PostBuildEvent>
@@ -432,6 +441,7 @@ copy ..\include\libssh\libssh.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\server.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\sftp.h "$(OutDir)"\include\libssh
 copy ..\include\libssh\ssh2.h "$(OutDir)"\include\libssh
+copy .\libssh\libssh_version.h "$(OutDir)"\include\libssh
 mkdir $(OutDir)\licenses
 copy ..\COPYING $(OutDir)\licenses\libssh.txt</Command>
     </PostBuildEvent>
