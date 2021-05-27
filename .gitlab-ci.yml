@@ -197,6 +197,7 @@ freebsd/x86_64:
     make && ctest --output-on-failure
   tags:
   - freebsd
+  - private
   except:
   - tags
   only:
