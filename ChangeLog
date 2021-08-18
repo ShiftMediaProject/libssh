@@ -1,7 +1,7 @@
 ChangeLog
 ==========
 
-version 0.9.5 (released 2020-XX-XX)
+version 0.9.5 (released 2020-09-10)
   * CVE-2020-16135: Avoid null pointer dereference in sftpserver (T232)
   * Improve handling of library initialization (T222)
   * Fix parsing of subsecond times in SFTP (T219)
