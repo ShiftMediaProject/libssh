@@ -1,8 +1,8 @@
 diff --git a/src/connect.c b/src/connect.c
-index 252e2c63..6712b39c 100644
+index ce4d58df..b1e6eb75 100644
 --- a/src/connect.c
 +++ b/src/connect.c
-@@ -34,6 +34,7 @@
+@@ -37,6 +37,7 @@
  #include "libssh/misc.h"
  
  #ifdef _WIN32
@@ -10,7 +10,7 @@ index 252e2c63..6712b39c 100644
  /*
   * Only use Windows API functions available on Windows 2000 SP4 or later.
   * The available constants are in <sdkddkver.h>.
-@@ -50,6 +51,7 @@
+@@ -53,6 +54,7 @@
  #undef NTDDI_VERSION
  #define NTDDI_VERSION 0x05010000 /* NTDDI_WINXP */
  #endif
@@ -19,7 +19,7 @@ index 252e2c63..6712b39c 100644
  #if _MSC_VER >= 1400
  #include <io.h>
 diff --git a/src/getpass.c b/src/getpass.c
-index 99627665..7c9941f3 100644
+index c00d0f54..e27a4f10 100644
 --- a/src/getpass.c
 +++ b/src/getpass.c
 @@ -122,6 +122,9 @@ int ssh_getpass(const char *prompt,
@@ -41,7 +41,7 @@ index 99627665..7c9941f3 100644
  
  #else
 diff --git a/src/init.c b/src/init.c
-index a8dfe030..b74cf6dd 100644
+index 2ebcedf6..804a5d85 100644
 --- a/src/init.c
 +++ b/src/init.c
 @@ -32,17 +32,40 @@
@@ -101,7 +101,7 @@ index a8dfe030..b74cf6dd 100644
  static int _ssh_init(unsigned constructor) {
  
 diff --git a/src/misc.c b/src/misc.c
-index 0f1a7d49..262fe9f7 100644
+index 0f1a7d49..5dd39aea 100644
 --- a/src/misc.c
 +++ b/src/misc.c
 @@ -50,9 +50,10 @@
@@ -166,10 +166,10 @@ index 0f1a7d49..262fe9f7 100644
  
  int ssh_is_ipaddr_v4(const char *str) {
 diff --git a/src/pki_gcrypt.c b/src/pki_gcrypt.c
-index 4bfcb9f6..03bdded0 100644
+index bf45351d..9a007676 100644
 --- a/src/pki_gcrypt.c
 +++ b/src/pki_gcrypt.c
-@@ -2092,7 +2092,11 @@ ssh_signature pki_do_sign_hash(const ssh_key privkey,
+@@ -2105,7 +2105,11 @@ ssh_signature pki_do_sign_hash(const ssh_key privkey,
                                 size_t hlen,
                                 enum ssh_digest_e hash_type)
  {
