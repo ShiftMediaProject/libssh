@@ -57,13 +57,11 @@ struct ssh_key_struct {
     const char *type_c; /* Don't free it ! it is static */
     int ecdsa_nid;
 #if defined(HAVE_LIBGCRYPT)
-    gcry_sexp_t dsa;
     gcry_sexp_t rsa;
     gcry_sexp_t ecdsa;
 #elif defined(HAVE_LIBMBEDCRYPTO)
     mbedtls_pk_context *rsa;
     mbedtls_ecdsa_context *ecdsa;
-    void *dsa;
 #elif defined(HAVE_LIBCRYPTO)
     /* This holds either ENGINE key for PKCS#11 support or just key in
      * high-level format */
@@ -85,7 +83,6 @@ struct ssh_signature_struct {
     enum ssh_digest_e hash_type;
     const char *type_c;
 #if defined(HAVE_LIBGCRYPT)
-    gcry_sexp_t dsa_sig;
     gcry_sexp_t rsa_sig;
     gcry_sexp_t ecdsa_sig;
 #elif defined(HAVE_LIBMBEDCRYPTO)
@@ -124,12 +121,11 @@ enum ssh_digest_e ssh_key_hash_from_name(const char *name);
     ((t) >= SSH_KEYTYPE_ECDSA_P256 && (t) <= SSH_KEYTYPE_ECDSA_P521)
 
 #define is_cert_type(kt)\
-      ((kt) == SSH_KEYTYPE_DSS_CERT01 ||\
-       (kt) == SSH_KEYTYPE_RSA_CERT01 ||\
-       (kt) == SSH_KEYTYPE_SK_ECDSA_CERT01 ||\
-       (kt) == SSH_KEYTYPE_SK_ED25519_CERT01 ||\
-      ((kt) >= SSH_KEYTYPE_ECDSA_P256_CERT01 &&\
-       (kt) <= SSH_KEYTYPE_ED25519_CERT01))
+    ((kt) == SSH_KEYTYPE_RSA_CERT01 ||\
+     (kt) == SSH_KEYTYPE_SK_ECDSA_CERT01 ||\
+     (kt) == SSH_KEYTYPE_SK_ED25519_CERT01 ||\
+    ((kt) >= SSH_KEYTYPE_ECDSA_P256_CERT01 &&\
+     (kt) <= SSH_KEYTYPE_ED25519_CERT01))
 
 /* SSH Signature Functions */
 ssh_signature ssh_signature_new(void);

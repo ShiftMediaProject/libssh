@@ -91,9 +91,6 @@
 /* Define to 1 if you have elliptic curve cryptography */
 #cmakedefine HAVE_ECC 1
 
-/* Define to 1 if you have DSA */
-#cmakedefine HAVE_DSA 1
-
 /* Define to 1 if you have gl_flags as a glob_t sturct member */
 #cmakedefine HAVE_GLOB_GL_FLAGS_MEMBER 1
 

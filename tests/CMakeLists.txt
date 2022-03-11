@@ -99,7 +99,7 @@ if (SSH_EXECUTABLE)
         set(OPENSSH_CIPHERS "aes128-ctr\naes192-ctr\naes256-ctr\narcfour256\narcfour128\naes128-gcm@openssh.com\naes256-gcm@openssh.com\naes128-cbc\n3des-cbc\nblowfish-cbc\ncast128-cbc\naes192-cbc\naes256-cbc\narcfour\nrijndael-cbc@lysator.liu.se\n")
         set(OPENSSH_MACS "hmac-md5-etm@openssh.com\nhmac-sha1-etm@openssh.com\numac-64-etm@openssh.com\numac-128-etm@openssh.com\nhmac-sha2-256-etm@openssh.com\nhmac-sha2-512-etm@openssh.com\nhmac-ripemd160-etm@openssh.com\nhmac-sha1-96-etm@openssh.com\nhmac-md5-96-etm@openssh.com\nhmac-md5\nhmac-sha1\numac-64@openssh.com\numac-128@openssh.com\nhmac-sha2-256\nhmac-sha2-512\nhmac-ripemd160\nhmac-ripemd160@openssh.com\nhmac-sha1-96\nhmac-md5-96\n")
         set(OPENSSH_KEX "ecdh-sha2-nistp256\necdh-sha2-nistp384\necdh-sha2-nistp521\ndiffie-hellman-group-exchange-sha256\ndiffie-hellman-group-exchange-sha1\ndiffie-hellman-group14-sha1\ndiffie-hellman-group1-sha1\n")
-        set(OPENSSH_KEYS "ssh-rsa\nssh-dss\necdsa-sha2-nistp256\n")
+        set(OPENSSH_KEYS "ssh-rsa\necdsa-sha2-nistp256\n")
     else()
         execute_process(COMMAND ${SSH_EXECUTABLE} -Q cipher OUTPUT_VARIABLE OPENSSH_CIPHERS)
         execute_process(COMMAND ${SSH_EXECUTABLE} -Q mac OUTPUT_VARIABLE OPENSSH_MACS)
@@ -126,9 +126,9 @@ if (SSH_EXECUTABLE)
         diffie-hellman-group16-sha512 diffie-hellman-group18-sha512 diffie-hellman-group-exchange-sha1
         diffie-hellman-group-exchange-sha256 ecdh-sha2-nistp256 ecdh-sha2-nistp384 ecdh-sha2-nistp521
         curve25519-sha256 curve25519-sha256@libssh.org
-        ssh-ed25519 ssh-ed25519-cert-v01@openssh.com ssh-rsa ssh-dss
+        ssh-ed25519 ssh-ed25519-cert-v01@openssh.com ssh-rsa
         ecdsa-sha2-nistp256 ecdsa-sha2-nistp384 ecdsa-sha2-nistp521
-        ssh-rsa-cert-v01@openssh.com ssh-dss-cert-v01@openssh.com
+        ssh-rsa-cert-v01@openssh.com
         ecdsa-sha2-nistp256-cert-v01@openssh.com ecdsa-sha2-nistp384-cert-v01@openssh.com
         ecdsa-sha2-nistp521-cert-v01@openssh.com
         )

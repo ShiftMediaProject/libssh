@@ -383,11 +383,6 @@ ssh_bind torture_ssh_bind(const char *addr,
     }
 
     switch (key_type) {
-#ifdef HAVE_DSA
-        case SSH_KEYTYPE_DSS:
-            opts = SSH_BIND_OPTIONS_DSAKEY;
-            break;
-#endif /* HAVE_DSA */
         case SSH_KEYTYPE_RSA:
             opts = SSH_BIND_OPTIONS_RSAKEY;
             break;
@@ -631,9 +626,6 @@ void torture_setup_create_libssh_config(void **state)
 {
     struct torture_state *s = *state;
     char ed25519_hostkey[1024] = {0};
-#ifdef HAVE_DSA
-    char dsa_hostkey[1024];
-#endif /* HAVE_DSA */
     char rsa_hostkey[1024];
     char ecdsa_hostkey[1024];
     char sshd_config[2048];
@@ -647,9 +639,6 @@ void torture_setup_create_libssh_config(void **state)
              "%s %s\n"
              "%s %s\n"
              "%s %s\n"
-#ifdef HAVE_DSA
-             "%s %s\n"
-#endif /* HAVE_DSA */
              "%s\n"; /* The space for test-specific options */
     bool written = false;
     int rc;
@@ -686,13 +675,6 @@ void torture_setup_create_libssh_config(void **state)
              "%s/sshd/ssh_host_ecdsa_key",
              s->socket_dir);
 
-#ifdef HAVE_DSA
-    snprintf(dsa_hostkey,
-             sizeof(dsa_hostkey),
-             "%s/sshd/ssh_host_dsa_key",
-             s->socket_dir);
-#endif /* HAVE_DSA */
-
     if (!written) {
         torture_write_file(ed25519_hostkey,
                            torture_get_openssh_testkey(SSH_KEYTYPE_ED25519, 0));
@@ -700,10 +682,6 @@ void torture_setup_create_libssh_config(void **state)
                            torture_get_testkey(SSH_KEYTYPE_RSA, 0));
         torture_write_file(ecdsa_hostkey,
                            torture_get_testkey(SSH_KEYTYPE_ECDSA_P521, 0));
-#ifdef HAVE_DSA
-        torture_write_file(dsa_hostkey,
-                           torture_get_testkey(SSH_KEYTYPE_DSS, 0));
-#endif /* HAVE_DSA */
     }
 
     additional_config = (s->srv_additional_config != NULL ?
@@ -714,9 +692,6 @@ void torture_setup_create_libssh_config(void **state)
             "HostKey", ed25519_hostkey,
             "HostKey", rsa_hostkey,
             "HostKey", ecdsa_hostkey,
-#ifdef HAVE_DSA
-            "HostKey", dsa_hostkey,
-#endif /* HAVE_DSA */
             additional_config);
 
     torture_write_file(s->srv_config, sshd_config);
@@ -727,9 +702,6 @@ static void torture_setup_create_sshd_config(void **state, bool pam)
 {
     struct torture_state *s = *state;
     char ed25519_hostkey[1024] = {0};
-#ifdef HAVE_DSA
-    char dsa_hostkey[1024];
-#endif /* HAVE_DSA */
     char rsa_hostkey[1024];
     char ecdsa_hostkey[1024];
     char trusted_ca_pubkey[1024];
@@ -748,9 +720,6 @@ static void torture_setup_create_sshd_config(void **state, bool pam)
              "Port 22\n"
              "ListenAddress 127.0.0.10\n"
              "%s %s\n" /* ed25519 HostKey */
-#ifdef HAVE_DSA
-             "%s %s\n" /* DSA HostKey */
-#endif /* HAVE_DSA */
              "%s %s\n" /* RSA HostKey */
              "%s %s\n" /* ECDSA HostKey */
              "\n"
@@ -870,13 +839,6 @@ static void torture_setup_create_sshd_config(void **state, bool pam)
              "%s/sshd/ssh_host_ed25519_key",
              s->socket_dir);
 
-#ifdef HAVE_DSA
-    snprintf(dsa_hostkey,
-             sizeof(dsa_hostkey),
-             "%s/sshd/ssh_host_dsa_key",
-             s->socket_dir);
-#endif /* HAVE_DSA */
-
     snprintf(rsa_hostkey,
              sizeof(rsa_hostkey),
              "%s/sshd/ssh_host_rsa_key",
@@ -895,10 +857,6 @@ static void torture_setup_create_sshd_config(void **state, bool pam)
     if (!written) {
         torture_write_file(ed25519_hostkey,
                            torture_get_openssh_testkey(SSH_KEYTYPE_ED25519, 0));
-#ifdef HAVE_DSA
-        torture_write_file(dsa_hostkey,
-                           torture_get_testkey(SSH_KEYTYPE_DSS, 0));
-#endif /* HAVE_DSA */
         torture_write_file(rsa_hostkey,
                            torture_get_testkey(SSH_KEYTYPE_RSA, 0));
         torture_write_file(ecdsa_hostkey,
@@ -935,9 +893,6 @@ static void torture_setup_create_sshd_config(void **state, bool pam)
         snprintf(sshd_config, sizeof(sshd_config),
                 config_string,
                 "HostKey", ed25519_hostkey,
-#ifdef HAVE_DSA
-                "HostKey", dsa_hostkey,
-#endif /* HAVE_DSA */
                 "HostKey", rsa_hostkey,
                 "HostKey", ecdsa_hostkey,
                 trusted_ca_pubkey,

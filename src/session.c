@@ -156,17 +156,6 @@ ssh_session ssh_new(void)
         goto err;
     }
 
-#ifdef HAVE_DSA
-    id = strdup("%d/id_dsa");
-    if (id == NULL) {
-        goto err;
-    }
-    rc = ssh_list_append(session->opts.identity_non_exp, id);
-    if (rc == SSH_ERROR) {
-        goto err;
-    }
-#endif
-
     /* Explicitly initialize states */
     session->session_state = SSH_SESSION_STATE_NONE;
     session->pending_call_state = SSH_PENDING_CALL_NONE;
@@ -251,8 +240,6 @@ void ssh_free(ssh_session session)
   ssh_agent_free(session->agent);
 #endif /* _WIN32 */
 
-  ssh_key_free(session->srv.dsa_key);
-  session->srv.dsa_key = NULL;
   ssh_key_free(session->srv.rsa_key);
   session->srv.rsa_key = NULL;
   ssh_key_free(session->srv.ecdsa_key);

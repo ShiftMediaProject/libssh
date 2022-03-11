@@ -52,7 +52,6 @@ static struct argp_option options[] = {
                  "Accepted values are: "
                  "1024, 2048, 3072 (default), 4096, and 8192 for TYPE=\"rsa\"; "
                  "256 (default), 384, and 521 for TYPE=\"ecdsa\"; "
-                 "1024 (default) and 2048 for TYPE=\"dsa\"; "
                  "can be omitted for TYPE=\"ed25519\" "
                  "(it will be ignored if provided).\n",
         .group = 0
@@ -86,7 +85,7 @@ static struct argp_option options[] = {
         .flags = 0,
         .doc   = "The type of the key to be generated. "
                  "Accepted values are: "
-                 "\"rsa\", \"ecdsa\", \"ed25519\", and \"dsa\".\n",
+                 "\"rsa\", \"ecdsa\", and \"ed25519\".\n",
         .group = 0
     },
     {
@@ -152,9 +151,6 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
         case 't':
             if (!strcmp(arg, "rsa")) {
                 arguments->type = SSH_KEYTYPE_RSA;
-            }
-            else if (!strcmp(arg, "dsa")) {
-                arguments->type = SSH_KEYTYPE_DSS;
             }
             else if (!strcmp(arg, "ecdsa")) {
                 arguments->type = SSH_KEYTYPE_ECDSA;
@@ -247,29 +243,6 @@ static int validate_args(struct arguments_st *args)
         }
         if (args->file == NULL) {
             args->file = strdup("id_ecdsa");
-            if (args->file == NULL) {
-                rc = ENOMEM;
-                break;
-            }
-        }
-
-        break;
-    case SSH_KEYTYPE_DSS:
-        switch (args->bits) {
-        case 0:
-            /* If not provided, use default value */
-            args->bits = 1024;
-            break;
-        case 1024:
-        case 2048:
-            break;
-        default:
-            fprintf(stderr, "Error: Invalid bits parameter provided\n");
-            rc = EINVAL;
-            break;
-        }
-        if (args->file == NULL) {
-            args->file = strdup("id_dsa");
             if (args->file == NULL) {
                 rc = ENOMEM;
                 break;

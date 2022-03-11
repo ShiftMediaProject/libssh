@@ -18,9 +18,6 @@
 #include <libssh/bind.h>
 #define LIBSSH_CUSTOM_BIND_CONFIG_FILE "my_bind_config"
 #endif
-#ifdef HAVE_DSA
-#define LIBSSH_DSA_TESTKEY        "libssh_testkey.id_dsa"
-#endif
 #define LIBSSH_RSA_TESTKEY        "libssh_testkey.id_rsa"
 #define LIBSSH_ED25519_TESTKEY    "libssh_testkey.id_ed25519"
 #ifdef HAVE_ECC
@@ -958,8 +955,6 @@ static void torture_options_getopt(void **state)
                     "-vv", "-v", "-r", "-c", "aes128-ctr",
                     "-i", "id_rsa", "-C", "-2", "-1", NULL};
     int argc = sizeof(argv)/sizeof(char *) - 1;
-    const char *argv_invalid[] = {EXECUTABLE_NAME, "-r", "-d", NULL};
-
     previous_level = ssh_get_log_level();
 
     /* Test with all the supported options */
@@ -1048,17 +1043,6 @@ static void torture_options_getopt(void **state)
     assert_string_equal(argv[3], "-M");
     assert_string_equal(argv[4], "hmac-sha1");
     assert_string_equal(argv[5], "example.com");
-
-
-    /* Invalid configuration combination -d and -r (for some reason?) */
-    argc = 3;
-    rc = ssh_options_getopt(session, &argc, (char **)argv_invalid);
-    assert_ssh_return_code_equal(session, rc, SSH_ERROR);
-    assert_int_equal(argc, 3);
-    assert_string_equal(argv_invalid[0], EXECUTABLE_NAME);
-    assert_string_equal(argv_invalid[1], "-r");
-    assert_string_equal(argv_invalid[2], "-d");
-
 
     /* Corner case: only one argument */
     argv[1] = "-C";
@@ -1542,10 +1526,6 @@ static int ssh_bind_setup_files(void **state)
     torture_write_file(LIBSSH_ECDSA_521_TESTKEY,
                        torture_get_openssh_testkey(SSH_KEYTYPE_ECDSA_P521, 0));
 #endif
-#ifdef HAVE_DSA
-    torture_write_file(LIBSSH_DSA_TESTKEY,
-                       torture_get_openssh_testkey(SSH_KEYTYPE_DSS, 0));
-#endif
     torture_write_file(LIBSSH_CUSTOM_BIND_CONFIG_FILE,
                        "Port 42\n");
     return 0;
@@ -1627,16 +1607,6 @@ static void torture_bind_options_import_key(void **state)
 
     rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY, key);
     assert_int_equal(rc, 0);
-#ifdef HAVE_DSA
-    /* set dsa key */
-    base64_key = torture_get_testkey(SSH_KEYTYPE_DSS, 0);
-    rc = ssh_pki_import_privkey_base64(base64_key, NULL, NULL, NULL, &key);
-    assert_int_equal(rc, SSH_OK);
-    assert_non_null(key);
-
-    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY, key);
-    assert_int_equal(rc, 0);
-#endif
 #ifdef HAVE_ECC
     /* set ecdsa key */
     base64_key = torture_get_testkey(SSH_KEYTYPE_ECDSA_P521, 0);
@@ -1685,15 +1655,6 @@ static void torture_bind_options_hostkey(void **state)
     assert_int_equal(rc, 0);
     assert_non_null(bind->ecdsakey);
     assert_string_equal(bind->ecdsakey, LIBSSH_ECDSA_521_TESTKEY);
-#endif
-#ifdef HAVE_DSA
-    /* Test DSA key */
-    rc = ssh_bind_options_set(bind,
-                              SSH_BIND_OPTIONS_HOSTKEY,
-                              LIBSSH_DSA_TESTKEY);
-    assert_int_equal(rc, 0);
-    assert_non_null(bind->dsakey);
-    assert_string_equal(bind->dsakey, LIBSSH_DSA_TESTKEY);
 #endif
 }
 
@@ -1802,28 +1763,6 @@ static void torture_bind_options_log_verbosity_str(void **state)
     rc = ssh_set_log_level(previous_level);
     assert_int_equal(rc, SSH_OK);
 }
-
-#ifdef HAVE_DSA
-static void torture_bind_options_dsakey(void **state)
-{
-    struct bind_st *test_state;
-    ssh_bind bind;
-    int rc;
-
-    assert_non_null(state);
-    test_state = *((struct bind_st **)state);
-    assert_non_null(test_state);
-    assert_non_null(test_state->bind);
-    bind = test_state->bind;
-
-    rc = ssh_bind_options_set(bind,
-                              SSH_BIND_OPTIONS_DSAKEY,
-                              LIBSSH_DSA_TESTKEY);
-    assert_int_equal(rc, 0);
-    assert_non_null(bind->dsakey);
-    assert_string_equal(bind->dsakey, LIBSSH_DSA_TESTKEY);
-}
-#endif
 
 static void torture_bind_options_rsakey(void **state)
 {
@@ -2315,10 +2254,6 @@ int torture_run_tests(void) {
                 sshbind_setup, sshbind_teardown),
         cmocka_unit_test_setup_teardown(torture_bind_options_log_verbosity_str,
                 sshbind_setup, sshbind_teardown),
-#ifdef HAVE_DSA
-        cmocka_unit_test_setup_teardown(torture_bind_options_dsakey,
-                sshbind_setup, sshbind_teardown),
-#endif
         cmocka_unit_test_setup_teardown(torture_bind_options_rsakey,
                 sshbind_setup, sshbind_teardown),
 #ifdef HAVE_ECC

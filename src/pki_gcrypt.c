@@ -45,8 +45,6 @@
 #define MAXLINESIZE 80
 #define RSA_HEADER_BEGIN "-----BEGIN RSA PRIVATE KEY-----"
 #define RSA_HEADER_END "-----END RSA PRIVATE KEY-----"
-#define DSA_HEADER_BEGIN "-----BEGIN DSA PRIVATE KEY-----"
-#define DSA_HEADER_END "-----END DSA PRIVATE KEY-----"
 #define ECDSA_HEADER_BEGIN "-----BEGIN EC PRIVATE KEY-----"
 #define ECDSA_HEADER_END "-----END EC PRIVATE KEY-----"
 
@@ -288,14 +286,11 @@ void pki_key_clean(ssh_key key)
     if (key == NULL)
         return;
 
-    if (key->dsa)
-        gcry_sexp_release(key->dsa);
     if (key->rsa)
         gcry_sexp_release(key->rsa);
     if (key->ecdsa)
         gcry_sexp_release(key->ecdsa);
 
-    key->dsa = NULL;
     key->rsa = NULL;
     key->ecdsa = NULL;
 }
@@ -436,10 +431,6 @@ static ssh_buffer privatekey_string_to_buffer(const char *pkey, int type,
     }
 
     switch(type) {
-        case SSH_KEYTYPE_DSS:
-            header_begin = DSA_HEADER_BEGIN;
-            header_end = DSA_HEADER_END;
-            break;
         case SSH_KEYTYPE_RSA:
             header_begin = RSA_HEADER_BEGIN;
             header_end = RSA_HEADER_END;
@@ -638,79 +629,6 @@ error:
   SSH_STRING_FREE(unused2);
   ssh_string_burn(u);
   SSH_STRING_FREE(u);
-  SSH_STRING_FREE(v);
-
-  return rc;
-}
-
-static int b64decode_dsa_privatekey(const char *pkey, gcry_sexp_t *r, ssh_auth_callback cb,
-    void *userdata, const char *desc) {
-  const unsigned char *data;
-  ssh_buffer buffer = NULL;
-  ssh_string p = NULL;
-  ssh_string q = NULL;
-  ssh_string g = NULL;
-  ssh_string y = NULL;
-  ssh_string x = NULL;
-  ssh_string v = NULL;
-  int rc = 1;
-
-  buffer = privatekey_string_to_buffer(pkey, SSH_KEYTYPE_DSS, cb, userdata, desc);
-  if (buffer == NULL) {
-    return 0;
-  }
-
-  if (!asn1_check_sequence(buffer)) {
-    SSH_BUFFER_FREE(buffer);
-    return 0;
-  }
-
-  v = asn1_get_int(buffer);
-  if (v == NULL) {
-    SSH_BUFFER_FREE(buffer);
-    return 0;
-  }
-
-  data = ssh_string_data(v);
-  if (ssh_string_len(v) != 1 || data[0] != 0) {
-    SSH_STRING_FREE(v);
-    SSH_BUFFER_FREE(buffer);
-    return 0;
-  }
-
-  p = asn1_get_int(buffer);
-  q = asn1_get_int(buffer);
-  g = asn1_get_int(buffer);
-  y = asn1_get_int(buffer);
-  x = asn1_get_int(buffer);
-  SSH_BUFFER_FREE(buffer);
-
-  if (p == NULL || q == NULL || g == NULL || y == NULL || x == NULL) {
-    rc = 0;
-    goto error;
-  }
-
-  if (gcry_sexp_build(r, NULL,
-        "(private-key(dsa(p %b)(q %b)(g %b)(y %b)(x %b)))",
-        ssh_string_len(p), ssh_string_data(p),
-        ssh_string_len(q), ssh_string_data(q),
-        ssh_string_len(g), ssh_string_data(g),
-        ssh_string_len(y), ssh_string_data(y),
-        ssh_string_len(x), ssh_string_data(x))) {
-    rc = 0;
-  }
-
-error:
-  ssh_string_burn(p);
-  SSH_STRING_FREE(p);
-  ssh_string_burn(q);
-  SSH_STRING_FREE(q);
-  ssh_string_burn(g);
-  SSH_STRING_FREE(g);
-  ssh_string_burn(y);
-  SSH_STRING_FREE(y);
-  ssh_string_burn(x);
-  SSH_STRING_FREE(x);
   SSH_STRING_FREE(v);
 
   return rc;
@@ -965,7 +883,6 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
                                     ssh_auth_callback auth_fn,
                                     void *auth_data)
 {
-    gcry_sexp_t dsa = NULL;
     gcry_sexp_t rsa = NULL;
     gcry_sexp_t ecdsa = NULL;
     ssh_key key = NULL;
@@ -979,25 +896,6 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
     }
 
     switch (type) {
-        case SSH_KEYTYPE_DSS:
-            if (passphrase == NULL) {
-                if (auth_fn) {
-                    valid = b64decode_dsa_privatekey(b64_key, &dsa, auth_fn,
-                            auth_data, "Passphrase for private key:");
-                } else {
-                    valid = b64decode_dsa_privatekey(b64_key, &dsa, NULL, NULL,
-                            NULL);
-                }
-            } else {
-                valid = b64decode_dsa_privatekey(b64_key, &dsa, NULL, (void *)
-                        passphrase, NULL);
-            }
-
-            if (!valid) {
-                SSH_LOG(SSH_LOG_TRACE, "Error parsing private key");
-                goto fail;
-            }
-            break;
         case SSH_KEYTYPE_RSA:
             if (passphrase == NULL) {
                 if (auth_fn) {
@@ -1074,7 +972,6 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
     key->type = type;
     key->type_c = ssh_key_type_to_char(type);
     key->flags = SSH_KEY_FLAG_PRIVATE | SSH_KEY_FLAG_PUBLIC;
-    key->dsa = dsa;
     key->rsa = rsa;
     key->ecdsa = ecdsa;
 #ifdef HAVE_GCRYPT_ECC
@@ -1086,50 +983,10 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
     return key;
 fail:
     ssh_key_free(key);
-    gcry_sexp_release(dsa);
     gcry_sexp_release(rsa);
     gcry_sexp_release(ecdsa);
 
     return NULL;
-}
-
-int pki_privkey_build_dss(ssh_key key,
-                          ssh_string p,
-                          ssh_string q,
-                          ssh_string g,
-                          ssh_string pubkey,
-                          ssh_string privkey)
-{
-    gcry_sexp_build(&key->dsa, NULL,
-            "(private-key(dsa(p %b)(q %b)(g %b)(y %b)(x %b)))",
-            ssh_string_len(p), ssh_string_data(p),
-            ssh_string_len(q), ssh_string_data(q),
-            ssh_string_len(g), ssh_string_data(g),
-            ssh_string_len(pubkey), ssh_string_data(pubkey),
-            ssh_string_len(privkey), ssh_string_data(privkey));
-    if (key->dsa == NULL) {
-        return SSH_ERROR;
-    }
-
-    return SSH_OK;
-}
-
-int pki_pubkey_build_dss(ssh_key key,
-                         ssh_string p,
-                         ssh_string q,
-                         ssh_string g,
-                         ssh_string pubkey) {
-    gcry_sexp_build(&key->dsa, NULL,
-            "(public-key(dsa(p %b)(q %b)(g %b)(y %b)))",
-            ssh_string_len(p), ssh_string_data(p),
-            ssh_string_len(q), ssh_string_data(q),
-            ssh_string_len(g), ssh_string_data(g),
-            ssh_string_len(pubkey), ssh_string_data(pubkey));
-    if (key->dsa == NULL) {
-        return SSH_ERROR;
-    }
-
-    return SSH_OK;
 }
 
 int pki_privkey_build_rsa(ssh_key key,
@@ -1243,32 +1100,6 @@ ssh_key pki_key_dup(const ssh_key key, int demote)
     }
 
     switch(key->type) {
-        case SSH_KEYTYPE_DSS:
-            err = gcry_sexp_extract_param(key->dsa,
-                                          NULL,
-                                          "pqgyx?",
-                                          &p,
-                                          &q,
-                                          &g,
-                                          &y,
-                                          &x,
-                                          NULL);
-            if (err != 0) {
-                break;
-            }
-
-            if (!demote && (key->flags & SSH_KEY_FLAG_PRIVATE)) {
-                err = gcry_sexp_build(&new->dsa,
-                        NULL,
-                        "(private-key(dsa(p %m)(q %m)(g %m)(y %m)(x %m)))",
-                        p, q, g, y, x);
-            } else {
-                err = gcry_sexp_build(&new->dsa,
-                        NULL,
-                        "(public-key(dsa(p %m)(q %m)(g %m)(y %m)))",
-                        p, q, g, y);
-            }
-            break;
         case SSH_KEYTYPE_RSA:
             err = gcry_sexp_extract_param(key->rsa,
                                           NULL,
@@ -1383,9 +1214,6 @@ static int pki_key_generate(ssh_key key, int parameter, const char *type_s, int 
     case SSH_KEYTYPE_RSA:
         rc = gcry_pk_genkey(&key->rsa, params);
         break;
-    case SSH_KEYTYPE_DSS:
-        rc = gcry_pk_genkey(&key->dsa, params);
-        break;
     case SSH_KEYTYPE_ECDSA_P256:
     case SSH_KEYTYPE_ECDSA_P384:
     case SSH_KEYTYPE_ECDSA_P521:
@@ -1402,9 +1230,6 @@ static int pki_key_generate(ssh_key key, int parameter, const char *type_s, int 
 
 int pki_key_generate_rsa(ssh_key key, int parameter){
     return pki_key_generate(key, parameter, "rsa", SSH_KEYTYPE_RSA);
-}
-int pki_key_generate_dss(ssh_key key, int parameter){
-    return pki_key_generate(key, parameter, "dsa", SSH_KEYTYPE_DSS);
 }
 
 #ifdef HAVE_GCRYPT_ECC
@@ -1472,29 +1297,6 @@ int pki_key_compare(const ssh_key k1,
                     enum ssh_keycmp_e what)
 {
     switch (k1->type) {
-        case SSH_KEYTYPE_DSS:
-            if (_bignum_cmp(k1->dsa, k2->dsa, "p") != 0) {
-                return 1;
-            }
-
-            if (_bignum_cmp(k1->dsa, k2->dsa, "q") != 0) {
-                return 1;
-            }
-
-            if (_bignum_cmp(k1->dsa, k2->dsa, "g") != 0) {
-                return 1;
-            }
-
-            if (_bignum_cmp(k1->dsa, k2->dsa, "y") != 0) {
-                return 1;
-            }
-
-            if (what == SSH_KEY_CMP_PRIVATE) {
-                if (_bignum_cmp(k1->dsa, k2->dsa, "x") != 0) {
-                    return 1;
-                }
-            }
-            break;
         case SSH_KEYTYPE_RSA:
             if (_bignum_cmp(k1->rsa, k2->rsa, "e") != 0) {
                 return 1;
@@ -1546,7 +1348,8 @@ int pki_key_compare(const ssh_key k1,
             }
             break;
 #endif
-        case SSH_KEYTYPE_DSS_CERT01:
+        case SSH_KEYTYPE_DSS:   /* deprecated */
+        case SSH_KEYTYPE_DSS_CERT01: /* deprecated */
         case SSH_KEYTYPE_RSA_CERT01:
         case SSH_KEYTYPE_ECDSA:
         case SSH_KEYTYPE_ECDSA_P256_CERT01:
@@ -1603,66 +1406,6 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
     }
 
     switch (key->type) {
-        case SSH_KEYTYPE_DSS:
-            p = ssh_sexp_extract_mpi(key->dsa,
-                                     "p",
-                                     GCRYMPI_FMT_USG,
-                                     GCRYMPI_FMT_STD);
-            if (p == NULL) {
-                goto fail;
-            }
-
-            q = ssh_sexp_extract_mpi(key->dsa,
-                                     "q",
-                                     GCRYMPI_FMT_USG,
-                                     GCRYMPI_FMT_STD);
-            if (q == NULL) {
-                goto fail;
-            }
-
-            g = ssh_sexp_extract_mpi(key->dsa,
-                                     "g",
-                                     GCRYMPI_FMT_USG,
-                                     GCRYMPI_FMT_STD);
-            if (g == NULL) {
-                goto fail;
-            }
-
-            n = ssh_sexp_extract_mpi(key->dsa,
-                                     "y",
-                                     GCRYMPI_FMT_USG,
-                                     GCRYMPI_FMT_STD);
-            if (n == NULL) {
-                goto fail;
-            }
-
-            rc = ssh_buffer_add_ssh_string(buffer, p);
-            if (rc < 0) {
-                goto fail;
-            }
-            rc = ssh_buffer_add_ssh_string(buffer, q);
-            if (rc < 0) {
-                goto fail;
-            }
-            rc = ssh_buffer_add_ssh_string(buffer, g);
-            if (rc < 0) {
-                goto fail;
-            }
-            rc = ssh_buffer_add_ssh_string(buffer, n);
-            if (rc < 0) {
-                goto fail;
-            }
-
-            ssh_string_burn(p);
-            SSH_STRING_FREE(p);
-            ssh_string_burn(g);
-            SSH_STRING_FREE(g);
-            ssh_string_burn(q);
-            SSH_STRING_FREE(q);
-            ssh_string_burn(n);
-            SSH_STRING_FREE(n);
-
-            break;
         case SSH_KEYTYPE_RSA:
             e = ssh_sexp_extract_mpi(key->rsa,
                                      "e",
@@ -1787,13 +1530,7 @@ fail:
 
 ssh_string pki_signature_to_blob(const ssh_signature sig)
 {
-    char buffer[40] = { 0 };
-
-    const char *r = NULL;
-    size_t r_len, r_offset_in, r_offset_out;
-
-    const char *s = NULL;
-    size_t s_len, s_offset_in, s_offset_out;
+    const char *s = NULL;  /* used in RSA */
 
     gcry_sexp_t sexp;
     size_t size = 0;
@@ -1801,57 +1538,6 @@ ssh_string pki_signature_to_blob(const ssh_signature sig)
     int rc;
 
     switch(sig->type) {
-        case SSH_KEYTYPE_DSS:
-            sexp = gcry_sexp_find_token(sig->dsa_sig, "r", 0);
-            if (sexp == NULL) {
-                return NULL;
-            }
-            r = gcry_sexp_nth_data(sexp, 1, &size);
-            /* libgcrypt put 0 when first bit is set */
-            if (*r == 0) {
-                size--;
-                r++;
-            }
-
-            r_len = size;
-            r_offset_in  = (r_len > 20) ? (r_len - 20) : 0;
-            r_offset_out = (r_len < 20) ? (20 - r_len) : 0;
-            memcpy(buffer + r_offset_out,
-                   r + r_offset_in,
-                   r_len - r_offset_in);
-
-            gcry_sexp_release(sexp);
-
-            sexp = gcry_sexp_find_token(sig->dsa_sig, "s", 0);
-            if (sexp == NULL) {
-                return NULL;
-            }
-            s = gcry_sexp_nth_data(sexp,1,&size);
-            if (*s == 0) {
-                size--;
-                s++;
-            }
-
-            s_len = size;
-            s_offset_in  = (s_len > 20) ? (s_len - 20) : 0;
-            s_offset_out = (s_len < 20) ? (20 - s_len) : 0;
-            memcpy(buffer + 20 + s_offset_out,
-                   s + s_offset_in,
-                   s_len - s_offset_in);
-
-            gcry_sexp_release(sexp);
-
-            sig_blob = ssh_string_new(40);
-            if (sig_blob == NULL) {
-                return NULL;
-            }
-
-            rc = ssh_string_fill(sig_blob, buffer, 40);
-            if (rc < 0) {
-                SSH_STRING_FREE(sig_blob);
-                return NULL;
-            }
-            break;
         case SSH_KEYTYPE_RSA:
             sexp = gcry_sexp_find_token(sig->rsa_sig, "s", 0);
             if (sexp == NULL) {
@@ -1977,35 +1663,6 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
     len = ssh_string_len(sig_blob);
 
     switch(type) {
-        case SSH_KEYTYPE_DSS:
-            /* 40 is the dual signature blob len. */
-            if (len != 40) {
-                SSH_LOG(SSH_LOG_TRACE,
-                        "Signature has wrong size: %lu",
-                        (unsigned long)len);
-                ssh_signature_free(sig);
-                return NULL;
-            }
-
-#ifdef DEBUG_CRYPTO
-            SSH_LOG(SSH_LOG_DEBUG,
-                    "DSA signature len: %lu",
-                    (unsigned long)len);
-            ssh_log_hexdump("DSA signature", ssh_string_data(sig_blob), len);
-#endif
-
-            err = gcry_sexp_build(&sig->dsa_sig,
-                                  NULL,
-                                  "(sig-val(dsa(r %b)(s %b)))",
-                                  20,
-                                  ssh_string_data(sig_blob),
-                                  20,
-                                  (unsigned char *)ssh_string_data(sig_blob) + 20);
-            if (err) {
-                ssh_signature_free(sig);
-                return NULL;
-            }
-            break;
         case SSH_KEYTYPE_RSA:
             rsalen = (gcry_pk_get_nbits(pubkey->rsa) + 7) / 8;
 
@@ -2141,7 +1798,6 @@ ssh_signature pki_do_sign_hash(const ssh_key privkey,
                                size_t hlen,
                                enum ssh_digest_e hash_type)
 {
-    unsigned char ghash[hlen + 1];
     const char *hash_c = NULL;
     ssh_signature sig;
     gcry_sexp_t sexp;
@@ -2155,28 +1811,6 @@ ssh_signature pki_do_sign_hash(const ssh_key privkey,
     sig->type_c = ssh_key_signature_to_char(privkey->type, hash_type);
     sig->hash_type = hash_type;
     switch (privkey->type) {
-        case SSH_KEYTYPE_DSS:
-            /* That is to mark the number as positive */
-            if(hash[0] >= 0x80) {
-                memcpy(ghash + 1, hash, hlen);
-                ghash[0] = 0;
-                hash = ghash;
-                hlen += 1;
-            }
-
-            err = gcry_sexp_build(&sexp, NULL, "%b", hlen, hash);
-            if (err) {
-                ssh_signature_free(sig);
-                return NULL;
-            }
-
-            err = gcry_pk_sign(&sig->dsa_sig, sexp, privkey->dsa);
-            gcry_sexp_release(sexp);
-            if (err) {
-                ssh_signature_free(sig);
-                return NULL;
-            }
-            break;
         case SSH_KEYTYPE_RSA:
             switch (hash_type) {
             case SSH_DIGEST_SHA1:
@@ -2409,32 +2043,6 @@ int pki_verify_data_signature(ssh_signature signature,
     }
 
     switch(pubkey->type) {
-        case SSH_KEYTYPE_DSS:
-        case SSH_KEYTYPE_DSS_CERT01:
-            /* That is to mark the number as positive */
-            if(hash[0] >= 0x80) {
-                hash = ghash;
-                hlen += 1;
-            }
-
-            err = gcry_sexp_build(&sexp, NULL, "%b", hlen, hash);
-            if (err) {
-                SSH_LOG(SSH_LOG_TRACE,
-                        "DSA hash error: %s", gcry_strerror(err));
-                return SSH_ERROR;
-            }
-            err = gcry_pk_verify(signature->dsa_sig, sexp, pubkey->dsa);
-            gcry_sexp_release(sexp);
-            if (err) {
-                SSH_LOG(SSH_LOG_TRACE, "Invalid DSA signature");
-                if (gcry_err_code(err) != GPG_ERR_BAD_SIGNATURE) {
-                    SSH_LOG(SSH_LOG_TRACE,
-                            "DSA verify error: %s",
-                            gcry_strerror(err));
-                }
-                return SSH_ERROR;
-            }
-            break;
         case SSH_KEYTYPE_RSA:
         case SSH_KEYTYPE_RSA_CERT01:
             err = gcry_sexp_build(&sexp,
@@ -2515,9 +2123,6 @@ int pki_verify_data_signature(ssh_signature signature,
 int ssh_key_size(ssh_key key)
 {
     switch (key->type) {
-    case SSH_KEYTYPE_DSS:
-    case SSH_KEYTYPE_DSS_CERT01:
-        return gcry_pk_get_nbits(key->dsa);
     case SSH_KEYTYPE_RSA:
     case SSH_KEYTYPE_RSA_CERT01:
     case SSH_KEYTYPE_RSA1:
@@ -2537,6 +2142,8 @@ int ssh_key_size(ssh_key key)
     case SSH_KEYTYPE_SK_ED25519_CERT01:
         /* ed25519 keys have fixed size */
         return 255;
+    case SSH_KEYTYPE_DSS:   /* deprecated */
+    case SSH_KEYTYPE_DSS_CERT01:    /* deprecated */
     case SSH_KEYTYPE_UNKNOWN:
     default:
         return SSH_ERROR;

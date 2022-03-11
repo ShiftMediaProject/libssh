@@ -45,7 +45,6 @@
 #include <openssl/sha.h>
 #include <openssl/md5.h>
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
-#include <openssl/dsa.h>
 #include <openssl/rsa.h>
 #include <openssl/hmac.h>
 #else
@@ -1564,11 +1563,6 @@ evp_dup_pkey(const char *name, const ssh_key key, int demote, ssh_key new_key)
     EVP_PKEY_CTX_free(ctx);
 
     return SSH_OK;
-}
-
-int evp_dup_dsa_pkey(const ssh_key key, ssh_key new_key, int demote)
-{
-    return evp_dup_pkey("DSA", key, demote, new_key);
 }
 
 int evp_dup_rsa_pkey(const ssh_key key, ssh_key new_key, int demote)

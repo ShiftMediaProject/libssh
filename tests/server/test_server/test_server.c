@@ -46,7 +46,6 @@ void free_server_state(struct server_state_st *state)
     SAFE_FREE(state->address);
 
     SAFE_FREE(state->ecdsa_key);
-    SAFE_FREE(state->dsa_key);
     SAFE_FREE(state->ed25519_key);
     SAFE_FREE(state->rsa_key);
     SAFE_FREE(state->host_key);
@@ -157,18 +156,6 @@ int run_server(struct server_state_st *state)
                 "Error setting bind port: %s\n",
                 ssh_get_error(sshbind));
         goto free_sshbind;
-    }
-
-    if (state->dsa_key != NULL) {
-        rc = ssh_bind_options_set(sshbind,
-                                  SSH_BIND_OPTIONS_DSAKEY,
-                                  state->dsa_key);
-        if (rc != 0) {
-            fprintf(stderr,
-                    "Error setting DSA key: %s\n",
-                    ssh_get_error(sshbind));
-            goto free_sshbind;
-        }
     }
 
     if (state->rsa_key != NULL) {

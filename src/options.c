@@ -419,7 +419,7 @@ int ssh_options_set_algo(ssh_session session,
  *              - SSH_OPTIONS_HOSTKEYS:
  *                Set the preferred server host key types (const char *,
  *                comma-separated list). ex:
- *                "ssh-rsa,ssh-dss,ecdh-sha2-nistp256". The list can be
+ *                "ssh-rsa,ecdh-sha2-nistp256". The list can be
  *                prepended by +,-,^ which will append, remove or move to
  *                the beginning (prioritizing) of the default list
  *                respectively. Giving an empty list after + and ^ will
@@ -428,7 +428,7 @@ int ssh_options_set_algo(ssh_session session,
  *              - SSH_OPTIONS_PUBLICKEY_ACCEPTED_TYPES:
  *                Set the preferred public key algorithms to be used for
  *                authentication (const char *, comma-separated list). ex:
- *                "ssh-rsa,rsa-sha2-256,ssh-dss,ecdh-sha2-nistp256"
+ *                "ssh-rsa,rsa-sha2-256,ecdh-sha2-nistp256"
  *                The list can be prepended by +,-,^ which will append,
  *                remove or move to the beginning (prioritizing) of the
  *                default list respectively. Giving an empty list
@@ -1353,7 +1353,6 @@ int ssh_options_getopt(ssh_session session, int *argcptr, char **argv)
     int argc = *argcptr;
     int debuglevel = 0;
     int usersa = 0;
-    int usedss = 0;
     int compress = 0;
     int cont = 1;
     size_t current = 0;
@@ -1367,7 +1366,7 @@ int ssh_options_getopt(ssh_session session, int *argcptr, char **argv)
     }
 
     opterr = 0; /* shut up getopt */
-    while((opt = getopt(argc, argv, "c:i:Cl:p:vb:rd12")) != -1) {
+    while((opt = getopt(argc, argv, "c:i:Cl:p:vb:r12")) != -1) {
         switch(opt) {
         case 'l':
             user = optarg;
@@ -1380,9 +1379,6 @@ int ssh_options_getopt(ssh_session session, int *argcptr, char **argv)
             break;
         case 'r':
             usersa++;
-            break;
-        case 'd':
-            usedss++;
             break;
         case 'c':
             cipher = optarg;
@@ -1444,11 +1440,6 @@ int ssh_options_getopt(ssh_session session, int *argcptr, char **argv)
         save[current] = argv[optind];
         current++;
         optind++;
-    }
-
-    if (usersa && usedss) {
-        ssh_set_error(session, SSH_FATAL, "Either RSA or DSS must be chosen");
-        cont = 0;
     }
 
     ssh_set_log_level(debuglevel);
@@ -1742,8 +1733,8 @@ static int ssh_bind_set_algo(ssh_bind sshbind,
  *
  *                      - SSH_BIND_OPTIONS_HOSTKEY:
  *                        Set the path to an ssh host key, regardless
- *                        of type.  Only one key from each key type
- *                        (RSA, DSA, ECDSA) is allowed in an ssh_bind
+ *                        of type.  Only one key from per key type
+ *                        (RSA, ED25519 and ECDSA) is allowed in an ssh_bind
  *                        at a time, and later calls to this function
  *                        with this option for the same key type will
  *                        override prior calls (const char *).
@@ -1779,10 +1770,6 @@ static int ssh_bind_set_algo(ssh_bind sshbind,
  *                        SSH_BIND_OPTIONS_LOG_VERBOSITY above (const
  *                        char *).
  *
- *                      - SSH_BIND_OPTIONS_DSAKEY:
- *                        Set the path to the ssh host dsa key, SSHv2
- *                        only (const char *).
- *
  *                      - SSH_BIND_OPTIONS_RSAKEY:
  *                        Set the path to the ssh host rsa key, SSHv2
  *                        only (const char *).
@@ -1793,6 +1780,9 @@ static int ssh_bind_set_algo(ssh_bind sshbind,
  *
  *                      - SSH_BIND_OPTIONS_BANNER:
  *                        Set the server banner sent to clients (const char *).
+ *
+ *                      - SSH_BIND_OPTIONS_DSAKEY:
+ *                        This is DEPRECATED, please do not use
  *
  *                      - SSH_BIND_OPTIONS_IMPORT_KEY:
  *                        Set the Private Key for the server directly (ssh_key)
@@ -1905,17 +1895,6 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
 
           key_type = ssh_key_type(key);
           switch (key_type) {
-          case SSH_KEYTYPE_DSS:
-#ifdef HAVE_DSA
-              bind_key_loc = &sshbind->dsa;
-              bind_key_path_loc = &sshbind->dsakey;
-#else
-              ssh_set_error(sshbind,
-                            SSH_FATAL,
-                            "DSS key used and libssh compiled "
-                            "without DSA support");
-#endif
-              break;
           case SSH_KEYTYPE_ECDSA_P256:
           case SSH_KEYTYPE_ECDSA_P384:
           case SSH_KEYTYPE_ECDSA_P521:
@@ -1979,16 +1958,6 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
 
             key_type = ssh_key_type(key);
             switch (key_type) {
-                case SSH_KEYTYPE_DSS:
-#ifdef HAVE_DSA
-                    bind_key_loc = &sshbind->dsa;
-#else
-                    ssh_set_error(sshbind,
-                                  SSH_FATAL,
-                                  "DSA key used and libssh compiled "
-                                  "without DSA support");
-#endif
-                    break;
                 case SSH_KEYTYPE_ECDSA_P256:
                 case SSH_KEYTYPE_ECDSA_P384:
                 case SSH_KEYTYPE_ECDSA_P521:
@@ -2085,12 +2054,6 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
         ssh_set_log_level(i & 0xffffU);
       }
       break;
-    case SSH_BIND_OPTIONS_DSAKEY:
-        rc = ssh_bind_set_key(sshbind, &sshbind->dsakey, value);
-        if (rc < 0) {
-            return -1;
-        }
-        break;
     case SSH_BIND_OPTIONS_RSAKEY:
         rc = ssh_bind_set_key(sshbind, &sshbind->rsakey, value);
         if (rc < 0) {

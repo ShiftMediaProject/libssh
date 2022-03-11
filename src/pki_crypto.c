@@ -411,97 +411,6 @@ ssh_key pki_key_dup(const ssh_key key, int demote)
     }
 
     switch (key->type) {
-    case SSH_KEYTYPE_DSS: {
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-        const BIGNUM *p = NULL, *q = NULL, *g = NULL,
-          *pub_key = NULL, *priv_key = NULL;
-        BIGNUM *np, *nq, *ng, *npub_key, *npriv_key;
-        DSA *new_dsa = DSA_new();
-        const DSA *key_dsa = EVP_PKEY_get0_DSA(key->key);
-        if (new_dsa == NULL) {
-            goto fail;
-        }
-
-        /*
-         * p        = public prime number
-         * q        = public 160-bit subprime, q | p-1
-         * g        = public generator of subgroup
-         * pub_key  = public key y = g^x
-         * priv_key = private key x
-         */
-        DSA_get0_pqg(key_dsa, &p, &q, &g);
-        np = BN_dup(p);
-        nq = BN_dup(q);
-        ng = BN_dup(g);
-        if (np == NULL || nq == NULL || ng == NULL) {
-            DSA_free(new_dsa);
-            BN_free(np);
-            BN_free(nq);
-            BN_free(ng);
-            goto fail;
-        }
-
-        /* Memory management of np, nq and ng is transferred to DSA object */
-        rc = DSA_set0_pqg(new_dsa, np, nq, ng);
-        if (rc == 0) {
-            DSA_free(new_dsa);
-            BN_free(np);
-            BN_free(nq);
-            BN_free(ng);
-            goto fail;
-        }
-
-        DSA_get0_key(key_dsa, &pub_key, &priv_key);
-        npub_key = BN_dup(pub_key);
-        if (npub_key == NULL) {
-            DSA_free(new_dsa);
-            goto fail;
-        }
-
-        /* Memory management of npubkey is transferred to DSA object */
-        rc = DSA_set0_key(new_dsa, npub_key, NULL);
-        if (rc == 0) {
-            DSA_free(new_dsa);
-            goto fail;
-        }
-
-        if (!demote && (key->flags & SSH_KEY_FLAG_PRIVATE)) {
-            npriv_key = BN_dup(priv_key);
-            if (npriv_key == NULL) {
-                DSA_free(new_dsa);
-                goto fail;
-            }
-
-            /* Memory management of npriv_key is transferred to DSA object */
-            rc = DSA_set0_key(new_dsa, NULL, npriv_key);
-            if (rc == 0) {
-                DSA_free(new_dsa);
-                goto fail;
-            }
-        }
-
-        new->key = EVP_PKEY_new();
-        if (new->key == NULL) {
-            DSA_free(new_dsa);
-            goto fail;
-        }
-
-        rc = EVP_PKEY_assign_DSA(new->key, new_dsa);
-        if (rc != 1) {
-            EVP_PKEY_free(new->key);
-            DSA_free(new_dsa);
-            goto fail;
-        }
-
-        new_dsa = NULL;
-#else
-        rc = evp_dup_dsa_pkey(key, new, demote);
-        if (rc != SSH_OK) {
-            goto fail;
-        }
-#endif /* OPENSSL_VERSION_NUMBER */
-        break;
-    }
     case SSH_KEYTYPE_RSA:
     case SSH_KEYTYPE_RSA1: {
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
@@ -805,107 +714,6 @@ int pki_key_generate_rsa(ssh_key key, int parameter){
 	return SSH_OK;
 }
 
-int pki_key_generate_dss(ssh_key key, int parameter){
-    int rc;
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-    DSA *key_dsa = DSA_new();
-    if (key_dsa == NULL) {
-        return SSH_ERROR;
-    }
-    rc = DSA_generate_parameters_ex(key_dsa,
-                                    parameter,
-                                    NULL,  /* seed */
-                                    0,     /* seed_len */
-                                    NULL,  /* counter_ret */
-                                    NULL,  /* h_ret */
-                                    NULL); /* cb */
-    if (rc != 1) {
-        DSA_free(key_dsa);
-        return SSH_ERROR;
-    }
-    rc = DSA_generate_key(key_dsa);
-    if (rc != 1) {
-        DSA_free(key_dsa);
-        return SSH_ERROR;
-    }
-
-    key->key = EVP_PKEY_new();
-    if (key->key == NULL) {
-        DSA_free(key_dsa);
-        return SSH_ERROR;
-    }
-
-    rc = EVP_PKEY_assign_DSA(key->key, key_dsa);
-    if (rc != 1) {
-        DSA_free(key_dsa);
-        EVP_PKEY_free(key->key);
-        return SSH_ERROR;
-    }
-
-    key_dsa = NULL;
-#else
-    OSSL_PARAM params[3];
-    EVP_PKEY *param_key = NULL;
-    EVP_PKEY_CTX *pctx = NULL;
-    EVP_PKEY_CTX *gctx = NULL;
-    int qbits = parameter < 2048 ? 160 : 256;
-
-    key->key = EVP_PKEY_new();
-    if (key->key == NULL) {
-        return SSH_ERROR;
-    }
-    pctx = EVP_PKEY_CTX_new_from_name(NULL, "DSA", NULL);
-    if (pctx == NULL) {
-        return SSH_ERROR;
-    }
-
-    rc = EVP_PKEY_paramgen_init(pctx);
-    if (rc != 1) {
-        EVP_PKEY_CTX_free(pctx);
-        return SSH_ERROR;
-    }
-    params[0] = OSSL_PARAM_construct_int("pbits", &parameter);
-    params[1] = OSSL_PARAM_construct_int("qbits", &qbits);
-    params[2] = OSSL_PARAM_construct_end();
-    rc = EVP_PKEY_CTX_set_params(pctx, params);
-    if (rc != 1) {
-        EVP_PKEY_CTX_free(pctx);
-        return SSH_ERROR;
-    }
-    /* generating the domain parameters */
-    rc = EVP_PKEY_generate(pctx, &param_key);
-    if (rc != 1) {
-        EVP_PKEY_CTX_free(pctx);
-        EVP_PKEY_free(param_key);
-        return SSH_ERROR;
-    }
-    EVP_PKEY_CTX_free(pctx);
-
-    gctx = EVP_PKEY_CTX_new_from_pkey(NULL, param_key, NULL);
-    if (gctx == NULL) {
-        EVP_PKEY_free(param_key);
-        return SSH_ERROR;
-    }
-
-    EVP_PKEY_free(param_key);
-    rc = EVP_PKEY_keygen_init(gctx);
-    if (rc != 1) {
-        EVP_PKEY_CTX_free(gctx);
-        return SSH_ERROR;
-    }
-    /* generating the key from the domain parameters */
-    rc = EVP_PKEY_generate(gctx, &key->key);
-    if (rc != 1) {
-        EVP_PKEY_free(key->key);
-        key->key = NULL;
-        EVP_PKEY_CTX_free(gctx);
-        return SSH_ERROR;
-    }
-    EVP_PKEY_CTX_free(gctx);
-#endif /* OPENSSL_VERSION_NUMBER */
-    return SSH_OK;
-}
-
 #ifdef HAVE_OPENSSL_ECC
 int pki_key_generate_ecdsa(ssh_key key, int parameter)
 {
@@ -1033,7 +841,6 @@ int pki_key_compare(const ssh_key k1,
             }
 #endif /* HAVE_OPENSSL_ECC */
 #endif /* OPENSSL_VERSION_NUMBER */
-        case SSH_KEYTYPE_DSS:
         case SSH_KEYTYPE_RSA:
         case SSH_KEYTYPE_RSA1:
             rc = EVP_PKEY_eq(k1->key, k2->key);
@@ -1068,7 +875,6 @@ ssh_string pki_private_key_to_pem(const ssh_key key,
     }
 
     switch (key->type) {
-        case SSH_KEYTYPE_DSS:
         case SSH_KEYTYPE_RSA:
         case SSH_KEYTYPE_RSA1:
         case SSH_KEYTYPE_ECDSA_P256:
@@ -1101,7 +907,6 @@ ssh_string pki_private_key_to_pem(const ssh_key key,
             /* Mark the operation as successful as for the other key types */
             rc = 1;
             break;
-        case SSH_KEYTYPE_DSS_CERT01:
         case SSH_KEYTYPE_RSA_CERT01:
         case SSH_KEYTYPE_ECDSA_P256_CERT01:
         case SSH_KEYTYPE_ECDSA_P384_CERT01:
@@ -1204,9 +1009,6 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
         return NULL;
     }
     switch (EVP_PKEY_base_id(pkey)) {
-    case EVP_PKEY_DSA:
-        type = SSH_KEYTYPE_DSS;
-        break;
     case EVP_PKEY_RSA:
         type = SSH_KEYTYPE_RSA;
         break;
@@ -1305,199 +1107,6 @@ fail:
     ssh_key_free(key);
     SAFE_FREE(ed25519);
     return NULL;
-}
-
-int pki_privkey_build_dss(ssh_key key,
-                          ssh_string p,
-                          ssh_string q,
-                          ssh_string g,
-                          ssh_string pubkey,
-                          ssh_string privkey)
-{
-    int rc;
-    BIGNUM *bp, *bq, *bg, *bpub_key, *bpriv_key;
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    OSSL_PARAM_BLD *param_bld = OSSL_PARAM_BLD_new();
-    if (param_bld == NULL) {
-        return SSH_ERROR;
-    }
-#else
-    DSA *key_dsa = DSA_new();
-    if (key_dsa == NULL) {
-        return SSH_ERROR;
-    }
-#endif /* OPENSSL_VERSION_NUMBER */
-
-    bp = ssh_make_string_bn(p);
-    bq = ssh_make_string_bn(q);
-    bg = ssh_make_string_bn(g);
-    bpub_key = ssh_make_string_bn(pubkey);
-    bpriv_key = ssh_make_string_bn(privkey);
-    if (bp == NULL || bq == NULL ||
-        bg == NULL || bpub_key == NULL) {
-        rc = SSH_ERROR;
-        goto fail;
-    }
-
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-    /* Memory management of bp, qq and bg is transferred to DSA object */
-    rc = DSA_set0_pqg(key_dsa, bp, bq, bg);
-    if (rc == 0) {
-        goto fail;
-    }
-
-    /* Memory management of bpub_key and bpriv_key is transferred to DSA object */
-    rc = DSA_set0_key(key_dsa, bpub_key, bpriv_key);
-    if (rc == 0) {
-        goto fail;
-    }
-
-    key->key = EVP_PKEY_new();
-    if (key->key == NULL) {
-        goto fail;
-    }
-
-    rc = EVP_PKEY_assign_DSA(key->key, key_dsa);
-    if (rc != 1) {
-        goto fail;
-    }
-
-    return SSH_OK;
-fail:
-    EVP_PKEY_free(key->key);
-    DSA_free(key_dsa);
-    return SSH_ERROR;
-#else
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_P, bp);
-    if (rc != 1) {
-        rc = SSH_ERROR;
-        goto fail;
-    }
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_Q, bq);
-    if (rc != 1) {
-        rc = SSH_ERROR;
-        goto fail;
-    }
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_G, bg);
-    if (rc != 1) {
-        rc = SSH_ERROR;
-        goto fail;
-    }
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_PUB_KEY, bpub_key);
-    if (rc != 1) {
-        rc = SSH_ERROR;
-        goto fail;
-    }
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_PRIV_KEY, bpriv_key);
-    if (rc != 1) {
-        rc = SSH_ERROR;
-        goto fail;
-    }
-
-    rc = evp_build_pkey("DSA", param_bld, &(key->key), EVP_PKEY_KEYPAIR);
-
-fail:
-    OSSL_PARAM_BLD_free(param_bld);
-    bignum_safe_free(bp);
-    bignum_safe_free(bq);
-    bignum_safe_free(bg);
-    bignum_safe_free(bpub_key);
-    bignum_safe_free(bpriv_key);
-
-    return rc;
-#endif /* OPENSSL_VERSION_NUMBER */
-}
-
-int pki_pubkey_build_dss(ssh_key key,
-                         ssh_string p,
-                         ssh_string q,
-                         ssh_string g,
-                         ssh_string pubkey) {
-    int rc;
-    BIGNUM *bp = NULL, *bq = NULL, *bg = NULL, *bpub_key = NULL;
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-    OSSL_PARAM_BLD *param_bld = OSSL_PARAM_BLD_new();
-    if (param_bld == NULL) {
-        return SSH_ERROR;
-    }
-#else
-    DSA *key_dsa = DSA_new();
-    if (key_dsa == NULL) {
-        return SSH_ERROR;
-    }
-#endif /* OPENSSL_VERSION_NUMBER */
-
-    bp = ssh_make_string_bn(p);
-    bq = ssh_make_string_bn(q);
-    bg = ssh_make_string_bn(g);
-    bpub_key = ssh_make_string_bn(pubkey);
-    if (bp == NULL || bq == NULL ||
-        bg == NULL || bpub_key == NULL) {
-        rc = SSH_ERROR;
-        goto fail;
-    }
-
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-    /* Memory management of bp, bq and bg is transferred to DSA object */
-    rc = DSA_set0_pqg(key_dsa, bp, bq, bg);
-    if (rc == 0) {
-        goto fail;
-    }
-
-    /* Memory management of npub_key is transferred to DSA object */
-    rc = DSA_set0_key(key_dsa, bpub_key, NULL);
-    if (rc == 0) {
-        goto fail;
-    }
-
-    key->key = EVP_PKEY_new();
-    if (key->key == NULL) {
-        goto fail;
-    }
-
-    rc = EVP_PKEY_assign_DSA(key->key, key_dsa);
-    if (rc != 1) {
-        goto fail;
-    }
-
-    return SSH_OK;
-fail:
-    EVP_PKEY_free(key->key);
-    DSA_free(key_dsa);
-    return SSH_ERROR;
-#else
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_P, bp);
-    if (rc != 1) {
-        rc = SSH_ERROR;
-        goto fail;
-    }
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_Q, bq);
-    if (rc != 1) {
-        rc = SSH_ERROR;
-        goto fail;
-    }
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_G, bg);
-    if (rc != 1) {
-        rc = SSH_ERROR;
-        goto fail;
-    }
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_PUB_KEY, bpub_key);
-    if (rc != 1) {
-        rc = SSH_ERROR;
-        goto fail;
-    }
-
-    rc = evp_build_pkey("DSA", param_bld, &(key->key), EVP_PKEY_PUBLIC_KEY);
-
-fail:
-    OSSL_PARAM_BLD_free(param_bld);
-    bignum_safe_free(bp);
-    bignum_safe_free(bq);
-    bignum_safe_free(bg);
-    bignum_safe_free(bpub_key);
-
-    return rc;
-#endif /* OPENSSL_VERSION_NUMBER */
 }
 
 int pki_privkey_build_rsa(ssh_key key,
@@ -1730,110 +1339,6 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
     }
 
     switch (key->type) {
-        case SSH_KEYTYPE_DSS: {
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-            const BIGNUM *bp, *bq, *bg, *bpub_key;
-            const DSA *key_dsa = EVP_PKEY_get0_DSA(key->key);
-            DSA_get0_pqg(key_dsa, &bp, &bq, &bg);
-            DSA_get0_key(key_dsa, &bpub_key, NULL);
-#else
-            const OSSL_PARAM *out_param = NULL;
-            rc = EVP_PKEY_todata(key->key, EVP_PKEY_PUBLIC_KEY, &params);
-            if (rc != 1) {
-                goto fail;
-            }
-            out_param = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_FFC_P);
-            if (out_param == NULL) {
-                SSH_LOG(SSH_LOG_TRACE, "DSA: No param P has been found");
-                goto fail;
-            }
-            rc = OSSL_PARAM_get_BN(out_param, &bp);
-            if (rc != 1) {
-                goto fail;
-            }
-            out_param = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_FFC_Q);
-            if (out_param == NULL) {
-                SSH_LOG(SSH_LOG_TRACE, "DSA: No param Q has been found");
-                goto fail;
-            }
-            rc = OSSL_PARAM_get_BN(out_param, &bq);
-            if (rc != 1) {
-                goto fail;
-            }
-            out_param = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_FFC_G);
-            if (out_param == NULL) {
-                SSH_LOG(SSH_LOG_TRACE, "DSA: No param G has been found");
-                goto fail;
-            }
-            rc = OSSL_PARAM_get_BN(out_param, &bg);
-            if (rc != 1) {
-                goto fail;
-            }
-            out_param = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_PUB_KEY);
-            if (out_param == NULL) {
-                SSH_LOG(SSH_LOG_TRACE, "DSA: No param PUB_KEY has been found");
-                goto fail;
-            }
-            rc = OSSL_PARAM_get_BN(out_param, &bpub_key);
-            if (rc != 1) {
-                goto fail;
-            }
-#endif /* OPENSSL_VERSION_NUMBER */
-            p = ssh_make_bignum_string((BIGNUM *)bp);
-            if (p == NULL) {
-                goto fail;
-            }
-
-            q = ssh_make_bignum_string((BIGNUM *)bq);
-            if (q == NULL) {
-                goto fail;
-            }
-
-            g = ssh_make_bignum_string((BIGNUM *)bg);
-            if (g == NULL) {
-                goto fail;
-            }
-
-            n = ssh_make_bignum_string((BIGNUM *)bpub_key);
-            if (n == NULL) {
-                goto fail;
-            }
-
-            if (ssh_buffer_add_ssh_string(buffer, p) < 0) {
-                goto fail;
-            }
-            if (ssh_buffer_add_ssh_string(buffer, q) < 0) {
-                goto fail;
-            }
-            if (ssh_buffer_add_ssh_string(buffer, g) < 0) {
-                goto fail;
-            }
-            if (ssh_buffer_add_ssh_string(buffer, n) < 0) {
-                goto fail;
-            }
-
-            ssh_string_burn(p);
-            SSH_STRING_FREE(p);
-            p = NULL;
-            ssh_string_burn(g);
-            SSH_STRING_FREE(g);
-            g = NULL;
-            ssh_string_burn(q);
-            SSH_STRING_FREE(q);
-            q = NULL;
-            ssh_string_burn(n);
-            SSH_STRING_FREE(n);
-            n = NULL;
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-            bignum_safe_free(bp);
-            bignum_safe_free(bq);
-            bignum_safe_free(bg);
-            bignum_safe_free(bpub_key);
-            OSSL_PARAM_free(params);
-#endif /* OPENSSL_VERSION_NUMBER */
-
-            break;
-        }
         case SSH_KEYTYPE_RSA:
         case SSH_KEYTYPE_RSA1: {
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
@@ -2057,92 +1562,6 @@ fail:
     return NULL;
 }
 
-static ssh_string pki_dsa_signature_to_blob(const ssh_signature sig)
-{
-    char buffer[40] = { 0 };
-    ssh_string sig_blob = NULL;
-    const BIGNUM *pr = NULL, *ps = NULL;
-
-    ssh_string r = NULL;
-    size_t r_len, r_offset_in, r_offset_out;
-
-    ssh_string s = NULL;
-    size_t s_len, s_offset_in, s_offset_out;
-
-    const unsigned char *raw_sig_data = NULL;
-    size_t raw_sig_len;
-    int rc;
-
-    DSA_SIG *dsa_sig;
-
-    if (sig == NULL || sig->raw_sig == NULL) {
-        return NULL;
-    }
-    raw_sig_data = ssh_string_data(sig->raw_sig);
-    if (raw_sig_data == NULL) {
-        return NULL;
-    }
-    raw_sig_len = ssh_string_len(sig->raw_sig);
-
-    dsa_sig = d2i_DSA_SIG(NULL, &raw_sig_data, raw_sig_len);
-    if (dsa_sig == NULL) {
-        return NULL;
-    }
-
-    DSA_SIG_get0(dsa_sig, &pr, &ps);
-    if (pr == NULL || ps == NULL) {
-        goto error;
-    }
-
-    r = ssh_make_bignum_string((BIGNUM *)pr);
-    if (r == NULL) {
-        goto error;
-    }
-
-    s = ssh_make_bignum_string((BIGNUM *)ps);
-    if (s == NULL) {
-        goto error;
-    }
-
-    r_len = ssh_string_len(r);
-    r_offset_in  = (r_len > 20) ? (r_len - 20) : 0;
-    r_offset_out = (r_len < 20) ? (20 - r_len) : 0;
-
-    s_len = ssh_string_len(s);
-    s_offset_in  = (s_len > 20) ? (s_len - 20) : 0;
-    s_offset_out = (s_len < 20) ? (20 - s_len) : 0;
-
-    memcpy(buffer + r_offset_out,
-           ((char *)ssh_string_data(r)) + r_offset_in,
-           r_len - r_offset_in);
-    memcpy(buffer + 20 + s_offset_out,
-           ((char *)ssh_string_data(s)) + s_offset_in,
-           s_len - s_offset_in);
-
-    DSA_SIG_free(dsa_sig);
-    SSH_STRING_FREE(r);
-    SSH_STRING_FREE(s);
-
-    sig_blob = ssh_string_new(40);
-    if (sig_blob == NULL) {
-        return NULL;
-    }
-
-    rc = ssh_string_fill(sig_blob, buffer, 40);
-    if (rc < 0) {
-        SSH_STRING_FREE(sig_blob);
-        return NULL;
-    }
-
-    return sig_blob;
-
-error:
-    DSA_SIG_free(dsa_sig);
-    SSH_STRING_FREE(r);
-    SSH_STRING_FREE(s);
-    return NULL;
-}
-
 static ssh_string pki_ecdsa_signature_to_blob(const ssh_signature sig)
 {
     ssh_string r = NULL;
@@ -2235,9 +1654,6 @@ ssh_string pki_signature_to_blob(const ssh_signature sig)
     ssh_string sig_blob = NULL;
 
     switch(sig->type) {
-        case SSH_KEYTYPE_DSS:
-            sig_blob = pki_dsa_signature_to_blob(sig);
-            break;
         case SSH_KEYTYPE_RSA:
         case SSH_KEYTYPE_RSA1:
             sig_blob = ssh_string_copy(sig->raw_sig);
@@ -2338,133 +1754,6 @@ static int pki_signature_from_rsa_blob(const ssh_key pubkey,
 
 errout:
     SSH_STRING_FREE(sig_blob_padded);
-    return SSH_ERROR;
-}
-
-static int pki_signature_from_dsa_blob(UNUSED_PARAM(const ssh_key pubkey),
-                                       const ssh_string sig_blob,
-                                       ssh_signature sig)
-{
-    DSA_SIG *dsa_sig = NULL;
-    BIGNUM *pr = NULL, *ps = NULL;
-
-    ssh_string r;
-    ssh_string s = NULL;
-
-    size_t len;
-
-    size_t raw_sig_len = 0;
-    unsigned char *raw_sig_data = NULL;
-    unsigned char *temp_raw_sig = NULL;
-
-    int rc;
-
-    len = ssh_string_len(sig_blob);
-
-    /* 40 is the dual signature blob len. */
-    if (len != 40) {
-        SSH_LOG(SSH_LOG_TRACE,
-                "Signature has wrong size: %lu",
-                (unsigned long)len);
-        goto error;
-    }
-
-#ifdef DEBUG_CRYPTO
-    ssh_log_hexdump("r", ssh_string_data(sig_blob), 20);
-    ssh_log_hexdump("s", (unsigned char *)ssh_string_data(sig_blob) + 20, 20);
-#endif /* DEBUG_CRYPTO */
-
-    r = ssh_string_new(20);
-    if (r == NULL) {
-        goto error;
-    }
-    rc = ssh_string_fill(r, ssh_string_data(sig_blob), 20);
-    if (rc < 0) {
-        SSH_STRING_FREE(r);
-        goto error;
-    }
-
-    pr = ssh_make_string_bn(r);
-    ssh_string_burn(r);
-    SSH_STRING_FREE(r);
-    if (pr == NULL) {
-        goto error;
-    }
-
-    s = ssh_string_new(20);
-    if (s == NULL) {
-        goto error;
-    }
-    rc = ssh_string_fill(s, (char *)ssh_string_data(sig_blob) + 20, 20);
-    if (rc < 0) {
-        SSH_STRING_FREE(s);
-        goto error;
-    }
-
-    ps = ssh_make_string_bn(s);
-    ssh_string_burn(s);
-    SSH_STRING_FREE(s);
-    if (ps == NULL) {
-        goto error;
-    }
-
-    dsa_sig = DSA_SIG_new();
-    if (dsa_sig == NULL) {
-        goto error;
-    }
-
-    /* Memory management of pr and ps is transferred to DSA signature
-     * object */
-    rc = DSA_SIG_set0(dsa_sig, pr, ps);
-    if (rc == 0) {
-        goto error;
-    }
-    ps = NULL;
-    pr = NULL;
-
-    /* Get the expected size of the buffer */
-    rc = i2d_DSA_SIG(dsa_sig, NULL);
-    if (rc <= 0) {
-        goto error;
-    }
-    raw_sig_len = rc;
-
-    raw_sig_data = (unsigned char *)calloc(1, raw_sig_len);
-    if (raw_sig_data == NULL) {
-        goto error;
-    }
-    temp_raw_sig = raw_sig_data;
-
-    /* It is necessary to use a temporary pointer as i2d_* "advances" the
-     * pointer */
-    raw_sig_len = i2d_DSA_SIG(dsa_sig, &temp_raw_sig);
-    if (raw_sig_len <= 0) {
-        goto error;
-    }
-
-    sig->raw_sig = ssh_string_new(raw_sig_len);
-    if (sig->raw_sig == NULL) {
-        explicit_bzero(raw_sig_data, raw_sig_len);
-        goto error;
-    }
-
-    rc = ssh_string_fill(sig->raw_sig, raw_sig_data, raw_sig_len);
-    if (rc < 0) {
-        explicit_bzero(raw_sig_data, raw_sig_len);
-        goto error;
-    }
-
-    explicit_bzero(raw_sig_data, raw_sig_len);
-    SAFE_FREE(raw_sig_data);
-    DSA_SIG_free(dsa_sig);
-
-    return SSH_OK;
-
-error:
-    bignum_safe_free(ps);
-    bignum_safe_free(pr);
-    SAFE_FREE(raw_sig_data);
-    DSA_SIG_free(dsa_sig);
     return SSH_ERROR;
 }
 
@@ -2632,12 +1921,6 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
     sig->hash_type = hash_type;
 
     switch(type) {
-        case SSH_KEYTYPE_DSS:
-            rc = pki_signature_from_dsa_blob(pubkey, sig_blob, sig);
-            if (rc != SSH_OK) {
-                goto error;
-            }
-            break;
         case SSH_KEYTYPE_RSA:
         case SSH_KEYTYPE_RSA1:
             rc = pki_signature_from_rsa_blob(pubkey, sig_blob, sig);
@@ -2715,8 +1998,6 @@ static EVP_PKEY *pki_key_to_pkey(ssh_key key)
     int rc = 0;
 
     switch (key->type) {
-    case SSH_KEYTYPE_DSS:
-    case SSH_KEYTYPE_DSS_CERT01:
     case SSH_KEYTYPE_RSA:
     case SSH_KEYTYPE_RSA1:
     case SSH_KEYTYPE_RSA_CERT01:
@@ -3017,8 +2298,6 @@ int ssh_key_size(ssh_key key)
     EVP_PKEY *pkey = NULL;
 
     switch (key->type) {
-    case SSH_KEYTYPE_DSS:
-    case SSH_KEYTYPE_DSS_CERT01:
     case SSH_KEYTYPE_RSA:
     case SSH_KEYTYPE_RSA_CERT01:
     case SSH_KEYTYPE_RSA1:
@@ -3043,6 +2322,8 @@ int ssh_key_size(ssh_key key)
     case SSH_KEYTYPE_SK_ED25519_CERT01:
         /* ed25519 keys have fixed size */
         return 255;
+    case SSH_KEYTYPE_DSS:   /* deprecated */
+    case SSH_KEYTYPE_DSS_CERT01:    /* deprecated */
     case SSH_KEYTYPE_UNKNOWN:
     default:
         return SSH_ERROR;

@@ -36,7 +36,6 @@ struct server_state_st {
     int  port;
 
     char *ecdsa_key;
-    char *dsa_key;
     char *ed25519_key;
     char *rsa_key;
     char *host_key;

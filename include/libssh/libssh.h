@@ -272,12 +272,12 @@ enum ssh_error_types_e {
 /* some types for keys */
 enum ssh_keytypes_e{
   SSH_KEYTYPE_UNKNOWN=0,
-  SSH_KEYTYPE_DSS=1,
+  SSH_KEYTYPE_DSS=1, /* deprecated */
   SSH_KEYTYPE_RSA,
   SSH_KEYTYPE_RSA1,
   SSH_KEYTYPE_ECDSA, /* deprecated */
   SSH_KEYTYPE_ED25519,
-  SSH_KEYTYPE_DSS_CERT01,
+  SSH_KEYTYPE_DSS_CERT01, /* deprecated */
   SSH_KEYTYPE_RSA_CERT01,
   SSH_KEYTYPE_ECDSA_P256,
   SSH_KEYTYPE_ECDSA_P384,

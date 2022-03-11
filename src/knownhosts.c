@@ -482,13 +482,6 @@ static const char *ssh_known_host_sigs_from_hostkey_type(enum ssh_keytypes_e typ
         return "ssh-ed25519";
     case SSH_KEYTYPE_SK_ED25519:
         return "sk-ssh-ed25519@openssh.com";
-#ifdef HAVE_DSA
-    case SSH_KEYTYPE_DSS:
-        return "ssh-dss";
-#else
-        SSH_LOG(SSH_LOG_WARN, "DSS keys are not supported by this build");
-        break;
-#endif
 #ifdef HAVE_ECC
     case SSH_KEYTYPE_ECDSA_P256:
         return "ecdsa-sha2-nistp256";

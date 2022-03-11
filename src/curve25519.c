@@ -381,7 +381,7 @@ static SSH_PACKET_CALLBACK(ssh_packet_server_curve25519_init){
     ssh_string q_s_string = NULL;
     ssh_string server_pubkey_blob = NULL;
 
-    /* SSH host keys (rsa,dsa,ecdsa) */
+    /* SSH host keys (rsa, ed25519 and ecdsa) */
     ssh_key privkey = NULL;
     enum ssh_digest_e digest = SSH_DIGEST_AUTO;
     ssh_string sig_blob = NULL;

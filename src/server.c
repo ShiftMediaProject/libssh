@@ -113,15 +113,6 @@ int server_set_kex(ssh_session session)
                  ",%s", session->srv.ecdsa_key->type_c);
     }
 #endif
-#ifdef HAVE_DSA
-    if (session->srv.dsa_key != NULL) {
-        len = strlen(hostkeys);
-        keytype = ssh_key_type(session->srv.dsa_key);
-
-        snprintf(hostkeys + len, sizeof(hostkeys) - len,
-                 ",%s", ssh_key_type_to_char(keytype));
-    }
-#endif
     if (session->srv.rsa_key != NULL) {
         /* We support also the SHA2 variants */
         len = strlen(hostkeys);
@@ -282,9 +273,6 @@ ssh_get_key_params(ssh_session session,
     int rc;
 
     switch(session->srv.hostkey) {
-      case SSH_KEYTYPE_DSS:
-        *privkey = session->srv.dsa_key;
-        break;
       case SSH_KEYTYPE_RSA:
         *privkey = session->srv.rsa_key;
         break;

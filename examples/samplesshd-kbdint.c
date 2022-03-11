@@ -113,14 +113,6 @@ static struct argp_option options[] = {
     .group = 0
   },
   {
-    .name  = "dsakey",
-    .key   = 'd',
-    .arg   = "FILE",
-    .flags = 0,
-    .doc   = "Set the dsa key.",
-    .group = 0
-  },
-  {
     .name  = "rsakey",
     .key   = 'r',
     .arg   = "FILE",
@@ -150,9 +142,6 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
     case 'p':
       ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_BINDPORT_STR, arg);
       port = atoi(arg);
-      break;
-    case 'd':
-      ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_DSAKEY, arg);
       break;
     case 'k':
       ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY, arg);
@@ -306,8 +295,6 @@ int main(int argc, char **argv){
     sshbind=ssh_bind_new();
     session=ssh_new();
 
-    ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_DSAKEY,
-                                            KEYS_FOLDER "ssh_host_dsa_key");
     ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_RSAKEY,
                                             KEYS_FOLDER "ssh_host_rsa_key");
 

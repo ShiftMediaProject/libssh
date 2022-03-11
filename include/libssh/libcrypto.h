@@ -26,7 +26,6 @@
 #ifdef HAVE_LIBCRYPTO
 
 #include "libssh/libssh.h"
-#include <openssl/dsa.h>
 #include <openssl/rsa.h>
 #include <openssl/sha.h>
 #include <openssl/md5.h>

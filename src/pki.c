@@ -77,13 +77,6 @@ enum ssh_keytypes_e pki_privatekey_type_from_string(const char *privkey)
 {
     char *start = NULL;
 
-#ifdef HAVE_DSA
-    start = strstr(privkey, DSA_HEADER_BEGIN);
-    if (start != NULL) {
-        return SSH_KEYTYPE_DSS;
-    }
-#endif /* HAVE_DSA */
-
     start = strstr(privkey, RSA_HEADER_BEGIN);
     if (start != NULL) {
         return SSH_KEYTYPE_RSA;
@@ -208,9 +201,9 @@ void ssh_key_free (ssh_key key)
 /**
  * @brief returns the type of a ssh key
  * @param[in] key the ssh_key handle
- * @returns one of SSH_KEYTYPE_RSA, SSH_KEYTYPE_DSS,
+ * @returns one of SSH_KEYTYPE_RSA,
  *          SSH_KEYTYPE_ECDSA_P256, SSH_KEYTYPE_ECDSA_P384,
- *          SSH_KEYTYPE_ECDSA_P521, SSH_KEYTYPE_ED25519, SSH_KEYTYPE_DSS_CERT01,
+ *          SSH_KEYTYPE_ECDSA_P521, SSH_KEYTYPE_ED25519,
  *          SSH_KEYTYPE_RSA_CERT01, SSH_KEYTYPE_ECDSA_P256_CERT01,
  *          SSH_KEYTYPE_ECDSA_P384_CERT01, SSH_KEYTYPE_ECDSA_P521_CERT01, or
  *          SSH_KEYTYPE_ED25519_CERT01.
@@ -281,8 +274,6 @@ ssh_key_signature_to_char(enum ssh_keytypes_e type,
  */
 const char *ssh_key_type_to_char(enum ssh_keytypes_e type) {
   switch (type) {
-    case SSH_KEYTYPE_DSS:
-      return "ssh-dss";
     case SSH_KEYTYPE_RSA:
       return "ssh-rsa";
     case SSH_KEYTYPE_ECDSA:
@@ -295,8 +286,6 @@ const char *ssh_key_type_to_char(enum ssh_keytypes_e type) {
       return "ecdsa-sha2-nistp521";
     case SSH_KEYTYPE_ED25519:
       return "ssh-ed25519";
-    case SSH_KEYTYPE_DSS_CERT01:
-      return "ssh-dss-cert-v01@openssh.com";
     case SSH_KEYTYPE_RSA_CERT01:
       return "ssh-rsa-cert-v01@openssh.com";
     case SSH_KEYTYPE_ECDSA_P256_CERT01:
@@ -315,7 +304,9 @@ const char *ssh_key_type_to_char(enum ssh_keytypes_e type) {
       return "sk-ecdsa-sha2-nistp256-cert-v01@openssh.com";
     case SSH_KEYTYPE_SK_ED25519_CERT01:
       return "sk-ssh-ed25519-cert-v01@openssh.com";
+    case SSH_KEYTYPE_DSS:   /* deprecated */
     case SSH_KEYTYPE_RSA1:
+    case SSH_KEYTYPE_DSS_CERT01:    /* deprecated */
     case SSH_KEYTYPE_UNKNOWN:
       return NULL;
   }
@@ -332,8 +323,6 @@ enum ssh_digest_e ssh_key_hash_from_name(const char *name)
     }
 
     if (strcmp(name, "ssh-rsa") == 0) {
-        return SSH_DIGEST_SHA1;
-    } else if (strcmp(name, "ssh-dss") == 0) {
         return SSH_DIGEST_SHA1;
     } else if (strcmp(name, "rsa-sha2-256") == 0) {
         return SSH_DIGEST_SHA256;
@@ -450,9 +439,6 @@ enum ssh_digest_e ssh_key_type_to_hash(ssh_session session,
                                        enum ssh_keytypes_e type)
 {
     switch (type) {
-    case SSH_KEYTYPE_DSS_CERT01:
-    case SSH_KEYTYPE_DSS:
-        return SSH_DIGEST_SHA1;
     case SSH_KEYTYPE_RSA_CERT01:
         /* If we are talking to an old OpenSSH version which does not support
          * SHA2 in certificates */
@@ -494,6 +480,8 @@ enum ssh_digest_e ssh_key_type_to_hash(ssh_session session,
     case SSH_KEYTYPE_ED25519:
         return SSH_DIGEST_AUTO;
     case SSH_KEYTYPE_RSA1:
+    case SSH_KEYTYPE_DSS:   /* deprecated */
+    case SSH_KEYTYPE_DSS_CERT01:    /* deprecated */
     case SSH_KEYTYPE_ECDSA:
     case SSH_KEYTYPE_UNKNOWN:
     default:
@@ -576,12 +564,8 @@ enum ssh_keytypes_e ssh_key_type_from_name(const char *name)
 
     if (strcmp(name, "rsa") == 0) {
         return SSH_KEYTYPE_RSA;
-    } else if (strcmp(name, "dsa") == 0) {
-        return SSH_KEYTYPE_DSS;
     } else if (strcmp(name, "ssh-rsa") == 0) {
         return SSH_KEYTYPE_RSA;
-    } else if (strcmp(name, "ssh-dss") == 0) {
-        return SSH_KEYTYPE_DSS;
     } else if (strcmp(name, "ssh-ecdsa") == 0
             || strcmp(name, "ecdsa") == 0
             || strcmp(name, "ecdsa-sha2-nistp256") == 0) {
@@ -592,8 +576,6 @@ enum ssh_keytypes_e ssh_key_type_from_name(const char *name)
         return SSH_KEYTYPE_ECDSA_P521;
     } else if (strcmp(name, "ssh-ed25519") == 0){
         return SSH_KEYTYPE_ED25519;
-    } else if (strcmp(name, "ssh-dss-cert-v01@openssh.com") == 0) {
-        return SSH_KEYTYPE_DSS_CERT01;
     } else if (strcmp(name, "ssh-rsa-cert-v01@openssh.com") == 0) {
         return SSH_KEYTYPE_RSA_CERT01;
     } else if (strcmp(name, "ecdsa-sha2-nistp256-cert-v01@openssh.com") == 0) {
@@ -627,8 +609,6 @@ enum ssh_keytypes_e ssh_key_type_from_name(const char *name)
 enum ssh_keytypes_e ssh_key_type_plain(enum ssh_keytypes_e type)
 {
     switch (type) {
-        case SSH_KEYTYPE_DSS_CERT01:
-            return SSH_KEYTYPE_DSS;
         case SSH_KEYTYPE_RSA_CERT01:
             return SSH_KEYTYPE_RSA;
         case SSH_KEYTYPE_ECDSA_P256_CERT01:
@@ -747,11 +727,6 @@ void ssh_signature_free(ssh_signature sig)
     }
 
     switch(sig->type) {
-        case SSH_KEYTYPE_DSS:
-#ifdef HAVE_LIBGCRYPT
-            gcry_sexp_release(sig->dsa_sig);
-#endif /* HAVE_LIBGCRYPT */
-            break;
         case SSH_KEYTYPE_RSA:
 #ifdef HAVE_LIBGCRYPT
             gcry_sexp_release(sig->rsa_sig);
@@ -777,7 +752,8 @@ void ssh_signature_free(ssh_signature sig)
             SAFE_FREE(sig->ed25519_sig);
 #endif /* HAVE_LIBCRYPTO */
             break;
-        case SSH_KEYTYPE_DSS_CERT01:
+        case SSH_KEYTYPE_DSS:   /* deprecated */
+        case SSH_KEYTYPE_DSS_CERT01:    /* deprecated */
         case SSH_KEYTYPE_RSA_CERT01:
         case SSH_KEYTYPE_ECDSA_P256_CERT01:
         case SSH_KEYTYPE_ECDSA_P384_CERT01:
@@ -1115,8 +1091,6 @@ ssh_public_key ssh_pki_convert_key_to_publickey(const ssh_key key)
     pub->type_c = tmp->type_c;
 
 #ifndef HAVE_LIBCRYPTO
-    pub->dsa_pub = tmp->dsa;
-    tmp->dsa = NULL;
     pub->rsa_pub = tmp->rsa;
     tmp->rsa = NULL;
 #else
@@ -1141,7 +1115,6 @@ ssh_private_key ssh_pki_convert_key_to_privatekey(const ssh_key key)
 
     privkey->type = key->type;
 #ifndef HAVE_LIBCRYPTO
-    privkey->dsa_priv = key->dsa;
     privkey->rsa_priv = key->rsa;
 #else
     privkey->key_priv = key->key;
@@ -1167,46 +1140,6 @@ int pki_import_privkey_buffer(enum ssh_keytypes_e type,
     key->flags = SSH_KEY_FLAG_PRIVATE | SSH_KEY_FLAG_PUBLIC;
 
     switch (type) {
-        case SSH_KEYTYPE_DSS:
-            {
-                ssh_string p = NULL;
-                ssh_string q = NULL;
-                ssh_string g = NULL;
-                ssh_string pubkey = NULL;
-                ssh_string privkey = NULL;
-
-                rc = ssh_buffer_unpack(buffer, "SSSSS", &p, &q, &g,
-                                       &pubkey, &privkey);
-                if (rc != SSH_OK) {
-                    SSH_LOG(SSH_LOG_TRACE, "Unpack error");
-                    goto fail;
-                }
-
-                rc = pki_privkey_build_dss(key, p, q, g, pubkey, privkey);
-#ifdef DEBUG_CRYPTO
-                ssh_log_hexdump("p", ssh_string_data(p), ssh_string_len(p));
-                ssh_log_hexdump("q", ssh_string_data(q), ssh_string_len(q));
-                ssh_log_hexdump("g", ssh_string_data(g), ssh_string_len(g));
-                ssh_log_hexdump("pubkey", ssh_string_data(pubkey),
-                               ssh_string_len(pubkey));
-                ssh_log_hexdump("privkey", ssh_string_data(privkey),
-                               ssh_string_len(privkey));
-#endif /* DEBUG_CRYPTO */
-                ssh_string_burn(p);
-                SSH_STRING_FREE(p);
-                ssh_string_burn(q);
-                SSH_STRING_FREE(q);
-                ssh_string_burn(g);
-                SSH_STRING_FREE(g);
-                ssh_string_burn(pubkey);
-                SSH_STRING_FREE(pubkey);
-                ssh_string_burn(privkey);
-                SSH_STRING_FREE(privkey);
-                if (rc == SSH_ERROR) {
-                    goto fail;
-                }
-            }
-            break;
         case SSH_KEYTYPE_RSA:
             {
                 ssh_string n = NULL;
@@ -1309,7 +1242,6 @@ int pki_import_privkey_buffer(enum ssh_keytypes_e type,
                 }
             }
             break;
-        case SSH_KEYTYPE_DSS_CERT01:
         case SSH_KEYTYPE_RSA_CERT01:
         case SSH_KEYTYPE_ECDSA_P256_CERT01:
         case SSH_KEYTYPE_ECDSA_P384_CERT01:
@@ -1351,39 +1283,6 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
     key->flags = SSH_KEY_FLAG_PUBLIC;
 
     switch (type) {
-        case SSH_KEYTYPE_DSS:
-            {
-                ssh_string p = NULL;
-                ssh_string q = NULL;
-                ssh_string g = NULL;
-                ssh_string pubkey = NULL;
-
-                rc = ssh_buffer_unpack(buffer, "SSSS", &p, &q, &g, &pubkey);
-                if (rc != SSH_OK) {
-                    SSH_LOG(SSH_LOG_TRACE, "Unpack error");
-                    goto fail;
-                }
-
-                rc = pki_pubkey_build_dss(key, p, q, g, pubkey);
-#ifdef DEBUG_CRYPTO
-                ssh_log_hexdump("p", ssh_string_data(p), ssh_string_len(p));
-                ssh_log_hexdump("q", ssh_string_data(q), ssh_string_len(q));
-                ssh_log_hexdump("g", ssh_string_data(g), ssh_string_len(g));
-#endif /* DEBUG_CRYPTO */
-                ssh_string_burn(p);
-                SSH_STRING_FREE(p);
-                ssh_string_burn(q);
-                SSH_STRING_FREE(q);
-                ssh_string_burn(g);
-                SSH_STRING_FREE(g);
-                ssh_string_burn(pubkey);
-                SSH_STRING_FREE(pubkey);
-                if (rc == SSH_ERROR) {
-                    SSH_LOG(SSH_LOG_TRACE, "Failed to build DSA public key");
-                    goto fail;
-                }
-            }
-            break;
         case SSH_KEYTYPE_RSA:
             {
                 ssh_string e = NULL;
@@ -1494,7 +1393,6 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
             }
         }
         break;
-        case SSH_KEYTYPE_DSS_CERT01:
         case SSH_KEYTYPE_RSA_CERT01:
         case SSH_KEYTYPE_ECDSA_P256_CERT01:
         case SSH_KEYTYPE_ECDSA_P384_CERT01:
@@ -1562,9 +1460,6 @@ static int pki_import_cert_buffer(ssh_buffer buffer,
     SSH_STRING_FREE(tmp_s);
 
     switch (type) {
-        case SSH_KEYTYPE_DSS_CERT01:
-            rc = pki_import_pubkey_buffer(buffer, SSH_KEYTYPE_DSS, &key);
-            break;
         case SSH_KEYTYPE_RSA_CERT01:
             rc = pki_import_pubkey_buffer(buffer, SSH_KEYTYPE_RSA, &key);
             break;
@@ -1977,7 +1872,6 @@ int ssh_pki_import_cert_file(const char *filename, ssh_key *pkey)
  *
  * @param[in] parameter Parameter to the creation of key:
  *                      rsa : length of the key in bits (e.g. 1024, 2048, 4096)
- *                      dsa : length of the key in bits (e.g. 1024, 2048, 3072)
  * @param[out] pkey     A pointer to store the allocated private key. You need
  *                      to free the memory using ssh_key_free().
  *
@@ -2004,11 +1898,6 @@ int ssh_pki_generate(enum ssh_keytypes_e type, int parameter,
     switch(type){
         case SSH_KEYTYPE_RSA:
             rc = pki_key_generate_rsa(key, parameter);
-            if(rc == SSH_ERROR)
-                goto error;
-            break;
-        case SSH_KEYTYPE_DSS:
-            rc = pki_key_generate_dss(key, parameter);
             if(rc == SSH_ERROR)
                 goto error;
             break;
@@ -2047,7 +1936,6 @@ int ssh_pki_generate(enum ssh_keytypes_e type, int parameter,
                 goto error;
             }
             break;
-        case SSH_KEYTYPE_DSS_CERT01:
         case SSH_KEYTYPE_RSA_CERT01:
         case SSH_KEYTYPE_ECDSA_P256_CERT01:
         case SSH_KEYTYPE_ECDSA_P384_CERT01:
@@ -2441,17 +2329,6 @@ int pki_key_check_hash_compatible(ssh_key key,
     }
 
     switch(key->type) {
-    case SSH_KEYTYPE_DSS_CERT01:
-    case SSH_KEYTYPE_DSS:
-        if (hash_type == SSH_DIGEST_SHA1) {
-            if (ssh_fips_mode()) {
-                SSH_LOG(SSH_LOG_TRACE, "SHA1 is not allowed in FIPS mode");
-                return SSH_ERROR;
-            } else {
-                return SSH_OK;
-            }
-        }
-        break;
     case SSH_KEYTYPE_RSA_CERT01:
     case SSH_KEYTYPE_RSA:
         if (hash_type == SSH_DIGEST_SHA1) {
@@ -2497,6 +2374,8 @@ int pki_key_check_hash_compatible(ssh_key key,
             return SSH_OK;
         }
         break;
+    case SSH_KEYTYPE_DSS:   /* deprecated */
+    case SSH_KEYTYPE_DSS_CERT01:    /* deprecated */
     case SSH_KEYTYPE_RSA1:
     case SSH_KEYTYPE_ECDSA:
     case SSH_KEYTYPE_UNKNOWN:

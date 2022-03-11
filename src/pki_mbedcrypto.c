@@ -1874,36 +1874,6 @@ int pki_key_generate_ecdsa(ssh_key key, int parameter)
     return SSH_OK;
 }
 
-int pki_privkey_build_dss(ssh_key key, ssh_string p, ssh_string q, ssh_string g,
-        ssh_string pubkey, ssh_string privkey)
-{
-    (void) key;
-    (void) p;
-    (void) q;
-    (void) g;
-    (void) pubkey;
-    (void) privkey;
-    return SSH_ERROR;
-}
-
-int pki_pubkey_build_dss(ssh_key key, ssh_string p, ssh_string q, ssh_string g,
-        ssh_string pubkey)
-{
-    (void) key;
-    (void) p;
-    (void) q;
-    (void) g;
-    (void) pubkey;
-    return SSH_ERROR;
-}
-
-int pki_key_generate_dss(ssh_key key, int parameter)
-{
-    (void) key;
-    (void) parameter;
-    return SSH_ERROR;
-}
-
 int ssh_key_size(ssh_key key)
 {
     switch (key->type) {
@@ -1928,8 +1898,8 @@ int ssh_key_size(ssh_key key)
     case SSH_KEYTYPE_SK_ED25519_CERT01:
         /* ed25519 keys have fixed size */
         return 255;
-    case SSH_KEYTYPE_DSS:
-    case SSH_KEYTYPE_DSS_CERT01:
+    case SSH_KEYTYPE_DSS:   /* deprecated */
+    case SSH_KEYTYPE_DSS_CERT01:    /* deprecated */
     case SSH_KEYTYPE_UNKNOWN:
     default:
         return SSH_ERROR;

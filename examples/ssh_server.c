@@ -58,15 +58,10 @@ The goal is to show the API in action.
 
 static void set_default_keys(ssh_bind sshbind,
                              int rsa_already_set,
-                             int dsa_already_set,
                              int ecdsa_already_set) {
     if (!rsa_already_set) {
         ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_RSAKEY,
                              KEYS_FOLDER "ssh_host_rsa_key");
-    }
-    if (!dsa_already_set) {
-        ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_DSAKEY,
-                             KEYS_FOLDER "ssh_host_dsa_key");
     }
     if (!ecdsa_already_set) {
         ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_ECDSAKEY,
@@ -107,14 +102,6 @@ static struct argp_option options[] = {
         .flags = 0,
         .doc   = "Set a host key.  Can be used multiple times.  "
                  "Implies no default keys.",
-        .group = 0
-    },
-    {
-        .name  = "dsakey",
-        .key   = 'd',
-        .arg   = "FILE",
-        .flags = 0,
-        .doc   = "Set the dsa key.",
         .group = 0
     },
     {
@@ -182,7 +169,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
      * know is a pointer to our arguments structure. */
     ssh_bind sshbind = state->input;
     static int no_default_keys = 0;
-    static int rsa_already_set = 0, dsa_already_set = 0, ecdsa_already_set = 0;
+    static int rsa_already_set = 0, ecdsa_already_set = 0;
 
     switch (key) {
         case 'n':
@@ -190,10 +177,6 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
             break;
         case 'p':
             ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_BINDPORT_STR, arg);
-            break;
-        case 'd':
-            ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_DSAKEY, arg);
-            dsa_already_set = 1;
             break;
         case 'k':
             ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY, arg);
@@ -239,7 +222,6 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
             if (!no_default_keys) {
                 set_default_keys(sshbind,
                                  rsa_already_set,
-                                 dsa_already_set,
                                  ecdsa_already_set);
             }
 
@@ -256,18 +238,14 @@ static struct argp argp = {options, parse_opt, args_doc, doc, NULL, NULL, NULL};
 static int parse_opt(int argc, char **argv, ssh_bind sshbind) {
     int no_default_keys = 0;
     int rsa_already_set = 0;
-    int dsa_already_set = 0;
     int ecdsa_already_set = 0;
     int key;
 
-    while((key = getopt(argc, argv, "a:d:e:k:np:P:r:u:v")) != -1) {
+    while((key = getopt(argc, argv, "a:e:k:np:P:r:u:v")) != -1) {
         if (key == 'n') {
             no_default_keys = 1;
         } else if (key == 'p') {
             ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_BINDPORT_STR, optarg);
-        } else if (key == 'd') {
-            ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_DSAKEY, optarg);
-            dsa_already_set = 1;
         } else if (key == 'k') {
             ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY, optarg);
             /* We can't track the types of keys being added with this
@@ -299,7 +277,6 @@ static int parse_opt(int argc, char **argv, ssh_bind sshbind) {
                "libssh %s -- a Secure Shell protocol implementation\n"
                "\n"
                "  -a, --authorizedkeys=FILE  Set the authorized keys file.\n"
-               "  -d, --dsakey=FILE          Set the dsa key.\n"
                "  -e, --ecdsakey=FILE        Set the ecdsa key.\n"
                "  -k, --hostkey=FILE         Set a host key.  Can be used multiple times.\n"
                "                             Implies no default keys.\n"
@@ -329,7 +306,6 @@ static int parse_opt(int argc, char **argv, ssh_bind sshbind) {
     if (!no_default_keys) {
         set_default_keys(sshbind,
                          rsa_already_set,
-                         dsa_already_set,
                          ecdsa_already_set);
     }
 

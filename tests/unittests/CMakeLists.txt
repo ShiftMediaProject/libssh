@@ -45,6 +45,7 @@ if (UNIX AND NOT WIN32)
         torture_keyfiles
         torture_pki
         torture_pki_rsa
+        torture_pki_dsa
         torture_pki_ed25519
         # requires /dev/null
         torture_channel
@@ -60,14 +61,6 @@ if (UNIX AND NOT WIN32)
                 ${LIBSSH_UNIT_TESTS}
                 torture_moduli)
         endif()
-    endif()
-
-
-    if (HAVE_DSA)
-        set(LIBSSH_UNIT_TESTS
-            ${LIBSSH_UNIT_TESTS}
-            torture_pki_dsa
-        )
     endif()
 
     if (WITH_PKCS11_URI)

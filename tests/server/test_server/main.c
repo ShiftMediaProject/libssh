@@ -45,7 +45,6 @@ struct arguments_st {
     char *port;
 
     char *ecdsa_key;
-    char *dsa_key;
     char *ed25519_key;
     char *rsa_key;
     char *host_key;
@@ -74,7 +73,6 @@ static void free_arguments(struct arguments_st *arguments)
     SAFE_FREE(arguments->port);
 
     SAFE_FREE(arguments->ecdsa_key);
-    SAFE_FREE(arguments->dsa_key);
     SAFE_FREE(arguments->ed25519_key);
     SAFE_FREE(arguments->rsa_key);
     SAFE_FREE(arguments->host_key);
@@ -153,8 +151,6 @@ static void print_server_state(struct server_state_st *state)
         printf("=================================================\n");
         printf("ecdsa_key = %s\n",
                 state->ecdsa_key? state->ecdsa_key: "NULL");
-        printf("dsa_key = %s\n",
-                state->dsa_key? state->dsa_key: "NULL");
         printf("ed25519_key = %s\n",
                 state->ed25519_key? state->ed25519_key: "NULL");
         printf("rsa_key = %s\n",
@@ -216,13 +212,6 @@ static int init_server_state(struct server_state_st *state,
         arguments->ecdsa_key = NULL;
     } else {
         state->ecdsa_key = NULL;
-    }
-
-    if (arguments->dsa_key) {
-        state->dsa_key = arguments->dsa_key;
-        arguments->dsa_key = NULL;
-    } else {
-        state->dsa_key = NULL;
     }
 
     if (arguments->ed25519_key) {
@@ -364,14 +353,6 @@ static struct argp_option options[] = {
         .group = 0
     },
     {
-        .name  = "dsakey",
-        .key   = 'd',
-        .arg   = "FILE",
-        .flags = 0,
-        .doc   = "Set the DSA key.",
-        .group = 0
-    },
-    {
         .name  = "ed25519key",
         .key   = 'e',
         .arg   = "FILE",
@@ -481,14 +462,6 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
     case 'c':
         arguments->ecdsa_key = strdup(arg);
         if (arguments->ecdsa_key == NULL) {
-            fprintf(stderr, "Out of memory\n");
-            rc = ENOMEM;
-            goto end;
-        }
-        break;
-    case 'd':
-        arguments->dsa_key = strdup(arg);
-        if (arguments->dsa_key == NULL) {
             fprintf(stderr, "Out of memory\n");
             rc = ENOMEM;
             goto end;
