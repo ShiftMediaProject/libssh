@@ -1161,7 +1161,7 @@ size_t ssh_packet_socket_callback(const void *data, size_t receivedlen, void *us
             if (packet_len > MAX_PACKET_LEN) {
                 ssh_set_error(session,
                               SSH_FATAL,
-                              "read_packet(): Packet len too high(%u %.4x)",
+                              "read_packet(): Packet len too high(%" PRIu32 " %.4" PRIx32 ")",
                               packet_len, packet_len);
                 goto error;
             }
@@ -1187,7 +1187,7 @@ size_t ssh_packet_socket_callback(const void *data, size_t receivedlen, void *us
                     /* give up, not enough data in buffer */
                     SSH_LOG(SSH_LOG_PACKET,
                             "packet: partial packet (read len) "
-                            "[len=%d, receivedlen=%d, to_be_read=%ld]",
+                            "[len=%" PRId32 ", receivedlen=%d, to_be_read=%ld]",
                             packet_len,
                             (int)receivedlen,
                             to_be_read);
@@ -1286,7 +1286,7 @@ size_t ssh_packet_socket_callback(const void *data, size_t receivedlen, void *us
             if (padding > ssh_buffer_get_len(session->in_buffer)) {
                 ssh_set_error(session,
                               SSH_FATAL,
-                              "Invalid padding: %d (%d left)",
+                              "Invalid padding: %d (%" PRId32 " left)",
                               padding,
                               ssh_buffer_get_len(session->in_buffer));
                 goto error;
@@ -1324,7 +1324,7 @@ size_t ssh_packet_socket_callback(const void *data, size_t receivedlen, void *us
             session->packet_state = PACKET_STATE_PROCESSING;
             ssh_packet_parse_type(session);
             SSH_LOG(SSH_LOG_PACKET,
-                    "packet: read type %hhd [len=%d,padding=%hhd,comp=%d,payload=%d]",
+                    "packet: read type %hhd [len=%" PRId32 ",padding=%hhd,comp=%" PRId32 ",payload=%" PRId32 "]",
                     session->in_packet.type, packet_len, padding, compsize, payloadsize);
 
             /* Check if the packet is expected */
@@ -1548,7 +1548,7 @@ SSH_PACKET_CALLBACK(ssh_packet_unimplemented){
     }
 
     SSH_LOG(SSH_LOG_RARE,
-            "Received SSH_MSG_UNIMPLEMENTED (sequence number %d)",seq);
+            "Received SSH_MSG_UNIMPLEMENTED (sequence number %" PRId32 ")",seq);
 
     return SSH_PACKET_USED;
 }
@@ -1714,8 +1714,8 @@ static int packet_send2(ssh_session session)
     }
 
     SSH_LOG(SSH_LOG_PACKET,
-            "packet: wrote [type=%u, len=%u, padding_size=%hhd, comp=%u, "
-            "payload=%u]",
+            "packet: wrote [type=%u, len=%" PRIu32 ", padding_size=%hhd, comp=%" PRIu32 ", "
+            "payload=%" PRIu32 "]",
             type,
             finallen,
             padding_size,

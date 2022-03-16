@@ -290,7 +290,7 @@ int sftp_server_init(sftp_session sftp){
 
   ssh_buffer_get_u32(packet->payload, &version);
   version = ntohl(version);
-  SSH_LOG(SSH_LOG_PACKET, "Client version: %d", version);
+  SSH_LOG(SSH_LOG_PACKET, "Client version: %" PRId32, version);
   sftp->client_version = (int)version;
 
   reply = ssh_buffer_new();
@@ -416,7 +416,7 @@ int sftp_packet_write(sftp_session sftp, uint8_t type, ssh_buffer payload)
 
     if ((uint32_t)size != ssh_buffer_get_len(payload)) {
         SSH_LOG(SSH_LOG_PACKET,
-                "Had to write %d bytes, wrote only %d",
+                "Had to write %" PRId32 " bytes, wrote only %d",
                 ssh_buffer_get_len(payload),
                 size);
     }
@@ -614,7 +614,7 @@ static sftp_message sftp_get_message(sftp_packet packet)
     }
 
     SSH_LOG(SSH_LOG_PACKET,
-            "Packet with id %d type %d",
+            "Packet with id %" PRId32 " type %d",
             msg->id,
             msg->packet_type);
 
@@ -702,7 +702,7 @@ int sftp_init(sftp_session sftp) {
       return -1;
   }
   SSH_LOG(SSH_LOG_DEBUG,
-      "SFTP server version %d",
+      "SFTP server version %" PRId32,
       version);
   rc = ssh_buffer_unpack(packet->payload, "s", &ext_name);
   while (rc == SSH_OK) {
@@ -849,7 +849,7 @@ static int sftp_enqueue(sftp_session sftp, sftp_message msg) {
   }
 
   SSH_LOG(SSH_LOG_PACKET,
-      "Queued msg id %d type %d",
+      "Queued msg id %" PRId32 " type %d",
       msg->id, msg->packet_type);
 
   if(sftp->queue == NULL) {
@@ -890,7 +890,7 @@ static sftp_message sftp_dequeue(sftp_session sftp, uint32_t id){
       msg = queue->message;
       request_queue_free(queue);
       SSH_LOG(SSH_LOG_PACKET,
-          "Dequeued msg id %d type %d",
+          "Dequeued msg id %" PRId32 " type %d",
           msg->id,
           msg->packet_type);
       return msg;
@@ -1368,7 +1368,7 @@ static sftp_attributes sftp_parse_attr_3(sftp_session sftp, ssh_buffer buf,
         goto error;
     }
     SSH_LOG(SSH_LOG_DEBUG,
-            "Flags: %.8"PRIx32"\n", (uint32_t) attr->flags);
+            "Flags: %.8" PRIx32 "\n", attr->flags);
 
     if (attr->flags & SSH_FILEXFER_ATTR_SIZE) {
         rc = ssh_buffer_unpack(buf, "q", &attr->size);
@@ -1376,7 +1376,7 @@ static sftp_attributes sftp_parse_attr_3(sftp_session sftp, ssh_buffer buf,
             goto error;
         }
         SSH_LOG(SSH_LOG_DEBUG,
-                "Size: %"PRIu64"\n",
+                "Size: %" PRIu64 "\n",
                 (uint64_t) attr->size);
     }
 
@@ -1581,7 +1581,7 @@ sftp_attributes sftp_readdir(sftp_session sftp, sftp_dir dir)
         }
 
         SSH_LOG(SSH_LOG_PACKET,
-                "Sent a ssh_fxp_readdir with id %d", id);
+                "Sent a ssh_fxp_readdir with id %" PRId32, id);
 
         while (msg == NULL) {
             if (sftp_read_and_dispatch(sftp) < 0) {
@@ -1609,7 +1609,7 @@ sftp_attributes sftp_readdir(sftp_session sftp, sftp_dir dir)
                 }
 
                 ssh_set_error(sftp->session, SSH_FATAL,
-                        "Unknown error status: %d", status->status);
+                        "Unknown error status: %" PRId32, status->status);
                 status_msg_free(status);
 
                 return NULL;
@@ -1638,7 +1638,7 @@ sftp_attributes sftp_readdir(sftp_session sftp, sftp_dir dir)
         return NULL;
     }
 
-    SSH_LOG(SSH_LOG_DEBUG, "Count is %d", dir->count);
+    SSH_LOG(SSH_LOG_DEBUG, "Count is %" PRId32, dir->count);
 
     attr = sftp_parse_attr(sftp, dir->buffer, 1);
     if (attr == NULL) {
@@ -1824,7 +1824,7 @@ sftp_file sftp_open(sftp_session sftp,
     if ((flags & O_APPEND) == O_APPEND) {
         sftp_flags |= SSH_FXF_APPEND;
     }
-    SSH_LOG(SSH_LOG_PACKET,"Opening file %s with sftp flags %x",file,sftp_flags);
+    SSH_LOG(SSH_LOG_PACKET, "Opening file %s with sftp flags %" PRIx32, file, sftp_flags);
     id = sftp_get_new_id(sftp);
 
     rc = ssh_buffer_pack(buffer,
@@ -2125,7 +2125,7 @@ int sftp_async_read(sftp_file file, void *data, uint32_t size, uint32_t id){
       if (ssh_string_len(datastring) > size) {
         ssh_set_error(sftp->session, SSH_FATAL,
             "Received a too big DATA packet from sftp server: "
-            "%zu and asked for %u",
+            "%zu and asked for %" PRIu32,
             ssh_string_len(datastring), size);
         SSH_STRING_FREE(datastring);
         return SSH_ERROR;

@@ -480,7 +480,7 @@ static int ssh_retrieve_dhgroup_file(FILE *moduli,
                 line);
     } else {
         SSH_LOG(SSH_LOG_DEBUG,
-                "No moduli found for [%u:%u:%u]",
+                "No moduli found for [%" PRIu32 ":%" PRIu32 ":%" PRIu32 "]",
                 pmin,
                 pn,
                 pmax);
@@ -621,12 +621,12 @@ static SSH_PACKET_CALLBACK(ssh_packet_server_dhgex_request)
         ssh_set_error_invalid(session);
         goto error;
     }
-    SSH_LOG(SSH_LOG_DEBUG, "dh-gex: DHGEX_REQUEST[%u:%u:%u]", pmin, pn, pmax);
+    SSH_LOG(SSH_LOG_DEBUG, "dh-gex: DHGEX_REQUEST[%" PRIu32 ":%" PRIu32 ":%" PRIu32 "]", pmin, pn, pmax);
 
     if (pmin > pn || pn > pmax || pn > DH_PMAX || pmax < DH_PMIN) {
         ssh_set_error(session,
                       SSH_FATAL,
-                      "Invalid dh-gex arguments [%u:%u:%u]",
+                      "Invalid dh-gex arguments [%" PRIu32 ":%" PRIu32 ":%" PRIu32 "]",
                       pmin,
                       pn,
                       pmax);
@@ -653,7 +653,7 @@ static SSH_PACKET_CALLBACK(ssh_packet_server_dhgex_request)
     if (rc == SSH_ERROR) {
         ssh_set_error(session,
                       SSH_FATAL,
-                      "Couldn't find DH group for [%u:%u:%u]",
+                      "Couldn't find DH group for [%" PRIu32 ":%" PRIu32 ":%" PRIu32 "]",
                       pmin,
                       pn,
                       pmax);

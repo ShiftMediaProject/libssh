@@ -671,7 +671,7 @@ static int ssh_message_channel_request_reply_default(ssh_message msg) {
     channel = msg->channel_request.channel->remote_channel;
 
     SSH_LOG(SSH_LOG_PACKET,
-        "Sending a default channel_request denied to channel %d", channel);
+        "Sending a default channel_request denied to channel %" PRId32, channel);
 
     rc = ssh_buffer_pack(msg->session->out_buffer,
                          "bd",
