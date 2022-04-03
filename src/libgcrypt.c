@@ -286,12 +286,12 @@ static int blowfish_set_key(struct ssh_cipher_struct *cipher, void *key, void *I
 }
 
 static void blowfish_encrypt(struct ssh_cipher_struct *cipher, void *in,
-    void *out, unsigned long len) {
+    void *out, size_t len) {
   gcry_cipher_encrypt(cipher->key[0], out, len, in, len);
 }
 
 static void blowfish_decrypt(struct ssh_cipher_struct *cipher, void *in,
-    void *out, unsigned long len) {
+    void *out, size_t len) {
   gcry_cipher_decrypt(cipher->key[0], out, len, in, len);
 }
 #endif /* WITH_BLOWFISH_CIPHER */
@@ -553,12 +553,12 @@ static int des3_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
 }
 
 static void des3_encrypt(struct ssh_cipher_struct *cipher, void *in,
-    void *out, unsigned long len) {
+    void *out, size_t len) {
   gcry_cipher_encrypt(cipher->key[0], out, len, in, len);
 }
 
 static void des3_decrypt(struct ssh_cipher_struct *cipher, void *in,
-    void *out, unsigned long len) {
+    void *out, size_t len) {
   gcry_cipher_decrypt(cipher->key[0], out, len, in, len);
 }
 
