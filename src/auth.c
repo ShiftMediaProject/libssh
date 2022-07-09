@@ -906,6 +906,9 @@ int ssh_userauth_agent(ssh_session session,
 {
     int rc = SSH_AUTH_ERROR;
     struct ssh_agent_state_struct *state;
+    ssh_key *configKeys = NULL;
+    size_t configKeysCount = 0;
+    size_t i;
 
     if (session == NULL) {
         return SSH_AUTH_ERROR;
@@ -934,10 +937,92 @@ int ssh_userauth_agent(ssh_session session,
         return SSH_AUTH_DENIED;
     }
 
+    if (session->opts.identities_only) {
+        /*
+         * Read keys mentioned in the config, so we can check if key from agent
+         * is in there.
+         */
+        size_t identityLen = ssh_list_count(session->opts.identity);
+        struct ssh_iterator *it = ssh_list_get_iterator(session->opts.identity);
+
+        configKeys = malloc(identityLen * sizeof(configKeys[0]));
+        if (!configKeys) {
+            ssh_set_error_oom(session);
+            return SSH_AUTH_ERROR;
+        }
+
+        while (it != NULL && configKeysCount < identityLen) {
+            const char *privkeyFile = it->data;
+
+            /*
+             * Read the private key file listed in the config, but we're only
+             * interested in the public key. Don't try to decrypt private key.
+             */
+            ssh_key pubkey = NULL;
+            rc = ssh_pki_import_pubkey_file(privkeyFile, &pubkey);
+            if (rc == SSH_OK) {
+                configKeys[configKeysCount++] = pubkey;
+            } else {
+                char *pubkeyFile = NULL;
+                size_t pubkeyPathLen = strlen(privkeyFile) + sizeof(".pub");
+
+                if (pubkey) {
+                    ssh_key_free(pubkey);
+                }
+
+                /*
+                * If we couldn't get the public key from the private key file,
+                * try a .pub file instead.
+                */
+                pubkeyFile = malloc(pubkeyPathLen);
+                if (!pubkeyFile) {
+                    ssh_set_error_oom(session);
+                    rc = SSH_AUTH_ERROR;
+                    goto done;
+                }
+                snprintf(pubkeyFile, pubkeyPathLen, "%s.pub", privkeyFile);
+                rc = ssh_pki_import_pubkey_file(pubkeyFile, &pubkey);
+                if (rc == SSH_OK) {
+                    configKeys[configKeysCount++] = pubkey;
+                } else if (pubkey) {
+                    ssh_key_free(pubkey);
+                }
+                free(pubkeyFile);
+            }
+            it = it->next;
+        }
+    }
+
     while (state->pubkey != NULL) {
         if (state->state == SSH_AGENT_STATE_NONE) {
             SSH_LOG(SSH_LOG_DEBUG,
                     "Trying identity %s", state->comment);
+            if (session->opts.identities_only) {
+                /* Check if this key is one of the keys listed in the config */
+                bool found_key = false;
+                for (i = 0; i < configKeysCount; i++) {
+                    if (ssh_key_cmp(state->pubkey, configKeys[i],
+                                    SSH_KEY_CMP_PUBLIC) == 0) {
+                        found_key = true;
+                        break;
+                    }
+                }
+
+                if (!found_key) {
+                    SSH_LOG(SSH_LOG_DEBUG,
+                            "Identities only is enabled and identity %s was "
+                            "not listed in config, skipping", state->comment);
+                    SSH_STRING_FREE_CHAR(state->comment);
+                    state->comment = NULL;
+                    state->pubkey = ssh_agent_get_next_ident(
+                        session, &state->comment);
+
+                    if (state->pubkey == NULL) {
+                        rc = SSH_AUTH_DENIED;
+                    }
+                    continue;
+                }
+            }
         }
         if (state->state == SSH_AGENT_STATE_NONE ||
                 state->state == SSH_AGENT_STATE_PUBKEY) {
@@ -945,10 +1030,10 @@ int ssh_userauth_agent(ssh_session session,
             if (rc == SSH_AUTH_ERROR) {
                 ssh_agent_state_free (state);
                 session->agent_state = NULL;
-                return rc;
+                goto done;
             } else if (rc == SSH_AUTH_AGAIN) {
                 state->state = SSH_AGENT_STATE_PUBKEY;
-                return rc;
+                goto done;
             } else if (rc != SSH_AUTH_SUCCESS) {
                 SSH_LOG(SSH_LOG_DEBUG,
                         "Public key of %s refused by server", state->comment);
@@ -966,14 +1051,15 @@ int ssh_userauth_agent(ssh_session session,
         }
         if (state->state == SSH_AGENT_STATE_AUTH) {
             rc = ssh_userauth_agent_publickey(session, username, state->pubkey);
-            if (rc == SSH_AUTH_AGAIN)
-                return rc;
+            if (rc == SSH_AUTH_AGAIN) {
+                goto done;
+            }
             SSH_STRING_FREE_CHAR(state->comment);
             state->comment = NULL;
             if (rc == SSH_AUTH_ERROR || rc == SSH_AUTH_PARTIAL) {
                 ssh_agent_state_free (session->agent_state);
                 session->agent_state = NULL;
-                return rc;
+                goto done;
             } else if (rc != SSH_AUTH_SUCCESS) {
                 SSH_LOG(SSH_LOG_INFO,
                         "Server accepted public key but refused the signature");
@@ -984,12 +1070,18 @@ int ssh_userauth_agent(ssh_session session,
             }
             ssh_agent_state_free (session->agent_state);
             session->agent_state = NULL;
-            return SSH_AUTH_SUCCESS;
+            rc = SSH_AUTH_SUCCESS;
+            goto done;
         }
     }
 
     ssh_agent_state_free (session->agent_state);
     session->agent_state = NULL;
+done:
+    for (i = 0; i < configKeysCount; i++) {
+        ssh_key_free(configKeys[i]);
+    }
+    free(configKeys);
     return rc;
 }
 

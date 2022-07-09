@@ -686,6 +686,120 @@ static void torture_auth_agent_nonblocking(void **state) {
     assert_ssh_return_code(session, rc);
 }
 
+static void torture_auth_agent_identities_only(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    char bob_ssh_key[1024];
+    struct passwd *pwd;
+    int rc;
+    int identities_only = 1;
+    char *id;
+
+    pwd = getpwnam("bob");
+    assert_non_null(pwd);
+
+    snprintf(bob_ssh_key,
+             sizeof(bob_ssh_key),
+             "%s/.ssh/id_rsa",
+             pwd->pw_dir);
+
+    if (!ssh_agent_is_running(session)){
+        print_message("*** Agent not running. Test ignored\n");
+        return;
+    }
+    rc = ssh_options_set(session, SSH_OPTIONS_USER, TORTURE_SSH_USER_ALICE);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_options_set(session, SSH_OPTIONS_IDENTITIES_ONLY, &identities_only);
+    assert_int_equal(rc, SSH_OK);
+
+    /* Remove the default identities */
+    while ((id = ssh_list_pop_head(char *, session->opts.identity)) != NULL) {
+        SAFE_FREE(id);
+    }
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_userauth_none(session, NULL);
+    /* This request should return a SSH_REQUEST_DENIED error */
+    if (rc == SSH_ERROR) {
+        assert_int_equal(ssh_get_error_code(session), SSH_REQUEST_DENIED);
+    }
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
+
+    /* Should fail as key is not in config */
+    rc = ssh_userauth_agent(session, NULL);
+    assert_ssh_return_code_equal(session, rc, SSH_AUTH_DENIED);
+
+    /* Re-add a key */
+    rc = ssh_list_append(session->opts.identity, strdup(bob_ssh_key));
+    assert_int_equal(rc, SSH_OK);
+
+    /* Should succeed as key now in config */
+    rc = ssh_userauth_agent(session, NULL);
+    assert_ssh_return_code(session, rc);
+}
+
+static void torture_auth_agent_identities_only_protected(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    char bob_ssh_key[1024];
+    struct passwd *pwd;
+    int rc;
+    int identities_only = 1;
+    char *id;
+
+    pwd = getpwnam("bob");
+    assert_non_null(pwd);
+
+    snprintf(bob_ssh_key,
+             sizeof(bob_ssh_key),
+             "%s/.ssh/id_rsa_protected",
+             pwd->pw_dir);
+
+    if (!ssh_agent_is_running(session)){
+        print_message("*** Agent not running. Test ignored\n");
+        return;
+    }
+    rc = ssh_options_set(session, SSH_OPTIONS_USER, TORTURE_SSH_USER_ALICE);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_options_set(session, SSH_OPTIONS_IDENTITIES_ONLY, &identities_only);
+    assert_int_equal(rc, SSH_OK);
+
+    /* Remove the default identities */
+    while ((id = ssh_list_pop_head(char *, session->opts.identity)) != NULL) {
+        SAFE_FREE(id);
+    }
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_userauth_none(session, NULL);
+    /* This request should return a SSH_REQUEST_DENIED error */
+    if (rc == SSH_ERROR) {
+        assert_int_equal(ssh_get_error_code(session), SSH_REQUEST_DENIED);
+    }
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
+
+    /* Should fail as key is not in config */
+    rc = ssh_userauth_agent(session, NULL);
+    assert_ssh_return_code_equal(session, rc, SSH_AUTH_DENIED);
+
+    /* Re-add a key */
+    rc = ssh_list_append(session->opts.identity, strdup(bob_ssh_key));
+    assert_int_equal(rc, SSH_OK);
+
+    /* Should succeed as key now in config */
+    rc = ssh_userauth_agent(session, NULL);
+    assert_ssh_return_code(session, rc);
+}
+
 static void torture_auth_cert(void **state) {
     struct torture_state *s = *state;
     ssh_session session = s->ssh.session;
@@ -1240,6 +1354,12 @@ int torture_run_tests(void) {
                                         agent_setup,
                                         agent_teardown),
         cmocka_unit_test_setup_teardown(torture_auth_agent_nonblocking,
+                                        agent_setup,
+                                        agent_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_agent_identities_only,
+                                        agent_setup,
+                                        agent_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_agent_identities_only_protected,
                                         agent_setup,
                                         agent_teardown),
         cmocka_unit_test_setup_teardown(torture_auth_cert,

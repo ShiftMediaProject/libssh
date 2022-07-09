@@ -1783,6 +1783,7 @@ int ssh_pki_import_pubkey_file(const char *filename, ssh_key *pkey)
     off_t size;
     int rc, cmp;
     char err_msg[SSH_ERRNO_MSG_MAX] = {0};
+    ssh_key priv_key = NULL;
 
     if (pkey == NULL || filename == NULL || *filename == '\0') {
         return SSH_ERROR;
@@ -1846,6 +1847,23 @@ int ssh_pki_import_pubkey_file(const char *filename, ssh_key *pkey)
         SAFE_FREE(key_buf);
         if (*pkey == NULL) {
             SSH_LOG(SSH_LOG_WARN, "Failed to import public key from OpenSSH"
+                                  " private key file");
+            return SSH_ERROR;
+        }
+        return SSH_OK;
+    }
+
+    /*
+     * Try to parse key as PEM. Set empty passphrase, so user won't be prompted
+     * for passphrase. Don't try to decrypt encrypted private key.
+     */
+    priv_key = pki_private_key_from_base64(key_buf, "", NULL, NULL);
+    if (priv_key) {
+        rc = ssh_pki_export_privkey_to_pubkey(priv_key, pkey);
+        ssh_key_free(priv_key);
+        SAFE_FREE(key_buf);
+        if (rc != SSH_OK) {
+            SSH_LOG(SSH_LOG_WARN, "Failed to import public key from PEM"
                                   " private key file");
             return SSH_ERROR;
         }

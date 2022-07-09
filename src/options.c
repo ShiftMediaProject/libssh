@@ -481,6 +481,11 @@ int ssh_options_set_algo(ssh_session session,
  *                Set the path to the SSH agent socket. If unset, the
  *                SSH_AUTH_SOCK environment is consulted.
  *                (const char *)
+
+ *              - SSH_OPTIONS_IDENTITIES_ONLY
+ *                Use only keys specified in the SSH config, even if agent
+ *                offers more.
+ *                (bool)
  *
  * @param  value The value to set. This is a generic pointer and the
  *               datatype which is used should be set according to the
@@ -1075,6 +1080,15 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                     ssh_set_error_oom(session);
                     return -1;
                 }
+            }
+            break;
+        case SSH_OPTIONS_IDENTITIES_ONLY:
+            if (value == NULL) {
+                ssh_set_error_invalid(session);
+                return -1;
+            } else {
+                bool *x = (bool *)value;
+                session->opts.identities_only = *x;
             }
             break;
         default:

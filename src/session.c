@@ -108,6 +108,7 @@ ssh_session ssh_new(void)
     session->opts.fd = -1;
     session->opts.compressionlevel = 7;
     session->opts.nodelay = 0;
+    session->opts.identities_only = false;
 
     session->opts.flags = SSH_OPT_FLAG_PASSWORD_AUTH |
                           SSH_OPT_FLAG_PUBKEY_AUTH |

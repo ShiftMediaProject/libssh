@@ -237,6 +237,7 @@ struct ssh_session_struct {
         uint64_t rekey_data;
         uint32_t rekey_time;
         int rsa_min_size;
+        bool identities_only;
     } opts;
     /* counters */
     ssh_counter socket_counter;

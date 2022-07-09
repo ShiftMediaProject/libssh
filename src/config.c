@@ -103,7 +103,7 @@ static struct ssh_config_keyword_table_s ssh_config_keyword_table[] = {
   { "hostbasedauthentication", SOC_UNSUPPORTED},
   { "hostbasedacceptedalgorithms", SOC_UNSUPPORTED},
   { "hostkeyalias", SOC_UNSUPPORTED},
-  { "identitiesonly", SOC_UNSUPPORTED},
+  { "identitiesonly", SOC_IDENTITIESONLY},
   { "identityagent", SOC_IDENTITYAGENT},
   { "ipqos", SOC_UNSUPPORTED},
   { "kbdinteractivedevices", SOC_UNSUPPORTED},
@@ -1177,6 +1177,13 @@ ssh_config_parse_line(ssh_session session,
       p = ssh_config_get_str_tok(&s, NULL);
       if (p && *parsing) {
           ssh_options_set(session, SSH_OPTIONS_IDENTITY_AGENT, p);
+      }
+      break;
+    case SOC_IDENTITIESONLY:
+      i = ssh_config_get_yesno(&s, -1);
+      if (i >= 0 && *parsing) {
+        bool b = i;
+        ssh_options_set(session, SSH_OPTIONS_IDENTITIES_ONLY, &b);
       }
       break;
     default:
