@@ -212,6 +212,14 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_open_conf){
 
   channel->state = SSH_CHANNEL_STATE_OPEN;
   channel->flags &= ~SSH_CHANNEL_FLAG_NOT_BOUND;
+
+  ssh_callbacks_execute_list(channel->callbacks,
+                             ssh_channel_callbacks,
+                             channel_open_response_function,
+                             channel->session,
+                             channel,
+                             true /* is_success */);
+
   return SSH_PACKET_USED;
 
 error:
@@ -261,6 +269,14 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_open_fail){
       error);
   SAFE_FREE(error);
   channel->state=SSH_CHANNEL_STATE_OPEN_DENIED;
+
+  ssh_callbacks_execute_list(channel->callbacks,
+                             ssh_channel_callbacks,
+                             channel_open_response_function,
+                             channel->session,
+                             channel,
+                             false /* is_success */);
+
   return SSH_PACKET_USED;
 
 error:
@@ -1713,6 +1729,12 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_success){
         channel->request_state);
   } else {
     channel->request_state=SSH_CHANNEL_REQ_STATE_ACCEPTED;
+
+    ssh_callbacks_execute_list(channel->callbacks,
+                               ssh_channel_callbacks,
+                               channel_request_response_function,
+                               channel->session,
+                               channel);
   }
 
   return SSH_PACKET_USED;
@@ -1744,6 +1766,12 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_failure){
         channel->request_state);
   } else {
     channel->request_state=SSH_CHANNEL_REQ_STATE_DENIED;
+
+    ssh_callbacks_execute_list(channel->callbacks,
+                               ssh_channel_callbacks,
+                               channel_request_response_function,
+                               channel->session,
+                               channel);
   }
 
   return SSH_PACKET_USED;

@@ -27,6 +27,7 @@
 
 #include <libssh/libssh.h>
 #include <string.h>
+#include <stdbool.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -780,6 +781,28 @@ typedef int (*ssh_channel_write_wontblock_callback) (ssh_session session,
                                                      uint32_t bytes,
                                                      void *userdata);
 
+/**
+ * @brief SSH channel open callback. Called when a channel open succeeds or fails.
+ * @param session Current session handler
+ * @param channel the actual channel
+ * @param is_success is 1 when the open succeeds, and 0 otherwise.
+ * @param userdata Userdata to be passed to the callback function.
+ */
+typedef void (*ssh_channel_open_resp_callback) (ssh_session session,
+                                                ssh_channel channel,
+                                                bool is_success,
+                                                void *userdata);
+
+/**
+ * @brief SSH channel request response callback. Called when a response to the pending request is received.
+ * @param session Current session handler
+ * @param channel the actual channel
+ * @param userdata Userdata to be passed to the callback function.
+ */
+typedef void (*ssh_channel_request_resp_callback) (ssh_session session,
+                                                   ssh_channel channel,
+                                                   void *userdata);
+
 struct ssh_channel_callbacks_struct {
   /** DON'T SET THIS use ssh_callbacks_init() instead. */
   size_t size;
@@ -847,6 +870,14 @@ struct ssh_channel_callbacks_struct {
    * not to block.
    */
   ssh_channel_write_wontblock_callback channel_write_wontblock_function;
+  /**
+   * This functions will be called when the channel has received a channel open confirmation or failure.
+   */
+  ssh_channel_open_resp_callback channel_open_response_function;
+  /**
+   * This functions will be called when the channel has received the response to the pending request.
+   */
+  ssh_channel_request_resp_callback channel_request_response_function;
 };
 
 typedef struct ssh_channel_callbacks_struct *ssh_channel_callbacks;
