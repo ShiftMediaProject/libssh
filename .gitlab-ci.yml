@@ -107,6 +107,26 @@ fedora/ninja:
   script:
     - cmake -G Ninja $CMAKE_OPTIONS ../ && ninja && ninja test
 
+# Code coverage instrumentation breaks OpenSSH server so we are skipping client
+# testing part here as well as benchmarks (which turn on the client tests)
+fedora/coverage:
+  extends: .fedora
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: -DCMAKE_BUILD_TYPE=Coverage -DCLIENT_TESTING=OFF -DWITH_BENCHMARKS=OFF
+  script:
+    - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
+      make -j$(nproc) &&
+      make coverage_xml
+  coverage: /^\s*lines:\s*\d+.\d+\%/
+  artifacts:
+    name: ${CI_JOB_NAME}-${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHA}
+    expire_in: 1 week
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: obj/coverage_xml.xml
+
 fedora/openssl_3.0.x/x86_64:
   extends: .fedora
 

@@ -10,7 +10,7 @@ list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake/Modules")
 include(DefineCMakeDefaults)
 include(DefineCompilerFlags)
 
-project(libssh VERSION 0.10.90 LANGUAGES C)
+project(libssh VERSION 0.10.90 LANGUAGES C CXX)
 
 # global needed variable
 set(APPLICATION_NAME ${PROJECT_NAME})
@@ -216,6 +216,20 @@ if (WITH_SYMBOL_VERSIONING AND ABIMAP_FOUND)
     endif(UPDATE_ABI)
 endif (WITH_SYMBOL_VERSIONING AND ABIMAP_FOUND)
 
+# Coverage
+if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+    include(CodeCoverage)
+    setup_target_for_coverage_lcov(
+        NAME "coverage"
+        EXECUTABLE make test
+        DEPENDENCIES ssh tests)
+    set(GCOVR_ADDITIONAL_ARGS --xml-pretty --exclude-unreachable-branches --print-summary)
+    setup_target_for_coverage_gcovr_xml(
+        NAME "coverage_xml"
+        EXECUTABLE make test
+        DEPENDENCIES ssh tests)
+endif (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+
 add_custom_target(dist COMMAND ${CMAKE_MAKE_PROGRAM} package_source DEPENDS ${_SYMBOL_TARGET} VERBATIM)
 
 # Link compile database for clangd
@@ -226,6 +240,7 @@ execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
 message(STATUS "********************************************")
 message(STATUS "********** ${PROJECT_NAME} build options : **********")
 
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
 message(STATUS "zlib support: ${WITH_ZLIB}")
 message(STATUS "libgcrypt support: ${WITH_GCRYPT}")
 message(STATUS "libmbedTLS support: ${WITH_MBEDTLS}")
