@@ -353,6 +353,107 @@ void sftp_server_free(sftp_session sftp)
 
     SAFE_FREE(sftp);
 }
+
+sftp_session sftp_from_session(ssh_session session, ssh_channel channel)
+{
+    sftp_session sftp;
+
+    if (session == NULL) {
+        return NULL;
+    }
+
+    sftp = calloc(1, sizeof(struct sftp_session_struct));
+    if (sftp == NULL) {
+        ssh_set_error_oom(session);
+
+        return NULL;
+    }
+
+    sftp->ext = sftp_ext_new();
+    if (sftp->ext == NULL) {
+        ssh_set_error_oom(session);
+        goto error;
+    }
+
+    sftp->read_packet = calloc(1, sizeof(struct sftp_packet_struct));
+    if (sftp->read_packet == NULL) {
+        ssh_set_error_oom(session);
+        goto error;
+    }
+
+    sftp->read_packet->payload = ssh_buffer_new();
+    if (sftp->read_packet->payload == NULL) {
+        ssh_set_error_oom(session);
+        goto error;
+    }
+
+    sftp->session = session;
+    sftp->channel = channel;
+
+    return sftp;
+error:
+    if (sftp->ext != NULL) {
+        sftp_ext_free(sftp->ext);
+    }
+    if (sftp->channel != NULL) {
+        ssh_channel_free(sftp->channel);
+    }
+    if (sftp->read_packet != NULL) {
+        if (sftp->read_packet->payload != NULL) {
+            SSH_BUFFER_FREE(sftp->read_packet->payload);
+        }
+        SAFE_FREE(sftp->read_packet);
+    }
+    SAFE_FREE(sftp);
+    return NULL;
+}
+
+int sftp_process_init_packet(sftp_client_message client_msg) {
+    int ret = SSH_OK;
+    sftp_session sftp = client_msg->sftp;
+    ssh_session session = sftp->session;
+    int version;
+    ssh_buffer reply;
+    int rc;
+
+    version = sftp->client_version;
+    reply = ssh_buffer_new();
+    if (reply == NULL) {
+        ssh_set_error_oom(session);
+        return -1;
+    }
+
+    rc = ssh_buffer_pack(reply, "dssssss",
+                        LIBSFTP_VERSION,
+                        "posix-rename@openssh.com",
+                        "1",
+                        "hardlink@openssh.com",
+                        "1",
+			"statvfs@openssh.com",
+			"2");
+    if (rc != SSH_OK) {
+        ssh_set_error_oom(session);
+        SSH_BUFFER_FREE(reply);
+        return -1;
+    }
+
+    if (sftp_packet_write(sftp, SSH_FXP_VERSION, reply) < 0) {
+        SSH_BUFFER_FREE(reply);
+        return -1;
+    }
+    SSH_BUFFER_FREE(reply);
+
+    SSH_LOG(SSH_LOG_PROTOCOL, "Server version sent");
+
+    if (version > LIBSFTP_VERSION) {
+        sftp->version = LIBSFTP_VERSION;
+    } else {
+        sftp->version = (int)version;
+    }
+
+    return ret;
+}
+
 #endif /* WITH_SERVER */
 
 void sftp_free(sftp_session sftp)
@@ -385,6 +486,35 @@ void sftp_free(sftp_session sftp)
     sftp_ext_free(sftp->ext);
 
     SAFE_FREE(sftp);
+}
+
+int sftp_decode_channel_data_to_packet(sftp_session sftp, void *data) {
+    sftp_packet packet = sftp->read_packet;
+    int nread;
+    int payload_len;
+    int offset;
+    int to_read;
+
+    if(packet->sftp == NULL)
+        packet->sftp = sftp;
+
+    packet->type = *((uint8_t *)data + sizeof(int));
+    payload_len = PULL_BE_U32(data, 0);
+
+    /* We should check the legality of payload length */
+    if(payload_len > MAX_PACKET_LEN || payload_len < 0)
+        return SSH_ERROR;
+    
+    offset = sizeof(int)+sizeof(uint8_t);
+    to_read = payload_len - sizeof(uint8_t);
+    ssh_buffer_add_data(packet->payload, (void*)((uint8_t *)data + offset), payload_len-sizeof(uint8_t));
+    nread = ssh_buffer_get_len(packet->payload);
+
+    /* We should check if we copy the whole data */
+    if(nread != to_read)
+        return SSH_ERROR;
+
+    return payload_len + sizeof(int);
 }
 
 int sftp_packet_write(sftp_session sftp, uint8_t type, ssh_buffer payload)

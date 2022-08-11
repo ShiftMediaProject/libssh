@@ -864,6 +864,16 @@ LIBSSH_API char *sftp_canonicalize_path(sftp_session sftp, const char *path);
  */
 LIBSSH_API int sftp_server_version(sftp_session sftp);
 
+LIBSSH_API sftp_session sftp_from_session(ssh_session session, ssh_channel channel);
+
+LIBSSH_API int sftp_decode_channel_data_to_packet(sftp_session sftp, void *data);
+
+LIBSSH_API sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp);
+
+LIBSSH_API int sftp_process_init_packet(sftp_client_message client_msg);
+
+LIBSSH_API int sftp_reply_statvfs(sftp_client_message msg, sftp_statvfs_t st);
+
 #ifdef WITH_SERVER
 /**
  * @brief Create a new sftp server session.
