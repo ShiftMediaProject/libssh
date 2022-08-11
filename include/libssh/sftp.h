@@ -864,7 +864,6 @@ LIBSSH_API char *sftp_canonicalize_path(sftp_session sftp, const char *path);
  */
 LIBSSH_API int sftp_server_version(sftp_session sftp);
 
-LIBSSH_API sftp_session sftp_from_session(ssh_session session, ssh_channel channel);
 
 LIBSSH_API int sftp_decode_channel_data_to_packet(sftp_session sftp, void *data);
 

@@ -257,12 +257,11 @@ sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp) {
   int rc;
   int version;
 
-  msg = malloc(sizeof (struct sftp_client_message_struct));
+  msg = calloc(1, sizeof(struct sftp_client_message_struct));
   if (msg == NULL) {
     ssh_set_error_oom(session);
     return NULL;
   }
-  ZERO_STRUCTP(msg);
 
   packet = sftp->read_packet;
   if (packet == NULL) {

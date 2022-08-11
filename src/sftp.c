@@ -354,60 +354,6 @@ void sftp_server_free(sftp_session sftp)
     SAFE_FREE(sftp);
 }
 
-sftp_session sftp_from_session(ssh_session session, ssh_channel channel)
-{
-    sftp_session sftp;
-
-    if (session == NULL) {
-        return NULL;
-    }
-
-    sftp = calloc(1, sizeof(struct sftp_session_struct));
-    if (sftp == NULL) {
-        ssh_set_error_oom(session);
-
-        return NULL;
-    }
-
-    sftp->ext = sftp_ext_new();
-    if (sftp->ext == NULL) {
-        ssh_set_error_oom(session);
-        goto error;
-    }
-
-    sftp->read_packet = calloc(1, sizeof(struct sftp_packet_struct));
-    if (sftp->read_packet == NULL) {
-        ssh_set_error_oom(session);
-        goto error;
-    }
-
-    sftp->read_packet->payload = ssh_buffer_new();
-    if (sftp->read_packet->payload == NULL) {
-        ssh_set_error_oom(session);
-        goto error;
-    }
-
-    sftp->session = session;
-    sftp->channel = channel;
-
-    return sftp;
-error:
-    if (sftp->ext != NULL) {
-        sftp_ext_free(sftp->ext);
-    }
-    if (sftp->channel != NULL) {
-        ssh_channel_free(sftp->channel);
-    }
-    if (sftp->read_packet != NULL) {
-        if (sftp->read_packet->payload != NULL) {
-            SSH_BUFFER_FREE(sftp->read_packet->payload);
-        }
-        SAFE_FREE(sftp->read_packet);
-    }
-    SAFE_FREE(sftp);
-    return NULL;
-}
-
 int sftp_process_init_packet(sftp_client_message client_msg) {
     int ret = SSH_OK;
     sftp_session sftp = client_msg->sftp;

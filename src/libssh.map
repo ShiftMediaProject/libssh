@@ -457,10 +457,9 @@ LIBSSH_4_9_0    # Released
         ssh_session_set_disconnect_message;
         ssh_userauth_publickey_auto_get_current_identity;
         ssh_vlog;
-	sftp_from_session;
         sftp_get_client_message_from_packet;
         sftp_process_init_packet;
         sftp_decode_channel_data_to_packet;
-	sftp_reply_statvfs;
+        sftp_reply_statvfs;
 } LIBSSH_4_8_1;
 
