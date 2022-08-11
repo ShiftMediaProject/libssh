@@ -92,7 +92,7 @@ cleanup_push(struct cleanup_node_struct** head_ref,
     // Allocate memory for node
     struct cleanup_node_struct *new_node = malloc(sizeof *new_node);
 
-    if (head_ref != NULL) {
+    if (*head_ref != NULL) {
         new_node->next = *head_ref;
     } else {
         new_node->next = NULL;
