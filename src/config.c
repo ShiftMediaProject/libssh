@@ -618,7 +618,8 @@ ssh_config_parse_line(ssh_session session,
       opcode != SOC_MATCH &&
       opcode != SOC_INCLUDE &&
       opcode != SOC_IDENTITY &&
-      opcode > SOC_UNSUPPORTED) { /* Ignore all unknown types here */
+      opcode > SOC_UNSUPPORTED &&
+      opcode < SOC_MAX) { /* Ignore all unknown types here */
       /* Skip all the options that were already applied */
       if (seen[opcode] != 0) {
           SAFE_FREE(x);
