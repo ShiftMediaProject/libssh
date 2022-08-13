@@ -512,6 +512,8 @@ SSH_PACKET_CALLBACK(channel_rcv_change_window) {
   ssh_channel channel;
   uint32_t bytes;
   int rc;
+  bool was_empty;
+
   (void)user;
   (void)type;
 
@@ -535,7 +537,20 @@ SSH_PACKET_CALLBACK(channel_rcv_change_window) {
       channel->remote_channel,
       channel->remote_window);
 
+  was_empty = channel->remote_window == 0;
+
   channel->remote_window += bytes;
+
+  /* Writing to the channel is non-blocking until the receive window is empty.
+     When the receive window becomes non-zero again, call channel_write_wontblock_function. */
+  if (was_empty && bytes > 0) {
+    ssh_callbacks_execute_list(channel->callbacks,
+                               ssh_channel_callbacks,
+                               channel_write_wontblock_function,
+                               session,
+                               channel,
+                               channel->remote_window);
+  }
 
   return SSH_PACKET_USED;
 }
@@ -1510,7 +1525,7 @@ static int channel_write_common(ssh_channel channel,
           "Remote window is %" PRIu32 " bytes. going to write %" PRIu32 " bytes",
           channel->remote_window,
           len);
-      /* What happens when the channel window is zero? */
+      /* When the window is zero, wait for it to grow */
       if(channel->remote_window == 0) {
           /* nothing can be written */
           SSH_LOG(SSH_LOG_DEBUG,
@@ -1524,6 +1539,7 @@ static int channel_write_common(ssh_channel channel,
             goto out;
           continue;
       }
+      /* When the window is non-zero, accept data up to the window size */
       effectivelen = MIN(len, channel->remote_window);
     } else {
       effectivelen = len;
