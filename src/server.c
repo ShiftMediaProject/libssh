@@ -361,7 +361,6 @@ static void ssh_server_connection_callback(ssh_session session){
             }
 
             /* from now, the packet layer is handling incoming packets */
-            session->socket_callbacks.data=ssh_packet_socket_callback;
             ssh_packet_register_socket_callback(session, session->socket);
 
             ssh_packet_set_default_callbacks(session);
