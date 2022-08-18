@@ -49,6 +49,8 @@ enum ssh_key_e {
   SSH_KEY_PRIVATE
 };
 
+void pki_key_clean(ssh_key key);
+
 int pki_key_ecdsa_nid_from_name(const char *name);
 const char *pki_key_ecdsa_nid_to_name(int nid);
 const char *ssh_key_signature_to_char(enum ssh_keytypes_e type,
