@@ -87,6 +87,30 @@ static int pem_get_password(char *buf, int size, int rwflag, void *userdata) {
     return 0;
 }
 
+void pki_key_clean(ssh_key key)
+{
+    if (key == NULL)
+        return;
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+    DSA_free(key->dsa);
+    key->dsa = NULL;
+    RSA_free(key->rsa);
+    key->rsa = NULL;
+#endif /* OPENSSL_VERSION_NUMBER */
+#ifdef HAVE_OPENSSL_ECC
+/* TODO Change to new API when the OpenSSL will support export of uncompressed EC keys
+ * https://github.com/openssl/openssl/pull/16624
+ * Move whole HAVE_OPENSSL_ECC into #if < 0x3 above
+ */
+#if 1
+    EC_KEY_free(key->ecdsa);
+    key->ecdsa = NULL;
+#endif
+#endif /* HAVE_OPENSSL_ECC */
+    EVP_PKEY_free(key->key);
+    key->key = NULL;
+}
+
 #ifdef HAVE_OPENSSL_ECC
 /* TODO Change to new API when the OpenSSL will support export of uncompressed EC keys
  * https://github.com/openssl/openssl/pull/16624

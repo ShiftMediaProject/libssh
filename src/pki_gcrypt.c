@@ -283,6 +283,23 @@ static int passphrase_to_key(char *data, unsigned int datalen,
   return 0;
 }
 
+void pki_key_clean(ssh_key key)
+{
+    if (key == NULL)
+        return;
+
+    if (key->dsa)
+        gcry_sexp_release(key->dsa);
+    if (key->rsa)
+        gcry_sexp_release(key->rsa);
+    if (key->ecdsa)
+        gcry_sexp_release(key->ecdsa);
+
+    key->dsa = NULL;
+    key->rsa = NULL;
+    key->ecdsa = NULL;
+}
+
 static int privatekey_decrypt(int algo, int mode, unsigned int key_len,
                        unsigned char *iv, unsigned int iv_len,
                        ssh_buffer data, ssh_auth_callback cb,

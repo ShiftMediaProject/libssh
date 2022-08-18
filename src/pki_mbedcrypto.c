@@ -38,6 +38,22 @@
 #define MAX_PASSPHRASE_SIZE 1024
 #define MAX_KEY_SIZE 32
 
+void pki_key_clean(ssh_key key)
+{
+    if (key == NULL)
+        return;
+
+    if (key->rsa != NULL) {
+        mbedtls_pk_free(key->rsa);
+        SAFE_FREE(key->rsa);
+    }
+
+    if (key->ecdsa != NULL) {
+        mbedtls_ecdsa_free(key->ecdsa);
+        SAFE_FREE(key->ecdsa);
+    }
+}
+
 ssh_string pki_private_key_to_pem(const ssh_key key, const char *passphrase,
         ssh_auth_callback auth_fn, void *auth_data)
 {

@@ -154,37 +154,9 @@ void ssh_key_clean (ssh_key key)
 {
     if (key == NULL)
         return;
-#ifdef HAVE_LIBGCRYPT
-    if(key->dsa) gcry_sexp_release(key->dsa);
-    if(key->rsa) gcry_sexp_release(key->rsa);
-    if(key->ecdsa) gcry_sexp_release(key->ecdsa);
-#elif defined HAVE_LIBCRYPTO
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-    if(key->dsa) DSA_free(key->dsa);
-    if(key->rsa) RSA_free(key->rsa);
-#else
-    if(key->key) EVP_PKEY_free(key->key);
-#endif /* OPENSSL_VERSION_NUMBER */
-#ifdef HAVE_OPENSSL_ECC
-/* TODO Change to new API when the OpenSSL will support export of uncompressed EC keys
- * https://github.com/openssl/openssl/pull/16624
- * Move whole HAVE_OPENSSL_EC into #if < 0x3 above
- */
-#if 1
-    if(key->ecdsa) EC_KEY_free(key->ecdsa);
-#endif
-#endif /* HAVE_OPENSSL_ECC */
-#elif defined HAVE_LIBMBEDCRYPTO
-    if (key->rsa != NULL) {
-        mbedtls_pk_free(key->rsa);
-        SAFE_FREE(key->rsa);
-    }
 
-    if (key->ecdsa != NULL) {
-        mbedtls_ecdsa_free(key->ecdsa);
-        SAFE_FREE(key->ecdsa);
-    }
-#endif
+    pki_key_clean(key);
+
     if (key->ed25519_privkey != NULL){
 #ifdef HAVE_OPENSSL_ED25519
         /* In OpenSSL implementation the private key is only the private
@@ -208,21 +180,10 @@ void ssh_key_clean (ssh_key key)
         ssh_string_free(key->sk_application);
     }
     key->cert_type = SSH_KEYTYPE_UNKNOWN;
-    key->flags=SSH_KEY_FLAG_EMPTY;
-    key->type=SSH_KEYTYPE_UNKNOWN;
+    key->flags = SSH_KEY_FLAG_EMPTY;
+    key->type = SSH_KEYTYPE_UNKNOWN;
     key->ecdsa_nid = 0;
-    key->type_c=NULL;
-#if !defined(HAVE_LIBCRYPTO) || OPENSSL_VERSION_NUMBER < 0x30000000L
-    key->dsa = NULL;
-    key->rsa = NULL;
-#else
-    key->key = NULL;
-#endif /* OPENSSL_VERSION_NUMBER */
-/* TODO Change to new API when the OpenSSL will support export of uncompressed EC keys
- * https://github.com/openssl/openssl/pull/16624
- * Move into #if OPENSSL_VERSION_NUMBER < 0x3 above
- */
-    key->ecdsa = NULL;
+    key->type_c = NULL;
 }
 
 /**
