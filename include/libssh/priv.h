@@ -152,7 +152,9 @@ char *strndup(const char *s, size_t n);
 # endif /* _MSC_VER */
 
 struct timeval;
-int gettimeofday(struct timeval *__p, void *__t);
+int ssh_gettimeofday(struct timeval *__p, void *__t);
+
+#define gettimeofday ssh_gettimeofday
 
 #define _XCLOSESOCKET closesocket
 

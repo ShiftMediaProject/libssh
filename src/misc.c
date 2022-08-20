@@ -160,7 +160,7 @@ int ssh_dir_writeable(const char *path)
 #define SSH_USEC_IN_SEC         1000000LL
 #define SSH_SECONDS_SINCE_1601  11644473600LL
 
-int gettimeofday(struct timeval *__p, void *__t)
+int ssh_gettimeofday(struct timeval *__p, void *__t)
 {
   union {
     unsigned long long ns100; /* time since 1 Jan 1601 in 100ns units */
