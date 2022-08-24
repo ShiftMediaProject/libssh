@@ -229,6 +229,21 @@ static void torture_pki_ecdsa_publickey_from_privatekey_uri(void **state, const 
     SSH_KEY_FREE(pubkey);
 }
 
+static void torture_pki_ecdsa_publickey_from_privatekey_uri_256(void **state)
+{
+    torture_pki_ecdsa_publickey_from_privatekey_uri(state, PRIV_URI_FMT_256, "ecdsa256");
+}
+
+static void torture_pki_ecdsa_publickey_from_privatekey_uri_384(void **state)
+{
+    torture_pki_ecdsa_publickey_from_privatekey_uri(state, PRIV_URI_FMT_384, "ecdsa384");
+}
+
+static void torture_pki_ecdsa_publickey_from_privatekey_uri_521(void **state)
+{
+    torture_pki_ecdsa_publickey_from_privatekey_uri(state, PRIV_URI_FMT_521, "ecdsa521");
+}
+
 static void import_pubkey_without_loading_public_uri(void **state, const char *uri, const char *type)
 {
     int rc;
@@ -256,21 +271,6 @@ static void import_pubkey_without_loading_public_uri(void **state, const char *u
 
     SSH_KEY_FREE(privkey);
     SSH_KEY_FREE(pubkey);
-}
-
-static void torture_pki_ecdsa_publickey_from_privatekey_uri_256(void **state)
-{
-    torture_pki_ecdsa_publickey_from_privatekey_uri(state, PRIV_URI_FMT_256, "ecdsa256");
-}
-
-static void torture_pki_ecdsa_publickey_from_privatekey_uri_384(void **state)
-{
-    torture_pki_ecdsa_publickey_from_privatekey_uri(state, PRIV_URI_FMT_384, "ecdsa384");
-}
-
-static void torture_pki_ecdsa_publickey_from_privatekey_uri_521(void **state)
-{
-    torture_pki_ecdsa_publickey_from_privatekey_uri(state, PRIV_URI_FMT_521, "ecdsa521");
 }
 
 static void torture_pki_ecdsa_import_pubkey_without_loading_public_uri_256(void **state)
@@ -544,11 +544,11 @@ int torture_run_tests(void) {
         cmocka_unit_test(torture_pki_ecdsa_import_pubkey_without_loading_public_uri_384),
         cmocka_unit_test(torture_pki_ecdsa_import_pubkey_without_loading_public_uri_521),
     };
-
     ssh_session session = ssh_new();
     int verbosity = SSH_LOG_FUNCTIONS;
-    ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
+
     ssh_init();
+    ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
 
     torture_filter_tests(tests);
     rc = cmocka_run_group_tests(tests, setup_directory_structure, teardown_directory_structure);
