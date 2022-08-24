@@ -85,12 +85,44 @@
 
 static int libcrypto_initialized = 0;
 
+static ENGINE *engine = NULL;
+
 void ssh_reseed(void){
 #ifndef _WIN32
     struct timeval tv;
     gettimeofday(&tv, NULL);
     RAND_add(&tv, sizeof(tv), 0.0);
 #endif
+}
+
+ENGINE *pki_get_engine(void)
+{
+    int ok;
+
+    if (engine == NULL) {
+        ENGINE_load_builtin_engines();
+
+        engine = ENGINE_by_id("pkcs11");
+        if (engine == NULL) {
+            SSH_LOG(SSH_LOG_WARN,
+                    "Could not load the engine: %s",
+                    ERR_error_string(ERR_get_error(), NULL));
+            return NULL;
+        }
+        SSH_LOG(SSH_LOG_INFO, "Engine loaded successfully");
+
+        ok = ENGINE_init(engine);
+        if (!ok) {
+            SSH_LOG(SSH_LOG_WARN,
+                    "Could not initialize the engine: %s",
+                    ERR_error_string(ERR_get_error(), NULL));
+            ENGINE_free(engine);
+            return NULL;
+        }
+
+        SSH_LOG(SSH_LOG_INFO, "Engine init success");
+    }
+    return engine;
 }
 
 #ifdef HAVE_OPENSSL_ECC
@@ -1392,6 +1424,17 @@ void ssh_crypto_finalize(void)
     if (!libcrypto_initialized) {
         return;
     }
+
+/* TODO this should finalize engine if it was started, but during atexit calls,
+ * we are crashing. AFAIK this is related to the dlopened pkcs11 modules calling
+ * the crypto cleanups earlier. */
+#if 0
+    if (engine != NULL) {
+        ENGINE_finish(engine);
+        ENGINE_free(engine);
+        engine = NULL;
+    }
+#endif
 
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
     ENGINE_cleanup();

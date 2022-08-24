@@ -223,5 +223,8 @@ int sshkdf_derive_key(struct ssh_crypto_struct *crypto,
                       size_t requested_len);
 
 int secure_memcmp(const void *s1, const void *s2, size_t n);
+#ifdef HAVE_LIBCRYPTO
+ENGINE *pki_get_engine(void);
+#endif /* HAVE_LIBCRYPTO */
 
 #endif /* _CRYPTO_H_ */
