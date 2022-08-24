@@ -1087,7 +1087,7 @@ ssh_public_key ssh_pki_convert_key_to_publickey(const ssh_key key)
     ssh_public_key pub;
     ssh_key tmp;
 
-    if(key == NULL) {
+    if (key == NULL) {
         return NULL;
     }
 
@@ -1096,12 +1096,11 @@ ssh_public_key ssh_pki_convert_key_to_publickey(const ssh_key key)
         return NULL;
     }
 
-    pub = malloc(sizeof(struct ssh_public_key_struct));
+    pub = calloc(1, sizeof(struct ssh_public_key_struct));
     if (pub == NULL) {
         ssh_key_free(tmp);
         return NULL;
     }
-    ZERO_STRUCTP(pub);
 
     pub->type = tmp->type;
     pub->type_c = tmp->type_c;
@@ -1125,7 +1124,7 @@ ssh_private_key ssh_pki_convert_key_to_privatekey(const ssh_key key)
 {
     ssh_private_key privkey;
 
-    privkey = malloc(sizeof(struct ssh_private_key_struct));
+    privkey = calloc(1, sizeof(struct ssh_private_key_struct));
     if (privkey == NULL) {
         ssh_key_free(key);
         return NULL;

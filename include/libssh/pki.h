@@ -78,7 +78,9 @@ struct ssh_key_struct {
 # else
     void *ecdsa;
 # endif /* HAVE_OPENSSL_EC_H */
-    EVP_PKEY *key; /* Saving the OpenSSL context here to save time while converting*/
+    /* This holds either ENGINE key for PKCS#11 support or just key in
+     * high-level format required by OpenSSL 3.0 */
+    EVP_PKEY *key;
 #endif /* HAVE_LIBGCRYPT */
 #if defined(HAVE_LIBCRYPTO) && defined(HAVE_OPENSSL_ED25519)
     uint8_t *ed25519_pubkey;

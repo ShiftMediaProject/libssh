@@ -541,8 +541,12 @@ static void torture_pki_rsa_generate_key(void **state)
     int rc;
     ssh_key key = NULL, pubkey = NULL;
     ssh_signature sign = NULL;
-    ssh_session session=ssh_new();
+    ssh_session session = ssh_new();
+    int verbosity = torture_libssh_verbosity();
+
     (void) state;
+
+    ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
 
     if (!ssh_fips_mode()) {
         rc = ssh_pki_generate(SSH_KEYTYPE_RSA, 1024, &key);
