@@ -3461,29 +3461,13 @@ int pki_uri_import(const char *uri_name,
 #endif
     ssh_key key = NULL;
     enum ssh_keytypes_e type = SSH_KEYTYPE_UNKNOWN;
-    int ok;
 
-    ENGINE_load_builtin_engines();
-
-    engine = ENGINE_by_id("pkcs11");
+    /* Do the init only once */
+    engine = pki_get_engine();
     if (engine == NULL) {
-        SSH_LOG(SSH_LOG_WARN,
-                "Could not load the engine: %s",
-                ERR_error_string(ERR_get_error(),NULL));
-        return SSH_ERROR;
+        SSH_LOG(SSH_LOG_WARN, "Failed to initialize engine");
+        goto fail;
     }
-    SSH_LOG(SSH_LOG_INFO, "Engine loaded successfully");
-
-    ok = ENGINE_init(engine);
-    if (!ok) {
-        SSH_LOG(SSH_LOG_WARN,
-                "Could not initialize the engine: %s",
-                ERR_error_string(ERR_get_error(),NULL));
-        ENGINE_free(engine);
-        return SSH_ERROR;
-    }
-
-    SSH_LOG(SSH_LOG_INFO, "Engine init success");
 
     switch (key_type) {
     case SSH_KEY_PRIVATE:
@@ -3593,14 +3577,10 @@ int pki_uri_import(const char *uri_name,
 #endif
 
     *nkey = key;
-    ENGINE_finish(engine);
-    ENGINE_free(engine);
 
     return SSH_OK;
 
 fail:
-    ENGINE_finish(engine);
-    ENGINE_free(engine);
     EVP_PKEY_free(pkey);
     ssh_key_free(key);
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
