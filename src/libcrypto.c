@@ -1393,8 +1393,8 @@ void ssh_crypto_finalize(void)
         return;
     }
 
-    ENGINE_cleanup();
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
+    ENGINE_cleanup();
     EVP_cleanup();
     CRYPTO_cleanup_all_ex_data();
 #endif /* OPENSSL_VERSION_NUMBER < 0x10100000L */
