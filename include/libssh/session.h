@@ -223,7 +223,7 @@ struct ssh_session_struct {
         char *agent_socket;
         unsigned long timeout; /* seconds */
         unsigned long timeout_usec;
-        unsigned int port;
+        uint16_t port;
         socket_t fd;
         int StrictHostKeyChecking;
         char compressionlevel;
