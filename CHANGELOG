@@ -1,7 +1,7 @@
 CHANGELOG
 =========
 
-version 0.10.0 (released 2022-07-xx)
+version 0.10.0 (released 2022-08-26)
   * Added support for OpenSSL 3.0
   * Added support for mbedTLS 3
   * Added support for Smart Cards  (through openssl pkcs11 engine)
@@ -25,6 +25,9 @@ version 0.10.0 (released 2022-07-xx)
   * Deprecated old pubkey, privatekey API
   * Avoided some needless large stack buffers to minimize memory footprint
   * Removed support for OpenSSL < 1.0.1
+  * Fixed parsing username@host in login name
+  * Free global init mutex in the destructor on Windows
+  * Fixed PEM parsing in mbedtls to support both legacy and new PKCS8 formats
 
 version 0.9.6 (released 2021-08-26)
   * CVE-2021-3634: Fix possible heap-buffer overflow when rekeying with
