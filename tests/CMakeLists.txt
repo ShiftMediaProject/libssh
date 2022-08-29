@@ -173,9 +173,9 @@ if (CLIENT_TESTING OR SERVER_TESTING)
     if (NOT SSHD_EXECUTABLE)
         message(SEND_ERROR "Could not find sshd which is required for client testing")
     endif()
-    find_program(NC_EXECUTABLE
+    find_program(NCAT_EXECUTABLE
                  NAME
-                    nc
+                    ncat
                  PATHS
                     /bin
                     /usr/bin
