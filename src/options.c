@@ -1518,7 +1518,23 @@ int ssh_options_apply(ssh_session session)
     session->opts.global_knownhosts = tmp;
 
     if (session->opts.ProxyCommand != NULL) {
-        tmp = ssh_path_expand_escape(session, session->opts.ProxyCommand);
+        char *p = NULL;
+        size_t plen = strlen(session->opts.ProxyCommand) +
+                      5 /* strlen("exec ") */;
+
+        p = malloc(plen + 1 /* \0 */);
+        if (p == NULL) {
+            return -1;
+        }
+
+        rc = snprintf(p, plen + 1, "exec %s", session->opts.ProxyCommand);
+        if ((size_t)rc != plen) {
+            free(p);
+            return -1;
+        }
+
+        tmp = ssh_path_expand_escape(session, p);
+        free(p);
         if (tmp == NULL) {
             return -1;
         }
