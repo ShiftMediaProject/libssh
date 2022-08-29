@@ -900,7 +900,10 @@ ssh_execute_command(const char *command, socket_t in, socket_t out)
         exit(1);
     }
 
-    /* By default, use the current users shell */
+    /*
+     * By default, use the current users shell. This could fail with some
+     * shells like zsh or dash ...
+     */
     shell = getenv("SHELL");
     if (shell == NULL || shell[0] == '\0') {
         /* Fall back to bash. There are issues with dash or
