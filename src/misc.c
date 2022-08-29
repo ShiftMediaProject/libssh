@@ -1956,7 +1956,7 @@ char *ssh_strerror(int err_num, char *buf, size_t buflen)
 #if defined(_WIN32)
     strerror_s(buf, buflen, err_num);
     return buf;
-#elif defined(__linux__) && defined(_GNU_SOURCE)
+#elif defined(__linux__) && defined(__GLIBC__) && defined(_GNU_SOURCE)
     /* GNU extension on Linux */
     return strerror_r(err_num, buf, buflen);
 #else

@@ -348,10 +348,6 @@ endif (WITH_SYMBOL_VERSIONING AND HAVE_LD_VERSION_SCRIPT AND ABIMAP_FOUND)
 # This gets built as a static library, if -DBUILD_SHARED_LIBS=OFF is passed to
 # cmake.
 add_library(ssh ${libssh_SRCS})
-target_compile_options(ssh
-                       PRIVATE
-                           ${DEFAULT_C_COMPILE_FLAGS}
-                           -D_GNU_SOURCE)
 target_include_directories(ssh
                            PUBLIC
                                $<BUILD_INTERFACE:${libssh_SOURCE_DIR}/include>
@@ -408,10 +404,6 @@ install(EXPORT libssh-config
 
 if (BUILD_STATIC_LIB)
   add_library(ssh-static STATIC ${libssh_SRCS})
-  target_compile_options(ssh-static
-                         PRIVATE
-                            ${DEFAULT_C_COMPILE_FLAGS}
-                            -D_GNU_SOURCE)
 
   target_include_directories(ssh-static
                              PUBLIC
