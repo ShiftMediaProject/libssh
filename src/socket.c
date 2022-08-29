@@ -891,6 +891,7 @@ ssh_execute_command(const char *command, socket_t in, socket_t out)
     const char *shell = NULL;
     const char *args[] = {NULL/*shell*/, "-c", command, NULL};
     int devnull;
+    int rc;
 
     /* Prepare /dev/null socket for the stderr redirection */
     devnull = open("/dev/null", O_WRONLY);
@@ -915,7 +916,13 @@ ssh_execute_command(const char *command, socket_t in, socket_t out)
     dup2(devnull, STDERR_FILENO);
     close(in);
     close(out);
-    execv(args[0], (char * const *)args);
+    rc = execv(args[0], (char * const *)args);
+    if (rc < 0) {
+        char err_msg[SSH_ERRNO_MSG_MAX] = {0};
+
+        SSH_LOG(SSH_LOG_WARN, "Failed to execute command %s: %s",
+                command, ssh_strerror(errno, err_msg, SSH_ERRNO_MSG_MAX));
+    }
     exit(1);
 }
 
