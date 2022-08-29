@@ -168,17 +168,25 @@ static void torture_path_expand_tilde_unix(void **state) {
 
 static void torture_path_expand_escape(void **state) {
     ssh_session session = *state;
-    const char *s = "%d/%h/by/%r";
+    const char *s = "%d/%h/%p/by/%r";
     char *e;
 
     session->opts.sshdir = strdup("guru");
     session->opts.host = strdup("meditation");
+    session->opts.port = 0;
     session->opts.username = strdup("root");
 
     e = ssh_path_expand_escape(session, s);
     assert_non_null(e);
-    assert_string_equal(e, "guru/meditation/by/root");
-    free(e);
+    assert_string_equal(e, "guru/meditation/22/by/root");
+    ssh_string_free_char(e);
+
+    session->opts.port = 222;
+
+    e = ssh_path_expand_escape(session, s);
+    assert_non_null(e);
+    assert_string_equal(e, "guru/meditation/222/by/root");
+    ssh_string_free_char(e);
 }
 
 static void torture_path_expand_known_hosts(void **state) {
