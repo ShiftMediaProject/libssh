@@ -1237,7 +1237,7 @@ char *ssh_path_expand_escape(ssh_session session, const char *s)
                 }
                 break;
             case 'p':
-                if (session->opts.port > 0) {
+                {
                   char tmp[6];
 
                   snprintf(tmp, sizeof(tmp), "%hu",
