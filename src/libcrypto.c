@@ -1369,7 +1369,9 @@ struct ssh_cipher_struct *ssh_get_ciphertab(void)
  */
 int ssh_crypto_init(void)
 {
-    UNUSED_VAR(size_t i);
+#if !defined(HAVE_OPENSSL_EVP_CHACHA20) || !defined(HAVE_OPENSSL_EVP_POLY1305)
+    size_t i;
+#endif
 
     if (libcrypto_initialized) {
         return SSH_OK;
