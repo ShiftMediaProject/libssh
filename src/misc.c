@@ -1953,17 +1953,25 @@ char *ssh_strreplace(const char *src, const char *pattern, const char *replace)
  */
 char *ssh_strerror(int err_num, char *buf, size_t buflen)
 {
-#if defined(_WIN32)
-    strerror_s(buf, buflen, err_num);
-    return buf;
-#elif defined(__linux__) && defined(__GLIBC__) && defined(_GNU_SOURCE)
+#if defined(__linux__) && defined(__GLIBC__) && defined(_GNU_SOURCE)
     /* GNU extension on Linux */
     return strerror_r(err_num, buf, buflen);
 #else
-    /* POSIX version available for example on FreeBSD */
-    strerror_r(err_num, buf, buflen);
-    return buf;
+    int rv;
+
+#if defined(_WIN32)
+    rv = strerror_s(buf, buflen, err_num);
+#else
+    /* POSIX version available for example on FreeBSD or in musl libc */
+    rv = strerror_r(err_num, buf, buflen);
 #endif /* _WIN32 */
+
+    /* make sure the buffer is initialized and terminated with NULL */
+    if (-rv == ERANGE) {
+        buf[0] = '\0';
+    }
+    return buf;
+#endif /* defined(__linux__) && defined(__GLIBC__) && defined(_GNU_SOURCE) */
 }
 
 /** @} */
