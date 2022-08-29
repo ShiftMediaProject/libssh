@@ -32,7 +32,7 @@
  /* Inlining the key portions of afunix.h in Windows 10 SDK;
   * that header isn't available in the mingw environment. */
 #define UNIX_PATH_MAX 108
-typedef struct sockaddr_un {
+struct sockaddr_un {
   ADDRESS_FAMILY sun_family;
   char sun_path[UNIX_PATH_MAX];
 };
