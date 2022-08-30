@@ -141,12 +141,12 @@ void torture_setup_create_libssh_config(void **state);
 
 void torture_setup_libssh_server(void **state, const char *server_path);
 
+#if defined(HAVE_WEAK_ATTRIBUTE) && defined(TORTURE_SHARED)
+__attribute__((weak)) int torture_run_tests(void);
+#else
 /*
  * This function must be defined in every unit test file.
  */
-#if ((defined _WIN32) || (defined _WIN64)) && (defined USE_ATTRIBUTE_WEAK)
-__attribute__((weak)) int torture_run_tests(void);
-#else
 int torture_run_tests(void);
 #endif
 
