@@ -375,6 +375,23 @@ int main(void) {
     return 0;
 }" HAVE_FALLTHROUGH_ATTRIBUTE)
 
+check_c_source_compiles("
+#define WEAK __attribute__((weak))
+
+WEAK int sum(int a, int b)
+{
+    return a + b;
+}
+
+int main(void)
+{
+    int i = sum(2, 2);
+
+    (void)i;
+
+    return 0;
+}" HAVE_WEAK_ATTRIBUTE)
+
 if (NOT WIN32)
     check_c_source_compiles("
     #define __unused __attribute__((unused))
