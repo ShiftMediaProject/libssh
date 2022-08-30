@@ -1,6 +1,10 @@
 CHANGELOG
 =========
 
+version 0.10.1 (released 2022-08-30)
+  * Fixed proxycommand support
+  * Fixed musl libc support
+
 version 0.10.0 (released 2022-08-26)
   * Added support for OpenSSL 3.0
   * Added support for mbedTLS 3
