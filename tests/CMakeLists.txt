@@ -39,10 +39,6 @@ if (CLIENT_TESTING)
     # create shared test library
     set(TORTURE_SHARED_LIBRARY torture_shared)
 
-    if (MINGW)
-        set(USE_ATTRIBUTE_WEAK "-DUSE_ATTRIBUTE_WEAK")
-    endif ()
-
     # Create a list of symbols that should be wrapped for override test
     set(WRAP_SYMBOLS "")
     list(APPEND WRAP_SYMBOLS
@@ -73,7 +69,7 @@ if (CLIENT_TESTING)
                          )
     target_compile_options(${TORTURE_SHARED_LIBRARY} PRIVATE
                            -DSSH_PING_EXECUTABLE="${CMAKE_CURRENT_BINARY_DIR}/ssh_ping"
-                           ${USE_ATTRIBUTE_WEAK}
+                           -DTORTURE_SHARED
     )
 endif ()
 
