@@ -4,8 +4,8 @@
 #include <unistd.h>
 #endif
 #include <sys/types.h>
-#ifndef _WIN32
 
+#ifndef _WIN32
 #define _POSIX_PTHREAD_SEMANTICS
 #include <pwd.h>
 #endif
