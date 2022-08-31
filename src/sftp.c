@@ -375,8 +375,8 @@ int sftp_process_init_packet(sftp_client_message client_msg) {
                         "1",
                         "hardlink@openssh.com",
                         "1",
-			"statvfs@openssh.com",
-			"2");
+                        "statvfs@openssh.com",
+                        "2");
     if (rc != SSH_OK) {
         ssh_set_error_oom(session);
         SSH_BUFFER_FREE(reply);
@@ -444,7 +444,7 @@ int sftp_decode_channel_data_to_packet(sftp_session sftp, void *data) {
     if(packet->sftp == NULL)
         packet->sftp = sftp;
 
-    packet->type = *((uint8_t *)data + sizeof(int));
+    packet->type = *((uint8_t *)data + sizeof(uint32_t));
     payload_len = PULL_BE_U32(data, 0);
 
     /* We should check the legality of payload length */
