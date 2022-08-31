@@ -548,6 +548,11 @@ ssh_config_make_absolute(ssh_session session,
         return out;
     }
 
+    /* paths starting with tilde are already absolute */
+    if (path[0] == '~') {
+        return ssh_path_expand_tilde(path);
+    }
+
     /* Parsing user config relative to home directory (generally ~/.ssh) */
     if (session->opts.sshdir == NULL) {
         ssh_set_error_invalid(session);
