@@ -135,7 +135,7 @@ index b8b86593..fd950225 100644
  }
  
 diff --git a/src/misc.c b/src/misc.c
-index a2fdf31a..6dd169ab 100644
+index 3f2652d4..36678203 100644
 --- a/src/misc.c
 +++ b/src/misc.c
 @@ -51,8 +51,10 @@
