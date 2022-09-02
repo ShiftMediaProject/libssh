@@ -4,8 +4,8 @@
 #include <unistd.h>
 #endif
 #include <sys/types.h>
-#ifndef _WIN32
 
+#ifndef _WIN32
 #define _POSIX_PTHREAD_SEMANTICS
 #include <pwd.h>
 #endif
@@ -168,17 +168,25 @@ static void torture_path_expand_tilde_unix(void **state) {
 
 static void torture_path_expand_escape(void **state) {
     ssh_session session = *state;
-    const char *s = "%d/%h/by/%r";
+    const char *s = "%d/%h/%p/by/%r";
     char *e;
 
     session->opts.sshdir = strdup("guru");
     session->opts.host = strdup("meditation");
+    session->opts.port = 0;
     session->opts.username = strdup("root");
 
     e = ssh_path_expand_escape(session, s);
     assert_non_null(e);
-    assert_string_equal(e, "guru/meditation/by/root");
-    free(e);
+    assert_string_equal(e, "guru/meditation/22/by/root");
+    ssh_string_free_char(e);
+
+    session->opts.port = 222;
+
+    e = ssh_path_expand_escape(session, s);
+    assert_non_null(e);
+    assert_string_equal(e, "guru/meditation/222/by/root");
+    ssh_string_free_char(e);
 }
 
 static void torture_path_expand_known_hosts(void **state) {
@@ -724,6 +732,34 @@ static void torture_ssh_strreplace(void **state)
     assert_null(replaced_string);
 }
 
+static void torture_ssh_strerror(void **state)
+{
+    char buf[1024];
+    size_t bufflen = sizeof(buf);
+    char *out = NULL;
+
+    (void) state;
+
+    out = ssh_strerror(ENOENT, buf, 1); /* too short */
+    assert_string_equal(out, "\0");
+
+    out = ssh_strerror(256, buf, bufflen); /* unknown error code */
+    /* This error is always different:
+     * Freebd: "Unknown error: 256"
+     * MinGW/Win: "Unknown error"
+     * Linux/glibc: "Unknown error 256"
+     * Alpine/musl: "No error information"
+     */
+    assert_non_null(out);
+
+    out = ssh_strerror(ENOMEM, buf, bufflen);
+    /* This actually differs too for glibc/musl:
+     * musl: "Out of memory"
+     * everything else: "Cannot allocate memory"
+     */
+    assert_non_null(out);
+}
+
 int torture_run_tests(void) {
     int rc;
     struct CMUnitTest tests[] = {
@@ -747,6 +783,7 @@ int torture_run_tests(void) {
         cmocka_unit_test(torture_ssh_mkdirs),
         cmocka_unit_test(torture_ssh_quote_file_name),
         cmocka_unit_test(torture_ssh_strreplace),
+        cmocka_unit_test(torture_ssh_strerror),
     };
 
     ssh_init();

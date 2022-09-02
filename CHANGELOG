@@ -1,6 +1,15 @@
 CHANGELOG
 =========
 
+version 0.10.2 (released 2022-09-02)
+  * Fixed tilde expansion when handling include directives
+  * Fixed building the shared torture library
+  * Made rekey test more robust (fixes running on i586 build systems e.g koji)
+
+version 0.10.1 (released 2022-08-30)
+  * Fixed proxycommand support
+  * Fixed musl libc support
+
 version 0.10.0 (released 2022-08-26)
   * Added support for OpenSSL 3.0
   * Added support for mbedTLS 3

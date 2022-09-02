@@ -32,7 +32,7 @@
  /* Inlining the key portions of afunix.h in Windows 10 SDK;
   * that header isn't available in the mingw environment. */
 #define UNIX_PATH_MAX 108
-typedef struct sockaddr_un {
+struct sockaddr_un {
   ADDRESS_FAMILY sun_family;
   char sun_path[UNIX_PATH_MAX];
 };
@@ -891,6 +891,7 @@ ssh_execute_command(const char *command, socket_t in, socket_t out)
     const char *shell = NULL;
     const char *args[] = {NULL/*shell*/, "-c", command, NULL};
     int devnull;
+    int rc;
 
     /* Prepare /dev/null socket for the stderr redirection */
     devnull = open("/dev/null", O_WRONLY);
@@ -899,7 +900,10 @@ ssh_execute_command(const char *command, socket_t in, socket_t out)
         exit(1);
     }
 
-    /* By default, use the current users shell */
+    /*
+     * By default, use the current users shell. This could fail with some
+     * shells like zsh or dash ...
+     */
     shell = getenv("SHELL");
     if (shell == NULL || shell[0] == '\0') {
         /* Fall back to bash. There are issues with dash or
@@ -915,7 +919,13 @@ ssh_execute_command(const char *command, socket_t in, socket_t out)
     dup2(devnull, STDERR_FILENO);
     close(in);
     close(out);
-    execv(args[0], (char * const *)args);
+    rc = execv(args[0], (char * const *)args);
+    if (rc < 0) {
+        char err_msg[SSH_ERRNO_MSG_MAX] = {0};
+
+        SSH_LOG(SSH_LOG_WARN, "Failed to execute command %s: %s",
+                command, ssh_strerror(errno, err_msg, SSH_ERRNO_MSG_MAX));
+    }
     exit(1);
 }
 
