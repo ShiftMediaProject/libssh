@@ -9,13 +9,13 @@
     <ClCompile Include="..\src\bind_config.c" />
     <ClCompile Include="..\src\buffer.c" />
     <ClCompile Include="..\src\callbacks.c" />
-    <ClCompile Include="..\src\chachapoly.c" />
     <ClCompile Include="..\src\channels.c" />
     <ClCompile Include="..\src\client.c" />
     <ClCompile Include="..\src\config.c" />
     <ClCompile Include="..\src\config_parser.c" />
     <ClCompile Include="..\src\connect.c" />
     <ClCompile Include="..\src\connector.c" />
+    <ClCompile Include="..\src\crypto_common.c" />
     <ClCompile Include="..\src\curve25519.c" />
     <ClCompile Include="..\src\dh-gex.c" />
     <ClCompile Include="..\src\dh.c" />
@@ -25,13 +25,12 @@
     <ClCompile Include="..\src\error.c" />
     <ClCompile Include="..\src\external\bcrypt_pbkdf.c" />
     <ClCompile Include="..\src\external\blowfish.c" />
-    <ClCompile Include="..\src\external\chacha.c" />
     <ClCompile Include="..\src\external\curve25519_ref.c" />
     <ClCompile Include="..\src\external\ed25519.c" />
     <ClCompile Include="..\src\external\fe25519.c" />
     <ClCompile Include="..\src\external\ge25519.c" />
-    <ClCompile Include="..\src\external\poly1305.c" />
     <ClCompile Include="..\src\external\sc25519.c" />
+    <ClCompile Include="..\src\getrandom_gcrypt.c" />
     <ClCompile Include="..\src\gcrypt_missing.c" />
     <ClCompile Include="..\src\getpass.c" />
     <ClCompile Include="..\src\gzip.c" />
@@ -44,6 +43,7 @@
     <ClCompile Include="..\src\libgcrypt.c" />
     <ClCompile Include="..\src\log.c" />
     <ClCompile Include="..\src\match.c" />
+    <ClCompile Include="..\src\md_gcrypt.c" />
     <ClCompile Include="..\src\messages.c" />
     <ClCompile Include="..\src\misc.c" />
     <ClCompile Include="..\src\options.c" />
@@ -84,6 +84,7 @@
     <ClInclude Include="..\include\libssh\bytearray.h" />
     <ClInclude Include="..\include\libssh\callbacks.h" />
     <ClInclude Include="..\include\libssh\chacha.h" />
+    <ClInclude Include="..\include\libssh\chacha20-poly1305-common.h" />
     <ClInclude Include="..\include\libssh\channels.h" />
     <ClInclude Include="..\include\libssh\config.h" />
     <ClInclude Include="..\include\libssh\config_parser.h" />

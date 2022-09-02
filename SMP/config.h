@@ -1,4 +1,3 @@
-
 /************************** HEADER FILES *************************/
 
 /* Define to 1 if you have the <argp.h> header file. */
@@ -90,26 +89,19 @@
 
 /*************************** FUNCTIONS ***************************/
 
-/* Define to 1 if you have the `EVP_aes128_ctr' function. */
-/* #undef HAVE_OPENSSL_EVP_AES_CTR */
+/* Define to 1 if you have OpenSSL with Poly1305 support */
+/* #undef HAVE_OPENSSL_EVP_POLY1305 */
 
-/* Define to 1 if you have the `EVP_aes128_cbc' function. */
-/* #undef HAVE_OPENSSL_EVP_AES_CBC */
+/* Define to 1 if you have gcrypt with ChaCha20/Poly1305 support */
+#define HAVE_GCRYPT_CHACHA_POLY 1
 
-/* Define to 1 if you have the `EVP_aes128_gcm' function. */
-/* #undef HAVE_OPENSSL_EVP_AES_GCM 1
+/*************************** FUNCTIONS ***************************/
 
-/* Define to 1 if you have the `CRYPTO_THREADID_set_callback' function. */
-/* #undef HAVE_OPENSSL_CRYPTO_THREADID_SET_CALLBACK */
+/* Define to 1 if you have the `EVP_chacha20' function. */
+/* #undef HAVE_OPENSSL_EVP_CHACHA20 */
 
-/* Define to 1 if you have the `CRYPTO_ctr128_encrypt' function. */
-/* #undef HAVE_OPENSSL_CRYPTO_CTR128_ENCRYPT */
-
-/* Define to 1 if you have the `EVP_CIPHER_CTX_new' function. */
-/* #undef HAVE_OPENSSL_EVP_CIPHER_CTX_NEW */
-
-/* Define to 1 if you have the `EVP_KDF_CTX_new_id' function. */
-/* #undef HAVE_OPENSSL_EVP_KDF_CTX_NEW_ID */
+/* Define to 1 if you have the `EVP_KDF_CTX_new_id' or `EVP_KDF_CTX_new` function. */
+/* #undef HAVE_OPENSSL_EVP_KDF_CTX */
 
 /* Define to 1 if you have the `FIPS_mode' function. */
 /* #undef HAVE_OPENSSL_FIPS_MODE */
@@ -250,6 +242,9 @@
 /* Define to 1 if you want to enable DH group exchange algorithms */
 #define WITH_GEX 1
 
+/* Define to 1 if you want to enable none cipher and MAC */
+/* #undef WITH_INSECURE_NONE */
+
 /* Define to 1 if you want to enable blowfish cipher support */
 #define WITH_BLOWFISH_CIPHER 1
 
@@ -268,11 +263,14 @@
 /* Define to 1 if you want to enable NaCl support */
 /* #undef WITH_NACL */
 
+/* Define to 1 if you want to enable PKCS #11 URI support */
+/* #undef WITH_PKCS11_URI */
+
 /*************************** ENDIAN *****************************/
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most
    significant byte first (like Motorola and SPARC, unlike Intel). */
-/* #undef WORDS_BIGENDIAN */
+   /* #undef WORDS_BIGENDIAN */
 
 #define GLOBAL_BIND_CONFIG ".ssh/libssh_server_config"
 

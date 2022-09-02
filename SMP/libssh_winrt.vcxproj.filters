@@ -186,15 +186,6 @@
     <ClCompile Include="..\src\knownhosts.c">
       <Filter>Source Files</Filter>
     </ClCompile>
-    <ClCompile Include="..\src\external\chacha.c">
-      <Filter>Source Files\external</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\external\poly1305.c">
-      <Filter>Source Files\external</Filter>
-    </ClCompile>
-    <ClCompile Include="..\src\chachapoly.c">
-      <Filter>Source Files</Filter>
-    </ClCompile>
     <ClCompile Include="..\src\ecdh_gcrypt.c">
       <Filter>Source Files</Filter>
     </ClCompile>
@@ -226,6 +217,15 @@
       <Filter>Source Files</Filter>
     </ClCompile>
     <ClCompile Include="..\src\pki_ed25519_common.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\md_gcrypt.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\crypto_common.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\getrandom_gcrypt.c">
       <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
@@ -372,6 +372,9 @@
       <Filter>Header Files\libssh</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\token.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\chacha20-poly1305-common.h">
       <Filter>Header Files\libssh</Filter>
     </ClInclude>
   </ItemGroup>
