@@ -44,7 +44,8 @@
  *
  * @return              1 on success, 0 on error.
  */
-static int ssh_gets(const char *prompt, char *buf, size_t len, int verify) {
+static int ssh_gets(const char *prompt, char *buf, size_t len, int verify)
+{
     char *tmp;
     char *ptr = NULL;
     int ok = 0;
@@ -121,7 +122,8 @@ int ssh_getpass(const char *prompt,
                 char *buf,
                 size_t len,
                 int echo,
-                int verify) {
+                int verify)
+{
 #if defined(WINAPI_FAMILY) && (WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
     return -1;
 #else
@@ -217,7 +219,8 @@ int ssh_getpass(const char *prompt,
                 char *buf,
                 size_t len,
                 int echo,
-                int verify) {
+                int verify)
+{
     struct termios attr;
     struct termios old_attr;
     int ok = 0;

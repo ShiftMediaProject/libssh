@@ -12,6 +12,7 @@ include_directories(${OPENSSL_INCLUDE_DIR}
                     ${libssh_BINARY_DIR}/include
                     ${libssh_BINARY_DIR}
                     ${libssh_SOURCE_DIR}/src
+                    ${CMAKE_SOURCE_DIR}/include
                     ${CMAKE_CURRENT_SOURCE_DIR}
                     ${CMAKE_BINARY_DIR}/tests)
 
@@ -31,6 +32,50 @@ target_link_libraries(${TORTURE_LIBRARY} ${TORTURE_LINK_LIBRARIES})
 target_compile_options(${TORTURE_LIBRARY} PRIVATE
                        -DSSH_PING_EXECUTABLE="${CMAKE_CURRENT_BINARY_DIR}/ssh_ping"
 )
+
+# The shared version of the library is only useful when client testing is
+# enabled
+if (CLIENT_TESTING)
+    # create shared test library
+    set(TORTURE_SHARED_LIBRARY torture_shared)
+
+    if (MINGW)
+        set(USE_ATTRIBUTE_WEAK "-DUSE_ATTRIBUTE_WEAK")
+    endif ()
+
+    # Create a list of symbols that should be wrapped for override test
+    set(WRAP_SYMBOLS "")
+    list(APPEND WRAP_SYMBOLS
+         "-Wl,--wrap=chacha_keysetup"
+         "-Wl,--wrap=chacha_ivsetup"
+         "-Wl,--wrap=chacha_encrypt_bytes")
+    list(APPEND WRAP_SYMBOLS "-Wl,--wrap=poly1305_auth")
+    list(APPEND WRAP_SYMBOLS
+         "-Wl,--wrap=crypto_sign_ed25519_keypair"
+         "-Wl,--wrap=crypto_sign_ed25519"
+         "-Wl,--wrap=crypto_sign_ed25519_open")
+    list(APPEND WRAP_SYMBOLS
+         "-Wl,--wrap=crypto_scalarmult_base"
+         "-Wl,--wrap=crypto_scalarmult")
+
+    add_library(${TORTURE_SHARED_LIBRARY}
+                SHARED
+                    cmdline.c
+                    torture.c
+                    torture_key.c
+                    torture_pki.c
+                    torture_cmocka.c
+               )
+    target_link_libraries(${TORTURE_SHARED_LIBRARY}
+                          ${CMOCKA_LIBRARY}
+                          ssh::static
+                          ${WRAP_SYMBOLS}
+                         )
+    target_compile_options(${TORTURE_SHARED_LIBRARY} PRIVATE
+                           -DSSH_PING_EXECUTABLE="${CMAKE_CURRENT_BINARY_DIR}/ssh_ping"
+                           ${USE_ATTRIBUTE_WEAK}
+    )
+endif ()
 
 if (ARGP_LIBRARY)
     target_link_libraries(${TORTURE_LIBRARY}
@@ -136,6 +181,13 @@ if (CLIENT_TESTING OR SERVER_TESTING)
                     /usr/bin
                     /usr/local/bin)
 
+    if (WITH_PKCS11_URI)
+        find_package(softhsm)
+        if (NOT SOFTHSM_FOUND)
+            message(SEND_ERROR "Could not find softhsm module!")
+        endif (NOT SOFTHSM_FOUND)
+    endif (WITH_PKCS11_URI)
+
     find_program(SSH_EXECUTABLE NAMES ssh)
     if (SSH_EXECUTABLE)
         execute_process(COMMAND ${SSH_EXECUTABLE} -V ERROR_VARIABLE OPENSSH_VERSION_STR)
@@ -153,6 +205,17 @@ if (CLIENT_TESTING OR SERVER_TESTING)
         execute_process(COMMAND ${ID_EXECUTABLE} -u OUTPUT_VARIABLE LOCAL_UID OUTPUT_STRIP_TRAILING_WHITESPACE)
     endif()
 
+    find_program(TIMEOUT_EXECUTABLE
+                 NAME
+                    timeout
+                 PATHS
+                    /bin
+                    /usr/bin
+                    /usr/local/bin)
+    if (TIMEOUT_EXECUTABLE)
+        set(WITH_TIMEOUT "1")
+    endif()
+
     # chroot_wrapper
     add_library(chroot_wrapper SHARED chroot_wrapper.c)
     set(CHROOT_WRAPPER_LIBRARY ${libssh_BINARY_DIR}/lib/${CMAKE_SHARED_LIBRARY_PREFIX}chroot_wrapper${CMAKE_SHARED_LIBRARY_SUFFIX})
@@ -164,7 +227,7 @@ if (CLIENT_TESTING OR SERVER_TESTING)
     # ssh_ping
     add_executable(ssh_ping ssh_ping.c)
     target_compile_options(ssh_ping PRIVATE ${DEFAULT_C_COMPILE_FLAGS})
-    target_link_libraries(ssh_ping ssh::ssh)
+    target_link_libraries(ssh_ping ssh::static)
 
     # homedir will be used in passwd
     set(HOMEDIR ${CMAKE_CURRENT_BINARY_DIR}/home)
@@ -186,10 +249,14 @@ if (CLIENT_TESTING OR SERVER_TESTING)
     list(APPEND TORTURE_ENVIRONMENT NSS_WRAPPER_SHADOW=${CMAKE_CURRENT_BINARY_DIR}/etc/shadow)
     list(APPEND TORTURE_ENVIRONMENT NSS_WRAPPER_GROUP=${CMAKE_CURRENT_BINARY_DIR}/etc/group)
     list(APPEND TORTURE_ENVIRONMENT PAM_WRAPPER_SERVICE_DIR=${CMAKE_CURRENT_BINARY_DIR}/etc/pam.d)
+    list(APPEND TORTURE_ENVIRONMENT LSAN_OPTIONS=suppressions=${CMAKE_CURRENT_SOURCE_DIR}/suppressions/lsan.supp)
 
     # Give bob some keys
     file(COPY keys/id_rsa DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/home/bob/.ssh/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
     file(COPY keys/id_rsa.pub DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/home/bob/.ssh/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
+    # Same as id_rsa, protected with passphrase "secret"
+    file(COPY keys/id_rsa_protected DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/home/bob/.ssh/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
+    file(COPY keys/id_rsa_protected.pub DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/home/bob/.ssh/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
     file(COPY keys/id_ecdsa DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/home/bob/.ssh/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
     file(COPY keys/id_ecdsa.pub DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/home/bob/.ssh/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
     file(COPY keys/id_ed25519 DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/home/bob/.ssh/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
@@ -197,6 +264,7 @@ if (CLIENT_TESTING OR SERVER_TESTING)
 
     # Allow to auth with bob's public keys on alice account
     configure_file(keys/id_rsa.pub ${CMAKE_CURRENT_BINARY_DIR}/home/alice/.ssh/authorized_keys @ONLY)
+
     # append ECDSA public key
     file(READ keys/id_ecdsa.pub CONTENTS)
     file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/home/alice/.ssh/authorized_keys "${CONTENTS}")
@@ -205,10 +273,26 @@ if (CLIENT_TESTING OR SERVER_TESTING)
     file(READ keys/id_ed25519.pub CONTENTS)
     file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/home/alice/.ssh/authorized_keys "${CONTENTS}")
 
+    # Allow to auth with bob his public keys on charlie account
+    configure_file(keys/pkcs11/id_pkcs11_rsa_openssh.pub ${CMAKE_CURRENT_BINARY_DIR}/home/charlie/.ssh/authorized_keys @ONLY)
+
+    # append ECDSA public key
+    file(READ keys/pkcs11/id_pkcs11_ecdsa_256_openssh.pub CONTENTS)
+    file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/home/charlie/.ssh/authorized_keys "${CONTENTS}")
+
+    file(READ keys/pkcs11/id_pkcs11_ecdsa_384_openssh.pub CONTENTS)
+    file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/home/charlie/.ssh/authorized_keys "${CONTENTS}")
+
+    file(READ keys/pkcs11/id_pkcs11_ecdsa_521_openssh.pub CONTENTS)
+    file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/home/charlie/.ssh/authorized_keys "${CONTENTS}")
+
     # Copy the signed key to an alternative directory in bob's homedir.
     file(COPY keys/certauth/id_rsa DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/home/bob/.ssh_cert/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
     file(COPY keys/certauth/id_rsa.pub DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/home/bob/.ssh_cert/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
     file(COPY keys/certauth/id_rsa-cert.pub DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/home/bob/.ssh_cert/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
+
+    #Copy the script to setup PKCS11 tokens
+    file(COPY pkcs11/setup-softhsm-tokens.sh DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/pkcs11 FILE_PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE)
 
     message(STATUS "TORTURE_ENVIRONMENT=${TORTURE_ENVIRONMENT}")
 endif ()
@@ -221,6 +305,9 @@ endif ()
 
 if (CLIENT_TESTING)
     add_subdirectory(client)
+
+    # Only add override testing if testing the client
+    add_subdirectory(external_override)
 endif ()
 
 if (WITH_SERVER AND SERVER_TESTING)

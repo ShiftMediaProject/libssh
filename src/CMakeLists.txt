@@ -9,13 +9,6 @@ set(LIBSSH_LINK_LIBRARIES
   ${LIBSSH_REQUIRED_LIBRARIES}
 )
 
-if (WIN32)
-  set(LIBSSH_LINK_LIBRARIES
-    ${LIBSSH_LINK_LIBRARIES}
-    ws2_32
-  )
-endif (WIN32)
-
 if (OPENSSL_CRYPTO_LIBRARIES)
   set(LIBSSH_PRIVATE_INCLUDE_DIRS
     ${LIBSSH_PRIVATE_INCLUDE_DIRS}
@@ -93,6 +86,15 @@ if (MINGW AND Threads_FOUND)
   )
 endif()
 
+# This needs to be last for mingw to build
+# https://gitlab.com/libssh/libssh-mirror/-/issues/84
+if (WIN32)
+  set(LIBSSH_LINK_LIBRARIES
+    ${LIBSSH_LINK_LIBRARIES}
+    ws2_32
+  )
+endif (WIN32)
+
 if (BUILD_STATIC_LIB)
   set(LIBSSH_STATIC_LIBRARY
     ssh_static
@@ -112,6 +114,7 @@ set(libssh_SRCS
   config.c
   connect.c
   connector.c
+  crypto_common.c
   curve25519.c
   dh.c
   ecdh.c
@@ -143,9 +146,6 @@ set(libssh_SRCS
   wrapper.c
   external/bcrypt_pbkdf.c
   external/blowfish.c
-  external/chacha.c
-  external/poly1305.c
-  chachapoly.c
   config_parser.c
   token.c
   pki_ed25519_common.c
@@ -184,6 +184,8 @@ if (WITH_GCRYPT)
         gcrypt_missing.c
         pki_gcrypt.c
         ecdh_gcrypt.c
+        getrandom_gcrypt.c
+        md_gcrypt.c
         dh_key.c
         pki_ed25519.c
         external/ed25519.c
@@ -191,6 +193,14 @@ if (WITH_GCRYPT)
         external/ge25519.c
         external/sc25519.c
        )
+    if (NOT HAVE_GCRYPT_CHACHA_POLY)
+        set(libssh_SRCS
+            ${libssh_SRCS}
+            external/chacha.c
+            external/poly1305.c
+            chachapoly.c
+        )
+    endif (NOT HAVE_GCRYPT_CHACHA_POLY)
 elseif (WITH_MBEDTLS)
     set(libssh_SRCS
         ${libssh_SRCS}
@@ -199,6 +209,8 @@ elseif (WITH_MBEDTLS)
         mbedcrypto_missing.c
         pki_mbedcrypto.c
         ecdh_mbedcrypto.c
+        getrandom_mbedcrypto.c
+        md_mbedcrypto.c
         dh_key.c
         pki_ed25519.c
         external/ed25519.c
@@ -206,12 +218,23 @@ elseif (WITH_MBEDTLS)
         external/ge25519.c
         external/sc25519.c
        )
+    if (NOT (HAVE_MBEDTLS_CHACHA20_H AND HAVE_MBEDTLS_POLY1305_H))
+        set(libssh_SRCS
+            ${libssh_SRCS}
+            external/chacha.c
+            external/poly1305.c
+            chachapoly.c
+           )
+    endif()
+
 else (WITH_GCRYPT)
     set(libssh_SRCS
         ${libssh_SRCS}
         threads/libcrypto.c
         pki_crypto.c
         ecdh_crypto.c
+        getrandom_crypto.c
+        md_crypto.c
         libcrypto.c
         dh_crypto.c
        )
@@ -225,6 +248,14 @@ else (WITH_GCRYPT)
             external/sc25519.c
            )
     endif (NOT HAVE_OPENSSL_ED25519)
+    if (NOT (HAVE_OPENSSL_EVP_CHACHA20 AND HAVE_OPENSSL_EVP_POLY1305))
+        set(libssh_SRCS
+            ${libssh_SRCS}
+            external/chacha.c
+            external/poly1305.c
+            chachapoly.c
+        )
+    endif (NOT (HAVE_OPENSSL_EVP_CHACHA20 AND HAVE_OPENSSL_EVP_POLY1305))
     if(OPENSSL_VERSION VERSION_LESS "1.1.0")
         set(libssh_SRCS ${libssh_SRCS} libcrypto-compat.c)
     endif()
@@ -275,12 +306,12 @@ if (WITH_GSSAPI AND GSSAPI_FOUND)
 endif (WITH_GSSAPI AND GSSAPI_FOUND)
 
 if (NOT WITH_NACL)
-    if (NOT HAVE_OPENSSL_ED25519)
+    if (NOT HAVE_LIBCRYPTO OR NOT HAVE_OPENSSL_ED25519)
         set(libssh_SRCS
             ${libssh_SRCS}
             external/curve25519_ref.c
            )
-    endif (NOT HAVE_OPENSSL_ED25519)
+    endif()
 endif (NOT WITH_NACL)
 
 # Set the path to the default map file
