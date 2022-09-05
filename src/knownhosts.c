@@ -483,6 +483,9 @@ static const char *ssh_known_host_sigs_from_hostkey_type(enum ssh_keytypes_e typ
 #ifdef HAVE_DSA
     case SSH_KEYTYPE_DSS:
         return "ssh-dss";
+#else
+        SSH_LOG(SSH_LOG_WARN, "DSS keys are not supported by this build");
+        break;
 #endif
 #ifdef HAVE_ECDH
     case SSH_KEYTYPE_ECDSA_P256:
@@ -491,13 +494,22 @@ static const char *ssh_known_host_sigs_from_hostkey_type(enum ssh_keytypes_e typ
         return "ecdsa-sha2-nistp384";
     case SSH_KEYTYPE_ECDSA_P521:
         return "ecdsa-sha2-nistp521";
+#else
+    case SSH_KEYTYPE_ECDSA_P256:
+    case SSH_KEYTYPE_ECDSA_P384:
+    case SSH_KEYTYPE_ECDSA_P521:
+        SSH_LOG(SSH_LOG_WARN, "ECDSA keys are not supported by this build");
+        break;
 #endif
     case SSH_KEYTYPE_UNKNOWN:
     default:
-        SSH_LOG(SSH_LOG_WARN, "The given type %d is not a base private key type "
-                "or is unsupported", type);
-        return NULL;
+        SSH_LOG(SSH_LOG_WARN,
+                "The given type %d is not a base private key type "
+                "or is unsupported",
+                type);
     }
+
+    return NULL;
 }
 
 /**
