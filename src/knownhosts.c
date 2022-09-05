@@ -591,6 +591,8 @@ char *ssh_known_hosts_get_algorithms_names(ssh_session session)
         entry = ssh_iterator_value(struct ssh_knownhosts_entry *, it);
         algo = ssh_known_host_sigs_from_hostkey_type(entry->publickey->type);
         if (algo == NULL) {
+            ssh_knownhosts_entry_free(entry);
+            ssh_list_remove(entry_list, it);
             continue;
         }
 
