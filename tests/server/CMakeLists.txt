@@ -11,6 +11,7 @@ set(LIBSSH_SERVER_TESTS
     torture_server_auth_kbdint
     torture_server_config
     torture_server_algorithms
+    torture_sftpserver
 )
 
 include_directories(${libssh_SOURCE_DIR}/include

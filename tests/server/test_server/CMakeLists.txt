@@ -10,7 +10,8 @@ set(server_SRCS
 
 add_library(testserver STATIC
             test_server.c
-            default_cb.c)
+            default_cb.c
+            sftpserver_cb.c)
 
 set(LIBSSH_SERVER_TESTS
 #    torture_server_kbdint
