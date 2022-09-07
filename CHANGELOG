@@ -1,6 +1,9 @@
 CHANGELOG
 =========
 
+version 0.10.4 (released 2022-09-07)
+  * Fixed issues with KDF on big endian
+
 version 0.10.3 (released 2022-09-05)
   * Fixed possible infinite loop in known hosts checking
 
