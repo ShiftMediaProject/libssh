@@ -1755,10 +1755,12 @@ static bool
 ssh_packet_in_rekey(ssh_session session)
 {
     /* We know we are rekeying if we are authenticated and the DH
-     * status is not finished
+     * status is not finished, but we only queue packets until we've
+     * sent our NEWKEYS.
      */
     return (session->flags & SSH_SESSION_FLAG_AUTHENTICATED) &&
-           (session->dh_handshake_state != DH_STATE_FINISHED);
+           (session->dh_handshake_state != DH_STATE_FINISHED) &&
+           (session->dh_handshake_state != DH_STATE_NEWKEYS_SENT);
 }
 
 int ssh_packet_send(ssh_session session)
