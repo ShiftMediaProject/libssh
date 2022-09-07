@@ -214,7 +214,7 @@ static const char *sshkdf_digest_to_md(enum ssh_kdf_digest digest_type)
 
 int ssh_kdf(struct ssh_crypto_struct *crypto,
             unsigned char *key, size_t key_len,
-            int key_type, unsigned char *output,
+            uint8_t key_type, unsigned char *output,
             size_t requested_len)
 {
     int rc = -1;
@@ -330,7 +330,7 @@ out:
 #else
 int ssh_kdf(struct ssh_crypto_struct *crypto,
             unsigned char *key, size_t key_len,
-            int key_type, unsigned char *output,
+            uint8_t key_type, unsigned char *output,
             size_t requested_len)
 {
     return sshkdf_derive_key(crypto, key, key_len,
