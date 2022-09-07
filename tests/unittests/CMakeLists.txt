@@ -104,7 +104,8 @@ foreach(_UNIT_TEST ${LIBSSH_UNIT_TESTS})
 
     set_property(TEST ${_UNIT_TEST}
                  PROPERTY
-                     ENVIRONMENT LSAN_OPTIONS=suppressions=${libssh-tests_SOURCE_DIR}/suppressions/lsan.supp)
+                     ENVIRONMENT
+                        LSAN_OPTIONS=suppressions=${libssh-tests_SOURCE_DIR}/suppressions/lsan.supp;OPENSSL_ENABLE_SHA1_SIGNATURES=1)
 endforeach()
 
 if (CMAKE_USE_PTHREADS_INIT)
@@ -117,7 +118,8 @@ if (CMAKE_USE_PTHREADS_INIT)
 
     set_property(TEST ${_UNIT_TEST}
                  PROPERTY
-                    ENVIRONMENT LSAN_OPTIONS=suppressions=${libssh-tests_SOURCE_DIR}/suppressions/lsan.supp)
+                    ENVIRONMENT
+                        LSAN_OPTIONS=suppressions=${libssh-tests_SOURCE_DIR}/suppressions/lsan.supp;OPENSSL_ENABLE_SHA1_SIGNATURES=1)
     endforeach()
 endif ()
 
