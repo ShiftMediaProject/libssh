@@ -103,7 +103,7 @@ size_t hmac_digest_len(enum ssh_hmac_e type);
 
 int ssh_kdf(struct ssh_crypto_struct *crypto,
             unsigned char *key, size_t key_len,
-            int key_type, unsigned char *output,
+            uint8_t key_type, unsigned char *output,
             size_t requested_len);
 
 int crypt_set_algorithms_client(ssh_session session);
