@@ -498,8 +498,22 @@ public:
     return_throwable;
   }
 
-  int getExitStatus(){
-    return ssh_channel_get_exit_status(channel);
+  /*
+   * @deprecated Please use getExitState()
+   */
+  int getExitStatus() {
+        uint32_t exit_status = (uint32_t)-1;
+        ssh_channel_get_exit_state(channel, &exit_status, NULL, NULL);
+        return exit_status;
+  }
+  void_throwable getExitState(uint32_t & pexit_code,
+                              char **pexit_signal,
+                              int & pcore_dumped) {
+      ssh_throw(ssh_channel_get_exit_state(channel,
+                                           &pexit_code,
+                                           pexit_signal,
+                                           &pcore_dumped));
+      return_throwable;
   }
   Session &getSession(){
     return *session;

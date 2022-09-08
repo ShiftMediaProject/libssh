@@ -3389,6 +3389,83 @@ static int ssh_channel_exit_status_termination(void *c)
 }
 
 /**
+ * @brief Get the exit state of the channel (error code from the executed
+ *        instruction or signal).
+ *
+ * @param[in]  channel  The channel to get the status from.
+ *
+ * @param[out] pexit_code   A pointer to an uint32_t to store the exit status.
+ *
+ * @param[out] pexit_signal A pointer to store the exit signal as a string.
+ *                         The signal is without the SIG prefix, e.g. "TERM" or
+ *                         "KILL"). The caller has to free the memory.
+ *
+ * @param[out] pcore_dumped A pointer to store a boolean value if it dumped a
+ *                          core.
+ *
+ * @return              SSH_OK on success, SSH_AGAIN if we don't have a status
+ *                      or an SSH error.
+ * @warning             This function may block until a timeout (or never)
+ *                      if the other side is not willing to close the channel.
+ *                      When a channel is freed the function returns
+ *                      SSH_ERROR immediately.
+ *
+ * If you're looking for an async handling of this register a callback for the
+ * exit status!
+ *
+ * @see ssh_channel_exit_status_callback
+ * @see ssh_channel_exit_signal_callback
+ */
+int ssh_channel_get_exit_state(ssh_channel channel,
+                               uint32_t *pexit_code,
+                               char **pexit_signal,
+                               int *pcore_dumped)
+{
+    ssh_session session = NULL;
+    int rc;
+
+    if ((channel == NULL) || (channel->flags & SSH_CHANNEL_FLAG_FREED_LOCAL)) {
+        return SSH_ERROR;
+    }
+    session = channel->session;
+
+    rc = ssh_handle_packets_termination(channel->session,
+                                        SSH_TIMEOUT_DEFAULT,
+                                        ssh_channel_exit_status_termination,
+                                        channel);
+    if (rc == SSH_ERROR || channel->session->session_state ==
+        SSH_SESSION_STATE_ERROR) {
+        return SSH_ERROR;
+    }
+
+    /* If we don't have any kind of exit state, return SSH_AGAIN */
+    if (!channel->exit.status) {
+        return SSH_AGAIN;
+    }
+
+    if (pexit_code != NULL) {
+        *pexit_code = channel->exit.code;
+    }
+
+    if (pexit_signal != NULL) {
+        *pexit_signal = NULL;
+        if (channel->exit.signal != NULL) {
+            *pexit_signal = strdup(channel->exit.signal);
+            if (pexit_signal == NULL) {
+                ssh_set_error_oom(session);
+                return SSH_ERROR;
+            }
+        }
+    }
+
+    if (pcore_dumped != NULL) {
+        *pcore_dumped = channel->exit.core_dumped;
+    }
+
+    return SSH_OK;
+}
+
+/**
  * @brief Get the exit status of the channel (error code from the executed
  *        instruction).
  *
@@ -3405,21 +3482,19 @@ static int ssh_channel_exit_status_termination(void *c)
  * exit status.
  *
  * @see ssh_channel_exit_status_callback
+ * @deprecated Please use ssh_channel_exit_state()
  */
 int ssh_channel_get_exit_status(ssh_channel channel)
 {
-  int rc;
-  if ((channel == NULL) || (channel->flags & SSH_CHANNEL_FLAG_FREED_LOCAL)) {
-      return SSH_ERROR;
-  }
-  rc = ssh_handle_packets_termination(channel->session,
-                                      SSH_TIMEOUT_DEFAULT,
-                                      ssh_channel_exit_status_termination,
-                                      channel);
-  if (rc == SSH_ERROR || channel->session->session_state ==
-      SSH_SESSION_STATE_ERROR)
-    return SSH_ERROR;
-  return channel->exit.code;
+    uint32_t exit_status = (uint32_t)-1;
+    int rc;
+
+    rc = ssh_channel_get_exit_state(channel, &exit_status, NULL, NULL);
+    if (rc != SSH_OK) {
+        return SSH_ERROR;
+    }
+
+    return exit_status;
 }
 
 /*

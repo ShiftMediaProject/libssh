@@ -462,7 +462,11 @@ LIBSSH_API int ssh_channel_close(ssh_channel channel);
         }                        \
     } while (0)
 LIBSSH_API void ssh_channel_free(ssh_channel channel);
-LIBSSH_API int ssh_channel_get_exit_status(ssh_channel channel);
+LIBSSH_API int ssh_channel_get_exit_state(ssh_channel channel,
+                                          uint32_t *pexit_code,
+                                          char **pexit_signal,
+                                          int *pcore_dumped);
+SSH_DEPRECATED LIBSSH_API int ssh_channel_get_exit_status(ssh_channel channel);
 LIBSSH_API ssh_session ssh_channel_get_session(ssh_channel channel);
 LIBSSH_API int ssh_channel_is_closed(ssh_channel channel);
 LIBSSH_API int ssh_channel_is_eof(ssh_channel channel);

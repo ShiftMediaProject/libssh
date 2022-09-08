@@ -403,7 +403,7 @@ static void torture_channel_exit_status(void **state)
     ssh_session session = s->ssh.session;
     ssh_channel channel = NULL;
     char request[256];
-    int exit_status = -1;
+    uint32_t exit_status = (uint32_t)-1;
     int rc;
 
     rc = snprintf(request, sizeof(request), "true");
@@ -419,7 +419,8 @@ static void torture_channel_exit_status(void **state)
     rc = ssh_channel_request_exec(channel, request);
     assert_ssh_return_code(session, rc);
 
-    exit_status = ssh_channel_get_exit_status(channel);
+    exit_status = ssh_channel_get_exit_state(channel, &exit_status, NULL, NULL);
+    assert_ssh_return_code(session, rc);
     assert_int_equal(exit_status, 0);
 }
 
