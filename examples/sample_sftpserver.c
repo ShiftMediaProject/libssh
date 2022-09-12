@@ -53,6 +53,7 @@ The goal is to show the API in action.
 #include <unistd.h>
 #include <dirent.h>
 #include <time.h>
+#include <inttypes.h>
 
 
 #ifndef KEYS_FOLDER
@@ -70,7 +71,7 @@ The goal is to show the API in action.
 
 #define MAX_HANDLE_NUM 10
 #define MAX_ENTRIES_NUM_IN_PACKET 50
-#define MAX_LONG_NAME_LEN 150
+#define MAX_LONG_NAME_LEN 350
 
 #define SSH_SFTP_CALLBACK(name) \
 	static int name (sftp_client_message message)
@@ -184,16 +185,16 @@ static int handle_close(int handle_ind) {
 }
 
 static int handle_close_by_pointer(struct sftp_handle* handle) {
-    if(handle->type == NULL_HANDLE)
+    if (handle->type == NULL_HANDLE)
         return -1;
 
-    if(handle->fd > 0)
+    if (handle->fd > 0)
         close(handle->fd);
 
-    if(handle->dirp!=NULL)
+    if (handle->dirp!=NULL)
         closedir(handle->dirp);
 
-    if(handle->name!=NULL){
+    if (handle->name!=NULL) {
         free(handle->name);
         handle->name = NULL;
     }
@@ -202,10 +203,10 @@ static int handle_close_by_pointer(struct sftp_handle* handle) {
 }
 
 static void free_handles(int handle_num) {
- 
-    for(int i = 0; i < handle_num; i++) {
+    int i;
+    for(i = 0; i < handle_num; i++) {
         handle_close(i);
-        //reinit this handle
+        /* reinit this handle */
         reinit_single_handle(&s_handle_table[i]);
     }
     return;
@@ -213,12 +214,13 @@ static void free_handles(int handle_num) {
 
 static int add_handle(int type, void *dirp, int fd, const char *name, void *session_id) {
     int ret = SSH_ERROR;
-    if(dirp == NULL && fd < 0){
+    int i;
+    if (dirp == NULL && fd < 0) {
         return ret;
     }
 
-    for(int i = 0; i<MAX_HANDLE_NUM; i++) {
-        if(s_handle_table[i].type == NULL_HANDLE){
+    for (i = 0; i < MAX_HANDLE_NUM; i++) {
+        if (s_handle_table[i].type == NULL_HANDLE) {
             s_handle_table[i].type = type;
             s_handle_table[i].session_id = session_id;
             s_handle_table[i].fd = fd;
@@ -230,8 +232,8 @@ static int add_handle(int type, void *dirp, int fd, const char *name, void *sess
             break;
         }
     }
-    
-    if(ret==SSH_ERROR) 
+
+    if (ret == SSH_ERROR)
         printf("no other space for new handle\n");
 
     return ret;
@@ -240,7 +242,7 @@ static int add_handle(int type, void *dirp, int fd, const char *name, void *sess
 static char* get_handle_name(struct sftp_handle* handle) {
     char *ret = NULL;
 
-    if(handle!=NULL&&handle->name!=NULL)
+    if (handle != NULL && handle->name != NULL)
         ret = handle->name;
     
     return ret;
@@ -273,33 +275,23 @@ static int unix_errno_to_ssh_stat(int u_errno) {
         case ENOTDIR:
         case EBADF:
         case ELOOP:
-        {
             ret = SSH_FX_NO_SUCH_FILE;
             break;
-        }
         case EPERM:
         case EACCES:
         case EFAULT:
-        {
             ret = SSH_FX_PERMISSION_DENIED;
             break;
-        }
         case ENAMETOOLONG:
         case EINVAL:
-        {
             ret = SSH_FX_BAD_MESSAGE;
             break;
-        }
         case ENOSYS:
-        {
             ret = SSH_FX_OP_UNSUPPORTED;
             break;
-        }
         default:
-        {
             ret = SSH_FX_FAILURE;
             break;
-        }
     }
 
     return ret;
@@ -431,19 +423,24 @@ static int process_open(sftp_client_message client_msg) {
     int handle_ind = -1;
     int status;
 
-    if (( (msg_flag&(uint32_t)SSH_FXF_READ) == SSH_FXF_READ) && 
-       ( (msg_flag&(uint32_t)SSH_FXF_WRITE) == SSH_FXF_WRITE)) {
+    if (((msg_flag&(uint32_t)SSH_FXF_READ) == SSH_FXF_READ) && 
+       ((msg_flag&(uint32_t)SSH_FXF_WRITE) == SSH_FXF_WRITE)) {
         file_flag = O_RDWR; //file must exist
         if ((msg_flag & (uint32_t)SSH_FXF_CREAT) == SSH_FXF_CREAT)
             file_flag |= O_CREAT;
-    } else if ( (msg_flag&(uint32_t)SSH_FXF_WRITE) == SSH_FXF_WRITE ){
+    } else if ((msg_flag & (uint32_t)SSH_FXF_WRITE) == SSH_FXF_WRITE) {
         file_flag = O_WRONLY;
-        if ( (msg_flag&(uint32_t)SSH_FXF_APPEND) == SSH_FXF_APPEND )
+        if ((msg_flag & (uint32_t)SSH_FXF_APPEND) == SSH_FXF_APPEND)
             file_flag |= O_APPEND;
-        if ( (msg_flag&(uint32_t)SSH_FXF_CREAT) == SSH_FXF_CREAT )
+        if ((msg_flag & (uint32_t)SSH_FXF_CREAT) == SSH_FXF_CREAT)
             file_flag |= O_CREAT;
-    } else if ( (msg_flag&(uint32_t)SSH_FXF_READ) == SSH_FXF_READ ){
+    } else if ((msg_flag & (uint32_t)SSH_FXF_READ) == SSH_FXF_READ) {
         file_flag = O_RDONLY;
+    } else {
+        printf("undefined message flag\n");
+        sftp_reply_status(client_msg, SSH_FX_FAILURE, "Flag error");
+        ret = SSH_ERROR;
+        return ret;
     }
 
     fd = open(filename, file_flag, 0600);
@@ -496,7 +493,7 @@ static int process_read(sftp_client_message client_msg) {
     rv = lseek(fd, client_msg->offset, SEEK_SET);
     if (rv == -1) {
         sftp_reply_status(client_msg, SSH_FX_FAILURE, NULL);
-        printf("error seeking file fd: %d at offset: %ld\n", fd, client_msg->offset);
+        printf("error seeking file fd: %d at offset: %" PRIu64 "\n", fd, client_msg->offset);
         ret = SSH_ERROR;
         return ret;
     }
@@ -545,7 +542,7 @@ static int process_write(sftp_client_message client_msg) {
     rv = lseek(fd, client_msg->offset, SEEK_SET);
     if (rv == -1) {
         sftp_reply_status(client_msg, SSH_FX_FAILURE, NULL);
-        printf("error seeking file at offset: %ld\n", client_msg->offset);
+        printf("error seeking file at offset: %" PRIu64 "\n", client_msg->offset);
     }
     writen = write(fd, msg_data, len);
     if(writen == len) {

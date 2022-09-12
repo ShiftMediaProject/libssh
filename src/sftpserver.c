@@ -249,7 +249,8 @@ sftp_client_message sftp_get_client_message(sftp_session sftp) {
   return msg;
 }
 
-sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp) {
+sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp)
+{
     ssh_session session = sftp->session;
     sftp_packet packet;
     sftp_client_message msg;
@@ -291,8 +292,9 @@ sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp) {
         return NULL;
     }
 
-    if(msg->type!=SSH_FXP_INIT)
+    if (msg->type!=SSH_FXP_INIT) {
         ssh_buffer_get_u32(payload, &msg->id);
+    }
 
     switch(msg->type) {
         case SSH_FXP_INIT:
@@ -718,8 +720,8 @@ int sftp_reply_data(sftp_client_message msg, const void *data, int len) {
   return 0;
 }
 
-/* zeyu added */
-int sftp_reply_statvfs(sftp_client_message msg, sftp_statvfs_t st) {
+int sftp_reply_statvfs(sftp_client_message msg, sftp_statvfs_t st)
+{
   ssh_buffer out;
 
   out = ssh_buffer_new();

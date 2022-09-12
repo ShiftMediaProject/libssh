@@ -123,18 +123,6 @@ static int setup_default_server(void **state)
     torture_write_file(ecdsa_hostkey,
                        torture_get_testkey(SSH_KEYTYPE_ECDSA_P521, 0));
 
-    // sftp_server = getenv("TORTURE_SFTP_SERVER");
-    // if (sftp_server == NULL) {
-    //     for (i = 0; i < sftp_sl_size; i++) {
-    //         sftp_server = sftp_server_locations[i];
-    //         rc = lstat(sftp_server, &sb);
-    //         if (rc == 0) {
-    //             break;
-    //         }
-    //     }
-    // }
-    // assert_non_null(sftp_server);
-
     /* Create default server state */
     ss = (struct server_state_st *)calloc(1, sizeof(struct server_state_st));
     assert_non_null(ss);
@@ -442,7 +430,7 @@ static void torture_server_test_sftp_function(void **state)
     assert_non_null(fichier);
 
     to = sftp_open(sftp, "ssh-copy", O_WRONLY | O_CREAT, 0700);
-    assert_non_null(fichier);
+    assert_non_null(to);
 
     read_len = sftp_read(fichier, data, 4096);
     write_len = sftp_write(to, data, read_len);

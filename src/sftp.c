@@ -354,7 +354,8 @@ void sftp_server_free(sftp_session sftp)
     SAFE_FREE(sftp);
 }
 
-int sftp_process_init_packet(sftp_client_message client_msg) {
+int sftp_process_init_packet(sftp_client_message client_msg)
+{
     int ret = SSH_OK;
     sftp_session sftp = client_msg->sftp;
     ssh_session session = sftp->session;
@@ -434,7 +435,8 @@ void sftp_free(sftp_session sftp)
     SAFE_FREE(sftp);
 }
 
-int sftp_decode_channel_data_to_packet(sftp_session sftp, void *data) {
+int sftp_decode_channel_data_to_packet(sftp_session sftp, void *data)
+{
     sftp_packet packet = sftp->read_packet;
     int nread;
     int payload_len;
@@ -451,12 +453,12 @@ int sftp_decode_channel_data_to_packet(sftp_session sftp, void *data) {
     if(payload_len > MAX_PACKET_LEN || payload_len < 0)
         return SSH_ERROR;
     
-    offset = sizeof(int)+sizeof(uint8_t);
+    offset = sizeof(int) + sizeof(uint8_t);
     to_read = payload_len - sizeof(uint8_t);
-    ssh_buffer_add_data(packet->payload, (void*)((uint8_t *)data + offset), payload_len-sizeof(uint8_t));
+    ssh_buffer_add_data(packet->payload, (void*)((uint8_t *)data + offset), payload_len - sizeof(uint8_t));
     nread = ssh_buffer_get_len(packet->payload);
 
-    /* We should check if we copy the whole data */
+    /* We should check if we copied the whole data */
     if(nread != to_read)
         return SSH_ERROR;
 

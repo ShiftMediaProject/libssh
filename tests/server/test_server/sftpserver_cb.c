@@ -71,7 +71,7 @@
 
 #define MAX_HANDLE_NUM 10
 #define MAX_ENTRIES_NUM_IN_PACKET 50
-#define MAX_LONG_NAME_LEN 150
+#define MAX_LONG_NAME_LEN 300
 
 #define SSH_SFTP_CALLBACK(name) \
 	static int name (sftp_client_message message)
@@ -266,41 +266,30 @@ static const char* ssh_str_error(int u_errno) {
 
 static int unix_errno_to_ssh_stat(int u_errno) {
     int ret = SSH_OK;
-    switch (u_errno)
-    {
+    switch (u_errno) {
         case 0:
             break;
         case ENOENT:
         case ENOTDIR:
         case EBADF:
         case ELOOP:
-        {
             ret = SSH_FX_NO_SUCH_FILE;
             break;
-        }
         case EPERM:
         case EACCES:
         case EFAULT:
-        {
             ret = SSH_FX_PERMISSION_DENIED;
             break;
-        }
         case ENAMETOOLONG:
         case EINVAL:
-        {
             ret = SSH_FX_BAD_MESSAGE;
             break;
-        }
         case ENOSYS:
-        {
             ret = SSH_FX_OP_UNSUPPORTED;
             break;
-        }
         default:
-        {
             ret = SSH_FX_FAILURE;
             break;
-        }
     }
 
     return ret;
@@ -437,13 +426,13 @@ static int process_open(sftp_client_message client_msg) {
         file_flag = O_RDWR; //file must exist
         if ((msg_flag & (uint32_t)SSH_FXF_CREAT) == SSH_FXF_CREAT)
             file_flag |= O_CREAT;
-    } else if ( (msg_flag&(uint32_t)SSH_FXF_WRITE) == SSH_FXF_WRITE ){
+    } else if ( (msg_flag&(uint32_t)SSH_FXF_WRITE) == SSH_FXF_WRITE ) {
         file_flag = O_WRONLY;
         if ( (msg_flag&(uint32_t)SSH_FXF_APPEND) == SSH_FXF_APPEND )
             file_flag |= O_APPEND;
         if ( (msg_flag&(uint32_t)SSH_FXF_CREAT) == SSH_FXF_CREAT )
             file_flag |= O_CREAT;
-    } else if ( (msg_flag&(uint32_t)SSH_FXF_READ) == SSH_FXF_READ ){
+    } else {
         file_flag = O_RDONLY;
     }
 
