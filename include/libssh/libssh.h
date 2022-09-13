@@ -328,16 +328,16 @@ enum {
 	/** No logging at all
 	 */
 	SSH_LOG_NOLOG=0,
-	/** Only warnings
+	/** Only unrecoverable errors
 	 */
 	SSH_LOG_WARNING,
-	/** High level protocol information
+	/** Information for the users
 	 */
 	SSH_LOG_PROTOCOL,
-	/** Lower level protocol infomations, packet level
+	/** Debug information, to see what is going on
 	 */
 	SSH_LOG_PACKET,
-	/** Every function path
+	/** Trace information and recoverable error messages
 	 */
 	SSH_LOG_FUNCTIONS
 };
@@ -353,7 +353,7 @@ enum {
 
 /** No logging at all */
 #define SSH_LOG_NONE 0
-/** Show only warnings */
+/** Show only fatal warnings */
 #define SSH_LOG_WARN 1
 /** Get some information what's going on */
 #define SSH_LOG_INFO 2
