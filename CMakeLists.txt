@@ -125,7 +125,7 @@ add_subdirectory(src)
 
 # pkg-config file
 if (UNIX OR MINGW)
-configure_file(libssh.pc.cmake ${CMAKE_CURRENT_BINARY_DIR}/libssh.pc)
+configure_file(libssh.pc.cmake ${CMAKE_CURRENT_BINARY_DIR}/libssh.pc @ONLY)
 install(
   FILES
     ${CMAKE_CURRENT_BINARY_DIR}/libssh.pc
