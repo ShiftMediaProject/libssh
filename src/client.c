@@ -73,7 +73,7 @@ static void socket_callback_connected(int code, int errno_code, void *user)
 		return;
 	}
 
-	SSH_LOG(SSH_LOG_RARE,"Socket connection callback: %d (%d)",code, errno_code);
+	SSH_LOG(SSH_LOG_TRACE,"Socket connection callback: %d (%d)",code, errno_code);
 	if(code == SSH_SOCKET_CONNECTED_OK)
 		session->session_state=SSH_SESSION_STATE_SOCKET_CONNECTED;
 	else {

@@ -955,7 +955,7 @@ ssh_string pki_private_key_to_pem(const ssh_key key,
     (void) auth_fn;
     (void) auth_data;
 
-    SSH_LOG(SSH_LOG_WARN, "PEM export not supported by gcrypt backend!");
+    SSH_LOG(SSH_LOG_TRACE, "PEM export not supported by gcrypt backend!");
 
     return NULL;
 }
@@ -974,7 +974,7 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
 
     type = pki_privatekey_type_from_string(b64_key);
     if (type == SSH_KEYTYPE_UNKNOWN) {
-        SSH_LOG(SSH_LOG_WARN, "Unknown or invalid private key.");
+        SSH_LOG(SSH_LOG_TRACE, "Unknown or invalid private key.");
         return NULL;
     }
 
@@ -994,7 +994,7 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
             }
 
             if (!valid) {
-                SSH_LOG(SSH_LOG_WARN, "Parsing private key");
+                SSH_LOG(SSH_LOG_TRACE, "Error parsing private key");
                 goto fail;
             }
             break;
@@ -1013,7 +1013,7 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
             }
 
             if (!valid) {
-                SSH_LOG(SSH_LOG_WARN, "Parsing private key");
+                SSH_LOG(SSH_LOG_TRACE, "Error parsing private key");
                 goto fail;
             }
             break;
@@ -1044,7 +1044,7 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
             }
 
             if (!valid) {
-                SSH_LOG(SSH_LOG_WARN, "Parsing private key");
+                SSH_LOG(SSH_LOG_TRACE, "Error parsing private key");
                 goto fail;
             }
 
@@ -1052,7 +1052,7 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
              * keys, so we need to figure out the correct type here */
             type = pki_key_ecdsa_to_key_type(ecdsa);
             if (type == SSH_KEYTYPE_UNKNOWN) {
-                SSH_LOG(SSH_LOG_WARN, "Invalid private key.");
+                SSH_LOG(SSH_LOG_TRACE, "Invalid private key.");
                 goto fail;
             }
             break;
@@ -1062,7 +1062,7 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
         case SSH_KEYTYPE_RSA1:
         case SSH_KEYTYPE_UNKNOWN:
         default:
-            SSH_LOG(SSH_LOG_WARN, "Unknown or invalid private key type %d", type);
+            SSH_LOG(SSH_LOG_TRACE, "Unknown or invalid private key type %d", type);
             return NULL;
     }
 
@@ -1938,7 +1938,7 @@ ssh_string pki_signature_to_blob(const ssh_signature sig)
         case SSH_KEYTYPE_RSA1:
         case SSH_KEYTYPE_UNKNOWN:
         default:
-            SSH_LOG(SSH_LOG_WARN, "Unknown signature key type: %d", sig->type);
+            SSH_LOG(SSH_LOG_TRACE, "Unknown signature key type: %d", sig->type);
             return NULL;
             break;
     }
@@ -1958,7 +1958,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
     int rc;
 
     if (ssh_key_type_plain(pubkey->type) != type) {
-        SSH_LOG(SSH_LOG_WARN,
+        SSH_LOG(SSH_LOG_TRACE,
                 "Incompatible public key provided (%d) expecting (%d)",
                 type,
                 pubkey->type);
@@ -1980,7 +1980,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
         case SSH_KEYTYPE_DSS:
             /* 40 is the dual signature blob len. */
             if (len != 40) {
-                SSH_LOG(SSH_LOG_WARN,
+                SSH_LOG(SSH_LOG_TRACE,
                         "Signature has wrong size: %lu",
                         (unsigned long)len);
                 ssh_signature_free(sig);
@@ -2010,7 +2010,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
             rsalen = (gcry_pk_get_nbits(pubkey->rsa) + 7) / 8;
 
             if (len > rsalen) {
-                SSH_LOG(SSH_LOG_WARN,
+                SSH_LOG(SSH_LOG_TRACE,
                         "Signature is too big: %lu > %lu",
                         (unsigned long)len,
                         (unsigned long)rsalen);
@@ -2091,7 +2091,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
                 }
 
                 if (rlen != 0) {
-                    SSH_LOG(SSH_LOG_WARN,
+                    SSH_LOG(SSH_LOG_TRACE,
                             "Signature has remaining bytes in inner "
                             "sigblob: %lu",
                             (unsigned long)rlen);
@@ -2129,7 +2129,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
         case SSH_KEYTYPE_RSA1:
         case SSH_KEYTYPE_UNKNOWN:
         default:
-            SSH_LOG(SSH_LOG_WARN, "Unknown signature type");
+            SSH_LOG(SSH_LOG_TRACE, "Unknown signature type");
             return NULL;
     }
 
@@ -2190,7 +2190,7 @@ ssh_signature pki_do_sign_hash(const ssh_key privkey,
                 break;
             case SSH_DIGEST_AUTO:
             default:
-                SSH_LOG(SSH_LOG_WARN, "Incompatible key algorithm");
+                SSH_LOG(SSH_LOG_TRACE, "Incompatible key algorithm");
                 return NULL;
             }
             err = gcry_sexp_build(&sexp,
@@ -2548,7 +2548,7 @@ int pki_uri_import(const char *uri_name, ssh_key *key, enum ssh_key_e key_type)
     (void) uri_name;
     (void) key;
     (void) key_type;
-    SSH_LOG(SSH_LOG_WARN,
+    SSH_LOG(SSH_LOG_TRACE,
             "gcrypt does not support PKCS #11");
     return SSH_ERROR;
 }

@@ -72,7 +72,7 @@ static int ssh_userauth_request_service(ssh_session session)
 
     rc = ssh_service_request(session, "ssh-userauth");
     if ((rc != SSH_OK) && (rc != SSH_AGAIN)) {
-        SSH_LOG(SSH_LOG_WARN,
+        SSH_LOG(SSH_LOG_TRACE,
                 "Failed to request \"ssh-userauth\" service");
     }
 
@@ -202,7 +202,7 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_banner) {
 
     banner = ssh_buffer_get_ssh_string(packet);
     if (banner == NULL) {
-        SSH_LOG(SSH_LOG_WARN,
+        SSH_LOG(SSH_LOG_TRACE,
                 "Invalid SSH_USERAUTH_BANNER packet");
     } else {
         SSH_LOG(SSH_LOG_DEBUG,
@@ -1288,7 +1288,7 @@ int ssh_userauth_publickey_auto(ssh_session session,
 
                 rc = ssh_pki_export_pubkey_file(state->pubkey, pubkey_file);
                 if (rc == SSH_ERROR) {
-                    SSH_LOG(SSH_LOG_WARN,
+                    SSH_LOG(SSH_LOG_TRACE,
                             "Could not write public key to file: %s",
                             pubkey_file);
                 }
@@ -1298,7 +1298,7 @@ int ssh_userauth_publickey_auto(ssh_session session,
         if (state->state == SSH_AUTH_AUTO_STATE_KEY_IMPORTED) {
             rc = ssh_userauth_try_publickey(session, username, state->pubkey);
             if (rc == SSH_AUTH_ERROR) {
-                SSH_LOG(SSH_LOG_WARN,
+                SSH_LOG(SSH_LOG_TRACE,
                         "Public key authentication error for %s",
                         privkey_file);
                 ssh_key_free(state->privkey);

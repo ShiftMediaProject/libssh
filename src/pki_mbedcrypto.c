@@ -222,7 +222,7 @@ ssh_key pki_private_key_from_base64(const char *b64_key, const char *passphrase,
          * keys, so we need to figure out the correct type here */
         key->type = pki_key_ecdsa_to_key_type(key->ecdsa);
         if (key->type == SSH_KEYTYPE_UNKNOWN) {
-            SSH_LOG(SSH_LOG_WARN, "Invalid private key.");
+            SSH_LOG(SSH_LOG_TRACE, "Invalid private key.");
             goto fail;
         }
         break;
@@ -281,19 +281,19 @@ int pki_privkey_build_rsa(ssh_key key,
                                 ssh_string_data(d), ssh_string_len(d),
                                 ssh_string_data(e), ssh_string_len(e));
     if (rc != 0) {
-        SSH_LOG(SSH_LOG_WARN, "Failed to import private RSA key");
+        SSH_LOG(SSH_LOG_TRACE, "Failed to import private RSA key");
         goto fail;
     }
 
     rc = mbedtls_rsa_complete(rsa);
     if (rc != 0) {
-        SSH_LOG(SSH_LOG_WARN, "Failed to complete private RSA key");
+        SSH_LOG(SSH_LOG_TRACE, "Failed to complete private RSA key");
         goto fail;
     }
 
     rc = mbedtls_rsa_check_privkey(rsa);
     if (rc != 0) {
-        SSH_LOG(SSH_LOG_WARN, "Inconsistent private RSA key");
+        SSH_LOG(SSH_LOG_TRACE, "Inconsistent private RSA key");
         goto fail;
     }
 
@@ -1133,7 +1133,7 @@ ssh_string pki_signature_to_blob(const ssh_signature sig)
             sig_blob = pki_ed25519_signature_to_blob(sig);
             break;
         default:
-            SSH_LOG(SSH_LOG_WARN, "Unknown signature key type: %s",
+            SSH_LOG(SSH_LOG_TRACE, "Unknown signature key type: %s",
                     sig->type_c);
             return NULL;
     }
@@ -1153,20 +1153,20 @@ static ssh_signature pki_signature_from_rsa_blob(const ssh_key pubkey, const
     size_t len = ssh_string_len(sig_blob);
 
     if (pubkey->rsa == NULL) {
-        SSH_LOG(SSH_LOG_WARN, "Pubkey RSA field NULL");
+        SSH_LOG(SSH_LOG_TRACE, "Pubkey RSA field NULL");
         goto errout;
     }
 
     rsalen = mbedtls_pk_get_bitlen(pubkey->rsa) / 8;
     if (len > rsalen) {
-        SSH_LOG(SSH_LOG_WARN,
+        SSH_LOG(SSH_LOG_TRACE,
                 "Signature is too big: %lu > %lu",
                 (unsigned long) len,
                 (unsigned long) rsalen);
         goto errout;
     }
 #ifdef DEBUG_CRYPTO
-    SSH_LOG(SSH_LOG_DEBUG, "RSA signature len: %lu", (unsigned long)len);
+    SSH_LOG(SSH_LOG_TRACE, "RSA signature len: %lu", (unsigned long)len);
     ssh_log_hexdump("RSA signature", ssh_string_data(sig_blob), len);
 #endif
 
@@ -1207,7 +1207,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
     int rc;
 
     if (ssh_key_type_plain(pubkey->type) != type) {
-        SSH_LOG(SSH_LOG_WARN,
+        SSH_LOG(SSH_LOG_TRACE,
                 "Incompatible public key provided (%d) expecting (%d)",
                 type,
                 pubkey->type);
@@ -1292,7 +1292,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
             }
 
             if (rlen != 0) {
-                SSH_LOG(SSH_LOG_WARN, "Signature has remaining bytes in inner "
+                SSH_LOG(SSH_LOG_TRACE, "Signature has remaining bytes in inner "
                         "sigblob: %lu",
                         (unsigned long)rlen);
                 ssh_signature_free(sig);
@@ -1310,7 +1310,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
             }
             break;
         default:
-            SSH_LOG(SSH_LOG_WARN, "Unknown signature type");
+            SSH_LOG(SSH_LOG_TRACE, "Unknown signature type");
             return NULL;
     }
 
@@ -1341,7 +1341,7 @@ static ssh_string rsa_do_sign_hash(const unsigned char *digest,
         break;
     case SSH_DIGEST_AUTO:
     default:
-        SSH_LOG(SSH_LOG_WARN, "Incompatible key algorithm");
+        SSH_LOG(SSH_LOG_TRACE, "Incompatible key algorithm");
         return NULL;
     }
 

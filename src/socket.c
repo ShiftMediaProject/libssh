@@ -489,13 +489,13 @@ void ssh_socket_close(ssh_socket s)
         while (waitpid(pid, &status, 0) == -1) {
             if (errno != EINTR) {
                 char err_msg[SSH_ERRNO_MSG_MAX] = {0};
-                SSH_LOG(SSH_LOG_WARN, "waitpid failed: %s",
+                SSH_LOG(SSH_LOG_TRACE, "waitpid failed: %s",
                         ssh_strerror(errno, err_msg, SSH_ERRNO_MSG_MAX));
                 return;
             }
         }
         if (!WIFEXITED(status)) {
-            SSH_LOG(SSH_LOG_WARN, "Proxy command exited abnormally");
+            SSH_LOG(SSH_LOG_TRACE, "Proxy command exited abnormally");
             return;
         }
         SSH_LOG(SSH_LOG_TRACE, "Proxy command returned %d", WEXITSTATUS(status));
@@ -896,7 +896,7 @@ ssh_execute_command(const char *command, socket_t in, socket_t out)
     /* Prepare /dev/null socket for the stderr redirection */
     devnull = open("/dev/null", O_WRONLY);
     if (devnull == -1) {
-        SSH_LOG(SSH_LOG_WARNING, "Failed to open /dev/null");
+        SSH_LOG(SSH_LOG_TRACE, "Failed to open /dev/null");
         exit(1);
     }
 

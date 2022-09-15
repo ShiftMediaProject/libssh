@@ -878,7 +878,7 @@ static int ssh_buffer_pack_allocate_va(struct ssh_buffer_struct *buffer,
             cstring = NULL;
             break;
         default:
-            SSH_LOG(SSH_LOG_WARN, "Invalid buffer format %c", *p);
+            SSH_LOG(SSH_LOG_TRACE, "Invalid buffer format %c", *p);
             rc = SSH_ERROR;
         }
         if (rc != SSH_OK){
@@ -1007,7 +1007,7 @@ int ssh_buffer_pack_va(struct ssh_buffer_struct *buffer,
             cstring = NULL;
             break;
         default:
-            SSH_LOG(SSH_LOG_WARN, "Invalid buffer format %c", *p);
+            SSH_LOG(SSH_LOG_TRACE, "Invalid buffer format %c", *p);
             rc = SSH_ERROR;
         }
         if (rc != SSH_OK){
@@ -1239,7 +1239,7 @@ int ssh_buffer_unpack_va(struct ssh_buffer_struct *buffer,
             rc = SSH_OK;
             break;
         default:
-            SSH_LOG(SSH_LOG_WARN, "Invalid buffer format %c", *p);
+            SSH_LOG(SSH_LOG_TRACE, "Invalid buffer format %c", *p);
         }
         if (rc != SSH_OK) {
             break;

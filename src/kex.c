@@ -601,7 +601,7 @@ char *ssh_client_select_hostkeys(ssh_session session)
     /* This removes the certificate types, unsupported for now */
     wanted_without_certs = ssh_find_all_matching(HOSTKEYS, wanted);
     if (wanted_without_certs == NULL) {
-        SSH_LOG(SSH_LOG_WARNING,
+        SSH_LOG(SSH_LOG_TRACE,
                 "List of allowed host key algorithms is empty or contains only "
                 "unsupported algorithms");
         return NULL;
@@ -654,7 +654,7 @@ char *ssh_client_select_hostkeys(ssh_session session)
         fips_hostkeys = ssh_keep_fips_algos(SSH_HOSTKEYS, new_hostkeys);
         SAFE_FREE(new_hostkeys);
         if (fips_hostkeys == NULL) {
-            SSH_LOG(SSH_LOG_WARNING,
+            SSH_LOG(SSH_LOG_TRACE,
                     "None of the wanted host keys or keys in known_hosts files "
                     "is allowed in FIPS mode.");
             return NULL;
@@ -1141,7 +1141,7 @@ int ssh_make_sessionid(ssh_session session)
     case SSH_KEX_ECDH_SHA2_NISTP521:
         if (session->next_crypto->ecdh_client_pubkey == NULL ||
             session->next_crypto->ecdh_server_pubkey == NULL) {
-            SSH_LOG(SSH_LOG_WARNING, "ECDH parameted missing");
+            SSH_LOG(SSH_LOG_TRACE, "ECDH parameted missing");
             goto error;
         }
         rc = ssh_buffer_pack(buf,

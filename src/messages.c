@@ -160,7 +160,7 @@ static int ssh_execute_server_request(ssh_session session, ssh_message msg)
                 if (channel != NULL) {
                     rc = ssh_message_channel_request_open_reply_accept_channel(msg, channel);
                     if (rc != SSH_OK) {
-                        SSH_LOG(SSH_LOG_WARNING,
+                        SSH_LOG(SSH_LOG_TRACE,
                                 "Failed to send reply for accepting a channel "
                                 "open");
                     }
@@ -237,7 +237,7 @@ static int ssh_execute_server_request(ssh_session session, ssh_message msg)
                                                     msg->channel_request.pxwidth,
                                                     msg->channel_request.pxheight);
                     if (rc != SSH_OK) {
-                        SSH_LOG(SSH_LOG_WARNING,
+                        SSH_LOG(SSH_LOG_TRACE,
                                 "Failed to iterate callbacks for window change");
                     }
                     return SSH_OK;
@@ -775,7 +775,7 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_request){
 
   cmp = strcmp(service, "ssh-connection");
   if (cmp != 0) {
-      SSH_LOG(SSH_LOG_WARNING,
+      SSH_LOG(SSH_LOG_TRACE,
               "Invalid service request: %s",
               service);
       goto end;
@@ -1620,7 +1620,7 @@ reply_with_failure:
 error:
     SAFE_FREE(msg);
     SAFE_FREE(request);
-    SSH_LOG(SSH_LOG_WARNING, "Invalid SSH_MSG_GLOBAL_REQUEST packet");
+    SSH_LOG(SSH_LOG_TRACE, "Invalid SSH_MSG_GLOBAL_REQUEST packet");
     return rc;
 }
 

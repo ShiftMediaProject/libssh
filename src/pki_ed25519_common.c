@@ -34,7 +34,7 @@ int pki_privkey_build_ed25519(ssh_key key,
     if (ssh_string_len(pubkey) != ED25519_KEY_LEN ||
         ssh_string_len(privkey) != (2 * ED25519_KEY_LEN))
     {
-        SSH_LOG(SSH_LOG_WARN, "Invalid ed25519 key len");
+        SSH_LOG(SSH_LOG_TRACE, "Invalid ed25519 key len");
         return SSH_ERROR;
     }
 
@@ -266,7 +266,7 @@ int pki_signature_from_ed25519_blob(ssh_signature sig, ssh_string sig_blob)
 
     len = ssh_string_len(sig_blob);
     if (len != ED25519_SIG_LEN){
-        SSH_LOG(SSH_LOG_WARN, "Invalid ssh-ed25519 signature len: %zu", len);
+        SSH_LOG(SSH_LOG_TRACE, "Invalid ssh-ed25519 signature len: %zu", len);
         return SSH_ERROR;
     }
 

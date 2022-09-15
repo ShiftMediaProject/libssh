@@ -1543,7 +1543,7 @@ SSH_PACKET_CALLBACK(ssh_packet_unimplemented){
 
     rc = ssh_buffer_unpack(packet, "d", &seq);
     if (rc != SSH_OK) {
-        SSH_LOG(SSH_LOG_WARNING,
+        SSH_LOG(SSH_LOG_TRACE,
                 "Could not unpack SSH_MSG_UNIMPLEMENTED packet");
     }
 
@@ -1895,7 +1895,7 @@ ssh_packet_set_newkeys(ssh_session session,
     session->next_crypto->used |= direction;
     if (session->current_crypto != NULL) {
         if (session->current_crypto->used & direction) {
-            SSH_LOG(SSH_LOG_WARNING, "This direction isn't used anymore.");
+            SSH_LOG(SSH_LOG_TRACE, "This direction isn't used anymore.");
         }
         /* Mark the current requested direction unused */
         session->current_crypto->used &= ~direction;

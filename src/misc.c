@@ -1642,20 +1642,20 @@ int ssh_quote_file_name(const char *file_name, char *buf, size_t buf_len)
     enum ssh_quote_state_e state = NO_QUOTE;
 
     if (file_name == NULL || buf == NULL || buf_len == 0) {
-        SSH_LOG(SSH_LOG_WARNING, "Invalid parameter");
+        SSH_LOG(SSH_LOG_TRACE, "Invalid parameter");
         return SSH_ERROR;
     }
 
     /* Only allow file names smaller than 32kb. */
     if (strlen(file_name) > 32 * 1024) {
-        SSH_LOG(SSH_LOG_WARNING, "File name too long");
+        SSH_LOG(SSH_LOG_TRACE, "File name too long");
         return SSH_ERROR;
     }
 
     /* Paranoia check */
     required_buf_len = (size_t)3 * strlen(file_name) + 1;
     if (required_buf_len > buf_len) {
-        SSH_LOG(SSH_LOG_WARNING, "Buffer too small");
+        SSH_LOG(SSH_LOG_TRACE, "Buffer too small");
         return SSH_ERROR;
     }
 
@@ -1813,7 +1813,7 @@ int ssh_newline_vis(const char *string, char *buf, size_t buf_len)
     }
 
     if ((2 * strlen(string) + 1) > buf_len) {
-        SSH_LOG(SSH_LOG_WARNING, "Buffer too small");
+        SSH_LOG(SSH_LOG_TRACE, "Buffer too small");
         return SSH_ERROR;
     }
 

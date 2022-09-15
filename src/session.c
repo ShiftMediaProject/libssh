@@ -1189,8 +1189,8 @@ int ssh_get_publickey_hash(const ssh_key key,
 
             /* In FIPS mode, we cannot use MD5 */
             if (ssh_fips_mode()) {
-                SSH_LOG(SSH_LOG_WARN, "In FIPS mode MD5 is not allowed."
-                                      "Try using SSH_PUBLICKEY_HASH_SHA256");
+                SSH_LOG(SSH_LOG_TRACE, "In FIPS mode MD5 is not allowed."
+                                       "Try using SSH_PUBLICKEY_HASH_SHA256");
                 rc = SSH_ERROR;
                 goto out;
             }

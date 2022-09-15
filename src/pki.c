@@ -351,7 +351,7 @@ enum ssh_digest_e ssh_key_hash_from_name(const char *name)
         return SSH_DIGEST_AUTO;
     }
 
-    SSH_LOG(SSH_LOG_WARN, "Unknown signature name %s", name);
+    SSH_LOG(SSH_LOG_TRACE, "Unknown signature name %s", name);
 
     /* TODO we should rather fail */
     return SSH_DIGEST_AUTO;
@@ -383,13 +383,13 @@ int ssh_key_algorithm_allowed(ssh_session session, const char *type)
     else if (session->server) {
         allowed_list = session->opts.wanted_methods[SSH_HOSTKEYS];
         if (allowed_list == NULL) {
-            SSH_LOG(SSH_LOG_WARN, "Session invalid: no host key available");
+            SSH_LOG(SSH_LOG_TRACE, "Session invalid: no host key available");
             return 0;
         }
     }
 #endif /* WITH_SERVER */
     else {
-        SSH_LOG(SSH_LOG_WARN, "Session invalid: not set as client nor server");
+        SSH_LOG(SSH_LOG_TRACE, "Session invalid: not set as client nor server");
         return 0;
     }
 
@@ -495,7 +495,7 @@ enum ssh_digest_e ssh_key_type_to_hash(ssh_session session,
     case SSH_KEYTYPE_ECDSA:
     case SSH_KEYTYPE_UNKNOWN:
     default:
-        SSH_LOG(SSH_LOG_WARN, "Digest algorithm to be used with key type %u "
+        SSH_LOG(SSH_LOG_TRACE, "Digest algorithm to be used with key type %u "
                 "is not defined", type);
     }
 
@@ -961,7 +961,7 @@ int ssh_pki_import_privkey_file(const char *filename,
 
     file = fopen(filename, "rb");
     if (file == NULL) {
-        SSH_LOG(SSH_LOG_WARN,
+        SSH_LOG(SSH_LOG_TRACE,
                 "Error opening %s: %s",
                 filename,
                 ssh_strerror(errno, err_msg, SSH_ERRNO_MSG_MAX));
@@ -971,7 +971,7 @@ int ssh_pki_import_privkey_file(const char *filename,
     rc = fstat(fileno(file), &sb);
     if (rc < 0) {
         fclose(file);
-        SSH_LOG(SSH_LOG_WARN,
+        SSH_LOG(SSH_LOG_TRACE,
                 "Error getting stat of %s: %s",
                 filename,
                 ssh_strerror(errno, err_msg, SSH_ERRNO_MSG_MAX));
@@ -985,7 +985,7 @@ int ssh_pki_import_privkey_file(const char *filename,
     }
 
     if (sb.st_size > MAX_PRIVKEY_SIZE) {
-        SSH_LOG(SSH_LOG_WARN,
+        SSH_LOG(SSH_LOG_TRACE,
                 "Private key is bigger than 4M.");
         fclose(file);
         return SSH_ERROR;
@@ -994,7 +994,7 @@ int ssh_pki_import_privkey_file(const char *filename,
     key_buf = malloc(sb.st_size + 1);
     if (key_buf == NULL) {
         fclose(file);
-        SSH_LOG(SSH_LOG_WARN, "Out of memory!");
+        SSH_LOG(SSH_LOG_TRACE, "Out of memory!");
         return SSH_ERROR;
     }
 
@@ -1003,7 +1003,7 @@ int ssh_pki_import_privkey_file(const char *filename,
 
     if (size != sb.st_size) {
         SAFE_FREE(key_buf);
-        SSH_LOG(SSH_LOG_WARN,
+        SSH_LOG(SSH_LOG_TRACE,
                 "Error reading %s: %s",
                 filename,
                 ssh_strerror(errno, err_msg, SSH_ERRNO_MSG_MAX));
@@ -1176,7 +1176,7 @@ int pki_import_privkey_buffer(enum ssh_keytypes_e type,
                 rc = ssh_buffer_unpack(buffer, "SSSSS", &p, &q, &g,
                                        &pubkey, &privkey);
                 if (rc != SSH_OK) {
-                    SSH_LOG(SSH_LOG_WARN, "Unpack error");
+                    SSH_LOG(SSH_LOG_TRACE, "Unpack error");
                     goto fail;
                 }
 
@@ -1217,7 +1217,7 @@ int pki_import_privkey_buffer(enum ssh_keytypes_e type,
                 rc = ssh_buffer_unpack(buffer, "SSSSSS", &n, &e, &d,
                                        &iqmp, &p, &q);
                 if (rc != SSH_OK) {
-                    SSH_LOG(SSH_LOG_WARN, "Unpack error");
+                    SSH_LOG(SSH_LOG_TRACE, "Unpack error");
                     goto fail;
                 }
 
@@ -1244,7 +1244,7 @@ int pki_import_privkey_buffer(enum ssh_keytypes_e type,
                 ssh_string_burn(q);
                 SSH_STRING_FREE(q);
                 if (rc == SSH_ERROR) {
-                    SSH_LOG(SSH_LOG_WARN, "Failed to build RSA private key");
+                    SSH_LOG(SSH_LOG_TRACE, "Failed to build RSA private key");
                     goto fail;
                 }
             }
@@ -1261,7 +1261,7 @@ int pki_import_privkey_buffer(enum ssh_keytypes_e type,
 
                 rc = ssh_buffer_unpack(buffer, "SSS", &i, &e, &exp);
                 if (rc != SSH_OK) {
-                    SSH_LOG(SSH_LOG_WARN, "Unpack error");
+                    SSH_LOG(SSH_LOG_TRACE, "Unpack error");
                     goto fail;
                 }
 
@@ -1281,7 +1281,7 @@ int pki_import_privkey_buffer(enum ssh_keytypes_e type,
                 ssh_string_burn(exp);
                 SSH_STRING_FREE(exp);
                 if (rc < 0) {
-                    SSH_LOG(SSH_LOG_WARN, "Failed to build ECDSA private key");
+                    SSH_LOG(SSH_LOG_TRACE, "Failed to build ECDSA private key");
                     goto fail;
                 }
             }
@@ -1293,7 +1293,7 @@ int pki_import_privkey_buffer(enum ssh_keytypes_e type,
 
                 rc = ssh_buffer_unpack(buffer, "SS", &pubkey, &privkey);
                 if (rc != SSH_OK){
-                    SSH_LOG(SSH_LOG_WARN, "Unpack error");
+                    SSH_LOG(SSH_LOG_TRACE, "Unpack error");
                     goto fail;
                 }
 
@@ -1302,7 +1302,7 @@ int pki_import_privkey_buffer(enum ssh_keytypes_e type,
                 SSH_STRING_FREE(privkey);
                 SSH_STRING_FREE(pubkey);
                 if (rc != SSH_OK) {
-                    SSH_LOG(SSH_LOG_WARN, "Failed to build ed25519 key");
+                    SSH_LOG(SSH_LOG_TRACE, "Failed to build ed25519 key");
                     goto fail;
                 }
             }
@@ -1320,7 +1320,7 @@ int pki_import_privkey_buffer(enum ssh_keytypes_e type,
         case SSH_KEYTYPE_RSA1:
         case SSH_KEYTYPE_UNKNOWN:
         default:
-            SSH_LOG(SSH_LOG_WARN, "Unknown private key type (%d)", type);
+            SSH_LOG(SSH_LOG_TRACE, "Unknown private key type (%d)", type);
             goto fail;
     }
 
@@ -1358,7 +1358,7 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
 
                 rc = ssh_buffer_unpack(buffer, "SSSS", &p, &q, &g, &pubkey);
                 if (rc != SSH_OK) {
-                    SSH_LOG(SSH_LOG_WARN, "Unpack error");
+                    SSH_LOG(SSH_LOG_TRACE, "Unpack error");
                     goto fail;
                 }
 
@@ -1377,7 +1377,7 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
                 ssh_string_burn(pubkey);
                 SSH_STRING_FREE(pubkey);
                 if (rc == SSH_ERROR) {
-                    SSH_LOG(SSH_LOG_WARN, "Failed to build DSA public key");
+                    SSH_LOG(SSH_LOG_TRACE, "Failed to build DSA public key");
                     goto fail;
                 }
             }
@@ -1389,7 +1389,7 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
 
                 rc = ssh_buffer_unpack(buffer, "SS", &e, &n);
                 if (rc != SSH_OK) {
-                    SSH_LOG(SSH_LOG_WARN, "Unpack error");
+                    SSH_LOG(SSH_LOG_TRACE, "Unpack error");
                     goto fail;
                 }
 
@@ -1403,7 +1403,7 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
                 ssh_string_burn(n);
                 SSH_STRING_FREE(n);
                 if (rc == SSH_ERROR) {
-                    SSH_LOG(SSH_LOG_WARN, "Failed to build RSA public key");
+                    SSH_LOG(SSH_LOG_TRACE, "Failed to build RSA public key");
                     goto fail;
                 }
             }
@@ -1421,7 +1421,7 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
 
                 rc = ssh_buffer_unpack(buffer, "SS", &i, &e);
                 if (rc != SSH_OK) {
-                    SSH_LOG(SSH_LOG_WARN, "Unpack error");
+                    SSH_LOG(SSH_LOG_TRACE, "Unpack error");
                     goto fail;
                 }
 
@@ -1437,7 +1437,7 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
                 ssh_string_burn(e);
                 SSH_STRING_FREE(e);
                 if (rc < 0) {
-                    SSH_LOG(SSH_LOG_WARN, "Failed to build ECDSA public key");
+                    SSH_LOG(SSH_LOG_TRACE, "Failed to build ECDSA public key");
                     goto fail;
                 }
 
@@ -1450,7 +1450,7 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
                 if (type == SSH_KEYTYPE_SK_ECDSA) {
                     ssh_string application = ssh_buffer_get_ssh_string(buffer);
                     if (application == NULL) {
-                        SSH_LOG(SSH_LOG_WARN, "SK Unpack error");
+                        SSH_LOG(SSH_LOG_TRACE, "SK Unpack error");
                         goto fail;
                     }
                     key->sk_application = application;
@@ -1465,7 +1465,7 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
             ssh_string pubkey = ssh_buffer_get_ssh_string(buffer);
 
             if (ssh_string_len(pubkey) != ED25519_KEY_LEN) {
-                SSH_LOG(SSH_LOG_WARN, "Invalid public key length");
+                SSH_LOG(SSH_LOG_TRACE, "Invalid public key length");
                 ssh_string_burn(pubkey);
                 SSH_STRING_FREE(pubkey);
                 goto fail;
@@ -1485,7 +1485,7 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
             if (type == SSH_KEYTYPE_SK_ED25519) {
                 ssh_string application = ssh_buffer_get_ssh_string(buffer);
                 if (application == NULL) {
-                    SSH_LOG(SSH_LOG_WARN, "SK Unpack error");
+                    SSH_LOG(SSH_LOG_TRACE, "SK Unpack error");
                     goto fail;
                 }
                 key->sk_application = application;
@@ -1503,7 +1503,7 @@ static int pki_import_pubkey_buffer(ssh_buffer buffer,
         case SSH_KEYTYPE_RSA1:
         case SSH_KEYTYPE_UNKNOWN:
         default:
-            SSH_LOG(SSH_LOG_WARN, "Unknown public key protocol %d", type);
+            SSH_LOG(SSH_LOG_TRACE, "Unknown public key protocol %d", type);
             goto fail;
     }
 
@@ -1681,26 +1681,26 @@ int ssh_pki_import_pubkey_blob(const ssh_string key_blob,
 
     buffer = ssh_buffer_new();
     if (buffer == NULL) {
-        SSH_LOG(SSH_LOG_WARN, "Out of memory!");
+        SSH_LOG(SSH_LOG_TRACE, "Out of memory!");
         return SSH_ERROR;
     }
 
     rc = ssh_buffer_add_data(buffer, ssh_string_data(key_blob),
             ssh_string_len(key_blob));
     if (rc < 0) {
-        SSH_LOG(SSH_LOG_WARN, "Out of memory!");
+        SSH_LOG(SSH_LOG_TRACE, "Out of memory!");
         goto fail;
     }
 
     type_s = ssh_buffer_get_ssh_string(buffer);
     if (type_s == NULL) {
-        SSH_LOG(SSH_LOG_WARN, "Out of memory!");
+        SSH_LOG(SSH_LOG_TRACE, "Out of memory!");
         goto fail;
     }
 
     type = ssh_key_type_from_name(ssh_string_get_char(type_s));
     if (type == SSH_KEYTYPE_UNKNOWN) {
-        SSH_LOG(SSH_LOG_WARN, "Unknown key type found!");
+        SSH_LOG(SSH_LOG_TRACE, "Unknown key type found!");
         goto fail;
     }
     SSH_STRING_FREE(type_s);
@@ -1805,7 +1805,7 @@ int ssh_pki_import_pubkey_file(const char *filename, ssh_key *pkey)
 
     file = fopen(filename, "rb");
     if (file == NULL) {
-        SSH_LOG(SSH_LOG_WARN, "Error opening %s: %s",
+        SSH_LOG(SSH_LOG_TRACE, "Error opening %s: %s",
                     filename, ssh_strerror(errno, err_msg, SSH_ERRNO_MSG_MAX));
         return SSH_EOF;
     }
@@ -1813,7 +1813,7 @@ int ssh_pki_import_pubkey_file(const char *filename, ssh_key *pkey)
     rc = fstat(fileno(file), &sb);
     if (rc < 0) {
         fclose(file);
-        SSH_LOG(SSH_LOG_WARN, "Error gettint stat of %s: %s",
+        SSH_LOG(SSH_LOG_TRACE, "Error gettint stat of %s: %s",
                     filename, ssh_strerror(errno, err_msg, SSH_ERRNO_MSG_MAX));
         switch (errno) {
             case ENOENT:
@@ -1831,7 +1831,7 @@ int ssh_pki_import_pubkey_file(const char *filename, ssh_key *pkey)
     key_buf = malloc(sb.st_size + 1);
     if (key_buf == NULL) {
         fclose(file);
-        SSH_LOG(SSH_LOG_WARN, "Out of memory!");
+        SSH_LOG(SSH_LOG_TRACE, "Out of memory!");
         return SSH_ERROR;
     }
 
@@ -1840,8 +1840,8 @@ int ssh_pki_import_pubkey_file(const char *filename, ssh_key *pkey)
 
     if (size != sb.st_size) {
         SAFE_FREE(key_buf);
-        SSH_LOG(SSH_LOG_WARN, "Error reading %s: %s",
-                    filename, ssh_strerror(errno, err_msg, SSH_ERRNO_MSG_MAX));
+        SSH_LOG(SSH_LOG_TRACE, "Error reading %s: %s",
+                filename, ssh_strerror(errno, err_msg, SSH_ERRNO_MSG_MAX));
         return SSH_ERROR;
     }
     key_buf[size] = '\0';
@@ -1853,7 +1853,7 @@ int ssh_pki_import_pubkey_file(const char *filename, ssh_key *pkey)
         *pkey = ssh_pki_openssh_pubkey_import(key_buf);
         SAFE_FREE(key_buf);
         if (*pkey == NULL) {
-            SSH_LOG(SSH_LOG_WARN, "Failed to import public key from OpenSSH"
+            SSH_LOG(SSH_LOG_TRACE, "Failed to import public key from OpenSSH"
                                   " private key file");
             return SSH_ERROR;
         }
@@ -2441,7 +2441,7 @@ int pki_key_check_hash_compatible(ssh_key key,
     case SSH_KEYTYPE_DSS:
         if (hash_type == SSH_DIGEST_SHA1) {
             if (ssh_fips_mode()) {
-                SSH_LOG(SSH_LOG_WARN, "SHA1 is not allowed in FIPS mode");
+                SSH_LOG(SSH_LOG_TRACE, "SHA1 is not allowed in FIPS mode");
                 return SSH_ERROR;
             } else {
                 return SSH_OK;
@@ -2452,7 +2452,7 @@ int pki_key_check_hash_compatible(ssh_key key,
     case SSH_KEYTYPE_RSA:
         if (hash_type == SSH_DIGEST_SHA1) {
             if (ssh_fips_mode()) {
-                SSH_LOG(SSH_LOG_WARN, "SHA1 is not allowed in FIPS mode");
+                SSH_LOG(SSH_LOG_TRACE, "SHA1 is not allowed in FIPS mode");
                 return SSH_ERROR;
             } else {
                 return SSH_OK;
@@ -2496,11 +2496,11 @@ int pki_key_check_hash_compatible(ssh_key key,
     case SSH_KEYTYPE_RSA1:
     case SSH_KEYTYPE_ECDSA:
     case SSH_KEYTYPE_UNKNOWN:
-        SSH_LOG(SSH_LOG_WARN, "Unknown key type %d", key->type);
+        SSH_LOG(SSH_LOG_TRACE, "Unknown key type %d", key->type);
         return SSH_ERROR;
     }
 
-    SSH_LOG(SSH_LOG_WARN, "Key type %d incompatible with hash type  %d",
+    SSH_LOG(SSH_LOG_TRACE, "Key type %d incompatible with hash type  %d",
             key->type, hash_type);
 
     return SSH_ERROR;
@@ -2528,7 +2528,7 @@ int ssh_pki_signature_verify(ssh_session session,
             sig->type_c);
 
     if (key_type != sig->type) {
-        SSH_LOG(SSH_LOG_WARN,
+        SSH_LOG(SSH_LOG_TRACE,
                 "Can not verify %s signature with %s key",
                 sig->type_c, key->type_c);
         return SSH_ERROR;
@@ -2559,7 +2559,7 @@ int ssh_pki_signature_verify(ssh_session session,
 
         ctx = sha256_init();
         if (ctx == NULL) {
-            SSH_LOG(SSH_LOG_WARN,
+            SSH_LOG(SSH_LOG_TRACE,
                     "Can not create SHA256CTX for application hash");
            return SSH_ERROR;
         }
@@ -2569,7 +2569,7 @@ int ssh_pki_signature_verify(ssh_session session,
 
         ctx = sha256_init();
         if (ctx == NULL) {
-            SSH_LOG(SSH_LOG_WARN,
+            SSH_LOG(SSH_LOG_TRACE,
                     "Can not create SHA256CTX for input hash");
            return SSH_ERROR;
         }

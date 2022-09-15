@@ -246,7 +246,7 @@ int ssh_config_parse_uri(const char *tok,
         /* Verify the port is valid positive number */
         port_n = strtol(endp + 1, &port_end, 10);
         if (port_n < 1 || *port_end != '\0') {
-            SSH_LOG(SSH_LOG_WARN, "Failed to parse port number."
+            SSH_LOG(SSH_LOG_TRACE, "Failed to parse port number."
                     " The value '%ld' is invalid or there are some"
                     " trailing characters: '%s'", port_n, port_end);
             goto error;

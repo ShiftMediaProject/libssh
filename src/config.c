@@ -500,7 +500,7 @@ ssh_config_parse_proxy_jump(ssh_session session, const char *s, bool do_parsing)
                       next ? next : "",
                       hostname);
         if (rv < 0 || rv >= (int)sizeof(com)) {
-            SSH_LOG(SSH_LOG_WARN, "Too long ProxyJump configuration line");
+            SSH_LOG(SSH_LOG_TRACE, "Too long ProxyJump configuration line");
             rv = SSH_ERROR;
             goto out;
         }
@@ -712,7 +712,7 @@ ssh_config_parse_line(ssh_session session,
                 /* Skip one argument (including in quotes) */
                 p = ssh_config_get_token(&s);
                 if (p == NULL || p[0] == '\0') {
-                    SSH_LOG(SSH_LOG_WARN, "line %d: Match keyword "
+                    SSH_LOG(SSH_LOG_TRACE, "line %d: Match keyword "
                             "'%s' requires argument", count, p2);
                     SAFE_FREE(x);
                     return -1;
@@ -739,7 +739,7 @@ ssh_config_parse_line(ssh_session session,
                 }
                 localuser = ssh_get_local_username();
                 if (localuser == NULL) {
-                    SSH_LOG(SSH_LOG_WARN, "line %d: Can not get local username "
+                    SSH_LOG(SSH_LOG_TRACE, "line %d: Can not get local username "
                             "for conditional matching.", count);
                     SAFE_FREE(x);
                     return -1;
@@ -753,13 +753,13 @@ ssh_config_parse_line(ssh_session session,
                 /* Skip one argument */
                 p = ssh_config_get_str_tok(&s, NULL);
                 if (p == NULL || p[0] == '\0') {
-                    SSH_LOG(SSH_LOG_WARN, "line %d: Match keyword "
+                    SSH_LOG(SSH_LOG_TRACE, "line %d: Match keyword "
                             "'%s' requires argument", count, p2);
                     SAFE_FREE(x);
                     return -1;
                 }
                 args++;
-                SSH_LOG(SSH_LOG_INFO,
+                SSH_LOG(SSH_LOG_TRACE,
                         "line %d: Unsupported Match keyword '%s', ignoring",
                         count,
                         p2);
@@ -1014,13 +1014,13 @@ ssh_config_parse_line(ssh_session session,
             ll = strtoll(p, &endp, 10);
             if (p == endp || ll < 0) {
                 /* No number or negative */
-                SSH_LOG(SSH_LOG_WARN, "Invalid argument to rekey limit");
+                SSH_LOG(SSH_LOG_TRACE, "Invalid argument to rekey limit");
                 break;
             }
             switch (*endp) {
             case 'G':
                 if (ll > LLONG_MAX / 1024) {
-                    SSH_LOG(SSH_LOG_WARN, "Possible overflow of rekey limit");
+                    SSH_LOG(SSH_LOG_TRACE, "Possible overflow of rekey limit");
                     ll = -1;
                     break;
                 }
@@ -1028,7 +1028,7 @@ ssh_config_parse_line(ssh_session session,
                 FALL_THROUGH;
             case 'M':
                 if (ll > LLONG_MAX / 1024) {
-                    SSH_LOG(SSH_LOG_WARN, "Possible overflow of rekey limit");
+                    SSH_LOG(SSH_LOG_TRACE, "Possible overflow of rekey limit");
                     ll = -1;
                     break;
                 }
@@ -1036,7 +1036,7 @@ ssh_config_parse_line(ssh_session session,
                 FALL_THROUGH;
             case 'K':
                 if (ll > LLONG_MAX / 1024) {
-                    SSH_LOG(SSH_LOG_WARN, "Possible overflow of rekey limit");
+                    SSH_LOG(SSH_LOG_TRACE, "Possible overflow of rekey limit");
                     ll = -1;
                     break;
                 }
@@ -1052,7 +1052,7 @@ ssh_config_parse_line(ssh_session session,
                 break;
             }
             if (*endp != ' ' && *endp != '\0') {
-                SSH_LOG(SSH_LOG_WARN,
+                SSH_LOG(SSH_LOG_TRACE,
                         "Invalid trailing characters after the rekey limit: %s",
                         endp);
                 break;
@@ -1073,14 +1073,14 @@ ssh_config_parse_line(ssh_session session,
             ll = strtoll(p, &endp, 10);
             if (p == endp || ll < 0) {
                 /* No number or negative */
-                SSH_LOG(SSH_LOG_WARN, "Invalid argument to rekey limit");
+                SSH_LOG(SSH_LOG_TRACE, "Invalid argument to rekey limit");
                 break;
             }
             switch (*endp) {
             case 'w':
             case 'W':
                 if (ll > LLONG_MAX / 7) {
-                    SSH_LOG(SSH_LOG_WARN, "Possible overflow of rekey limit");
+                    SSH_LOG(SSH_LOG_TRACE, "Possible overflow of rekey limit");
                     ll = -1;
                     break;
                 }
@@ -1089,7 +1089,7 @@ ssh_config_parse_line(ssh_session session,
             case 'd':
             case 'D':
                 if (ll > LLONG_MAX / 24) {
-                    SSH_LOG(SSH_LOG_WARN, "Possible overflow of rekey limit");
+                    SSH_LOG(SSH_LOG_TRACE, "Possible overflow of rekey limit");
                     ll = -1;
                     break;
                 }
@@ -1098,7 +1098,7 @@ ssh_config_parse_line(ssh_session session,
             case 'h':
             case 'H':
                 if (ll > LLONG_MAX / 60) {
-                    SSH_LOG(SSH_LOG_WARN, "Possible overflow of rekey limit");
+                    SSH_LOG(SSH_LOG_TRACE, "Possible overflow of rekey limit");
                     ll = -1;
                     break;
                 }
@@ -1107,7 +1107,7 @@ ssh_config_parse_line(ssh_session session,
             case 'm':
             case 'M':
                 if (ll > LLONG_MAX / 60) {
-                    SSH_LOG(SSH_LOG_WARN, "Possible overflow of rekey limit");
+                    SSH_LOG(SSH_LOG_TRACE, "Possible overflow of rekey limit");
                     ll = -1;
                     break;
                 }
@@ -1126,7 +1126,7 @@ ssh_config_parse_line(ssh_session session,
                 break;
             }
             if (*endp != '\0') {
-                SSH_LOG(SSH_LOG_WARN, "Invalid trailing characters after the"
+                SSH_LOG(SSH_LOG_TRACE, "Invalid trailing characters after the"
                         " rekey limit: %s", endp);
                 break;
             }
@@ -1162,7 +1162,7 @@ ssh_config_parse_line(ssh_session session,
         }
         break;
     case SOC_NA:
-      SSH_LOG(SSH_LOG_INFO, "Unapplicable option: %s, line: %d",
+      SSH_LOG(SSH_LOG_TRACE, "Unapplicable option: %s, line: %d",
               keyword, count);
       break;
     case SOC_UNSUPPORTED:
@@ -1170,7 +1170,7 @@ ssh_config_parse_line(ssh_session session,
               keyword, count);
       break;
     case SOC_UNKNOWN:
-      SSH_LOG(SSH_LOG_INFO, "Unknown option: %s, line: %d",
+      SSH_LOG(SSH_LOG_TRACE, "Unknown option: %s, line: %d",
               keyword, count);
       break;
     case SOC_IDENTITYAGENT:
@@ -1268,12 +1268,12 @@ int ssh_config_parse_string(ssh_session session, const char *input)
         }
         if (c == NULL) {
             /* should not happen, would mean a string without trailing '\0' */
-            SSH_LOG(SSH_LOG_WARN, "No trailing '\\0' in config string");
+            SSH_LOG(SSH_LOG_TRACE, "No trailing '\\0' in config string");
             return SSH_ERROR;
         }
         line_len = c - line_start;
         if (line_len > MAX_LINE_SIZE - 1) {
-            SSH_LOG(SSH_LOG_WARN, "Line %u too long: %u characters",
+            SSH_LOG(SSH_LOG_TRACE, "Line %u too long: %u characters",
                     line_num, line_len);
             return SSH_ERROR;
         }

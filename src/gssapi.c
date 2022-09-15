@@ -246,7 +246,7 @@ ssh_gssapi_handle_userauth(ssh_session session, const char *user,
             continue;
         }
         if(len < 2 || oid_s[0] != SSH_OID_TAG || ((size_t)oid_s[1]) != len - 2){
-            SSH_LOG(SSH_LOG_WARNING,"GSSAPI: received invalid OID");
+            SSH_LOG(SSH_LOG_TRACE,"GSSAPI: received invalid OID");
             continue;
         }
         oid.elements = &oid_s[2];
@@ -288,8 +288,8 @@ ssh_gssapi_handle_userauth(ssh_session session, const char *user,
     gss_release_oid_set(&min_stat, &both_supported);
 
     if (maj_stat != GSS_S_COMPLETE) {
-        SSH_LOG(SSH_LOG_WARNING, "error acquiring credentials %d, %d", maj_stat, min_stat);
-        ssh_gssapi_log_error(SSH_LOG_WARNING,
+        SSH_LOG(SSH_LOG_TRACE, "error acquiring credentials %d, %d", maj_stat, min_stat);
+        ssh_gssapi_log_error(SSH_LOG_TRACE,
                              "acquiring creds",
                              maj_stat,
                              min_stat);
@@ -308,7 +308,7 @@ ssh_gssapi_handle_userauth(ssh_session session, const char *user,
             continue;
         }
         if(len < 2 || oid_s[0] != SSH_OID_TAG || ((size_t)oid_s[1]) != len - 2){
-            SSH_LOG(SSH_LOG_WARNING,"GSSAPI: received invalid OID");
+            SSH_LOG(SSH_LOG_TRACE,"GSSAPI: received invalid OID");
             continue;
         }
         oid.elements = &oid_s[2];

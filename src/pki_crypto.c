@@ -916,7 +916,7 @@ int pki_key_generate_ecdsa(ssh_key key, int parameter) {
 #endif /* OPENSSL_VERSION_NUMBER */
             break;
         default:
-            SSH_LOG(SSH_LOG_WARN, "Invalid parameter %d for ECDSA key "
+            SSH_LOG(SSH_LOG_TRACE, "Invalid parameter %d for ECDSA key "
                     "generation", parameter);
             return SSH_ERROR;
     }
@@ -1207,7 +1207,7 @@ ssh_string pki_private_key_to_pem(const ssh_key key,
             rc = 1;
             break;
 #else
-            SSH_LOG(SSH_LOG_WARN, "PEM output not supported for key type ssh-ed25519");
+            SSH_LOG(SSH_LOG_TRACE, "PEM output not supported for key type ssh-ed25519");
             goto err;
 #endif /* HAVE_OPENSSL_ED25519 */
         case SSH_KEYTYPE_DSS_CERT01:
@@ -1218,11 +1218,11 @@ ssh_string pki_private_key_to_pem(const ssh_key key,
         case SSH_KEYTYPE_ED25519_CERT01:
         case SSH_KEYTYPE_UNKNOWN:
         default:
-            SSH_LOG(SSH_LOG_WARN, "Unknown or invalid private key type %d", key->type);
+            SSH_LOG(SSH_LOG_TRACE, "Unknown or invalid private key type %d", key->type);
             goto err;
     }
     if (rc != 1) {
-        SSH_LOG(SSH_LOG_WARN, "Failed to initialize EVP_PKEY structure");
+        SSH_LOG(SSH_LOG_TRACE, "Failed to initialize EVP_PKEY structure");
         goto err;
     }
 
@@ -1317,8 +1317,8 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
     BIO_free(mem);
 
     if (pkey == NULL) {
-        SSH_LOG(SSH_LOG_WARN,
-                "Parsing private key: %s",
+        SSH_LOG(SSH_LOG_TRACE,
+                "Error parsing private key: %s",
                 ERR_error_string(ERR_get_error(), NULL));
         return NULL;
     }
@@ -1327,8 +1327,8 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
         dsa = EVP_PKEY_get1_DSA(pkey);
         if (dsa == NULL) {
-            SSH_LOG(SSH_LOG_WARN,
-                    "Parsing private key: %s",
+            SSH_LOG(SSH_LOG_TRACE,
+		    "Error parsing private key: %s",
                     ERR_error_string(ERR_get_error(),NULL));
             goto fail;
         }
@@ -1339,8 +1339,8 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
         rsa = EVP_PKEY_get1_RSA(pkey);
         if (rsa == NULL) {
-            SSH_LOG(SSH_LOG_WARN,
-                    "Parsing private key: %s",
+            SSH_LOG(SSH_LOG_TRACE,
+		    "Error parsing private key: %s",
                     ERR_error_string(ERR_get_error(),NULL));
             goto fail;
         }
@@ -1356,8 +1356,8 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
 #if 1
         ecdsa = EVP_PKEY_get1_EC_KEY(pkey);
         if (ecdsa == NULL) {
-            SSH_LOG(SSH_LOG_WARN,
-                    "Parsing private key: %s",
+            SSH_LOG(SSH_LOG_TRACE,
+		    "Error parsing private key: %s",
                     ERR_error_string(ERR_get_error(), NULL));
             goto fail;
         }
@@ -1375,7 +1375,7 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
         type = pki_key_ecdsa_to_key_type(pkey);
 #endif /* OPENSSL_VERSION_NUMBER */
         if (type == SSH_KEYTYPE_UNKNOWN) {
-            SSH_LOG(SSH_LOG_WARN, "Invalid private key.");
+            SSH_LOG(SSH_LOG_TRACE, "Invalid private key.");
             goto fail;
         }
 
@@ -1406,7 +1406,7 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
 
         ed25519 = malloc(key_len);
         if (ed25519 == NULL) {
-            SSH_LOG(SSH_LOG_WARN, "Out of memory");
+            SSH_LOG(SSH_LOG_TRACE, "Out of memory");
             goto fail;
         }
 
@@ -1424,7 +1424,7 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
     break;
 #endif /* HAVE_OPENSSL_ED25519 */
     default:
-        SSH_LOG(SSH_LOG_WARN, "Unknown or invalid private key type %d",
+        SSH_LOG(SSH_LOG_TRACE, "Unknown or invalid private key type %d",
                 EVP_PKEY_base_id(pkey));
         EVP_PKEY_free(pkey);
         return NULL;
@@ -1856,7 +1856,7 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
             }
             out_param = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_FFC_P);
             if (out_param == NULL) {
-                SSH_LOG(SSH_LOG_WARN, "DSA: No param P has been found");
+                SSH_LOG(SSH_LOG_TRACE, "DSA: No param P has been found");
                 goto fail;
             }
             rc = OSSL_PARAM_get_BN(out_param, &bp);
@@ -1865,7 +1865,7 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
             }
             out_param = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_FFC_Q);
             if (out_param == NULL) {
-                SSH_LOG(SSH_LOG_WARN, "DSA: No param Q has been found");
+                SSH_LOG(SSH_LOG_TRACE, "DSA: No param Q has been found");
                 goto fail;
             }
             rc = OSSL_PARAM_get_BN(out_param, &bq);
@@ -1874,7 +1874,7 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
             }
             out_param = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_FFC_G);
             if (out_param == NULL) {
-                SSH_LOG(SSH_LOG_WARN, "DSA: No param G has been found");
+                SSH_LOG(SSH_LOG_TRACE, "DSA: No param G has been found");
                 goto fail;
             }
             rc = OSSL_PARAM_get_BN(out_param, &bg);
@@ -1883,7 +1883,7 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
             }
             out_param = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_PUB_KEY);
             if (out_param == NULL) {
-                SSH_LOG(SSH_LOG_WARN, "DSA: No param PUB_KEY has been found");
+                SSH_LOG(SSH_LOG_TRACE, "DSA: No param PUB_KEY has been found");
                 goto fail;
             }
             rc = OSSL_PARAM_get_BN(out_param, &bpub_key);
@@ -1959,7 +1959,7 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
             }
             out_param = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_RSA_E);
             if (out_param == NULL) {
-                SSH_LOG(SSH_LOG_WARN, "RSA: No param E has been found");
+                SSH_LOG(SSH_LOG_TRACE, "RSA: No param E has been found");
                 goto fail;
             }
             rc = OSSL_PARAM_get_BN(out_param, &be);
@@ -1968,7 +1968,7 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
             }
             out_param = OSSL_PARAM_locate_const(params, OSSL_PKEY_PARAM_RSA_N);
             if (out_param == NULL) {
-                SSH_LOG(SSH_LOG_WARN, "RSA: No param N has been found");
+                SSH_LOG(SSH_LOG_TRACE, "RSA: No param N has been found");
                 goto fail;
             }
             rc = OSSL_PARAM_get_BN(out_param, &bn);
@@ -2053,7 +2053,7 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
 #if 1
 #ifdef WITH_PKCS11_URI
             if (ssh_key_is_private(key) && !EC_KEY_get0_public_key(key->ecdsa)) {
-                SSH_LOG(SSH_LOG_INFO, "It is mandatory to have separate public"
+                SSH_LOG(SSH_LOG_TRACE, "It is mandatory to have separate public"
                         " ECDSA key objects in the PKCS #11 device. Unlike RSA,"
                         " ECDSA public keys cannot be derived from their private keys.");
                 goto fail;
@@ -2078,7 +2078,7 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
                 locate_param = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_PUB_KEY);
 #ifdef WITH_PKCS11_URI
                 if (ssh_key_is_private(key) && !locate_param) {
-                    SSH_LOG(SSH_LOG_INFO, "It is mandatory to have separate"
+                    SSH_LOG(SSH_LOG_TRACE, "It is mandatory to have separate"
                             " public ECDSA key objects in the PKCS #11 device."
                             " Unlike RSA, ECDSA public keys cannot be derived"
                             " from their private keys.");
@@ -2386,7 +2386,7 @@ ssh_string pki_signature_to_blob(const ssh_signature sig)
 #endif /* HAVE_OPENSSL_ECC */
         default:
         case SSH_KEYTYPE_UNKNOWN:
-            SSH_LOG(SSH_LOG_WARN, "Unknown signature key type: %s", sig->type_c);
+            SSH_LOG(SSH_LOG_TRACE, "Unknown signature key type: %s", sig->type_c);
             return NULL;
     }
 
@@ -2407,21 +2407,21 @@ static int pki_signature_from_rsa_blob(const ssh_key pubkey,
 
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
     if (pubkey->rsa == NULL) {
-        SSH_LOG(SSH_LOG_WARN, "Pubkey RSA field NULL");
+        SSH_LOG(SSH_LOG_TRACE, "Pubkey RSA field NULL");
         goto errout;
     }
 
     rsalen = RSA_size(pubkey->rsa);
 #else
     if (EVP_PKEY_get_base_id(pubkey->key) != EVP_PKEY_RSA) {
-        SSH_LOG(SSH_LOG_WARN, "Key has no RSA pubkey");
+        SSH_LOG(SSH_LOG_TRACE, "Key has no RSA pubkey");
         goto errout;
     }
 
     rsalen = EVP_PKEY_size(pubkey->key);
 #endif /* OPENSSL_VERSION_NUMBER */
     if (len > rsalen) {
-        SSH_LOG(SSH_LOG_WARN,
+        SSH_LOG(SSH_LOG_TRACE,
                 "Signature is too big: %lu > %lu",
                 (unsigned long)len,
                 (unsigned long)rsalen);
@@ -2493,7 +2493,7 @@ static int pki_signature_from_dsa_blob(UNUSED_PARAM(const ssh_key pubkey),
 
     /* 40 is the dual signature blob len. */
     if (len != 40) {
-        SSH_LOG(SSH_LOG_WARN,
+        SSH_LOG(SSH_LOG_TRACE,
                 "Signature has wrong size: %lu",
                 (unsigned long)len);
         goto error;
@@ -2656,7 +2656,7 @@ static int pki_signature_from_ecdsa_blob(UNUSED_PARAM(const ssh_key pubkey),
     if (rlen != 0) {
         ssh_string_burn(s);
         SSH_STRING_FREE(s);
-        SSH_LOG(SSH_LOG_WARN,
+        SSH_LOG(SSH_LOG_TRACE,
                 "Signature has remaining bytes in inner "
                 "sigblob: %lu",
                 (unsigned long)rlen);
@@ -2745,7 +2745,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
     int rc;
 
     if (ssh_key_type_plain(pubkey->type) != type) {
-        SSH_LOG(SSH_LOG_WARN,
+        SSH_LOG(SSH_LOG_TRACE,
                 "Incompatible public key provided (%d) expecting (%d)",
                 type,
                 pubkey->type);
@@ -2799,7 +2799,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
 #endif
         default:
         case SSH_KEYTYPE_UNKNOWN:
-            SSH_LOG(SSH_LOG_WARN, "Unknown signature type");
+            SSH_LOG(SSH_LOG_TRACE, "Unknown signature type");
             goto error;
     }
 
@@ -3462,7 +3462,7 @@ int pki_uri_import(const char *uri_name,
     /* Do the init only once */
     engine = pki_get_engine();
     if (engine == NULL) {
-        SSH_LOG(SSH_LOG_WARN, "Failed to initialize engine");
+        SSH_LOG(SSH_LOG_TRACE, "Failed to initialize engine");
         goto fail;
     }
 
@@ -3470,7 +3470,7 @@ int pki_uri_import(const char *uri_name,
     case SSH_KEY_PRIVATE:
         pkey = ENGINE_load_private_key(engine, uri_name, NULL, NULL);
         if (pkey == NULL) {
-            SSH_LOG(SSH_LOG_WARN,
+            SSH_LOG(SSH_LOG_TRACE,
                     "Could not load key: %s",
                     ERR_error_string(ERR_get_error(),NULL));
             goto fail;
@@ -3479,14 +3479,14 @@ int pki_uri_import(const char *uri_name,
     case SSH_KEY_PUBLIC:
         pkey = ENGINE_load_public_key(engine, uri_name, NULL, NULL);
         if (pkey == NULL) {
-            SSH_LOG(SSH_LOG_WARN,
+            SSH_LOG(SSH_LOG_TRACE,
                     "Could not load key: %s",
                     ERR_error_string(ERR_get_error(),NULL));
             goto fail;
         }
         break;
     default:
-        SSH_LOG(SSH_LOG_WARN,
+        SSH_LOG(SSH_LOG_TRACE,
                 "Invalid key type: %d", key_type);
         goto fail;
     }
@@ -3501,7 +3501,7 @@ int pki_uri_import(const char *uri_name,
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
         rsa = EVP_PKEY_get1_RSA(pkey);
         if (rsa == NULL) {
-            SSH_LOG(SSH_LOG_WARN,
+            SSH_LOG(SSH_LOG_TRACE,
                     "Parsing pub key: %s",
                     ERR_error_string(ERR_get_error(),NULL));
             goto fail;
@@ -3518,7 +3518,7 @@ int pki_uri_import(const char *uri_name,
 #if 1
         ecdsa = EVP_PKEY_get1_EC_KEY(pkey);
         if (ecdsa == NULL) {
-            SSH_LOG(SSH_LOG_WARN,
+            SSH_LOG(SSH_LOG_TRACE,
                     "Parsing pub key: %s",
                     ERR_error_string(ERR_get_error(), NULL));
             goto fail;
@@ -3531,14 +3531,14 @@ int pki_uri_import(const char *uri_name,
         type = pki_key_ecdsa_to_key_type(pkey);
 #endif /* OPENSSL_VERSION_NUMBER */
         if (type == SSH_KEYTYPE_UNKNOWN) {
-            SSH_LOG(SSH_LOG_WARN, "Invalid pub key.");
+            SSH_LOG(SSH_LOG_TRACE, "Invalid pub key.");
             goto fail;
         }
 
         break;
 #endif
     default:
-        SSH_LOG(SSH_LOG_WARN, "Unknown or invalid public key type %d",
+        SSH_LOG(SSH_LOG_TRACE, "Unknown or invalid public key type %d",
                 EVP_PKEY_base_id(pkey));
         goto fail;
     }

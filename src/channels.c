@@ -1453,7 +1453,7 @@ static int channel_write_common(ssh_channel channel,
   }
 
   if (len > INT_MAX) {
-      SSH_LOG(SSH_LOG_PROTOCOL,
+      SSH_LOG(SSH_LOG_TRACE,
               "Length (%u) is bigger than INT_MAX", len);
       return SSH_ERROR;
   }
