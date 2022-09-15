@@ -480,7 +480,7 @@ error:
     ssh_socket_close(session->socket);
     session->alive = 0;
     session->session_state=SSH_SESSION_STATE_ERROR;
-
+    SSH_LOG(SSH_LOG_WARN, "%s", ssh_get_error(session));
 }
 
 /** @internal

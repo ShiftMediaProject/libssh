@@ -1380,8 +1380,8 @@ int ssh_userauth_publickey_auto(ssh_session session,
             /* continue */
         }
     }
-    SSH_LOG(SSH_LOG_INFO,
-            "Tried every public key, none matched");
+    SSH_LOG(SSH_LOG_WARN,
+            "Access denied: Tried every public key, none matched");
     SAFE_FREE(session->auth.auto_state);
     return SSH_AUTH_DENIED;
 }
