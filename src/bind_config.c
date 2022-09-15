@@ -546,7 +546,7 @@ ssh_bind_config_parse_line(ssh_bind bind,
                     return -1;
                 }
                 args++;
-                SSH_LOG(SSH_LOG_WARN,
+                SSH_LOG(SSH_LOG_DEBUG,
                         "line %d: Unsupported Match keyword '%s', ignoring\n",
                         count,
                         p2);
@@ -595,7 +595,7 @@ ssh_bind_config_parse_line(ssh_bind bind,
         }
         break;
     case BIND_CFG_NOT_ALLOWED_IN_MATCH:
-        SSH_LOG(SSH_LOG_WARN, "Option not allowed in Match block: %s, line: %d",
+        SSH_LOG(SSH_LOG_DEBUG, "Option not allowed in Match block: %s, line: %d",
                 keyword, count);
         break;
     case BIND_CFG_UNKNOWN:

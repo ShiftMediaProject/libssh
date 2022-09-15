@@ -400,7 +400,7 @@ SSH_PACKET_CALLBACK(ssh_packet_client_dh_reply){
     goto error;
   }
 
-  SSH_LOG(SSH_LOG_PROTOCOL, "SSH_MSG_NEWKEYS sent");
+  SSH_LOG(SSH_LOG_DEBUG, "SSH_MSG_NEWKEYS sent");
   session->dh_handshake_state = DH_STATE_NEWKEYS_SENT;
   return SSH_PACKET_USED;
 error:

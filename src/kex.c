@@ -356,7 +356,7 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
     (void)user;
 
     if (session->session_state == SSH_SESSION_STATE_AUTHENTICATED) {
-        SSH_LOG(SSH_LOG_INFO, "Initiating key re-exchange");
+        SSH_LOG(SSH_LOG_DEBUG, "Initiating key re-exchange");
     } else if (session->session_state != SSH_SESSION_STATE_INITIAL_KEX) {
         ssh_set_error(session,SSH_FATAL,"SSH_KEXINIT received in wrong state");
         goto error;
@@ -824,7 +824,7 @@ int ssh_kex_select_methods (ssh_session session)
     } else if (strcmp(session->next_crypto->kex_methods[SSH_KEX], "curve25519-sha256") == 0){
       session->next_crypto->kex_type=SSH_KEX_CURVE25519_SHA256;
     }
-    SSH_LOG(SSH_LOG_INFO, "Negotiated %s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
+    SSH_LOG(SSH_LOG_DEBUG, "Negotiated %s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
             session->next_crypto->kex_methods[SSH_KEX],
             session->next_crypto->kex_methods[SSH_HOSTKEYS],
             session->next_crypto->kex_methods[SSH_CRYPT_C_S],

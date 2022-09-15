@@ -339,7 +339,7 @@ static SSH_PACKET_CALLBACK(ssh_packet_client_curve25519_reply){
     goto error;
   }
 
-  SSH_LOG(SSH_LOG_PROTOCOL, "SSH_MSG_NEWKEYS sent");
+  SSH_LOG(SSH_LOG_DEBUG, "SSH_MSG_NEWKEYS sent");
   session->dh_handshake_state = DH_STATE_NEWKEYS_SENT;
 
   return SSH_PACKET_USED;
@@ -491,7 +491,7 @@ static SSH_PACKET_CALLBACK(ssh_packet_server_curve25519_init){
         goto error;
     }
 
-    SSH_LOG(SSH_LOG_PROTOCOL, "SSH_MSG_KEX_ECDH_REPLY sent");
+    SSH_LOG(SSH_LOG_DEBUG, "SSH_MSG_KEX_ECDH_REPLY sent");
     rc = ssh_packet_send(session);
     if (rc == SSH_ERROR) {
         return SSH_ERROR;
@@ -508,7 +508,7 @@ static SSH_PACKET_CALLBACK(ssh_packet_server_curve25519_init){
     if (rc == SSH_ERROR) {
         goto error;
     }
-    SSH_LOG(SSH_LOG_PROTOCOL, "SSH_MSG_NEWKEYS sent");
+    SSH_LOG(SSH_LOG_DEBUG, "SSH_MSG_NEWKEYS sent");
 
     return SSH_PACKET_USED;
 error:

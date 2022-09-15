@@ -297,7 +297,7 @@ int ssh_bind_listen(ssh_bind sshbind) {
 
       sshbind->bindfd = fd;
   } else {
-      SSH_LOG(SSH_LOG_INFO, "Using app-provided bind socket");
+      SSH_LOG(SSH_LOG_DEBUG, "Using app-provided bind socket");
   }
   return 0;
 }

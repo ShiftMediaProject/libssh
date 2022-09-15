@@ -433,7 +433,7 @@ aes_gcm_decrypt(struct ssh_cipher_struct *cipher,
                                (unsigned char *)complete_packet + aadlen + encrypted_size,
                                authlen);
     if (gpg_err_code(err) == GPG_ERR_CHECKSUM) {
-        SSH_LOG(SSH_LOG_WARNING, "The authentication tag does not match");
+        SSH_LOG(SSH_LOG_DEBUG, "The authentication tag does not match");
         return SSH_ERROR;
     } else if (err != GPG_ERR_NO_ERROR) {
         SSH_LOG(SSH_LOG_TRACE, "General error while decryption: %s",

@@ -1867,7 +1867,7 @@ ssh_init_rekey_state(struct ssh_session_struct *session,
                                  session->opts.rekey_data / cipher->blocksize);
     }
 
-    SSH_LOG(SSH_LOG_PROTOCOL,
+    SSH_LOG(SSH_LOG_DEBUG,
             "Set rekey after %" PRIu64 " blocks",
             cipher->max_blocks);
 }
@@ -1969,7 +1969,7 @@ ssh_packet_set_newkeys(ssh_session session,
     ssh_init_rekey_state(session, in_cipher);
     if (session->opts.rekey_time != 0) {
         ssh_timestamp_init(&session->last_rekey_time);
-        SSH_LOG(SSH_LOG_PROTOCOL, "Set rekey after %" PRIu32 " seconds",
+        SSH_LOG(SSH_LOG_DEBUG, "Set rekey after %" PRIu32 " seconds",
                 session->opts.rekey_time/1000);
     }
 

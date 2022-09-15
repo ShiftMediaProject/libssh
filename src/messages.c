@@ -1055,7 +1055,7 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_info_response){
   }
 
   if (session->kbdint == NULL) {
-    SSH_LOG(SSH_LOG_PROTOCOL, "Warning: Got a keyboard-interactive "
+    SSH_LOG(SSH_LOG_DEBUG, "Warning: Got a keyboard-interactive "
                         "response but it seems we didn't send the request.");
 
     session->kbdint = ssh_kbdint_new();
@@ -1089,7 +1089,7 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_info_response){
 
   if(nanswers != session->kbdint->nprompts) {
     /* warn but let the application handle this case */
-    SSH_LOG(SSH_LOG_PROTOCOL, "Warning: Number of prompts and answers"
+    SSH_LOG(SSH_LOG_DEBUG, "Warning: Number of prompts and answers"
                 " mismatch: p=%u a=%u", session->kbdint->nprompts, nanswers);
   }
   session->kbdint->nanswers = nanswers;
@@ -1504,7 +1504,7 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request){
     (void)type;
     (void)packet;
 
-    SSH_LOG(SSH_LOG_PROTOCOL,"Received SSH_MSG_GLOBAL_REQUEST packet");
+    SSH_LOG(SSH_LOG_DEBUG,"Received SSH_MSG_GLOBAL_REQUEST packet");
     r = ssh_buffer_unpack(packet, "sb",
             &request,
             &want_reply);
@@ -1536,12 +1536,12 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request){
         msg->global_request.type = SSH_GLOBAL_REQUEST_TCPIP_FORWARD;
         msg->global_request.want_reply = want_reply;
 
-        SSH_LOG(SSH_LOG_PROTOCOL, "Received SSH_MSG_GLOBAL_REQUEST %s %d %s:%d", request, want_reply,
+        SSH_LOG(SSH_LOG_DEBUG, "Received SSH_MSG_GLOBAL_REQUEST %s %d %s:%d", request, want_reply,
                 msg->global_request.bind_address,
                 msg->global_request.bind_port);
 
         if(ssh_callbacks_exists(session->common.callbacks, global_request_function)) {
-            SSH_LOG(SSH_LOG_PROTOCOL, "Calling callback for SSH_MSG_GLOBAL_REQUEST %s %d %s:%d", request,
+            SSH_LOG(SSH_LOG_DEBUG, "Calling callback for SSH_MSG_GLOBAL_REQUEST %s %d %s:%d", request,
                     want_reply, msg->global_request.bind_address,
                     msg->global_request.bind_port);
             session->common.callbacks->global_request_function(session, msg, session->common.callbacks->userdata);
@@ -1566,7 +1566,7 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request){
         msg->global_request.type = SSH_GLOBAL_REQUEST_CANCEL_TCPIP_FORWARD;
         msg->global_request.want_reply = want_reply;
 
-        SSH_LOG(SSH_LOG_PROTOCOL, "Received SSH_MSG_GLOBAL_REQUEST %s %d %s:%d", request, want_reply,
+        SSH_LOG(SSH_LOG_DEBUG, "Received SSH_MSG_GLOBAL_REQUEST %s %d %s:%d", request, want_reply,
                 msg->global_request.bind_address,
                 msg->global_request.bind_port);
 
@@ -1580,14 +1580,14 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request){
     } else if(strcmp(request, "keepalive@openssh.com") == 0) {
         msg->global_request.type = SSH_GLOBAL_REQUEST_KEEPALIVE;
         msg->global_request.want_reply = want_reply;
-        SSH_LOG(SSH_LOG_PROTOCOL, "Received keepalive@openssh.com %d", want_reply);
+        SSH_LOG(SSH_LOG_DEBUG, "Received keepalive@openssh.com %d", want_reply);
         if(ssh_callbacks_exists(session->common.callbacks, global_request_function)) {
             session->common.callbacks->global_request_function(session, msg, session->common.callbacks->userdata);
         } else {
             ssh_message_global_request_reply_success(msg, 0);
         }
     } else {
-        SSH_LOG(SSH_LOG_PROTOCOL, "UNKNOWN SSH_MSG_GLOBAL_REQUEST %s, "
+        SSH_LOG(SSH_LOG_DEBUG, "UNKNOWN SSH_MSG_GLOBAL_REQUEST %s, "
                 "want_reply = %d", request, want_reply);
         goto reply_with_failure;
     }

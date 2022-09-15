@@ -634,7 +634,7 @@ void ssh_log_hexdump(const char *descr, const unsigned char *what, size_t len)
     return;
 
 error:
-    SSH_LOG(SSH_LOG_WARN, "Could not print to buffer");
+    SSH_LOG(SSH_LOG_DEBUG, "Could not print to buffer");
     return;
 }
 
@@ -1330,7 +1330,7 @@ int ssh_analyze_banner(ssh_session session, int server)
           return -1;
     }
 
-    SSH_LOG(SSH_LOG_PROTOCOL, "Analyzing banner: %s", banner);
+    SSH_LOG(SSH_LOG_DEBUG, "Analyzing banner: %s", banner);
 
     switch (banner[4]) {
         case '2':
@@ -1384,7 +1384,7 @@ int ssh_analyze_banner(ssh_session session, int server)
 
             session->openssh = SSH_VERSION_INT(((int) major), ((int) minor), 0);
 
-            SSH_LOG(SSH_LOG_PROTOCOL,
+            SSH_LOG(SSH_LOG_DEBUG,
                     "We are talking to an OpenSSH %s version: %lu.%lu (%x)",
                     server ? "client" : "server",
                     major, minor, session->openssh);
@@ -1488,7 +1488,7 @@ int ssh_timeout_elapsed(struct ssh_timestamp *ts, int timeout)
                   * -2 means user-defined timeout as available in
                   * session->timeout, session->timeout_usec.
                   */
-            SSH_LOG(SSH_LOG_WARN, "ssh_timeout_elapsed called with -2. this needs to "
+            SSH_LOG(SSH_LOG_DEBUG, "ssh_timeout_elapsed called with -2. this needs to "
                             "be fixed. please set a breakpoint on misc.c:%d and "
                             "fix the caller\n", __LINE__);
             return 0;

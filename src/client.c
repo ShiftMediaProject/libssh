@@ -405,7 +405,7 @@ static void ssh_client_connection_callback(ssh_session session)
                 goto error;
             }
             set_status(session, 0.4f);
-            SSH_LOG(SSH_LOG_PROTOCOL,
+            SSH_LOG(SSH_LOG_DEBUG,
                     "SSH server banner: %s", session->serverbanner);
 
             /* Here we analyze the different protocols the server allows. */
@@ -565,7 +565,7 @@ int ssh_connect(ssh_session session)
         return SSH_ERROR;
     }
 
-    SSH_LOG(SSH_LOG_PROTOCOL,
+    SSH_LOG(SSH_LOG_DEBUG,
             "libssh %s, using threading %s",
             ssh_copyright(),
             ssh_threads_get_type());
@@ -600,7 +600,7 @@ int ssh_connect(ssh_session session)
     set_status(session, 0.2f);
 
     session->alive = 1;
-    SSH_LOG(SSH_LOG_PROTOCOL,
+    SSH_LOG(SSH_LOG_DEBUG,
             "Socket connecting, now waiting for the callbacks to work");
 
 pending:

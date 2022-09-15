@@ -87,7 +87,7 @@ SSH_PACKET_CALLBACK(ssh_packet_ignore_callback){
 	(void)user;
 	(void)type;
 	(void)packet;
-	SSH_LOG(SSH_LOG_PROTOCOL,"Received %s packet",type==SSH2_MSG_IGNORE ? "SSH_MSG_IGNORE" : "SSH_MSG_DEBUG");
+	SSH_LOG(SSH_LOG_DEBUG,"Received %s packet",type==SSH2_MSG_IGNORE ? "SSH_MSG_IGNORE" : "SSH_MSG_DEBUG");
 	/* TODO: handle a graceful disconnect */
 	return SSH_PACKET_USED;
 }
@@ -99,7 +99,7 @@ SSH_PACKET_CALLBACK(ssh_packet_newkeys){
   (void)packet;
   (void)user;
   (void)type;
-  SSH_LOG(SSH_LOG_PROTOCOL, "Received SSH_MSG_NEWKEYS");
+  SSH_LOG(SSH_LOG_DEBUG, "Received SSH_MSG_NEWKEYS");
 
   if (session->session_state != SSH_SESSION_STATE_DH ||
       session->dh_handshake_state != DH_STATE_NEWKEYS_SENT) {
@@ -158,7 +158,7 @@ SSH_PACKET_CALLBACK(ssh_packet_newkeys){
     if (rc == SSH_ERROR) {
       goto error;
     }
-    SSH_LOG(SSH_LOG_PROTOCOL,"Signature verified and valid");
+    SSH_LOG(SSH_LOG_DEBUG,"Signature verified and valid");
 
     /* When receiving this packet, we switch on the incomming crypto. */
     rc = ssh_packet_set_newkeys(session, SSH_DIRECTION_IN);

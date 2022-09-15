@@ -868,7 +868,7 @@ int ssh_socket_connect(ssh_socket s,
         return SSH_ERROR;
     }
     fd = ssh_connect_host_nonblocking(s->session, host, bind_addr, port);
-    SSH_LOG(SSH_LOG_PROTOCOL, "Nonblocking connection socket: %d", fd);
+    SSH_LOG(SSH_LOG_DEBUG, "Nonblocking connection socket: %d", fd);
     if (fd == SSH_INVALID_SOCKET) {
         return SSH_ERROR;
     }
@@ -955,7 +955,7 @@ ssh_socket_connect_proxycommand(ssh_socket s, const char *command)
         return SSH_ERROR;
     }
 
-    SSH_LOG(SSH_LOG_PROTOCOL, "Executing proxycommand '%s'", command);
+    SSH_LOG(SSH_LOG_DEBUG, "Executing proxycommand '%s'", command);
     pid = fork();
     if (pid == 0) {
         ssh_execute_command(command, pair[0], pair[0]);
@@ -963,7 +963,7 @@ ssh_socket_connect_proxycommand(ssh_socket s, const char *command)
     }
     s->proxy_pid = pid;
     close(pair[0]);
-    SSH_LOG(SSH_LOG_PROTOCOL, "ProxyCommand connection pipe: [%d,%d]",pair[0],pair[1]);
+    SSH_LOG(SSH_LOG_DEBUG, "ProxyCommand connection pipe: [%d,%d]",pair[0],pair[1]);
     ssh_socket_set_fd(s, pair[1]);
     s->state=SSH_SOCKET_CONNECTED;
     s->fd_is_socket=0;

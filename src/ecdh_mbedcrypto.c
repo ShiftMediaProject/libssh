@@ -311,7 +311,7 @@ SSH_PACKET_CALLBACK(ssh_packet_server_ecdh_init){
         goto out;
     }
 
-    SSH_LOG(SSH_LOG_PROTOCOL, "SSH_MSG_KEXDH_REPLY sent");
+    SSH_LOG(SSH_LOG_DEBUG, "SSH_MSG_KEXDH_REPLY sent");
     rc = ssh_packet_send(session);
     if (rc != SSH_OK) {
         rc = SSH_ERROR;
@@ -326,7 +326,7 @@ SSH_PACKET_CALLBACK(ssh_packet_server_ecdh_init){
 
     session->dh_handshake_state = DH_STATE_NEWKEYS_SENT;
     rc = ssh_packet_send(session);
-    SSH_LOG(SSH_LOG_PROTOCOL, "SSH_MSG_NEWKEYS sent");
+    SSH_LOG(SSH_LOG_DEBUG, "SSH_MSG_NEWKEYS sent");
 
 out:
     mbedtls_ecp_group_free(&grp);

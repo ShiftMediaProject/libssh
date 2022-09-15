@@ -306,12 +306,12 @@ static int agent_talk(struct ssh_session_struct *session,
 
   payload = ssh_buffer_allocate(reply, len);
   if (payload == NULL) {
-    SSH_LOG(SSH_LOG_WARN, "Not enough space");
+    SSH_LOG(SSH_LOG_DEBUG, "Not enough space");
     return -1;
   }
 
   if (atomicio(session->agent, payload, len, 1) != len) {
-    SSH_LOG(SSH_LOG_WARN,
+    SSH_LOG(SSH_LOG_DEBUG,
         "Error reading response from authentication socket.");
     /* Rollback the unused space */
     ssh_buffer_pass_bytes_end(reply, len);
@@ -587,7 +587,7 @@ ssh_string ssh_agent_sign_data(ssh_session session,
 #endif
 
     if (agent_failed(type)) {
-        SSH_LOG(SSH_LOG_WARN, "Agent reports failure in signing the key");
+        SSH_LOG(SSH_LOG_DEBUG, "Agent reports failure in signing the key");
         SSH_BUFFER_FREE(reply);
         return NULL;
     } else if (type != SSH2_AGENT_SIGN_RESPONSE) {

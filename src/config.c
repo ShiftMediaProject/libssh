@@ -668,7 +668,7 @@ ssh_config_parse_line(ssh_session session,
                 break;
             }
             args++;
-            SSH_LOG(SSH_LOG_TRACE, "line %d: Processing Match keyword '%s'",
+            SSH_LOG(SSH_LOG_DEBUG, "line %d: Processing Match keyword '%s'",
                     count, p);
 
             /* If the option is prefixed with ! the result should be negated */
@@ -700,7 +700,7 @@ ssh_config_parse_line(ssh_session session,
 
             case MATCH_FINAL:
             case MATCH_CANONICAL:
-                SSH_LOG(SSH_LOG_INFO,
+                SSH_LOG(SSH_LOG_DEBUG,
                         "line %d: Unsupported Match keyword '%s', skipping",
                         count,
                         p);
@@ -718,7 +718,7 @@ ssh_config_parse_line(ssh_session session,
                     return -1;
                 }
                 if (result != 1) {
-                    SSH_LOG(SSH_LOG_INFO, "line %d: Skipped match exec "
+                    SSH_LOG(SSH_LOG_DEBUG, "line %d: Skipped match exec "
                             "'%s' as previous conditions already failed.",
                             count, p2);
                     continue;

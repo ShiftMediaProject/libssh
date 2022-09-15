@@ -697,7 +697,7 @@ int ssh_key_cmp(const ssh_key k1,
     }
 
     if (k1->type != k2->type) {
-        SSH_LOG(SSH_LOG_WARN, "key types don't match!");
+        SSH_LOG(SSH_LOG_DEBUG, "key types don't match!");
         return 1;
     }
 
@@ -830,7 +830,7 @@ int ssh_pki_import_privkey_base64(const char *b64_key,
         return SSH_ERROR;
     }
 
-    SSH_LOG(SSH_LOG_INFO,
+    SSH_LOG(SSH_LOG_DEBUG,
             "Trying to decode privkey passphrase=%s",
             passphrase ? "true" : "false");
 

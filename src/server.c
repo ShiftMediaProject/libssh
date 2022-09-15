@@ -348,7 +348,7 @@ static void ssh_server_connection_callback(ssh_session session){
                 goto error;
             }
             set_status(session, 0.4f);
-            SSH_LOG(SSH_LOG_PROTOCOL,
+            SSH_LOG(SSH_LOG_DEBUG,
                     "SSH client banner: %s", session->clientbanner);
 
             /* Here we analyze the different protocols the server allows. */
@@ -928,9 +928,8 @@ int ssh_message_auth_interactive_request(ssh_message msg, const char *name,
 
   /* fill in the kbdint structure */
   if (msg->session->kbdint == NULL) {
-    SSH_LOG(SSH_LOG_PROTOCOL, "Warning: Got a "
-                                        "keyboard-interactive response but it "
-                                        "seems we didn't send the request.");
+    SSH_LOG(SSH_LOG_DEBUG, "Warning: Got a keyboard-interactive response "
+                           "but it seems we didn't send the request.");
 
     msg->session->kbdint = ssh_kbdint_new();
     if (msg->session->kbdint == NULL) {
@@ -1025,13 +1024,13 @@ int ssh_auth_reply_success(ssh_session session, int partial)
 
     crypto = ssh_packet_get_current_crypto(session, SSH_DIRECTION_OUT);
     if (crypto != NULL && crypto->delayed_compress_out) {
-        SSH_LOG(SSH_LOG_PROTOCOL, "Enabling delayed compression OUT");
+        SSH_LOG(SSH_LOG_DEBUG, "Enabling delayed compression OUT");
         crypto->do_compress_out = 1;
     }
 
     crypto = ssh_packet_get_current_crypto(session, SSH_DIRECTION_IN);
     if (crypto != NULL && crypto->delayed_compress_in) {
-        SSH_LOG(SSH_LOG_PROTOCOL, "Enabling delayed compression IN");
+        SSH_LOG(SSH_LOG_DEBUG, "Enabling delayed compression IN");
         crypto->do_compress_in = 1;
     }
     return r;

@@ -240,7 +240,7 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_failure) {
 
     if (partial) {
         session->auth.state = SSH_AUTH_STATE_PARTIAL;
-        SSH_LOG(SSH_LOG_INFO,
+        SSH_LOG(SSH_LOG_DEBUG,
                 "Partial success for '%s'. Authentication that can continue: %s",
                 current_method,
                 auth_methods);
@@ -250,7 +250,7 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_failure) {
                       "Access denied for '%s'. Authentication that can continue: %s",
                       current_method,
                       auth_methods);
-        SSH_LOG(SSH_LOG_INFO,
+        SSH_LOG(SSH_LOG_DEBUG,
                 "%s",
                 ssh_get_error(session));
 
@@ -1061,7 +1061,7 @@ int ssh_userauth_agent(ssh_session session,
                 session->agent_state = NULL;
                 goto done;
             } else if (rc != SSH_AUTH_SUCCESS) {
-                SSH_LOG(SSH_LOG_INFO,
+                SSH_LOG(SSH_LOG_DEBUG,
                         "Server accepted public key but refused the signature");
                 ssh_key_free(state->pubkey);
                 state->pubkey = ssh_agent_get_next_ident(session, &state->comment);
@@ -1345,7 +1345,7 @@ int ssh_userauth_publickey_auto(ssh_session session,
                     /* If the file doesn't exist, continue */
                     ssh_key_free(state->pubkey);
                     state->pubkey = NULL;
-                    SSH_LOG(SSH_LOG_INFO,
+                    SSH_LOG(SSH_LOG_DEBUG,
                             "Private key %s doesn't exist.",
                             privkey_file);
                     state->it = state->it->next;
@@ -1360,7 +1360,7 @@ int ssh_userauth_publickey_auto(ssh_session session,
                 ssh_key_free(state->pubkey);
                 SAFE_FREE(session->auth.auto_state);
                 if (rc == SSH_AUTH_SUCCESS) {
-                    SSH_LOG(SSH_LOG_INFO,
+                    SSH_LOG(SSH_LOG_DEBUG,
                             "Successfully authenticated using %s",
                             privkey_file);
                 }
@@ -1373,7 +1373,7 @@ int ssh_userauth_publickey_auto(ssh_session session,
             ssh_key_free(state->privkey);
             ssh_key_free(state->pubkey);
 
-            SSH_LOG(SSH_LOG_WARN,
+            SSH_LOG(SSH_LOG_DEBUG,
                     "The server accepted the public key but refused the signature");
             state->it = state->it->next;
             state->state = SSH_AUTH_AUTO_STATE_PUBKEY;
@@ -2123,7 +2123,7 @@ int ssh_userauth_gssapi(ssh_session session)
     } else if (rc == SSH_ERROR) {
         return SSH_AUTH_ERROR;
     }
-    SSH_LOG(SSH_LOG_PROTOCOL, "Authenticating with gssapi-with-mic");
+    SSH_LOG(SSH_LOG_DEBUG, "Authenticating with gssapi-with-mic");
 
     session->auth.current_method = SSH_AUTH_METHOD_GSSAPI_MIC;
     session->auth.state = SSH_AUTH_STATE_NONE;

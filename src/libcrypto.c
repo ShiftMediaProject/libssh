@@ -109,7 +109,7 @@ ENGINE *pki_get_engine(void)
                     ERR_error_string(ERR_get_error(), NULL));
             return NULL;
         }
-        SSH_LOG(SSH_LOG_INFO, "Engine loaded successfully");
+        SSH_LOG(SSH_LOG_DEBUG, "Engine loaded successfully");
 
         ok = ENGINE_init(engine);
         if (!ok) {
@@ -120,7 +120,7 @@ ENGINE *pki_get_engine(void)
             return NULL;
         }
 
-        SSH_LOG(SSH_LOG_INFO, "Engine init success");
+        SSH_LOG(SSH_LOG_DEBUG, "Engine init success");
     }
     return engine;
 }
@@ -532,7 +532,7 @@ static void evp_cipher_encrypt(struct ssh_cipher_struct *cipher,
         return;
     }
     if (outlen != (int)len){
-        SSH_LOG(SSH_LOG_WARNING,
+        SSH_LOG(SSH_LOG_DEBUG,
                 "EVP_EncryptUpdate: output size %d for %zu in",
                 outlen,
                 len);
@@ -558,7 +558,7 @@ static void evp_cipher_decrypt(struct ssh_cipher_struct *cipher,
         return;
     }
     if (outlen != (int)len){
-        SSH_LOG(SSH_LOG_WARNING,
+        SSH_LOG(SSH_LOG_DEBUG,
                 "EVP_DecryptUpdate: output size %d for %zu in",
                 outlen,
                 len);
@@ -1377,7 +1377,7 @@ int ssh_crypto_init(void)
         return SSH_OK;
     }
     if (OpenSSL_version_num() != OPENSSL_VERSION_NUMBER){
-        SSH_LOG(SSH_LOG_WARNING, "libssh compiled with %s "
+        SSH_LOG(SSH_LOG_DEBUG, "libssh compiled with %s "
             "headers, currently running with %s.",
             OPENSSL_VERSION_TEXT,
             OpenSSL_version(OpenSSL_version_num())

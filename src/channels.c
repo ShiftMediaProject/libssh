@@ -192,7 +192,7 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_open_conf){
   if (rc != SSH_OK)
       goto error;
 
-  SSH_LOG(SSH_LOG_PROTOCOL,
+  SSH_LOG(SSH_LOG_DEBUG,
       "Received a CHANNEL_OPEN_CONFIRMATION for channel %d:%d",
       channel->local_channel,
       channel->remote_channel);
@@ -205,7 +205,7 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_open_conf){
       goto error;
   }
 
-  SSH_LOG(SSH_LOG_PROTOCOL,
+  SSH_LOG(SSH_LOG_DEBUG,
       "Remote window : %"PRIu32", maxpacket : %"PRIu32,
       (uint32_t) channel->remote_window,
       (uint32_t) channel->remote_maxpacket);
@@ -327,7 +327,7 @@ channel_open(ssh_channel channel,
     channel->local_maxpacket = maxpacket;
     channel->local_window = window;
 
-    SSH_LOG(SSH_LOG_PROTOCOL,
+    SSH_LOG(SSH_LOG_DEBUG,
             "Creating a channel %d with %d window and %d max packet",
             channel->local_channel, window, maxpacket);
 
@@ -417,7 +417,7 @@ static int grow_window(ssh_session session,
   int rc;
 
   if (new_window <= channel->local_window) {
-    SSH_LOG(SSH_LOG_PROTOCOL,
+    SSH_LOG(SSH_LOG_DEBUG,
         "growing window (channel %d:%d) to %d bytes : not needed (%d bytes)",
         channel->local_channel, channel->remote_channel, new_window,
         channel->local_window);
@@ -441,7 +441,7 @@ static int grow_window(ssh_session session,
     goto error;
   }
 
-  SSH_LOG(SSH_LOG_PROTOCOL,
+  SSH_LOG(SSH_LOG_DEBUG,
       "growing window (channel %d:%d) to %d bytes",
       channel->local_channel,
       channel->remote_channel,
@@ -512,7 +512,7 @@ SSH_PACKET_CALLBACK(channel_rcv_change_window) {
     return SSH_PACKET_USED;
   }
 
-  SSH_LOG(SSH_LOG_PROTOCOL,
+  SSH_LOG(SSH_LOG_DEBUG,
       "Adding %d bytes to channel (%d:%d) (from %d bytes)",
       bytes,
       channel->local_channel,
@@ -831,7 +831,7 @@ SSH_PACKET_CALLBACK(channel_rcv_request) {
 	}
 	if(strcmp(request,"keepalive@openssh.com")==0){
 	  SAFE_FREE(request);
-	  SSH_LOG(SSH_LOG_PROTOCOL,"Responding to Openssh's keepalive");
+	  SSH_LOG(SSH_LOG_DEBUG,"Responding to Openssh's keepalive");
 
       rc = ssh_buffer_pack(session->out_buffer,
                            "bd",
@@ -849,7 +849,7 @@ SSH_PACKET_CALLBACK(channel_rcv_request) {
     int status;
 
     SAFE_FREE(request);
-    SSH_LOG(SSH_LOG_PROTOCOL, "Received an auth-agent-req request");
+    SSH_LOG(SSH_LOG_DEBUG, "Received an auth-agent-req request");
 
     status = SSH2_MSG_CHANNEL_FAILURE;
     ssh_callbacks_iterate(channel->callbacks,
@@ -884,7 +884,7 @@ SSH_PACKET_CALLBACK(channel_rcv_request) {
 	 */
 	ssh_message_handle_channel_request(session,channel,packet,request,want_reply);
 #else
-    SSH_LOG(SSH_LOG_WARNING, "Unhandled channel request %s", request);
+    SSH_LOG(SSH_LOG_DEBUG, "Unhandled channel request %s", request);
 #endif
 
 	SAFE_FREE(request);
@@ -1490,14 +1490,14 @@ static int channel_write_common(ssh_channel channel,
   }
   while (len > 0) {
     if (channel->remote_window < len) {
-      SSH_LOG(SSH_LOG_PROTOCOL,
+      SSH_LOG(SSH_LOG_DEBUG,
           "Remote window is %d bytes. going to write %d bytes",
           channel->remote_window,
           len);
       /* What happens when the channel window is zero? */
       if(channel->remote_window == 0) {
           /* nothing can be written */
-          SSH_LOG(SSH_LOG_PROTOCOL,
+          SSH_LOG(SSH_LOG_DEBUG,
                 "Wait for a growing window message...");
           rc = ssh_handle_packets_termination(session, SSH_TIMEOUT_DEFAULT,
               ssh_channel_waitwindow_termination,channel);
@@ -1822,7 +1822,7 @@ pending:
       rc=SSH_ERROR;
       break;
     case SSH_CHANNEL_REQ_STATE_ACCEPTED:
-      SSH_LOG(SSH_LOG_PROTOCOL,
+      SSH_LOG(SSH_LOG_DEBUG,
           "Channel request %s success",request);
       rc=SSH_OK;
       break;
@@ -2396,7 +2396,7 @@ pending:
   }
   switch(session->global_req_state){
     case SSH_CHANNEL_REQ_STATE_ACCEPTED:
-      SSH_LOG(SSH_LOG_PROTOCOL, "Global request %s success",request);
+      SSH_LOG(SSH_LOG_DEBUG, "Global request %s success",request);
       rc=SSH_OK;
       break;
     case SSH_CHANNEL_REQ_STATE_DENIED:

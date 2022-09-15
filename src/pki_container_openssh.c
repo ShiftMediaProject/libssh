@@ -298,7 +298,7 @@ ssh_pki_openssh_import(const char *text_key,
         SSH_LOG(SSH_LOG_TRACE, "Not an OpenSSH private key (bad magic)");
         goto out;
     }
-    SSH_LOG(SSH_LOG_INFO,
+    SSH_LOG(SSH_LOG_DEBUG,
             "Opening OpenSSH private key: ciphername: %s, kdf: %s, nkeys: %d",
             ciphername,
             kdfname,
@@ -478,7 +478,7 @@ static int pki_private_key_encrypt(ssh_buffer privkey_buffer,
         return SSH_ERROR;
     }
 
-    SSH_LOG(SSH_LOG_WARN, "Encryption: %d key, %d IV, %d rounds, %zu bytes salt",
+    SSH_LOG(SSH_LOG_DEBUG, "Encryption: %d key, %d IV, %d rounds, %zu bytes salt",
                 cipher.keysize/8,
                 cipher.blocksize, rounds, ssh_string_len(salt));
 
@@ -559,7 +559,7 @@ ssh_string ssh_pki_openssh_privkey_export(const ssh_key privkey,
         return NULL;
     }
     if (passphrase != NULL || auth_fn != NULL){
-        SSH_LOG(SSH_LOG_INFO, "Enabling encryption for private key export");
+        SSH_LOG(SSH_LOG_DEBUG, "Enabling encryption for private key export");
         to_encrypt = 1;
     }
     buffer = ssh_buffer_new();
