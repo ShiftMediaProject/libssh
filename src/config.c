@@ -491,7 +491,7 @@ ssh_config_parse_proxy_jump(ssh_session session, const char *s, bool do_parsing)
     if (hostname != NULL && do_parsing) {
         char com[512] = {0};
 
-        rv = snprintf(com, sizeof(com), "ssh%s%s%s%s%s%s -W [%%h]:%%p %s",
+        rv = snprintf(com, sizeof(com), "ssh%s%s%s%s%s%s -W '[%%h]:%%p' %s",
                       username ? " -l " : "",
                       username ? username : "",
                       port ? " -p " : "",
