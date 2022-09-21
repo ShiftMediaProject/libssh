@@ -649,7 +649,7 @@ static void torture_config_unknown(void **state,
     /* test corner cases */
     _parse_config(session, file, string, SSH_OK);
     assert_string_equal(session->opts.ProxyCommand,
-            "ssh -W [%h]:%p many-spaces.com");
+            "ssh -W '[%h]:%p' many-spaces.com");
     assert_string_equal(session->opts.host, "equal.sign");
 
     ret = ssh_config_parse_file(session, "/etc/ssh/ssh_config");
@@ -945,28 +945,28 @@ static void torture_config_proxyjump(void **state,
     torture_reset_config(session);
     ssh_options_set(session, SSH_OPTIONS_HOST, "simple");
     _parse_config(session, file, string, SSH_OK);
-    assert_string_equal(session->opts.ProxyCommand, "ssh -W [%h]:%p jumpbox");
+    assert_string_equal(session->opts.ProxyCommand, "ssh -W '[%h]:%p' jumpbox");
 
     /* With username */
     torture_reset_config(session);
     ssh_options_set(session, SSH_OPTIONS_HOST, "user");
     _parse_config(session, file, string, SSH_OK);
     assert_string_equal(session->opts.ProxyCommand,
-                        "ssh -l user -W [%h]:%p jumpbox");
+                        "ssh -l user -W '[%h]:%p' jumpbox");
 
     /* With port */
     torture_reset_config(session);
     ssh_options_set(session, SSH_OPTIONS_HOST, "port");
     _parse_config(session, file, string, SSH_OK);
     assert_string_equal(session->opts.ProxyCommand,
-                        "ssh -p 2222 -W [%h]:%p jumpbox");
+                        "ssh -p 2222 -W '[%h]:%p' jumpbox");
 
     /* Two step jump */
     torture_reset_config(session);
     ssh_options_set(session, SSH_OPTIONS_HOST, "two-step");
     _parse_config(session, file, string, SSH_OK);
     assert_string_equal(session->opts.ProxyCommand,
-                        "ssh -l u1 -p 222 -J u2@second:33 -W [%h]:%p first");
+                        "ssh -l u1 -p 222 -J u2@second:33 -W '[%h]:%p' first");
 
     /* none */
     torture_reset_config(session);
@@ -985,14 +985,14 @@ static void torture_config_proxyjump(void **state,
     ssh_options_set(session, SSH_OPTIONS_HOST, "only-jump");
     _parse_config(session, file, string, SSH_OK);
     assert_string_equal(session->opts.ProxyCommand,
-                        "ssh -W [%h]:%p jumpbox");
+                        "ssh -W '[%h]:%p' jumpbox");
 
     /* IPv6 address */
     torture_reset_config(session);
     ssh_options_set(session, SSH_OPTIONS_HOST, "ipv6");
     _parse_config(session, file, string, SSH_OK);
     assert_string_equal(session->opts.ProxyCommand,
-                        "ssh -W [%h]:%p 2620:52:0::fed");
+                        "ssh -W '[%h]:%p' 2620:52:0::fed");
 
     /* In this part, we try various other config files and strings. */
 
