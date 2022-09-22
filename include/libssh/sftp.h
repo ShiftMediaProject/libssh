@@ -681,6 +681,11 @@ LIBSSH_API int sftp_rename(sftp_session sftp, const char *original, const  char 
 /**
  * @brief Set file attributes on a file, directory or symbolic link.
  *
+ * Note, that this function can only set time values using 32 bit values due to
+ * the restrictions in the SFTP protocol version 3 implemented by libssh.
+ * The support for 64 bit time values was introduced in SFTP version 5, which is
+ * not implemented by libssh nor any major SFTP servers.
+ *
  * @param sftp          The sftp session handle.
  *
  * @param file          The file which attributes should be changed.
