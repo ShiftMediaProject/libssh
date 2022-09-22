@@ -341,8 +341,16 @@ int ssh_dh_set_parameters(struct dh_ctx *ctx,
             goto done;
         }
 
-        OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_P, modulus);
-        OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_G, generator);
+        rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_P, modulus);
+        if (rc != 1) {
+            rc = SSH_ERROR;
+            goto done;
+        }
+        rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_G, generator);
+        if (rc != 1) {
+            rc = SSH_ERROR;
+            goto done;
+        }
         params = OSSL_PARAM_BLD_to_param(param_bld);
         if (params == NULL) {
             OSSL_PARAM_BLD_free(param_bld);
