@@ -77,7 +77,7 @@
 #define PRINTF_ATTRIBUTE(a,b)
 #endif /* __GNUC__ */
 
-#ifdef __GNUC__
+#if !defined(SSH_SUPPRESS_DEPRECATED) && defined(__GNUC__)
 #define SSH_DEPRECATED __attribute__ ((deprecated))
 #else
 #define SSH_DEPRECATED
