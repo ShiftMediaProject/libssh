@@ -967,7 +967,7 @@ int ssh_userauth_agent(ssh_session session,
                 size_t pubkeyPathLen = strlen(privkeyFile) + sizeof(".pub");
 
                 if (pubkey) {
-                    ssh_key_free(pubkey);
+                    SSH_KEY_FREE(pubkey);
                 }
 
                 /*
@@ -985,7 +985,7 @@ int ssh_userauth_agent(ssh_session session,
                 if (rc == SSH_OK) {
                     configKeys[configKeysCount++] = pubkey;
                 } else if (pubkey) {
-                    ssh_key_free(pubkey);
+                    SSH_KEY_FREE(pubkey);
                 }
                 free(pubkeyFile);
             }
