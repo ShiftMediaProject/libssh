@@ -95,7 +95,7 @@
 #endif
 
 /**
- * @defgroup libssh_misc The SSH helper functions.
+ * @defgroup libssh_misc The SSH helper functions
  * @ingroup libssh
  *
  * Different helper functions used in the SSH Library.
