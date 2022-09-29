@@ -695,6 +695,13 @@ static int ssh_message_service_request_reply_default(ssh_message msg) {
   return ssh_message_service_reply_success(msg);
 }
 
+/**
+ * @brief   Sends SERVICE_ACCEPT to the client
+ *
+ * @param msg The message to reply to
+ *
+ * @returns SSH_OK when success otherwise SSH_ERROR
+ */
 int ssh_message_service_reply_success(ssh_message msg) {
     ssh_session session;
     int rc;
@@ -797,6 +804,13 @@ int ssh_message_reply_default(ssh_message msg) {
   return -1;
 }
 
+/**
+ * @brief Gets the service name from the service request message
+ *
+ * @param msg The service request message
+ *
+ * @returns the service name from the message
+ */
 const char *ssh_message_service_service(ssh_message msg){
   if (msg == NULL) {
     return NULL;
@@ -837,6 +851,13 @@ ssh_public_key ssh_message_auth_publickey(ssh_message msg){
   return ssh_pki_convert_key_to_publickey(msg->auth_request.pubkey);
 }
 
+/**
+ * @brief Get the state of the public key authentication process
+ *
+ * @param msg   The message
+ *
+ * @returns state of the authentication
+ */
 enum ssh_publickey_state_e ssh_message_auth_publickey_state(ssh_message msg){
 	if (msg == NULL) {
 	    return -1;
@@ -1193,6 +1214,13 @@ int ssh_execute_message_callbacks(ssh_session session){
   return SSH_OK;
 }
 
+/**
+ * @brief Sends a keepalive message to the session
+ *
+ * @param The session to send the message to
+ *
+ * @returns SSH_OK
+ */
 int ssh_send_keepalive(ssh_session session)
 {
     /* Client denies the request, so the error code is not meaningful */
