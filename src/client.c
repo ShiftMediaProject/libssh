@@ -314,8 +314,13 @@ static int ssh_service_request_termination(void *s)
 }
 
 /**
- * @internal
+ * @addtogroup libssh_session
  *
+ * @{
+ */
+
+/**
+ * @internal
  * @brief Request a service from the SSH server.
  *
  * Service requests are for example: ssh-userauth, ssh-connection, etc.
@@ -375,12 +380,6 @@ pending:
 
   return rc;
 }
-
-/**
- * @addtogroup libssh_session
- *
- * @{
- */
 
 /**
  * @internal
@@ -834,6 +833,13 @@ error:
     }
 }
 
+/**
+ * @brief Copyright information
+ *
+ * Returns copyright information
+ *
+ * @returns SSH_STRING copyright
+ */
 const char *ssh_copyright(void)
 {
     return SSH_STRINGIFY(LIBSSH_VERSION) " (c) 2003-2022 "
