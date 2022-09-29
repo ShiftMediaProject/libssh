@@ -137,6 +137,13 @@ ssh_key ssh_key_new (void)
     return ptr;
 }
 
+/**
+ * @brief duplicates the key
+ *
+ * @param key An ssh_key to duplicate
+ *
+ * @return A duplicated ssh_key key
+ */
 ssh_key ssh_key_dup(const ssh_key key)
 {
     if (key == NULL) {
@@ -2165,6 +2172,18 @@ int ssh_pki_export_pubkey_base64(const ssh_key key,
     return SSH_OK;
 }
 
+/**
+ * @brief Export public key to file
+ *
+ * Exports the public key in AuthorizedKeysFile acceptable format.
+ * For more information see `man sshd`
+ *
+ * @param key A key to export
+ *
+ * @param filename The name of the output file
+ *
+ * @returns SSH_OK on success, SSH_ERROR otherwise.
+ */
 int ssh_pki_export_pubkey_file(const ssh_key key,
                                const char *filename)
 {
