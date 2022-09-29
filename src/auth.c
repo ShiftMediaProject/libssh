@@ -47,7 +47,7 @@
 #include "libssh/legacy.h"
 
 /**
- * @defgroup libssh_auth The SSH authentication functions.
+ * @defgroup libssh_auth The SSH authentication functions
  * @ingroup libssh
  *
  * Functions to authenticate with a server.
