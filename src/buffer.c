@@ -56,7 +56,7 @@ struct ssh_buffer_struct {
 #define BUFFER_SIZE_MAX 0x10000000
 
 /**
- * @defgroup libssh_buffer The SSH buffer functions.
+ * @defgroup libssh_buffer The SSH buffer functions
  * @ingroup libssh
  *
  * Functions to handle SSH buffers.
