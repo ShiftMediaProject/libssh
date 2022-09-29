@@ -43,7 +43,7 @@
 #define FIRST_CHANNEL 42 // why not ? it helps to find bugs.
 
 /**
- * @defgroup libssh_session The SSH session functions.
+ * @defgroup libssh_session The SSH session functions
  * @ingroup libssh
  *
  * Functions that manage a session.
