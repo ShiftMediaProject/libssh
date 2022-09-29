@@ -44,7 +44,7 @@
 #endif
 
 /**
- * @defgroup libssh_poll The SSH poll functions.
+ * @defgroup libssh_poll The SSH poll functions
  * @ingroup libssh
  *
  * Add a generic way to handle sockets asynchronously.
