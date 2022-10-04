@@ -6,7 +6,8 @@ TESTDIR=$1
 PRIVKEY=$2
 OBJNAME=$3
 LOADPUBLIC=$4
-shift 4
+LIBSOFTHSM_PATH=$5
+shift 5
 
 PUBKEY="$PRIVKEY.pub"
 
@@ -42,7 +43,7 @@ if [ $ret -ne 0 ]; then
 fi
 
 #load private key
-cmd='p11tool --provider /usr/lib64/pkcs11/libsofthsm2.so --write --load-privkey "$PRIVKEY" --label "$OBJNAME" --login --set-pin=1234 "pkcs11:token="$OBJNAME""'
+cmd='p11tool --provider $LIBSOFTHSM_PATH --write --load-privkey "$PRIVKEY" --label "$OBJNAME" --login --set-pin=1234 "pkcs11:token="$OBJNAME""'
 eval echo "$cmd"
 out=$(eval $cmd)
 ret=$?
@@ -58,7 +59,7 @@ ls -l $TESTDIR
 
 if [ $LOADPUBLIC -ne 0 ]; then
 #load public key
-    cmd='p11tool --provider /usr/lib64/pkcs11/libsofthsm2.so --write --load-pubkey "$PUBKEY" --label "$OBJNAME" --login --set-pin=1234 "pkcs11:token="$OBJNAME""'
+    cmd='p11tool --provider $LIBSOFTHSM_PATH --write --load-pubkey "$PUBKEY" --label "$OBJNAME" --login --set-pin=1234 "pkcs11:token="$OBJNAME""'
     eval echo "$cmd"
     out=$(eval $cmd)
     ret=$?
