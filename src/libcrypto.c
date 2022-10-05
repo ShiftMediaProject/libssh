@@ -1394,9 +1394,6 @@ int ssh_crypto_init(void)
         OPENSSL_ia32cap &= ~(1LL << 57);
     }
 #endif /* CAN_DISABLE_AESNI */
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    OpenSSL_add_all_algorithms();
-#endif /* OPENSSL_VERSION_NUMBER */
 
 #if !defined(HAVE_OPENSSL_EVP_CHACHA20) || !defined(HAVE_OPENSSL_EVP_POLY1305)
     for (i = 0; ssh_ciphertab[i].name != NULL; i++) {
@@ -1437,12 +1434,6 @@ void ssh_crypto_finalize(void)
         engine = NULL;
     }
 #endif
-
-#if OPENSSL_VERSION_NUMBER < 0x10100000L
-    ENGINE_cleanup();
-    EVP_cleanup();
-    CRYPTO_cleanup_all_ex_data();
-#endif /* OPENSSL_VERSION_NUMBER < 0x10100000L */
 
     libcrypto_initialized = 0;
 }
