@@ -960,7 +960,7 @@ static void torture_auth_pubkey_types_ecdsa(void **state)
     rc = ssh_userauth_list(session, NULL);
     assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
 
-    /* We have only the 256b key -- whitelisting only larger should fail */
+    /* We have only the 256b key -- allowlisting only larger should fail */
     rc = ssh_options_set(session, SSH_OPTIONS_PUBLICKEY_ACCEPTED_TYPES,
                          "ecdsa-sha2-nistp384");
     assert_ssh_return_code(session, rc);
@@ -1108,7 +1108,7 @@ static void torture_auth_pubkey_types_ecdsa_nonblocking(void **state)
     rc = ssh_userauth_list(session, NULL);
     assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
 
-    /* We have only the 256b key -- whitelisting only larger should fail */
+    /* We have only the 256b key -- allowlisting only larger should fail */
     rc = ssh_options_set(session, SSH_OPTIONS_PUBLICKEY_ACCEPTED_TYPES,
                          "ecdsa-sha2-nistp384");
     assert_ssh_return_code(session, rc);
