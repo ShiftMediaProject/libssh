@@ -99,9 +99,11 @@ centos7/openssl_1.0.x/x86_64:
 centos9s/openssl_3.0.x/x86_64:
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$CENTOS9_BUILD
   extends: .tests
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: -DWITH_PKCS11_URI=ON
   script:
     - export OPENSSL_ENABLE_SHA1_SIGNATURES=1
-    - cmake3 $CMAKE_OPTIONS .. &&
+    - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
       make -j$(nproc) &&
       ctest --output-on-failure
 
@@ -110,7 +112,7 @@ centos9s/openssl_3.0.x/x86_64/fips:
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$CENTOS9_BUILD
   script:
     - export OPENSSL_ENABLE_SHA1_SIGNATURES=1
-    - cmake3 $CMAKE_OPTIONS .. &&
+    - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
       make -j$(nproc) &&
       OPENSSL_FORCE_FIPS_MODE=1 ctest --output-on-failure
 
@@ -160,7 +162,7 @@ fedora/openssl_3.0.x/x86_64/fips:
   extends: .fips
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
   script:
-    - cmake $CMAKE_OPTIONS .. &&
+    - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
       make -j$(nproc) &&
       OPENSSL_FORCE_FIPS_MODE=1 ctest --output-on-failure
 
