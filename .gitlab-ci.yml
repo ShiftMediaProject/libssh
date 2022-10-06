@@ -66,6 +66,23 @@ stages:
   extends: .tests
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$TUMBLEWEED_BUILD
 
+.fips:
+  extends: .tests
+  variables:
+    # DSA is turned off in fips mode
+    CMAKE_ADDITIONAL_OPTIONS: -DWITH_PKCS11_URI=ON -DWITH_DSA=OFF
+  before_script:
+    - *build
+    - echo "# userspace fips" > /etc/system-fips
+    # We do not need the kernel part, but in case we ever do:
+    # mkdir -p /var/tmp/userspace-fips
+    # echo 1 > /var/tmp/userspace-fips/fips_enabled
+    # mount --bind /var/tmp/userspace-fips/fips_enabled \
+    # /proc/sys/crypto/fips_enabled
+    - update-crypto-policies --show
+    - update-crypto-policies --set FIPS
+    - update-crypto-policies --show
+
 
 ###############################################################################
 #                               CentOS builds                                 #
@@ -88,6 +105,14 @@ centos9s/openssl_3.0.x/x86_64:
       make -j$(nproc) &&
       ctest --output-on-failure
 
+centos9s/openssl_3.0.x/x86_64/fips:
+  extends: .fips
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$CENTOS9_BUILD
+  script:
+    - export OPENSSL_ENABLE_SHA1_SIGNATURES=1
+    - cmake3 $CMAKE_OPTIONS .. &&
+      make -j$(nproc) &&
+      OPENSSL_FORCE_FIPS_MODE=1 ctest --output-on-failure
 
 ###############################################################################
 #                               Fedora builds                                 #
@@ -132,25 +157,8 @@ fedora/openssl_3.0.x/x86_64:
   extends: .fedora
 
 fedora/openssl_3.0.x/x86_64/fips:
-  extends: .fedora
-  before_script:
-    - echo "# userspace fips" > /etc/system-fips
-    # We do not need the kernel part, but in case we ever do:
-    # mkdir -p /var/tmp/userspace-fips
-    # echo 1 > /var/tmp/userspace-fips/fips_enabled
-    # mount --bind /var/tmp/userspace-fips/fips_enabled \
-    # /proc/sys/crypto/fips_enabled
-    - update-crypto-policies --show
-    - update-crypto-policies --set FIPS
-    - update-crypto-policies --show
-    - mkdir -p obj && cd obj && cmake
-      -DCMAKE_BUILD_TYPE=RelWithDebInfo
-      -DPICKY_DEVELOPER=ON
-      -DWITH_BLOWFISH_CIPHER=ON
-      -DWITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON -DWITH_PCAP=ON
-      -DWITH_DEBUG_CRYPTO=ON -DWITH_DEBUG_PACKET=ON -DWITH_DEBUG_CALLTRACE=ON
-      -DWITH_DSA=ON
-      -DUNIT_TESTING=ON -DCLIENT_TESTING=ON -DSERVER_TESTING=ON ..
+  extends: .fips
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
   script:
     - cmake $CMAKE_OPTIONS .. &&
       make -j$(nproc) &&
