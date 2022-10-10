@@ -359,7 +359,7 @@ uint32_t ssh_agent_get_ident_count(struct ssh_session_struct *session)
     rc = ssh_buffer_get_u8(reply, (uint8_t *) &type);
     if (rc != sizeof(uint8_t)) {
         ssh_set_error(session, SSH_FATAL,
-                "Bad authentication reply size: %" PRId32, rc);
+                "Bad authentication reply size: %" PRIu32, rc);
         SSH_BUFFER_FREE(reply);
         return 0;
     }

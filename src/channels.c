@@ -193,7 +193,7 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_open_conf){
       goto error;
 
   SSH_LOG(SSH_LOG_DEBUG,
-      "Received a CHANNEL_OPEN_CONFIRMATION for channel %" PRId32 ":%" PRId32,
+      "Received a CHANNEL_OPEN_CONFIRMATION for channel %" PRIu32 ":%" PRIu32,
       channel->local_channel,
       channel->remote_channel);
 
@@ -328,7 +328,7 @@ channel_open(ssh_channel channel,
     channel->local_window = window;
 
     SSH_LOG(SSH_LOG_DEBUG,
-            "Creating a channel %" PRId32 " with %" PRId32 " window and %" PRId32 " max packet",
+            "Creating a channel %" PRIu32 " with %" PRIu32 " window and %" PRIu32 " max packet",
             channel->local_channel, window, maxpacket);
 
     rc = ssh_buffer_pack(session->out_buffer,
@@ -356,7 +356,7 @@ channel_open(ssh_channel channel,
     }
 
     SSH_LOG(SSH_LOG_PACKET,
-            "Sent a SSH_MSG_CHANNEL_OPEN type %s for channel %" PRId32,
+            "Sent a SSH_MSG_CHANNEL_OPEN type %s for channel %" PRIu32,
             type, channel->local_channel);
 
 pending:
@@ -418,7 +418,7 @@ static int grow_window(ssh_session session,
 
   if (new_window <= channel->local_window) {
     SSH_LOG(SSH_LOG_DEBUG,
-        "growing window (channel %" PRId32 ":%" PRId32 ") to %" PRId32 " bytes : not needed (%" PRId32 " bytes)",
+        "growing window (channel %" PRIu32 ":%" PRIu32 ") to %" PRIu32 " bytes : not needed (%" PRIu32 " bytes)",
         channel->local_channel, channel->remote_channel, new_window,
         channel->local_window);
 
@@ -442,7 +442,7 @@ static int grow_window(ssh_session session,
   }
 
   SSH_LOG(SSH_LOG_DEBUG,
-      "growing window (channel %" PRId32 ":%" PRId32 ") to %" PRId32 " bytes",
+      "growing window (channel %" PRIu32 ":%" PRIu32 ") to %" PRIu32 " bytes",
       channel->local_channel,
       channel->remote_channel,
       new_window);
@@ -513,7 +513,7 @@ SSH_PACKET_CALLBACK(channel_rcv_change_window) {
   }
 
   SSH_LOG(SSH_LOG_DEBUG,
-      "Adding %" PRId32 " bytes to channel (%" PRId32 ":%" PRId32 ") (from %" PRId32 " bytes)",
+      "Adding %" PRIu32 " bytes to channel (%" PRIu32 ":%" PRIu32 ") (from %" PRIu32 " bytes)",
       bytes,
       channel->local_channel,
       channel->remote_channel,
@@ -562,7 +562,7 @@ SSH_PACKET_CALLBACK(channel_rcv_data){
   len = ssh_string_len(str);
 
   SSH_LOG(SSH_LOG_PACKET,
-      "Channel receiving %" PRIu32 " bytes data in %d (local win=%" PRId32 " remote win=%" PRId32 ")",
+      "Channel receiving %" PRIu32 " bytes data in %d (local win=%" PRIu32 " remote win=%" PRIu32 ")",
       len,
       is_stderr,
       channel->local_window,
@@ -571,7 +571,7 @@ SSH_PACKET_CALLBACK(channel_rcv_data){
   /* What shall we do in this case? Let's accept it anyway */
   if (len > channel->local_window) {
     SSH_LOG(SSH_LOG_RARE,
-        "Data packet too big for our window(%" PRIu32 " vs %" PRId32 ")",
+        "Data packet too big for our window(%" PRIu32 " vs %" PRIu32 ")",
         len,
         channel->local_window);
   }
@@ -590,7 +590,7 @@ SSH_PACKET_CALLBACK(channel_rcv_data){
   }
 
   SSH_LOG(SSH_LOG_PACKET,
-      "Channel windows are now (local win=%" PRId32 " remote win=%" PRId32 ")",
+      "Channel windows are now (local win=%" PRIu32 " remote win=%" PRIu32 ")",
       channel->local_window,
       channel->remote_window);
 
@@ -644,7 +644,7 @@ SSH_PACKET_CALLBACK(channel_rcv_eof) {
   }
 
   SSH_LOG(SSH_LOG_PACKET,
-      "Received eof on channel (%" PRId32 ":%" PRId32 ")",
+      "Received eof on channel (%" PRIu32 ":%" PRIu32 ")",
       channel->local_channel,
       channel->remote_channel);
   /* channel->remote_window = 0; */
@@ -689,7 +689,7 @@ SSH_PACKET_CALLBACK(channel_rcv_close) {
     }
 
     SSH_LOG(SSH_LOG_PACKET,
-        "Received close on channel (%" PRId32 ":%" PRId32 ")",
+        "Received close on channel (%" PRIu32 ":%" PRIu32 ")",
         channel->local_channel,
         channel->remote_channel);
 
@@ -1306,7 +1306,7 @@ int ssh_channel_send_eof(ssh_channel channel)
 
     rc = ssh_packet_send(session);
     SSH_LOG(SSH_LOG_PACKET,
-        "Sent a EOF on client channel (%" PRId32 ":%" PRId32 ")",
+        "Sent a EOF on client channel (%" PRIu32 ":%" PRIu32 ")",
         channel->local_channel,
         channel->remote_channel);
     if (rc != SSH_OK) {
@@ -1371,7 +1371,7 @@ int ssh_channel_close(ssh_channel channel)
 
     rc = ssh_packet_send(session);
     SSH_LOG(SSH_LOG_PACKET,
-            "Sent a close on client channel (%" PRId32 ":%" PRId32 ")",
+            "Sent a close on client channel (%" PRIu32 ":%" PRIu32 ")",
             channel->local_channel,
             channel->remote_channel);
 
@@ -1466,7 +1466,7 @@ static int channel_write_common(ssh_channel channel,
 
   if (channel->local_eof) {
     ssh_set_error(session, SSH_REQUEST_DENIED,
-        "Can't write to channel %" PRId32 ":%" PRId32 "  after EOF was sent",
+        "Can't write to channel %" PRIu32 ":%" PRIu32 "  after EOF was sent",
         channel->local_channel,
         channel->remote_channel);
     return -1;
@@ -1491,7 +1491,7 @@ static int channel_write_common(ssh_channel channel,
   while (len > 0) {
     if (channel->remote_window < len) {
       SSH_LOG(SSH_LOG_DEBUG,
-          "Remote window is %" PRId32 " bytes. going to write %" PRId32 " bytes",
+          "Remote window is %" PRIu32 " bytes. going to write %" PRIu32 " bytes",
           channel->remote_window,
           len);
       /* What happens when the channel window is zero? */
@@ -1705,7 +1705,7 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_success){
   }
 
   SSH_LOG(SSH_LOG_PACKET,
-      "Received SSH_CHANNEL_SUCCESS on channel (%" PRId32 ":%" PRId32 ")",
+      "Received SSH_CHANNEL_SUCCESS on channel (%" PRIu32 ":%" PRIu32 ")",
       channel->local_channel,
       channel->remote_channel);
   if(channel->request_state != SSH_CHANNEL_REQ_STATE_PENDING){
@@ -1736,7 +1736,7 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_failure){
   }
 
   SSH_LOG(SSH_LOG_PACKET,
-      "Received SSH_CHANNEL_FAILURE on channel (%" PRId32 ":%" PRId32 ")",
+      "Received SSH_CHANNEL_FAILURE on channel (%" PRIu32 ":%" PRIu32 ")",
       channel->local_channel,
       channel->remote_channel);
   if(channel->request_state != SSH_CHANNEL_REQ_STATE_PENDING){
@@ -3007,7 +3007,7 @@ int ssh_channel_read_timeout(ssh_channel channel,
    * as asked
    */
   SSH_LOG(SSH_LOG_PACKET,
-      "Read (%" PRId32 ") buffered : %" PRId32 " bytes. Window: %" PRId32,
+      "Read (%" PRIu32 ") buffered : %" PRIu32 " bytes. Window: %" PRIu32,
       count,
       ssh_buffer_get_len(stdbuf),
       channel->local_window);

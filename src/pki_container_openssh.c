@@ -172,7 +172,7 @@ static int pki_private_key_decrypt(ssh_string blob,
     }
 
     SSH_LOG(SSH_LOG_DEBUG,
-            "Decryption: %d key, %d IV, %" PRId32 " rounds, %zu bytes salt",
+            "Decryption: %d key, %d IV, %" PRIu32 " rounds, %zu bytes salt",
             cipher.keysize/8,
             cipher.blocksize,
             rounds,
@@ -299,12 +299,12 @@ ssh_pki_openssh_import(const char *text_key,
         goto out;
     }
     SSH_LOG(SSH_LOG_DEBUG,
-            "Opening OpenSSH private key: ciphername: %s, kdf: %s, nkeys: %" PRId32,
+            "Opening OpenSSH private key: ciphername: %s, kdf: %s, nkeys: %" PRIu32,
             ciphername,
             kdfname,
             nkeys);
     if (nkeys != 1) {
-        SSH_LOG(SSH_LOG_TRACE, "Opening OpenSSH private key: only 1 key supported (%" PRId32 " available)", nkeys);
+        SSH_LOG(SSH_LOG_TRACE, "Opening OpenSSH private key: only 1 key supported (%" PRIu32 " available)", nkeys);
         goto out;
     }
 
@@ -478,7 +478,7 @@ static int pki_private_key_encrypt(ssh_buffer privkey_buffer,
         return SSH_ERROR;
     }
 
-    SSH_LOG(SSH_LOG_DEBUG, "Encryption: %d key, %d IV, %" PRId32 " rounds, %zu bytes salt",
+    SSH_LOG(SSH_LOG_DEBUG, "Encryption: %d key, %d IV, %" PRIu32 " rounds, %zu bytes salt",
                 cipher.keysize/8,
                 cipher.blocksize, rounds, ssh_string_len(salt));
 

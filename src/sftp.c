@@ -290,7 +290,7 @@ int sftp_server_init(sftp_session sftp){
 
   ssh_buffer_get_u32(packet->payload, &version);
   version = ntohl(version);
-  SSH_LOG(SSH_LOG_PACKET, "Client version: %" PRId32, version);
+  SSH_LOG(SSH_LOG_PACKET, "Client version: %" PRIu32, version);
   sftp->client_version = (int)version;
 
   reply = ssh_buffer_new();
@@ -416,7 +416,7 @@ int sftp_packet_write(sftp_session sftp, uint8_t type, ssh_buffer payload)
 
     if ((uint32_t)size != ssh_buffer_get_len(payload)) {
         SSH_LOG(SSH_LOG_PACKET,
-                "Had to write %" PRId32 " bytes, wrote only %d",
+                "Had to write %" PRIu32 " bytes, wrote only %d",
                 ssh_buffer_get_len(payload),
                 size);
     }
@@ -614,7 +614,7 @@ static sftp_message sftp_get_message(sftp_packet packet)
     }
 
     SSH_LOG(SSH_LOG_PACKET,
-            "Packet with id %" PRId32 " type %d",
+            "Packet with id %" PRIu32 " type %d",
             msg->id,
             msg->packet_type);
 
@@ -702,7 +702,7 @@ int sftp_init(sftp_session sftp) {
       return -1;
   }
   SSH_LOG(SSH_LOG_DEBUG,
-      "SFTP server version %" PRId32,
+      "SFTP server version %" PRIu32,
       version);
   rc = ssh_buffer_unpack(packet->payload, "s", &ext_name);
   while (rc == SSH_OK) {
@@ -849,7 +849,7 @@ static int sftp_enqueue(sftp_session sftp, sftp_message msg) {
   }
 
   SSH_LOG(SSH_LOG_PACKET,
-      "Queued msg id %" PRId32 " type %d",
+      "Queued msg id %" PRIu32 " type %d",
       msg->id, msg->packet_type);
 
   if(sftp->queue == NULL) {
@@ -890,7 +890,7 @@ static sftp_message sftp_dequeue(sftp_session sftp, uint32_t id){
       msg = queue->message;
       request_queue_free(queue);
       SSH_LOG(SSH_LOG_PACKET,
-          "Dequeued msg id %" PRId32 " type %d",
+          "Dequeued msg id %" PRIu32 " type %d",
           msg->id,
           msg->packet_type);
       return msg;
@@ -1581,7 +1581,7 @@ sftp_attributes sftp_readdir(sftp_session sftp, sftp_dir dir)
         }
 
         SSH_LOG(SSH_LOG_PACKET,
-                "Sent a ssh_fxp_readdir with id %" PRId32, id);
+                "Sent a ssh_fxp_readdir with id %" PRIu32, id);
 
         while (msg == NULL) {
             if (sftp_read_and_dispatch(sftp) < 0) {
@@ -1609,7 +1609,7 @@ sftp_attributes sftp_readdir(sftp_session sftp, sftp_dir dir)
                 }
 
                 ssh_set_error(sftp->session, SSH_FATAL,
-                        "Unknown error status: %" PRId32, status->status);
+                        "Unknown error status: %" PRIu32, status->status);
                 status_msg_free(status);
 
                 return NULL;
@@ -1638,7 +1638,7 @@ sftp_attributes sftp_readdir(sftp_session sftp, sftp_dir dir)
         return NULL;
     }
 
-    SSH_LOG(SSH_LOG_DEBUG, "Count is %" PRId32, dir->count);
+    SSH_LOG(SSH_LOG_DEBUG, "Count is %" PRIu32, dir->count);
 
     attr = sftp_parse_attr(sftp, dir->buffer, 1);
     if (attr == NULL) {

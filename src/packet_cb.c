@@ -63,10 +63,10 @@ SSH_PACKET_CALLBACK(ssh_packet_disconnect_callback){
     error = ssh_string_to_char(error_s);
     SSH_STRING_FREE(error_s);
   }
-  SSH_LOG(SSH_LOG_PACKET, "Received SSH_MSG_DISCONNECT %" PRId32 ":%s",
+  SSH_LOG(SSH_LOG_PACKET, "Received SSH_MSG_DISCONNECT %" PRIu32 ":%s",
                           code, error != NULL ? error : "no error");
   ssh_set_error(session, SSH_FATAL,
-      "Received SSH_MSG_DISCONNECT: %" PRId32 ":%s",
+      "Received SSH_MSG_DISCONNECT: %" PRIu32 ":%s",
       code, error != NULL ? error : "no error");
   SAFE_FREE(error);
 

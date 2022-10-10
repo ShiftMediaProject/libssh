@@ -1769,7 +1769,7 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_info_request) {
     }
 
     SSH_LOG(SSH_LOG_DEBUG,
-            "%" PRId32 " keyboard-interactive prompts", nprompts);
+            "%" PRIu32 " keyboard-interactive prompts", nprompts);
     if (nprompts > KBDINT_MAX_PROMPT) {
         ssh_set_error(session, SSH_FATAL,
                 "Too much prompts requested by the server: %" PRIu32 " (0x%.4" PRIx32 ")",
