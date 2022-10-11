@@ -238,27 +238,14 @@ else (WITH_GCRYPT)
         libcrypto.c
         dh_crypto.c
        )
-    if (NOT HAVE_OPENSSL_ED25519)
-        set(libssh_SRCS
-            ${libssh_SRCS}
-            pki_ed25519.c
-            external/ed25519.c
-            external/fe25519.c
-            external/ge25519.c
-            external/sc25519.c
-           )
-    endif (NOT HAVE_OPENSSL_ED25519)
-    if (NOT (HAVE_OPENSSL_EVP_CHACHA20 AND HAVE_OPENSSL_EVP_POLY1305))
+    if (NOT HAVE_OPENSSL_EVP_CHACHA20)
         set(libssh_SRCS
             ${libssh_SRCS}
             external/chacha.c
             external/poly1305.c
             chachapoly.c
         )
-    endif (NOT (HAVE_OPENSSL_EVP_CHACHA20 AND HAVE_OPENSSL_EVP_POLY1305))
-    if(OPENSSL_VERSION VERSION_LESS "1.1.0")
-        set(libssh_SRCS ${libssh_SRCS} libcrypto-compat.c)
-    endif()
+    endif (NOT HAVE_OPENSSL_EVP_CHACHA20)
 endif (WITH_GCRYPT)
 
 if (WITH_SFTP)
@@ -306,7 +293,7 @@ if (WITH_GSSAPI AND GSSAPI_FOUND)
 endif (WITH_GSSAPI AND GSSAPI_FOUND)
 
 if (NOT WITH_NACL)
-    if (NOT HAVE_LIBCRYPTO OR NOT HAVE_OPENSSL_ED25519)
+    if (NOT HAVE_LIBCRYPTO)
         set(libssh_SRCS
             ${libssh_SRCS}
             external/curve25519_ref.c

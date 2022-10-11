@@ -97,15 +97,6 @@
 /* Define to 1 if you have gl_flags as a glob_t sturct member */
 #cmakedefine HAVE_GLOB_GL_FLAGS_MEMBER 1
 
-/* Define to 1 if you have OpenSSL with Ed25519 support */
-#cmakedefine HAVE_OPENSSL_ED25519 1
-
-/* Define to 1 if you have OpenSSL with X25519 support */
-#cmakedefine HAVE_OPENSSL_X25519 1
-
-/* Define to 1 if you have OpenSSL with Poly1305 support */
-#cmakedefine HAVE_OPENSSL_EVP_POLY1305 1
-
 /* Define to 1 if you have gcrypt with ChaCha20/Poly1305 support */
 #cmakedefine HAVE_GCRYPT_CHACHA_POLY 1
 
@@ -119,15 +110,6 @@
 
 /* Define to 1 if you have the `FIPS_mode' function. */
 #cmakedefine HAVE_OPENSSL_FIPS_MODE 1
-
-/* Define to 1 if you have the `EVP_DigestSign' function. */
-#cmakedefine HAVE_OPENSSL_EVP_DIGESTSIGN 1
-
-/* Define to 1 if you have the `EVP_DigestVerify' function. */
-#cmakedefine HAVE_OPENSSL_EVP_DIGESTVERIFY 1
-
-/* Define to 1 if you have the `OPENSSL_ia32cap_loc' function. */
-#cmakedefine HAVE_OPENSSL_IA32CAP_LOC 1
 
 /* Define to 1 if you have the `snprintf' function. */
 #cmakedefine HAVE_SNPRINTF 1
