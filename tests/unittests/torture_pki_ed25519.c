@@ -448,7 +448,7 @@ static void torture_pki_ed25519_generate_key(void **state)
     assert_true(strcmp(type_char, "ssh-ed25519") == 0);
 
     /* try an invalid signature */
-#ifdef HAVE_OPENSSL_ED25519
+#ifdef HAVE_LIBCRYPTO
     raw_sig_data = ssh_string_data(sign->raw_sig);
 #else
     raw_sig_data = (uint8_t *)sign->ed25519_sig;
@@ -690,7 +690,7 @@ static void torture_pki_ed25519_sign_openssh_privkey_passphrase(void **state)
     SSH_STRING_FREE(blob);
 }
 
-#ifdef HAVE_OPENSSL_ED25519
+#ifdef HAVE_LIBCRYPTO
 static void torture_pki_ed25519_sign_pkcs8_privkey(void **state)
 {
     ssh_key privkey = NULL;
@@ -766,7 +766,7 @@ static void torture_pki_ed25519_sign_pkcs8_privkey_passphrase(void **state)
     SSH_KEY_FREE(privkey);
     SSH_STRING_FREE(blob);
 }
-#endif /* HAVE_OPENSSL_ED25519 */
+#endif /* HAVE_LIBCRYPTO */
 
 static void torture_pki_ed25519_verify(void **state){
     ssh_key pubkey = NULL;
@@ -805,7 +805,7 @@ static void torture_pki_ed25519_verify(void **state){
     assert_true(rc == SSH_OK);
 
     /* Alter signature and expect verification error */
-#if defined(HAVE_OPENSSL_ED25519)
+#ifdef HAVE_LIBCRYPTO
     raw_sig_data = ssh_string_data(sig->raw_sig);
 #else
     raw_sig_data = (uint8_t *)sig->ed25519_sig;
@@ -1015,7 +1015,7 @@ int torture_run_tests(void) {
         cmocka_unit_test(torture_pki_ed25519_import_privkey_base64_passphrase),
         cmocka_unit_test(torture_pki_ed25519_sign),
         cmocka_unit_test(torture_pki_ed25519_sign_openssh_privkey_passphrase),
-#ifdef HAVE_OPENSSL_ED25519
+#ifdef HAVE_LIBCRYPTO
         cmocka_unit_test(torture_pki_ed25519_sign_pkcs8_privkey),
         cmocka_unit_test(torture_pki_ed25519_sign_pkcs8_privkey_passphrase),
 #endif

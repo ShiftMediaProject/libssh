@@ -165,14 +165,14 @@ void ssh_key_clean (ssh_key key)
     pki_key_clean(key);
 
     if (key->ed25519_privkey != NULL){
-#ifdef HAVE_OPENSSL_ED25519
+#ifdef HAVE_LIBCRYPTO
         /* In OpenSSL implementation the private key is only the private
          * original seed. In the internal implementation the private key is the
          * concatenation of the original private seed with the public key.*/
         explicit_bzero(key->ed25519_privkey, ED25519_KEY_LEN);
 #else
         explicit_bzero(key->ed25519_privkey, sizeof(ed25519_privkey));
-#endif /* HAVE_OPENSSL_ED25519 */
+#endif /* HAVE_LIBCRYPTO*/
         SAFE_FREE(key->ed25519_privkey);
     }
     SAFE_FREE(key->ed25519_pubkey);
@@ -770,10 +770,10 @@ void ssh_signature_free(ssh_signature sig)
             break;
         case SSH_KEYTYPE_ED25519:
         case SSH_KEYTYPE_SK_ED25519:
-#ifndef HAVE_OPENSSL_ED25519
+#ifndef HAVE_LIBCRYPTO
             /* When using OpenSSL, the signature is stored in sig->raw_sig */
             SAFE_FREE(sig->ed25519_sig);
-#endif /* HAVE_OPENSSL_ED25519 */
+#endif /* HAVE_LIBCRYPTO */
             break;
         case SSH_KEYTYPE_DSS_CERT01:
         case SSH_KEYTYPE_RSA_CERT01:
