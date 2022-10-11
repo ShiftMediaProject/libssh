@@ -1187,9 +1187,9 @@ size_t ssh_packet_socket_callback(const void *data, size_t receivedlen, void *us
                     /* give up, not enough data in buffer */
                     SSH_LOG(SSH_LOG_PACKET,
                             "packet: partial packet (read len) "
-                            "[len=%" PRIu32 ", receivedlen=%d, to_be_read=%ld]",
+                            "[len=%" PRIu32 ", receivedlen=%zu, to_be_read=%ld]",
                             packet_len,
-                            (int)receivedlen,
+                            receivedlen,
                             to_be_read);
                     return 0;
                 }

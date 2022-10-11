@@ -207,8 +207,8 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_open_conf){
 
   SSH_LOG(SSH_LOG_DEBUG,
       "Remote window : %" PRIu32 ", maxpacket : %" PRIu32,
-      (uint32_t) channel->remote_window,
-      (uint32_t) channel->remote_maxpacket);
+      channel->remote_window,
+      channel->remote_maxpacket);
 
   channel->state = SSH_CHANNEL_STATE_OPEN;
   channel->flags &= ~SSH_CHANNEL_FLAG_NOT_BOUND;
@@ -257,7 +257,7 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_open_fail){
   ssh_set_error(session, SSH_REQUEST_DENIED,
       "Channel opening failure: channel %" PRIu32 " error (%" PRIu32 ") %s",
       channel->local_channel,
-      (uint32_t) code,
+      code,
       error);
   SAFE_FREE(error);
   channel->state=SSH_CHANNEL_STATE_OPEN_DENIED;
