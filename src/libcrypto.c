@@ -34,7 +34,7 @@
 #include "libssh/wrapper.h"
 #include "libssh/libcrypto.h"
 #include "libssh/pki.h"
-#if defined(HAVE_OPENSSL_EVP_CHACHA20) && defined(HAVE_OPENSSL_EVP_POLY1305)
+#ifdef HAVE_OPENSSL_EVP_CHACHA20
 #include "libssh/bytearray.h"
 #include "libssh/chacha20-poly1305-common.h"
 #endif
@@ -742,7 +742,7 @@ evp_cipher_aead_decrypt(struct ssh_cipher_struct *cipher,
     return SSH_OK;
 }
 
-#if defined(HAVE_OPENSSL_EVP_CHACHA20) && defined(HAVE_OPENSSL_EVP_POLY1305)
+#ifdef HAVE_OPENSSL_EVP_CHACHA20
 
 struct chacha20_poly1305_keysched {
     /* cipher handle used for encrypting the packets */
@@ -1186,7 +1186,7 @@ chacha20_poly1305_aead_encrypt(struct ssh_cipher_struct *cipher,
     }
 #endif /* OPENSSL_VERSION_NUMBER */
 }
-#endif /* defined(HAVE_OPENSSL_EVP_CHACHA20) && defined(HAVE_OPENSSL_EVP_POLY1305) */
+#endif /* HAVE_OPENSSL_EVP_CHACHA20 */
 
 #ifdef WITH_INSECURE_NONE
 static void
@@ -1326,7 +1326,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
   },
 #endif /* HAS_DES */
   {
-#if defined(HAVE_OPENSSL_EVP_CHACHA20) && defined(HAVE_OPENSSL_EVP_POLY1305)
+#ifdef HAVE_OPENSSL_EVP_CHACHA20
     .ciphertype = SSH_AEAD_CHACHA20_POLY1305,
     .name = "chacha20-poly1305@openssh.com",
     .blocksize = CHACHA20_BLOCKSIZE/8,
@@ -1342,7 +1342,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .cleanup = chacha20_poly1305_cleanup
 #else
     .name = "chacha20-poly1305@openssh.com"
-#endif /* defined(HAVE_OPENSSL_EVP_CHACHA20) && defined(HAVE_OPENSSL_EVP_POLY1305) */
+#endif /* HAVE_OPENSSL_EVP_CHACHA20 */
   },
 #ifdef WITH_INSECURE_NONE
   {
@@ -1369,7 +1369,7 @@ struct ssh_cipher_struct *ssh_get_ciphertab(void)
  */
 int ssh_crypto_init(void)
 {
-#if !defined(HAVE_OPENSSL_EVP_CHACHA20) || !defined(HAVE_OPENSSL_EVP_POLY1305)
+#ifndef HAVE_OPENSSL_EVP_CHACHA20
     size_t i;
 #endif
 
@@ -1395,7 +1395,7 @@ int ssh_crypto_init(void)
     }
 #endif /* CAN_DISABLE_AESNI */
 
-#if !defined(HAVE_OPENSSL_EVP_CHACHA20) || !defined(HAVE_OPENSSL_EVP_POLY1305)
+#ifndef HAVE_OPENSSL_EVP_CHACHA20
     for (i = 0; ssh_ciphertab[i].name != NULL; i++) {
         int cmp;
 
@@ -1407,7 +1407,7 @@ int ssh_crypto_init(void)
             break;
         }
     }
-#endif /* !defined(HAVE_OPENSSL_EVP_CHACHA20) || !defined(HAVE_OPENSSL_EVP_POLY1305) */
+#endif /* HAVE_OPENSSL_EVP_CHACHA20 */
 
     libcrypto_initialized = 1;
 
