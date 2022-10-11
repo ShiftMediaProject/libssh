@@ -3075,7 +3075,6 @@ ssh_signature pki_sign_data(const ssh_key privkey,
         goto out;
     }
 
-#ifdef HAVE_OPENSSL_EVP_DIGESTSIGN
     rc = EVP_DigestSign(ctx, raw_sig_data, &raw_sig_len, input, input_len);
     if (rc != 1) {
         SSH_LOG(SSH_LOG_TRACE,
@@ -3083,23 +3082,6 @@ ssh_signature pki_sign_data(const ssh_key privkey,
                 ERR_error_string(ERR_get_error(), NULL));
         goto out;
     }
-#else
-    rc = EVP_DigestSignUpdate(ctx, input, input_len);
-    if (rc != 1) {
-        SSH_LOG(SSH_LOG_TRACE,
-                "EVP_DigestSignUpdate() failed: %s",
-                ERR_error_string(ERR_get_error(), NULL));
-        goto out;
-    }
-
-    rc = EVP_DigestSignFinal(ctx, raw_sig_data, &raw_sig_len);
-    if (rc != 1) {
-        SSH_LOG(SSH_LOG_TRACE,
-                "EVP_DigestSignFinal() failed: %s",
-                ERR_error_string(ERR_get_error(), NULL));
-        goto out;
-    }
-#endif
 
 #ifdef DEBUG_CRYPTO
         ssh_log_hexdump("Generated signature", raw_sig_data, raw_sig_len);
@@ -3236,19 +3218,7 @@ int pki_verify_data_signature(ssh_signature signature,
         goto out;
     }
 
-#ifdef HAVE_OPENSSL_EVP_DIGESTVERIFY
     evp_rc = EVP_DigestVerify(ctx, raw_sig_data, raw_sig_len, input, input_len);
-#else
-    evp_rc = EVP_DigestVerifyUpdate(ctx, input, input_len);
-    if (evp_rc != 1) {
-        SSH_LOG(SSH_LOG_TRACE,
-                "EVP_DigestVerifyUpdate() failed: %s",
-                ERR_error_string(ERR_get_error(), NULL));
-        goto out;
-    }
-
-    evp_rc = EVP_DigestVerifyFinal(ctx, raw_sig_data, raw_sig_len);
-#endif
     if (evp_rc == 1) {
         SSH_LOG(SSH_LOG_TRACE, "Signature valid");
         rc = SSH_OK;
