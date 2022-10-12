@@ -1,5 +1,5 @@
 /*
- * wrapper.c - wrapper for crytpo functions
+ * wrapper.c - wrapper for crypto functions
  *
  * This file is part of the SSH Library
  *

@@ -352,7 +352,7 @@ enum {
 #define SSH_LOG_WARN 1
 /** Get some information what's going on */
 #define SSH_LOG_INFO 2
-/** Get detailed debuging information **/
+/** Get detailed debugging information **/
 #define SSH_LOG_DEBUG 3
 /** Get trace output, packet information, ... */
 #define SSH_LOG_TRACE 4

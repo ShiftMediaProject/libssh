@@ -81,7 +81,7 @@ typedef void (*ssh_log_callback) (ssh_session session, int priority,
  *
  * @param priority  Priority of the log, the smaller being the more important.
  *
- * @param function  The function name calling the the logging fucntions.
+ * @param function  The function name calling the logging functions.
  *
  * @param message   The actual message
  *
@@ -268,7 +268,7 @@ typedef ssh_string (*ssh_gssapi_select_oid_callback) (ssh_session session, const
 		int n_oid, ssh_string *oids, void *userdata);
 
 /*
- * @brief handle the negociation of a security context, server side.
+ * @brief handle the negotiation of a security context, server side.
  * @param session current session handler
  * @param[in] input_token input token provided by client
  * @param[out] output_token output of the gssapi accept_sec_context method,
@@ -397,7 +397,7 @@ struct ssh_socket_callbacks_struct {
    */
   ssh_callback_int_int exception;
   /** This function is called when the ssh_socket_connect was used on the socket
-   * on nonblocking state, and the connection successed.
+   * on nonblocking state, and the connection succeeded.
    */
   ssh_callback_int_int connected;
 };
@@ -637,7 +637,7 @@ typedef void (*ssh_channel_exit_status_callback) (ssh_session session,
  * @param session Current session handler
  * @param channel the actual channel
  * @param signal the signal name (without the SIG prefix)
- * @param core a boolean telling wether a core has been dumped or not
+ * @param core a boolean telling whether a core has been dumped or not
  * @param errmsg the description of the exception
  * @param lang the language of the description (format: RFC 3066)
  * @param userdata Userdata to be passed to the callback function.
@@ -989,7 +989,7 @@ LIBSSH_API struct ssh_threads_callbacks_struct *ssh_threads_get_noop(void);
  *
  * @param[in]  cb  The callback to set.
  *
- * @return         0 on success, < 0 on errror.
+ * @return         0 on success, < 0 on error.
  */
 LIBSSH_API int ssh_set_log_callback(ssh_logging_callback cb);
 

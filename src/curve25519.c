@@ -408,8 +408,8 @@ static SSH_PACKET_CALLBACK(ssh_packet_server_curve25519_init){
     memcpy(session->next_crypto->curve25519_client_pubkey,
            ssh_string_data(q_c_string), CURVE25519_PUBKEY_SIZE);
     SSH_STRING_FREE(q_c_string);
-    /* Build server's keypair */
 
+    /* Build server's key pair */
     rc = ssh_curve25519_init(session);
     if (rc != SSH_OK) {
         ssh_set_error(session, SSH_FATAL, "Failed to generate curve25519 keys");

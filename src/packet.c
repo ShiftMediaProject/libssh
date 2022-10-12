@@ -1801,7 +1801,7 @@ int ssh_packet_send(ssh_session session)
 
         if (need_rekey) {
             /* Send the KEXINIT packet instead.
-             * This recursivelly calls the packet_send(), but it should
+             * This recursively calls the packet_send(), but it should
              * not get into rekeying again.
              * After that we need to handle the key exchange responses
              * up to the point where we can send the rest of the queue.

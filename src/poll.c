@@ -287,7 +287,7 @@ static int bsd_poll(ssh_pollfd_t *fds, nfds_t nfds, int timeout)
     if (rc < 0) {
         return -1;
     }
-    /* A timeout occured */
+    /* A timeout occurred */
     if (rc == 0) {
         return 0;
     }
@@ -981,7 +981,7 @@ int ssh_event_add_connector(ssh_event event, ssh_connector connector)
  * @returns SSH_OK      on success.
  *          SSH_ERROR   Error happened during the poll. Check errno to get more
  *                      details about why it failed.
- *          SSH_AGAIN   Timeout occured
+ *          SSH_AGAIN   Timeout occurred
  */
 int ssh_event_dopoll(ssh_event event, int timeout)
 {

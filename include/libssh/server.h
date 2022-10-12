@@ -117,7 +117,7 @@ LIBSSH_API int ssh_bind_listen(ssh_bind ssh_bind_o);
  *
  * @param[in] userdata  A pointer to private data to pass to the callbacks.
  *
- * @return              SSH_OK on success, SSH_ERROR if an error occured.
+ * @return              SSH_OK on success, SSH_ERROR if an error occurred.
  *
  * @code
  *     struct ssh_callbacks_struct cb = {
@@ -280,7 +280,7 @@ LIBSSH_API int ssh_message_reply_default(ssh_message msg);
  *
  * @param[in] msg       The message to get the username from.
  *
- * @return              The username or NULL if an error occured.
+ * @return              The username or NULL if an error occurred.
  *
  * @see ssh_message_get()
  * @see ssh_message_type()
@@ -292,7 +292,7 @@ LIBSSH_API const char *ssh_message_auth_user(ssh_message msg);
  *
  * @param[in] msg       The message to get the password from.
  *
- * @return              The username or NULL if an error occured.
+ * @return              The username or NULL if an error occurred.
  *
  * @see ssh_message_get()
  * @see ssh_message_type()

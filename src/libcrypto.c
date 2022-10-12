@@ -716,7 +716,7 @@ evp_cipher_aead_decrypt(struct ssh_cipher_struct *cipher,
                            (unsigned char *)out,
                            &outlen,
                            (unsigned char *)complete_packet + aadlen,
-                           encrypted_size /* already substracted aadlen*/);
+                           encrypted_size /* already subtracted aadlen */);
     if (rc != 1) {
         SSH_LOG(SSH_LOG_TRACE, "EVP_DecryptUpdate failed");
         return SSH_ERROR;

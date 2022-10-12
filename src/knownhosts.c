@@ -1227,7 +1227,7 @@ ssh_session_get_known_hosts_entry(ssh_session session,
  *          SSH_KNOWN_HOSTS_NOT_FOUND: The known host file does not exist. The
  *                                     host is thus unknown. File will be
  *                                     created if host key is accepted.\n
- *          SSH_KNOWN_HOSTS_ERROR:     There had been an eror checking the host.
+ *          SSH_KNOWN_HOSTS_ERROR:     There had been an error checking the host.
  *
  * @see ssh_knownhosts_entry_free()
  */

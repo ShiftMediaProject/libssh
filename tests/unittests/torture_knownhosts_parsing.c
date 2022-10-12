@@ -430,7 +430,7 @@ static void torture_knownhosts_get_algorithms_names(void **state)
 }
 
 #ifndef HAVE_DSA
-/* Do not remove this test if we completly remove DSA support! */
+/* Do not remove this test if we completely remove DSA support! */
 static void torture_knownhosts_get_algorithms_names_unsupported(void **state)
 {
     const char *knownhosts_file = *state;

@@ -1063,7 +1063,7 @@ void ssh_clean_pubkey_hash(unsigned char **hash)
  * @param[out] key      A pointer to store the allocated key. You need to free
  *                      the key using ssh_key_free().
  *
- * @return              SSH_OK on success, SSH_ERROR on errror.
+ * @return              SSH_OK on success, SSH_ERROR on error.
  *
  * @see ssh_key_free()
  */

@@ -176,7 +176,7 @@ extern LIBSSH_THREAD int ssh_log_level;
     "Host time4\n" \
     "\tRekeyLimit default 9600\n"
 
-/* Multiple IdentityFile settings all are aplied */
+/* Multiple IdentityFile settings all are applied */
 #define LIBSSH_TESTCONFIG_STRING13 \
    "IdentityFile id_rsa_one\n" \
    "IdentityFile id_ecdsa_two\n"
@@ -974,13 +974,13 @@ static void torture_config_proxyjump(void **state,
     _parse_config(session, file, string, SSH_OK);
     assert_true(session->opts.ProxyCommand == NULL);
 
-    /* If also ProxyCommand is specifed, the first is applied */
+    /* If also ProxyCommand is specified, the first is applied */
     torture_reset_config(session);
     ssh_options_set(session, SSH_OPTIONS_HOST, "only-command");
     _parse_config(session, file, string, SSH_OK);
     assert_string_equal(session->opts.ProxyCommand, PROXYCMD);
 
-    /* If also ProxyCommand is specifed, the first is applied */
+    /* If also ProxyCommand is specified, the first is applied */
     torture_reset_config(session);
     ssh_options_set(session, SSH_OPTIONS_HOST, "only-jump");
     _parse_config(session, file, string, SSH_OK);
@@ -1381,7 +1381,7 @@ static void torture_config_nonewlineoneline_string(void **state)
 
 /* ssh_config_get_cmd() does three things:
  *  * Strips leading whitespace
- *  * Terminate the characted on the end of next quotes-enclosed string
+ *  * Terminate the character on the end of next quotes-enclosed string
  *  * Terminate on the end of line
  */
 static void torture_config_parser_get_cmd(void **state)

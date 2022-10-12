@@ -464,7 +464,7 @@ int ssh_options_set_algo(ssh_session session,
  *                (uint64_t, 0=default)
  *
  *              - SSH_OPTIONS_REKEY_TIME
- *                Set the time limit for a session before intializing a rekey
+ *                Set the time limit for a session before initializing a rekey
  *                in seconds. RFC 4253 Section 9 recommends one hour.
  *                (uint32_t, 0=off)
  *

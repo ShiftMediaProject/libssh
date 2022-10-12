@@ -57,7 +57,7 @@ version 0.9.4 (released 2020-04-09)
   * Fixed CVE-2020-1730 - Possible DoS in client and server when handling
     AES-CTR keys with OpenSSL
   * Added diffie-hellman-group14-sha256
-  * Fixed serveral possible memory leaks
+  * Fixed several possible memory leaks
 
 version 0.9.3 (released 2019-12-10)
   * Fixed CVE-2019-14889 - SCP: Unsanitized location leads to command execution
@@ -208,7 +208,7 @@ version 0.6.1 (released 2014-02-08)
   * Fixed DSA signature extraction.
   * Fixed some memory leaks.
   * Fixed read of non-connected socket.
-  * Fixed thread dectection.
+  * Fixed thread detection.
 
 version 0.6.0 (released 2014-01-08)
   * Added new publicy key API.
@@ -233,7 +233,7 @@ version 0.6.0 (released 2014-01-08)
 version 0.5.5 (released 2013-07-26)
   * BUG 103: Fix ProxyCommand parsing.
   * Fix setting -D_FORTIFY_SOURCE=2.
-  * Fix pollset error return if emtpy.
+  * Fix pollset error return if empty.
   * Fix NULL pointer checks in channel functions.
   * Several bugfixes.
 
@@ -249,7 +249,7 @@ version 0.5.3 (released 2012-11-20)
   * BUG #84 - Fix bug in sftp_mkdir not returning on error.
   * BUG #85 - Fixed a possible channel infinite loop if the connection dropped.
   * BUG #88 - Added missing channel request_state and set it to accepted.
-  * BUG #89 - Reset error state to no error on successful SSHv1 authentiction.
+  * BUG #89 - Reset error state to no error on successful SSHv1 authentication.
   * Fixed a possible use after free in ssh_free().
   * Fixed multiple possible NULL pointer dereferences.
   * Fixed multiple memory leaks in error paths.
@@ -310,7 +310,7 @@ version 0.4.7 (released 2010-12-28)
   * Fixed a possible memory leak in ssh_get_user_home().
   * Fixed a memory leak in sftp_xstat.
   * Fixed uninitialized fd->revents member.
-  * Fixed timout value in ssh_channel_accept().
+  * Fixed timeout value in ssh_channel_accept().
   * Fixed length checks in ssh_analyze_banner().
   * Fixed a possible data overread and crash bug.
   * Fixed setting max_fd which breaks ssh_select().
@@ -333,7 +333,7 @@ version 0.4.5 (released 2010-07-13)
   * Added option to bind a client to an ip address.
   * Fixed the ssh socket polling function.
   * Fixed Windows related bugs in bsd_poll().
-  * Fixed serveral build warnings.
+  * Fixed several build warnings.
 
 version 0.4.4 (released 2010-06-01)
   * Fixed a bug in the expand function for escape sequences.
@@ -352,17 +352,17 @@ version 0.4.3 (released 2010-05-18)
   * Fixed sftp_chown.
   * Fixed sftp_rename on protocol version 3.
   * Fixed a blocking bug in channel_poll.
-  * Fixed config parsing wich has overwritten user specified values.
+  * Fixed config parsing which has overwritten user specified values.
   * Fixed hashed [host]:port format in knownhosts
   * Fixed Windows build.
-  * Fixed doublefree happening after a negociation error.
+  * Fixed doublefree happening after a negotiation error.
   * Fixed aes*-ctr with <= OpenSSL 0.9.7b.
   * Fixed some documentation.
   * Fixed exec example which has broken read usage.
   * Fixed broken algorithm choice for server.
   * Fixed a typo that we don't export all symbols.
   * Removed the unneeded dependency to doxygen.
-  * Build examples only on the Linux plattform.
+  * Build examples only on the Linux platform.
 
 version 0.4.2 (released 2010-03-15)
   * Added owner and group information in sftp attributes.
@@ -384,7 +384,7 @@ version 0.4.1 (released 2010-02-13)
   * Added an example for exec.
   * Added private key type detection feature in privatekey_from_file().
   * Fixed zlib compression fallback.
-  * Fixed kex bug that client preference should be prioritary
+  * Fixed kex bug that client preference should be priority
   * Fixed known_hosts file set by the user.
   * Fixed a memleak in channel_accept().
   * Fixed underflow when leave_function() are unbalanced
@@ -522,7 +522,7 @@ version 0.11-dev
   * Keyboard-interactive authentication working.
 
 version 0.1 (released 2004-03-05)
-  * Begining of sftp subsystem implementation.
+  * Beginning of sftp subsystem implementation.
   * Some cleanup into channels implementation
   * Now every channel functions is called by its CHANNEL handler.
   * Added channel_poll() and channel_read().
@@ -543,7 +543,7 @@ version 0.0.4 (released 2003-10-10)
   * Added a wrapper.c file. The goal is to provide a similar API to every
     cryptographic functions. bignums and sha/md5 are wrapped now.
   * More work than it first looks.
-  * Support for other crypto libs planed (lighter libs)
+  * Support for other crypto libs planned (lighter libs)
   * Fixed stupid select() bug.
   * Libssh now compiles and links with openssl 0.9.6
   * RSA pubkey authentication code now works !

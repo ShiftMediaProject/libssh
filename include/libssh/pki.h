@@ -34,7 +34,7 @@
 #endif
 #include "libssh/crypto.h"
 #if defined(HAVE_LIBCRYPTO) && defined(HAVE_OPENSSL_ED25519)
-/* If using OpenSSL implementation, define the signature lenght which would be
+/* If using OpenSSL implementation, define the signature length which would be
  * defined in libssh/ed25519.h otherwise */
 #define ED25519_SIG_LEN 64
 #else
