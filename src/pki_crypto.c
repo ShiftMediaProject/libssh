@@ -954,7 +954,7 @@ int pki_key_generate_ecdsa(ssh_key key, int parameter) {
 #endif /* HAVE_OPENSSL_ECC */
 
 /* With OpenSSL 3.0 and higher the parameter 'what'
- * is ignored and the comparision is done by OpenSSL
+ * is ignored and the comparison is done by OpenSSL
  */
 int pki_key_compare(const ssh_key k1,
                     const ssh_key k2,
@@ -1092,7 +1092,7 @@ int pki_key_compare(const ssh_key k1,
 #endif /* OPENSSL_VERSION_NUMBER */
         case SSH_KEYTYPE_ED25519:
         case SSH_KEYTYPE_SK_ED25519:
-            /* ed25519 keys handled globaly */
+            /* ed25519 keys handled globally */
         case SSH_KEYTYPE_UNKNOWN:
         default:
             return 1;

@@ -466,7 +466,8 @@ void ssh_dh_cleanup(struct ssh_crypto_struct *crypto)
 /** @internal
  * @brief generates a secret DH parameter of at least DH_SECURITY_BITS
  *        security as well as the corresponding public key.
- * @param[out] parms a dh_ctx that will hold the new keys.
+ *
+ * @param[out] params a dh_ctx that will hold the new keys.
  * @param peer Select either client or server key storage. Valid values are:
  *        DH_CLIENT_KEYPAIR or DH_SERVER_KEYPAIR
  *

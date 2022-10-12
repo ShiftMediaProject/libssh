@@ -189,7 +189,7 @@ static void torture_connect_uninitialized(UNUSED_PARAM(void **state))
     ssh_session session;
     struct passwd *pwd;
 
-    /* Make sure the library is unitialized */
+    /* Make sure the library is uninitialized */
     while (is_ssh_initialized()) {
         rc = ssh_finalize();
         assert_return_code(rc, errno);

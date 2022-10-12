@@ -230,7 +230,7 @@ static void torture_options_set_pubkey_accepted_types(void **state) {
         /* simulate the SHA2 extension was negotiated */
         session->extensions = SSH_EXT_SIG_RSA_SHA256;
 
-        /* previous configuration did not list the SHA2 extension algoritms, so
+        /* previous configuration did not list the SHA2 extension algorithms, so
          * it should not be used */
         type = ssh_key_type_to_hash(session, SSH_KEYTYPE_RSA);
         assert_int_equal(type, SSH_DIGEST_SHA1);

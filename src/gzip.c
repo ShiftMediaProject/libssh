@@ -50,7 +50,7 @@ static z_stream *initcompress(ssh_session session, int level) {
   if (status != Z_OK) {
     SAFE_FREE(stream);
     ssh_set_error(session, SSH_FATAL,
-        "status %d inititalising zlib deflate", status);
+        "status %d initialising zlib deflate", status);
     return NULL;
   }
 

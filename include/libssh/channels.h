@@ -35,7 +35,7 @@ enum ssh_channel_request_state_e {
 	SSH_CHANNEL_REQ_STATE_ACCEPTED,
 	/** A request has been replied and refused */
 	SSH_CHANNEL_REQ_STATE_DENIED,
-	/** A request has been replied and an error happend */
+	/** A request has been replied and an error happened */
 	SSH_CHANNEL_REQ_STATE_ERROR
 };
 

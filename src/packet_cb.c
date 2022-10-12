@@ -160,7 +160,7 @@ SSH_PACKET_CALLBACK(ssh_packet_newkeys){
     }
     SSH_LOG(SSH_LOG_PROTOCOL,"Signature verified and valid");
 
-    /* When receiving this packet, we switch on the incomming crypto. */
+    /* When receiving this packet, we switch on the incoming crypto. */
     rc = ssh_packet_set_newkeys(session, SSH_DIRECTION_IN);
     if (rc != SSH_OK) {
         goto error;

@@ -172,7 +172,7 @@ static void torture_rekey_send(void **state)
                      bytes / c->in_cipher->blocksize);
     assert_int_equal(c->out_cipher->max_blocks,
                      bytes / c->out_cipher->blocksize);
-    /* We should have less encrypted packets than transfered (first are not encrypted) */
+    /* We should have less encrypted packets than transferred (first are not encrypted) */
     assert_true(c->out_cipher->packets < s->ssh.session->send_seq);
     assert_true(c->in_cipher->packets < s->ssh.session->recv_seq);
     /* Copy the initial secret hash = session_id so we know we changed keys later */
@@ -276,7 +276,7 @@ static void torture_rekey_recv(void **state)
     c = s->ssh.session->current_crypto;
     assert_int_equal(c->in_cipher->max_blocks, bytes / c->in_cipher->blocksize);
     assert_int_equal(c->out_cipher->max_blocks, bytes / c->out_cipher->blocksize);
-    /* We should have less encrypted packets than transfered (first are not encrypted) */
+    /* We should have less encrypted packets than transferred (first are not encrypted) */
     assert_true(c->out_cipher->packets < s->ssh.session->send_seq);
     assert_true(c->in_cipher->packets < s->ssh.session->recv_seq);
     /* Copy the initial secret hash = session_id so we know we changed keys later */
@@ -471,7 +471,7 @@ static void torture_rekey_different_kex(void **state)
                      bytes / c->in_cipher->blocksize);
     assert_int_equal(c->out_cipher->max_blocks,
                      bytes / c->out_cipher->blocksize);
-    /* We should have less encrypted packets than transfered (first are not encrypted) */
+    /* We should have less encrypted packets than transferred (first are not encrypted) */
     assert_true(c->out_cipher->packets < s->ssh.session->send_seq);
     assert_true(c->in_cipher->packets < s->ssh.session->recv_seq);
     /* Copy the initial secret hash = session_id so we know we changed keys later */
@@ -497,7 +497,7 @@ static void torture_rekey_different_kex(void **state)
     rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_KEY_EXCHANGE, kex2);
     assert_ssh_return_code(s->ssh.session, rc);
 
-    /* send ignore packets of up to 1KB to trigger rekey. Send litle bit more
+    /* send ignore packets of up to 1KB to trigger rekey. Send little bit more
      * to make sure the rekey it completes with all different ciphers (paddings */
     memset(data, 0, sizeof(data));
     memset(data, 'A', 128);
@@ -575,7 +575,7 @@ static void torture_rekey_server_different_kex(void **state)
     rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_KEY_EXCHANGE, kex2);
     assert_ssh_return_code(s->ssh.session, rc);
 
-    /* send ignore packets of up to 1KB to trigger rekey. Send litle bit more
+    /* send ignore packets of up to 1KB to trigger rekey. Send little bit more
      * to make sure the rekey it completes with all different ciphers (paddings */
     memset(data, 0, sizeof(data));
     memset(data, 'A', 128);

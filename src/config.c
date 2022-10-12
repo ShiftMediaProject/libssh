@@ -395,7 +395,7 @@ ssh_exec_shell(char *cmd)
         }
     }
     if (!WIFEXITED(status)) {
-        SSH_LOG(SSH_LOG_WARN, "Command %s exitted abnormally", cmd);
+        SSH_LOG(SSH_LOG_WARN, "Command %s exited abnormally", cmd);
         return -1;
     }
     SSH_LOG(SSH_LOG_TRACE, "Command '%s' returned %d", cmd, WEXITSTATUS(status));
@@ -1006,7 +1006,7 @@ ssh_config_parse_line(ssh_session session,
         if (p == NULL) {
             break;
         } else if (strcmp(p, "default") == 0) {
-            /* Default rekey limits enforced automaticaly */
+            /* Default rekey limits enforced automatically */
             ll = 0;
         } else {
             char *endp = NULL;

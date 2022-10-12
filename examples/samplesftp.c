@@ -173,7 +173,7 @@ static void do_sftp(ssh_session session) {
         sftp_attributes_free(file);
     }
 
-    /* when file = NULL, an error has occured OR the directory listing is end of
+    /* when file = NULL, an error has occurred OR the directory listing is end of
      * file */
     if (!sftp_dir_eof(dir)) {
         fprintf(stderr, "Error: %s\n", ssh_get_error(session));

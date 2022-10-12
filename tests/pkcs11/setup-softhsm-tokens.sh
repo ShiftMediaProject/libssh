@@ -74,7 +74,7 @@ eval echo "$cmd"
 out=$(eval $cmd)
 ret=$?
 if [ $ret -ne 0 ]; then
-    echo "Loging failed"
+    echo "Logging in failed"
     echo "$out"
     exit 1
 fi

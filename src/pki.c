@@ -1088,7 +1088,7 @@ int ssh_pki_export_privkey_file(const ssh_key privkey,
     return SSH_OK;
 }
 
-/* temporary function to migrate seemlessly to ssh_key */
+/* temporary function to migrate seamlessly to ssh_key */
 ssh_public_key ssh_pki_convert_key_to_publickey(const ssh_key key)
 {
     ssh_public_key pub;
@@ -1949,7 +1949,7 @@ int ssh_pki_import_cert_file(const char *filename, ssh_key *pkey)
 }
 
 /**
- * @brief Generates a keypair.
+ * @brief Generates a key pair.
  *
  * @param[in] type      Type of key to create
  *
@@ -2519,7 +2519,7 @@ int ssh_pki_signature_verify(ssh_session session,
     allowed = ssh_key_size_allowed(session, key);
     if (!allowed) {
         ssh_set_error(session, SSH_FATAL, "The '%s' key of size %d is not "
-                      "allowd by RSA_MIN_SIZE", key->type_c, ssh_key_size(key));
+                      "allowed by RSA_MIN_SIZE", key->type_c, ssh_key_size(key));
         return SSH_ERROR;
     }
 
