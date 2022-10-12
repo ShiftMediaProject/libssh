@@ -11,6 +11,7 @@ variables:
   ALPINE_BUILD: buildenv-alpine
 
 stages:
+  - review
   - build
   - test
   - analysis
@@ -556,3 +557,14 @@ coverity:
     when: on_failure
     paths:
       - obj/cov-int/*.txt
+
+###############################################################################
+#                                 Codespell                                   #
+###############################################################################
+codespell:
+  stage: review
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
+  script:
+    - codespell --ignore-words-list=keypair,sorce,ned,nd,ue
+  tags:
+    - shared
