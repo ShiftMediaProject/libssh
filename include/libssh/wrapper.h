@@ -126,9 +126,9 @@ const char *ssh_hmac_type_to_string(enum ssh_hmac_e hmac_type, bool etm);
 
 #if defined(HAVE_LIBCRYPTO) && OPENSSL_VERSION_NUMBER >= 0x30000000L
 int evp_build_pkey(const char* name, OSSL_PARAM_BLD *param_bld, EVP_PKEY **pkey, int selection);
-int evp_dup_dsa_pkey(const ssh_key key, ssh_key new, int demote);
-int evp_dup_rsa_pkey(const ssh_key key, ssh_key new, int demote);
-int evp_dup_ecdsa_pkey(const ssh_key key, ssh_key new, int demote);
+int evp_dup_dsa_pkey(const ssh_key key, ssh_key new_key, int demote);
+int evp_dup_rsa_pkey(const ssh_key key, ssh_key new_key, int demote);
+int evp_dup_ecdsa_pkey(const ssh_key key, ssh_key new_key, int demote);
 #endif /* HAVE_LIBCRYPTO && OPENSSL_VERSION_NUMBER */
 
 #ifdef __cplusplus
