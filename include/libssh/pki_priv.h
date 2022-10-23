@@ -153,7 +153,7 @@ int pki_ed25519_verify(const ssh_key pubkey, ssh_signature sig,
 int pki_ed25519_key_cmp(const ssh_key k1,
                 const ssh_key k2,
                 enum ssh_keycmp_e what);
-int pki_ed25519_key_dup(ssh_key new, const ssh_key key);
+int pki_ed25519_key_dup(ssh_key new_key, const ssh_key key);
 int pki_ed25519_public_key_to_blob(ssh_buffer buffer, ssh_key key);
 ssh_string pki_ed25519_signature_to_blob(ssh_signature sig);
 int pki_signature_from_ed25519_blob(ssh_signature sig, ssh_string sig_blob);
