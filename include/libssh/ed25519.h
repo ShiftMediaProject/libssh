@@ -37,6 +37,10 @@ typedef uint8_t ed25519_pubkey[ED25519_PK_LEN];
 typedef uint8_t ed25519_privkey[ED25519_SK_LEN];
 typedef uint8_t ed25519_signature[ED25519_SIG_LEN];
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /** @internal
  * @brief generate an ed25519 key pair
  * @param[out] pk generated public key
@@ -76,4 +80,8 @@ int crypto_sign_ed25519_open(
     const ed25519_pubkey pk);
 
 /** @} */
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* ED25519_H_ */

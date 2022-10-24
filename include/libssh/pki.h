@@ -118,6 +118,10 @@ struct ssh_signature_struct {
 
 typedef struct ssh_signature_struct *ssh_signature;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* SSH Key Functions */
 void ssh_key_clean (ssh_key key);
 
@@ -191,5 +195,9 @@ int ssh_key_size(ssh_key key);
 /* PKCS11 URI function to check if filename is a path or a PKCS11 URI */
 bool ssh_pki_is_uri(const char *filename);
 char *ssh_pki_export_pub_uri_from_priv_uri(const char *priv_uri);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* PKI_H_ */

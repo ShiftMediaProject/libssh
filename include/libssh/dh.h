@@ -30,6 +30,10 @@ struct dh_ctx;
 #define DH_CLIENT_KEYPAIR 0
 #define DH_SERVER_KEYPAIR 1
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* functions implemented by crypto backends */
 int ssh_dh_init_common(struct ssh_crypto_struct *crypto);
 void ssh_dh_cleanup(struct ssh_crypto_struct *crypto);
@@ -81,5 +85,9 @@ void ssh_server_dh_init(ssh_session session);
 int ssh_server_dh_process_init(ssh_session session, ssh_buffer packet);
 int ssh_fallback_group(uint32_t pmax, bignum *p, bignum *g);
 bool ssh_dh_is_known_group(bignum modulus, bignum generator);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* DH_H_ */

@@ -22,6 +22,10 @@
 #define CHANNELS_H_
 #include "libssh/priv.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /**  @internal
  * Describes the different possible states in a
  * outgoing (client) channel request
@@ -108,5 +112,9 @@ int ssh_global_request(ssh_session session,
                        const char *request,
                        ssh_buffer buffer,
                        int reply);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* CHANNELS_H_ */
