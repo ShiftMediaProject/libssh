@@ -21,6 +21,10 @@
 #ifndef MISC_H_
 #define MISC_H_
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /* in misc.c */
 /* gets the user home dir. */
 char *ssh_get_user_home_dir(void);
@@ -99,4 +103,8 @@ int ssh_newline_vis(const char *string, char *buf, size_t buf_len);
 int ssh_tmpname(char *template);
 
 char *ssh_strreplace(const char *src, const char *pattern, const char *repl);
+#ifdef __cplusplus
+}
+#endif
+
 #endif /* MISC_H_ */

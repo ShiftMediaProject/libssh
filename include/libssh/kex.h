@@ -31,6 +31,10 @@ struct ssh_kex_struct {
     char *methods[SSH_KEX_METHODS];
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 SSH_PACKET_CALLBACK(ssh_packet_kexinit);
 
 int ssh_send_kex(ssh_session session, int server_kex);
@@ -55,5 +59,9 @@ int ssh_make_sessionid(ssh_session session);
 int ssh_hashbufin_add_cookie(ssh_session session, unsigned char *cookie);
 int ssh_hashbufout_add_cookie(ssh_session session);
 int ssh_generate_session_keys(ssh_session session);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* KEX_H_ */

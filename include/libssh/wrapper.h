@@ -29,6 +29,10 @@
 #include "libssh/libgcrypt.h"
 #include "libssh/libmbedcrypto.h"
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 enum ssh_kdf_digest {
     SSH_KDF_SHA1=1,
     SSH_KDF_SHA256,
@@ -126,5 +130,9 @@ int evp_dup_dsa_pkey(const ssh_key key, ssh_key new, int demote);
 int evp_dup_rsa_pkey(const ssh_key key, ssh_key new, int demote);
 int evp_dup_ecdsa_pkey(const ssh_key key, ssh_key new, int demote);
 #endif /* HAVE_LIBCRYPTO && OPENSSL_VERSION_NUMBER */
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* WRAPPER_H_ */
