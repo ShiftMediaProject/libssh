@@ -544,9 +544,10 @@ int ssh_send_issue_banner(ssh_session session, const ssh_string banner)
             "Sending a server issue banner");
 
     rc = ssh_buffer_pack(session->out_buffer,
-                         "bS",
+                         "bSs",
                          SSH2_MSG_USERAUTH_BANNER,
-                         banner);
+                         banner,
+                         "");
     if (rc != SSH_OK) {
         ssh_set_error_oom(session);
         return SSH_ERROR;
