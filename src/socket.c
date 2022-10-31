@@ -223,6 +223,15 @@ void ssh_socket_set_callbacks(ssh_socket s, ssh_socket_callbacks callbacks)
     s->callbacks = callbacks;
 }
 
+void ssh_socket_set_connected(ssh_socket s, struct ssh_poll_handle_struct *p)
+{
+    s->state = SSH_SOCKET_CONNECTED;
+    /* POLLOUT is the event to wait for in a nonblocking connect */
+    if (p != NULL) {
+        ssh_poll_set_events(p, POLLIN | POLLOUT);
+    }
+}
+
 /**
  * @brief               SSH poll callback. This callback will be used when an event
  *                      caught on the socket.
@@ -345,10 +354,7 @@ int ssh_socket_pollcallback(struct ssh_poll_handle_struct *p,
         /* First, POLLOUT is a sign we may be connected */
         if (s->state == SSH_SOCKET_CONNECTING) {
             SSH_LOG(SSH_LOG_PACKET, "Received POLLOUT in connecting state");
-            s->state = SSH_SOCKET_CONNECTED;
-            if (p != NULL) {
-                ssh_poll_set_events(p, POLLOUT | POLLIN);
-            }
+            ssh_socket_set_connected(s, p);
 
             rc = ssh_socket_set_blocking(ssh_socket_get_fd(s));
             if (rc < 0) {
@@ -949,6 +955,7 @@ int
 ssh_socket_connect_proxycommand(ssh_socket s, const char *command)
 {
     socket_t pair[2];
+    ssh_poll_handle h = NULL;
     int pid;
     int rc;
 
@@ -971,10 +978,12 @@ ssh_socket_connect_proxycommand(ssh_socket s, const char *command)
     close(pair[0]);
     SSH_LOG(SSH_LOG_PROTOCOL, "ProxyCommand connection pipe: [%d,%d]",pair[0],pair[1]);
     ssh_socket_set_fd(s, pair[1]);
-    s->state=SSH_SOCKET_CONNECTED;
-    s->fd_is_socket=0;
-    /* POLLOUT is the event to wait for in a nonblocking connect */
-    ssh_poll_set_events(ssh_socket_get_poll_handle(s), POLLIN | POLLOUT);
+    s->fd_is_socket = 0;
+    h = ssh_socket_get_poll_handle(s);
+    if (h == NULL) {
+        return SSH_ERROR;
+    }
+    ssh_socket_set_connected(s, h);
     if (s->callbacks && s->callbacks->connected) {
         s->callbacks->connected(SSH_SOCKET_CONNECTED_OK, 0, s->callbacks->userdata);
     }
