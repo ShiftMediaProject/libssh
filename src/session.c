@@ -633,9 +633,10 @@ void ssh_set_fd_except(ssh_session session) {
  *
  * @return              SSH_OK on success, SSH_ERROR otherwise.
  */
-int ssh_handle_packets(ssh_session session, int timeout) {
-    ssh_poll_handle spoll;
-    ssh_poll_ctx ctx;
+int ssh_handle_packets(ssh_session session, int timeout)
+{
+    ssh_poll_handle spoll = NULL;
+    ssh_poll_ctx ctx = NULL;
     int tm = timeout;
     int rc;
 
@@ -653,11 +654,12 @@ int ssh_handle_packets(ssh_session session, int timeout) {
     }
 
     if (timeout == SSH_TIMEOUT_USER) {
-        if (ssh_is_blocking(session))
-          tm = ssh_make_milliseconds(session->opts.timeout,
-                                     session->opts.timeout_usec);
-        else
-          tm = 0;
+        if (ssh_is_blocking(session)) {
+            tm = ssh_make_milliseconds(session->opts.timeout,
+                                       session->opts.timeout_usec);
+        } else {
+            tm = 0;
+        }
     }
     rc = ssh_poll_ctx_dopoll(ctx, tm);
     if (rc == SSH_ERROR) {

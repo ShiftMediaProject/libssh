@@ -621,7 +621,7 @@ int ssh_poll_ctx_add(ssh_poll_ctx ctx, ssh_poll_handle p)
  */
 int ssh_poll_ctx_add_socket (ssh_poll_ctx ctx, ssh_socket s)
 {
-    ssh_poll_handle p;
+    ssh_poll_handle p = NULL;
     int ret;
 
     p = ssh_socket_get_poll_handle(s);

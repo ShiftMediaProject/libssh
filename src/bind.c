@@ -424,7 +424,8 @@ void ssh_bind_free(ssh_bind sshbind){
   SAFE_FREE(sshbind);
 }
 
-int ssh_bind_accept_fd(ssh_bind sshbind, ssh_session session, socket_t fd){
+int ssh_bind_accept_fd(ssh_bind sshbind, ssh_session session, socket_t fd)
+{
     int i, rc;
 
     if (sshbind == NULL) {

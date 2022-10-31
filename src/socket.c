@@ -401,7 +401,7 @@ ssh_poll_handle ssh_socket_get_poll_handle(ssh_socket s)
     if (s->poll_handle) {
         return s->poll_handle;
     }
-    s->poll_handle = ssh_poll_new(s->fd,0,ssh_socket_pollcallback,s);
+    s->poll_handle = ssh_poll_new(s->fd, 0, ssh_socket_pollcallback, s);
     return s->poll_handle;
 }
 
@@ -513,17 +513,23 @@ void ssh_socket_close(ssh_socket s)
  */
 void ssh_socket_set_fd(ssh_socket s, socket_t fd)
 {
+    ssh_poll_handle h = NULL;
+
     s->fd = fd;
 
     if (s->poll_handle) {
         ssh_poll_set_fd(s->poll_handle,fd);
     } else {
         s->state = SSH_SOCKET_CONNECTING;
+        h = ssh_socket_get_poll_handle(s);
+        if (h == NULL) {
+            return;
+        }
 
         /* POLLOUT is the event to wait for in a nonblocking connect */
-        ssh_poll_set_events(ssh_socket_get_poll_handle(s), POLLOUT);
+        ssh_poll_set_events(h, POLLOUT);
 #ifdef _WIN32
-        ssh_poll_add_events(ssh_socket_get_poll_handle(s), POLLWRNORM);
+        ssh_poll_add_events(h, POLLWRNORM);
 #endif
     }
 }
