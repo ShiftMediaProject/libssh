@@ -255,6 +255,9 @@
 /* Define to 1 if you want to enable PKCS #11 URI support */
 #cmakedefine WITH_PKCS11_URI 1
 
+/* Define to 1 if we want to build a support for PKCS #11 provider. */
+#cmakedefine WITH_PKCS11_PROVIDER 1
+
 /*************************** ENDIAN *****************************/
 
 /* Define WORDS_BIGENDIAN to 1 if your processor stores words with the most

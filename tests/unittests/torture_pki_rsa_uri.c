@@ -13,7 +13,6 @@
 
 #define LIBSSH_RSA_TESTKEY            "libssh_testkey.id_rsa"
 #define LIBSSH_RSA_TESTKEY_PASSPHRASE "libssh_testkey_passphrase.id_rsa"
-#define SOFTHSM_CONF "softhsm.conf"
 #define PUB_URI_FMT  "pkcs11:token=%s;object=%s;type=public"
 #define PRIV_URI_FMT "pkcs11:token=%s;object=%s;type=private?pin-value=%s"
 
@@ -33,7 +32,6 @@ struct pki_st {
 
 static int setup_tokens(void **state)
 {
-    char conf_path[1024] = {0};
     char keys_path[1024] = {0};
     char keys_path_pub[1024] = {0};
     char *cwd = NULL;
@@ -85,10 +83,6 @@ static int setup_tokens(void **state)
 
     torture_setup_tokens(cwd, keys_path, obj_tempname, "1");
 
-    snprintf(conf_path, sizeof(conf_path), "%s/softhsm.conf", cwd);
-
-    setenv("SOFTHSM2_CONF", conf_path, 1);
-
     return 0;
 }
 
@@ -126,6 +120,8 @@ static int teardown_directory_structure(void **state)
     struct pki_st *test_state = *state;
     int rc;
 
+    torture_cleanup_tokens(test_state->temp_dir);
+
     rc = torture_change_dir(test_state->orig_dir);
     assert_int_equal(rc, 0);
 
@@ -141,8 +137,6 @@ static int teardown_directory_structure(void **state)
     SAFE_FREE(test_state->priv_uri_invalid_token);
     SAFE_FREE(test_state->pub_uri_invalid_token);
     SAFE_FREE(test_state);
-
-    unsetenv("SOFTHSM2_CONF");
 
     return 0;
 }

@@ -135,6 +135,7 @@ void torture_setup_tokens(const char *temp_dir,
                           const char *filename,
                           const char object_name[],
                           const char *load_public);
+void torture_cleanup_tokens(const char *temp_dir);
 #endif /* WITH_PKCS11_URI */
 
 void torture_reset_config(ssh_session session);

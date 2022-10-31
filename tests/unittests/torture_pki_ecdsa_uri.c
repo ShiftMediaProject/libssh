@@ -76,7 +76,6 @@ static int setup_directory_structure(void **state)
     struct pki_st *test_state = NULL;
     char *temp_dir;
     int rc;
-    char conf_path[1024] = {0};
 
     test_state = (struct pki_st *)malloc(sizeof(struct pki_st));
     assert_non_null(test_state);
@@ -96,9 +95,6 @@ static int setup_directory_structure(void **state)
 
     *state = test_state;
 
-    snprintf(conf_path, sizeof(conf_path), "%s/softhsm.conf", test_state->temp_dir);
-    setenv("SOFTHSM2_CONF", conf_path, 1);
-
     setup_tokens_ecdsa(state, 256, "ecdsa256", "1");
     setup_tokens_ecdsa(state, 384, "ecdsa384", "1");
     setup_tokens_ecdsa(state, 521, "ecdsa521", "1");
@@ -114,7 +110,7 @@ static int teardown_directory_structure(void **state)
     struct pki_st *test_state = *state;
     int rc;
 
-    unsetenv("SOFTHSM2_CONF");
+    torture_cleanup_tokens(test_state->temp_dir);
 
     rc = torture_change_dir(test_state->orig_dir);
     assert_int_equal(rc, 0);

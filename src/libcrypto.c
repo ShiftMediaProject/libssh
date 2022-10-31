@@ -84,7 +84,6 @@
 
 static int libcrypto_initialized = 0;
 
-static ENGINE *engine = NULL;
 
 void ssh_reseed(void){
 #ifndef _WIN32
@@ -93,6 +92,9 @@ void ssh_reseed(void){
     RAND_add(&tv, sizeof(tv), 0.0);
 #endif
 }
+
+#ifndef WITH_PKCS11_PROVIDER
+static ENGINE *engine = NULL;
 
 ENGINE *pki_get_engine(void)
 {
@@ -123,6 +125,7 @@ ENGINE *pki_get_engine(void)
     }
     return engine;
 }
+#endif /* WITH_PKCS11_PROVIDER */
 
 #ifdef HAVE_OPENSSL_ECC
 static const EVP_MD *nid_to_evpmd(int nid)

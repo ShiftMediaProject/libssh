@@ -69,6 +69,7 @@ if (UNIX AND NOT WIN32)
             torture_pki_rsa_uri
             torture_pki_ecdsa_uri
         )
+        list(APPEND TORTURE_UNIT_ENVIRONMENT PKCS11_PROVIDER_DEBUG=file:/tmp/p11prov-debug.log)
     endif()
 
     if (HAVE_ECC)

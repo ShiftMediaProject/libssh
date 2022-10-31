@@ -39,7 +39,6 @@
 #define LIBSSH_ECDSA_256_TESTKEY  "id_pkcs11_ecdsa_256"
 #define LIBSSH_ECDSA_384_TESTKEY  "id_pkcs11_ecdsa_384"
 #define LIBSSH_ECDSA_521_TESTKEY  "id_pkcs11_ecdsa_521"
-#define SOFTHSM_CONF "softhsm.conf"
 
 const char template[] = "temp_dir_XXXXXX";
 
@@ -109,7 +108,6 @@ static int setup_session(void **state)
     struct torture_state *s = *state;
     struct pki_st *test_state = NULL;
     int rc;
-    char conf_path[1024] = {0};
     char keys_dir[1024] = {0};
     char *temp_dir;
 
@@ -134,9 +132,6 @@ static int setup_session(void **state)
 
     test_state->keys_dir = strdup(keys_dir);
 
-    snprintf(conf_path, sizeof(conf_path), "%s/softhsm.conf", test_state->temp_dir);
-    setenv("SOFTHSM2_CONF", conf_path, 1);
-
     setup_tokens(state, LIBSSH_RSA_TESTKEY, "rsa");
     setup_tokens(state, LIBSSH_ECDSA_256_TESTKEY, "ecdsa256");
     setup_tokens(state, LIBSSH_ECDSA_384_TESTKEY, "ecdsa384");
@@ -160,7 +155,7 @@ static int sshd_teardown(void **state) {
     struct pki_st *test_state = s->private_data;
     int rc;
 
-    unsetenv("SOFTHSM2_CONF");
+    torture_cleanup_tokens(test_state->temp_dir);
 
     rc = torture_change_dir(test_state->orig_dir);
     assert_int_equal(rc, 0);

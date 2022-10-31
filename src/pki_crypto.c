@@ -42,6 +42,10 @@
 #include <openssl/params.h>
 #include <openssl/core_names.h>
 #include <openssl/param_build.h>
+#if defined(WITH_PKCS11_URI) && defined(WITH_PKCS11_PROVIDER)
+#include <openssl/store.h>
+#include <openssl/provider.h>
+#endif
 #endif /* OPENSSL_VERSION_NUMBER */
 
 #ifdef HAVE_OPENSSL_EC_H
@@ -102,6 +106,9 @@ static int pki_key_ecdsa_to_nid(EC_KEY *k)
     const EC_GROUP *g = EC_KEY_get0_group(k);
     int nid;
 
+    if (g == NULL) {
+        return -1;
+    }
     nid = EC_GROUP_get_curve_name(g);
     if (nid) {
         return nid;
@@ -2416,15 +2423,19 @@ error:
 }
 
 #ifdef WITH_PKCS11_URI
+#ifdef WITH_PKCS11_PROVIDER
+static bool pkcs11_provider_failed = false;
+#endif
+
 /**
  * @internal
  *
- * @brief Populate the public/private ssh_key from the engine with
+ * @brief Populate the public/private ssh_key from the engine/provider with
  * PKCS#11 URIs as the look up.
  *
  * @param[in]   uri_name    The PKCS#11 URI
  * @param[in]   nkey        The ssh-key context for
- *                          the key loaded from the engine.
+ *                          the key loaded from the engine/provider.
  * @param[in]   key_type    The type of the key used. Public/Private.
  *
  * @return  SSH_OK if ssh-key is valid; SSH_ERROR otherwise.
@@ -2433,13 +2444,14 @@ int pki_uri_import(const char *uri_name,
                      ssh_key *nkey,
                      enum ssh_key_e key_type)
 {
-    ENGINE *engine = NULL;
     EVP_PKEY *pkey = NULL;
     ssh_key key = NULL;
     enum ssh_keytypes_e type = SSH_KEYTYPE_UNKNOWN;
 #if OPENSSL_VERSION_NUMBER < 0x30000000L && HAVE_OPENSSL_ECC
     EC_KEY *ecdsa = NULL;
 #endif
+#ifndef WITH_PKCS11_PROVIDER
+    ENGINE *engine = NULL;
 
     /* Do the init only once */
     engine = pki_get_engine();
@@ -2454,7 +2466,7 @@ int pki_uri_import(const char *uri_name,
         if (pkey == NULL) {
             SSH_LOG(SSH_LOG_TRACE,
                     "Could not load key: %s",
-                    ERR_error_string(ERR_get_error(),NULL));
+                    ERR_error_string(ERR_get_error(), NULL));
             goto fail;
         }
         break;
@@ -2463,7 +2475,7 @@ int pki_uri_import(const char *uri_name,
         if (pkey == NULL) {
             SSH_LOG(SSH_LOG_TRACE,
                     "Could not load key: %s",
-                    ERR_error_string(ERR_get_error(),NULL));
+                    ERR_error_string(ERR_get_error(), NULL));
             goto fail;
         }
         break;
@@ -2472,6 +2484,62 @@ int pki_uri_import(const char *uri_name,
                 "Invalid key type: %d", key_type);
         goto fail;
     }
+#else /* WITH_PKCS11_PROVIDER */
+    OSSL_STORE_CTX *store = NULL;
+    OSSL_STORE_INFO *info = NULL;
+
+    /* The provider can be either configured in openssl.cnf or dynamically
+     * loaded, assuming it does not need any special configuration */
+    if (OSSL_PROVIDER_available(NULL, "pkcs11") == 0 &&
+        !pkcs11_provider_failed) {
+        OSSL_PROVIDER *pkcs11_provider = NULL;
+
+        pkcs11_provider = OSSL_PROVIDER_try_load(NULL, "pkcs11", 1);
+        if (pkcs11_provider == NULL) {
+            SSH_LOG(SSH_LOG_TRACE,
+                    "Failed to initialize provider: %s",
+                    ERR_error_string(ERR_get_error(), NULL));
+            /* Do not attempt to load it again */
+            pkcs11_provider_failed = true;
+            goto fail;
+        }
+    }
+
+    store = OSSL_STORE_open(uri_name, NULL, NULL, NULL, NULL);
+    if (store == NULL) {
+        SSH_LOG(SSH_LOG_TRACE,
+                "Failed to open OpenSSL store: %s",
+                ERR_error_string(ERR_get_error(), NULL));
+        goto fail;
+    }
+
+    for (info = OSSL_STORE_load(store);
+         info != NULL;
+         info = OSSL_STORE_load(store)) {
+        int ossl_type = OSSL_STORE_INFO_get_type(info);
+
+        if (ossl_type == OSSL_STORE_INFO_PUBKEY && key_type == SSH_KEY_PUBLIC) {
+            pkey = OSSL_STORE_INFO_get1_PUBKEY(info);
+            break;
+        } else if (ossl_type == OSSL_STORE_INFO_PKEY &&
+                   key_type == SSH_KEY_PRIVATE) {
+            pkey = OSSL_STORE_INFO_get1_PKEY(info);
+            break;
+        } else {
+            SSH_LOG(SSH_LOG_TRACE,
+                    "Ignoring object not matching our type: %d",
+                    ossl_type);
+        }
+    }
+    OSSL_STORE_close(store);
+    if (pkey == NULL) {
+        SSH_LOG(SSH_LOG_TRACE,
+                "No key found in the pkcs11 store: %s",
+                ERR_error_string(ERR_get_error(), NULL));
+        goto fail;
+    }
+
+#endif /* WITH_PKCS11_PROVIDER */
 
     key = ssh_key_new();
     if (key == NULL) {

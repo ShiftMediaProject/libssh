@@ -458,11 +458,21 @@ if (WITH_PKCS11_URI)
     if (WITH_GCRYPT)
         message(FATAL_ERROR "PKCS #11 is not supported for gcrypt.")
         set(WITH_PKCS11_URI 0)
-    endif()
-    if (WITH_MBEDTLS)
+    elseif (WITH_MBEDTLS)
         message(FATAL_ERROR "PKCS #11 is not supported for mbedcrypto")
         set(WITH_PKCS11_URI 0)
-    endif()
+    elseif (OPENSSL_FOUND AND OPENSSL_VERSION VERSION_GREATER_EQUAL "3.0.0")
+        find_library(PKCS11_PROVIDER
+            NAMES
+                pkcs11.so
+            PATH_SUFFIXES
+                ossl-modules
+        )
+        if (NOT PKCS11_PROVIDER)
+            set(WITH_PKCS11_PROVIDER 0)
+            message(WARNING "Could not find pkcs11 provider! Falling back to engines")
+        endif (NOT PKCS11_PROVIDER)
+    endif ()
 endif()
 
 # ENDIAN
