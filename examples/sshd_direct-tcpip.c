@@ -27,6 +27,9 @@ clients must be made or how a client should react.
 #ifdef HAVE_ARGP_H
 #include <argp.h>
 #endif
+#ifndef _WIN32
+#include <netinet/in.h>
+#endif
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <stdbool.h>
