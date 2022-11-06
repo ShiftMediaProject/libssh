@@ -219,7 +219,7 @@ struct ssh_cipher_struct {
 const struct ssh_cipher_struct *ssh_get_chacha20poly1305_cipher(void);
 int sshkdf_derive_key(struct ssh_crypto_struct *crypto,
                       unsigned char *key, size_t key_len,
-                      int key_type, unsigned char *output,
+                      uint8_t key_type, unsigned char *output,
                       size_t requested_len);
 
 int secure_memcmp(const void *s1, const void *s2, size_t n);

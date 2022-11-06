@@ -1,6 +1,12 @@
 CHANGELOG
 =========
 
+version 0.10.4 (released 2022-09-07)
+  * Fixed issues with KDF on big endian
+
+version 0.10.3 (released 2022-09-05)
+  * Fixed possible infinite loop in known hosts checking
+
 version 0.10.2 (released 2022-09-02)
   * Fixed tilde expansion when handling include directives
   * Fixed building the shared torture library
