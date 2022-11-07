@@ -1087,6 +1087,223 @@ static void torture_options_getopt(void **state)
 #endif /* _NSC_VER */
 }
 
+static void torture_options_plus_sign(void **state)
+{
+    ssh_session session = *state;
+    int rc;
+    const char *def_host_alg, *alg, *algs;
+    char *awaited;
+    size_t alg_len, algs_len;
+
+    if (ssh_fips_mode()) {
+        alg = ",rsa-sha2-512-cert-v01@openssh.com";
+        algs = ",rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,ecdsa-sha2-nistp521";
+        def_host_alg = ssh_kex_get_fips_methods(SSH_HOSTKEYS);
+    } else {
+        alg = ",ssh-rsa";
+        algs = ",ssh-rsa,ssh-rsa-cert-v01@openssh.com";
+        def_host_alg = ssh_kex_get_default_methods(SSH_HOSTKEYS);
+    }
+    alg_len = strlen(alg);
+    algs_len = strlen(algs);
+
+    /* in fips mode, the default list is the available list, which means
+     * we can't append anything because everything enabled is already
+     * included */
+    if (ssh_fips_mode()) {
+        awaited = strdup(def_host_alg);
+        assert_non_null(awaited);
+    } else {
+        awaited = calloc(strlen(def_host_alg) + alg_len + 1, 1);
+        assert_non_null(awaited);
+
+        memcpy(awaited, def_host_alg, strlen(def_host_alg));
+        memcpy(awaited+strlen(def_host_alg), alg, alg_len);
+    }
+
+    if (ssh_fips_mode()) {
+        rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS, "+rsa-sha2-512-cert-v01@openssh.com");
+    } else {
+        rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS, "+ssh-rsa");
+    }
+    assert_ssh_return_code(session, rc);
+    assert_string_equal(session->opts.wanted_methods[SSH_HOSTKEYS],
+                        awaited);
+
+    if (!ssh_fips_mode()) {
+        /* different algorithm list is used here */
+        free(awaited);
+
+        awaited = calloc(strlen(def_host_alg) + algs_len + 1, 1);
+        assert_non_null(awaited);
+        memcpy(awaited, def_host_alg, strlen(def_host_alg));
+        memcpy(awaited+strlen(def_host_alg), algs, algs_len);
+    }
+
+    if (ssh_fips_mode()) {
+        rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS,
+                             "+rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,ecdsa-sha2-nistp521");
+    } else {
+        rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS,
+                             "+ssh-rsa,ssh-rsa-cert-v01@openssh.com");
+    }
+    assert_ssh_return_code(session, rc);
+    assert_string_equal(session->opts.wanted_methods[SSH_HOSTKEYS],
+                        awaited);
+
+    rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS, "+");
+    assert_ssh_return_code_equal(session, rc, SSH_ERROR);
+
+    rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS, "+blablabla");
+    assert_ssh_return_code(session, rc);
+    assert_string_equal(session->opts.wanted_methods[SSH_HOSTKEYS],
+                        def_host_alg);
+
+    rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS, NULL);
+    assert_ssh_return_code_equal(session, rc, SSH_ERROR);
+
+    free(awaited);
+}
+
+static void torture_options_minus_sign(void **state)
+{
+    ssh_session session = *state;
+    int rc;
+    const char *def_host_alg, *alg, *algs;
+    char *awaited, *p;
+    size_t alg_len, algs_len;
+
+    if (ssh_fips_mode()) {
+        alg = "rsa-sha2-512-cert-v01@openssh.com,";
+        algs = "rsa-sha2-256-cert-v01@openssh.com,ecdsa-sha2-nistp521,";
+        def_host_alg = ssh_kex_get_fips_methods(SSH_HOSTKEYS);
+    } else {
+        alg = "ssh-ed25519,";
+        algs = "ecdsa-sha2-nistp521,ecdsa-sha2-nistp384,";
+        def_host_alg = ssh_kex_get_default_methods(SSH_HOSTKEYS);
+    }
+    alg_len = strlen(alg);
+    algs_len = strlen(algs);
+
+    awaited = calloc(strlen(def_host_alg) + 1, 1);
+    assert_non_null(awaited);
+
+    memcpy(awaited, def_host_alg, strlen(def_host_alg));
+    p = strstr(awaited, alg);
+    assert_non_null(p);
+    memmove(p, p+alg_len, strlen(p + alg_len) + 1);
+
+    if (ssh_fips_mode()) {
+        rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS, "-rsa-sha2-512-cert-v01@openssh.com");
+    } else {
+        rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS, "-ssh-ed25519");
+    }
+    assert_ssh_return_code(session, rc);
+    assert_string_equal(session->opts.wanted_methods[SSH_HOSTKEYS],
+                        awaited);
+
+    p = strstr(awaited, algs);
+    assert_non_null(p);
+    memmove(p, p+algs_len, strlen(p + algs_len) + 1);
+
+    if (ssh_fips_mode()) {
+        rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS, "-rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,ecdsa-sha2-nistp521");
+    } else {
+        rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS, "-ssh-ed25519,ecdsa-sha2-nistp521,ecdsa-sha2-nistp384");
+    }
+    assert_ssh_return_code(session, rc);
+    assert_string_equal(session->opts.wanted_methods[SSH_HOSTKEYS],
+                        awaited);
+
+    rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS, "-");
+    assert_ssh_return_code(session, rc);
+    assert_string_equal(session->opts.wanted_methods[SSH_HOSTKEYS],
+                        def_host_alg);
+
+    rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS, "-blablabla");
+    assert_ssh_return_code(session, rc);
+    assert_string_equal(session->opts.wanted_methods[SSH_HOSTKEYS],
+                        def_host_alg);
+
+    free(awaited);
+}
+
+static void torture_options_caret_sign(void **state)
+{
+    ssh_session session = *state;
+    int rc;
+    const char *def_host_alg, *alg, *algs;
+    size_t alg_len, algs_len;
+    char *awaited, *p;
+
+    if (ssh_fips_mode()) {
+        alg = "rsa-sha2-512-cert-v01@openssh.com,";
+        algs = "rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,ecdsa-sha2-nistp521,";
+        def_host_alg = ssh_kex_get_fips_methods(SSH_HOSTKEYS);
+    } else {
+        alg = "ssh-rsa,";
+        algs = "ssh-rsa,ssh-rsa-cert-v01@openssh.com,";
+        def_host_alg = ssh_kex_get_default_methods(SSH_HOSTKEYS);
+    }
+    alg_len = strlen(alg);
+    algs_len = strlen(algs);
+
+    awaited = calloc(strlen(def_host_alg) + alg_len + 1, 1);
+    assert_non_null(awaited);
+
+    memcpy(awaited, alg, alg_len);
+    memcpy(awaited+alg_len, def_host_alg, strlen(def_host_alg));
+    if (ssh_fips_mode()) {
+        p = strstr(awaited, alg);
+        /* look for second occurrence */
+        p = strstr(p+1, algs);
+        memmove(p, p+alg_len, strlen(p + alg_len) + 1);
+    }
+
+    if (ssh_fips_mode()) {
+        rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS, "^rsa-sha2-512-cert-v01@openssh.com");
+    } else {
+        rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS, "^ssh-rsa");
+    }
+    assert_ssh_return_code(session, rc);
+    assert_string_equal(session->opts.wanted_methods[SSH_HOSTKEYS],
+                        awaited);
+    /* different algorithm list is used here */
+    free(awaited);
+
+    awaited = calloc(strlen(def_host_alg) + algs_len + 1, 1);
+    assert_non_null(awaited);
+    memcpy(awaited, algs, algs_len);
+    memcpy(awaited+algs_len, def_host_alg, strlen(def_host_alg));
+    if (ssh_fips_mode()) {
+        p = strstr(awaited, algs);
+        /* look for second occurrence */
+        p = strstr(p+1, algs);
+        memmove(p, p+algs_len, strlen(p + algs_len) + 1);
+    }
+
+    if (ssh_fips_mode()) {
+        rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS,
+                             "^rsa-sha2-512-cert-v01@openssh.com,rsa-sha2-256-cert-v01@openssh.com,ecdsa-sha2-nistp521");
+    } else {
+        rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS,
+                             "^ssh-rsa,ssh-rsa-cert-v01@openssh.com");
+    }
+    assert_ssh_return_code(session, rc);
+    assert_string_equal(session->opts.wanted_methods[SSH_HOSTKEYS],
+                        awaited);
+
+    rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS, "^");
+    assert_ssh_return_code_equal(session, rc, SSH_ERROR);
+
+    rc = ssh_options_set(session, SSH_OPTIONS_HOSTKEYS, "^blablabla");
+    assert_ssh_return_code(session, rc);
+    assert_string_equal(session->opts.wanted_methods[SSH_HOSTKEYS],
+                        def_host_alg);
+
+    free(awaited);
+}
+
 #ifdef WITH_SERVER
 const char template[] = "temp_dir_XXXXXX";
 
@@ -1880,6 +2097,12 @@ int torture_run_tests(void) {
         cmocka_unit_test_setup_teardown(torture_options_config_match_multi,
                                         setup, teardown),
         cmocka_unit_test_setup_teardown(torture_options_getopt,
+                                        setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_plus_sign,
+                                        setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_minus_sign,
+                                        setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_caret_sign,
                                         setup, teardown),
     };
 
