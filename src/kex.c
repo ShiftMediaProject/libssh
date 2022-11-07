@@ -983,6 +983,111 @@ char *ssh_keep_fips_algos(enum ssh_kex_types_e algo, const char *list)
     return ssh_find_all_matching(fips_methods[algo], list);
 }
 
+/**
+ * @internal
+ *
+ * @brief Return a newly allocated string containing the default
+ * algorithms plus the algorithms specified in list. If the system
+ * runs in fips mode, this will add only fips approved algorithms.
+ * Empty list will cause error.
+ *
+ * @param[in] algo  The type of the methods to filter
+ * @param[in] list  The list to be appended
+ *
+ * @return A newly allocated list containing the default algorithms and the
+ * algorithms in list at the end; NULL in case of error.
+ */
+char *ssh_add_to_default_algos(enum ssh_kex_types_e algo, const char *list)
+{
+    char *tmp = NULL, *ret = NULL;
+
+    if (algo > SSH_LANG_S_C || list == NULL || list[0] == '\0') {
+        return NULL;
+    }
+
+    if (ssh_fips_mode()) {
+        tmp = ssh_append_without_duplicates(fips_methods[algo], list);
+        ret = ssh_find_all_matching(fips_methods[algo], tmp);
+    } else {
+        tmp = ssh_append_without_duplicates(default_methods[algo], list);
+        ret = ssh_find_all_matching(supported_methods[algo], tmp);
+    }
+
+    free(tmp);
+    return ret;
+}
+
+/**
+ * @internal
+ *
+ * @brief Return a newly allocated string containing the default
+ * algorithms excluding the algorithms specified in list. If the system
+ * runs in fips mode, this will remove from the fips_methods list.
+ *
+ * @param[in] algo  The type of the methods to filter
+ * @param[in] list  The list to be exclude
+ *
+ * @return A newly allocated list containing the default algorithms without the
+ * algorithms in list; NULL in case of error.
+ */
+char *ssh_remove_from_default_algos(enum ssh_kex_types_e algo, const char *list)
+{
+    if (algo > SSH_LANG_S_C) {
+        return NULL;
+    }
+
+    if (list == NULL || list[0] == '\0') {
+        if (ssh_fips_mode()) {
+            return strdup(fips_methods[algo]);
+        } else {
+            return strdup(default_methods[algo]);
+        }
+    }
+
+    if (ssh_fips_mode()) {
+        return ssh_remove_all_matching(fips_methods[algo], list);
+    } else {
+        return ssh_remove_all_matching(default_methods[algo], list);
+    }
+}
+
+/**
+ * @internal
+ *
+ * @brief Return a newly allocated string containing the default
+ * algorithms with prioritized algorithms specified in list. If the
+ * algorithms are present in the default list they get prioritized, if not
+ * they are added to the front of the default list. If the system
+ * runs in fips mode, this will work with the fips_methods list.
+ * Empty list will cause error.
+ *
+ * @param[in] algo  The type of the methods to filter
+ * @param[in] list  The list to be pushed to priority
+ *
+ * @return A newly allocated list containing the default algorithms prioritized
+ * with the algorithms in list at the beginning of the list; NULL in case
+ * of error.
+ */
+char *ssh_prefix_default_algos(enum ssh_kex_types_e algo, const char *list)
+{
+    char *ret = NULL, *tmp = NULL;
+
+    if (algo > SSH_LANG_S_C || list == NULL || list[0] == '\0') {
+        return NULL;
+    }
+
+    if (ssh_fips_mode()) {
+        tmp = ssh_prefix_without_duplicates(fips_methods[algo], list);
+        ret = ssh_find_all_matching(fips_methods[algo], tmp);
+    } else {
+        tmp = ssh_prefix_without_duplicates(default_methods[algo], list);
+        ret = ssh_find_all_matching(supported_methods[algo], tmp);
+    }
+
+    free(tmp);
+    return ret;
+}
+
 int ssh_make_sessionid(ssh_session session)
 {
     ssh_string num = NULL;
