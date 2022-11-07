@@ -51,8 +51,8 @@ struct test_server_st {
 };
 
 void sftp_handle_session_cb(ssh_event event,
-                               ssh_session session,
-                               struct server_state_st *state);
+                            ssh_session session,
+                            struct server_state_st *state);
 
 static int setup_default_server(void **state)
 {
@@ -417,7 +417,7 @@ static void torture_server_test_sftp_function(void **state)
 
     rc = sftp_unlink(sftp, "/tmp/sftp_symlink_test");
     assert_int_equal(rc, SSH_OK);
-    
+
     /* open and close dir */
     dir = sftp_opendir(sftp, "./");
     assert_non_null(dir);
@@ -454,7 +454,7 @@ int torture_run_tests(void) {
                                         session_teardown),
         cmocka_unit_test_setup_teardown(torture_server_test_sftp_function,
                                         session_setup,
-                                        session_teardown),                                        
+                                        session_teardown),
     };
 
     ssh_init();

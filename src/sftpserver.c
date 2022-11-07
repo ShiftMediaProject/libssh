@@ -266,9 +266,7 @@ sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp)
 
     packet = sftp->read_packet;
     if (packet == NULL) {
-        ssh_set_error_oom(session);
-        sftp_client_message_free(msg);
-        return NULL;
+        goto error;
     }
 
     payload = packet->payload;
@@ -278,21 +276,17 @@ sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp)
     /* take a copy of the whole packet */
     msg->complete_message = ssh_buffer_new();
     if (msg->complete_message == NULL) {
-        ssh_set_error_oom(session);
-        sftp_client_message_free(msg);
-        return NULL;
+        goto error;
     }
 
     rc = ssh_buffer_add_data(msg->complete_message,
                              ssh_buffer_get(payload),
                              ssh_buffer_get_len(payload));
     if (rc < 0) {
-        ssh_set_error_oom(session);
-        sftp_client_message_free(msg);
-        return NULL;
+        goto error;
     }
 
-    if (msg->type!=SSH_FXP_INIT) {
+    if (msg->type != SSH_FXP_INIT) {
         ssh_buffer_get_u32(payload, &msg->id);
     }
 
@@ -302,21 +296,17 @@ sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp)
                                    "d",
                                    &version);
             if (rc != SSH_OK) {
-                ssh_set_error_oom(session);
-                sftp_client_message_free(msg);
-	        printf("unpack init failed!\n");
-                return NULL;
+                printf("unpack init failed!\n");
+                goto error;
             }
             version = ntohl(version);
-            sftp->client_version = (int)version;
+            sftp->client_version = version;
             break;
         case SSH_FXP_CLOSE:
         case SSH_FXP_READDIR:
             msg->handle = ssh_buffer_get_ssh_string(payload);
             if (msg->handle == NULL) {
-                ssh_set_error_oom(session);
-                sftp_client_message_free(msg);
-                return NULL;
+                goto error;
             }
             break;
         case SSH_FXP_READ:
@@ -326,9 +316,7 @@ sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp)
                                    &msg->offset,
                                    &msg->len);
             if (rc != SSH_OK) {
-                ssh_set_error_oom(session);
-                sftp_client_message_free(msg);
-                return NULL;
+                goto error;
             }
             break;
         case SSH_FXP_WRITE:
@@ -338,9 +326,7 @@ sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp)
                                    &msg->offset,
                                    &msg->data);
             if (rc != SSH_OK) {
-                ssh_set_error_oom(session);
-                sftp_client_message_free(msg);
-                return NULL;
+                goto error;
             }
             break;
         case SSH_FXP_REMOVE:
@@ -352,9 +338,7 @@ sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp)
                                    "s",
                                    &msg->filename);
             if (rc != SSH_OK) {
-                ssh_set_error_oom(session);
-                sftp_client_message_free(msg);
-                return NULL;
+                goto error;
             }
             break;
         case SSH_FXP_RENAME:
@@ -364,9 +348,7 @@ sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp)
                                    &msg->filename,
                                    &msg->data);
             if (rc != SSH_OK) {
-                ssh_set_error_oom(session);
-                sftp_client_message_free(msg);
-                return NULL;
+                goto error;
             }
             break;
         case SSH_FXP_MKDIR:
@@ -375,29 +357,21 @@ sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp)
                                    "s",
                                    &msg->filename);
             if (rc != SSH_OK) {
-                ssh_set_error_oom(session);
-                sftp_client_message_free(msg);
-                return NULL;
+                goto error;
             }
             msg->attr = sftp_parse_attr(sftp, payload, 0);
             if (msg->attr == NULL) {
-                ssh_set_error_oom(session);
-                sftp_client_message_free(msg);
-                return NULL;
+                goto error;
             }
             break;
         case SSH_FXP_FSETSTAT:
             msg->handle = ssh_buffer_get_ssh_string(payload);
             if (msg->handle == NULL) {
-                ssh_set_error_oom(session);
-                sftp_client_message_free(msg);
-                return NULL;
+                goto error;
             }
             msg->attr = sftp_parse_attr(sftp, payload, 0);
             if (msg->attr == NULL) {
-                ssh_set_error_oom(session);
-                sftp_client_message_free(msg);
-                return NULL;
+                goto error;
             }
             break;
         case SSH_FXP_LSTAT:
@@ -406,9 +380,7 @@ sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp)
                                    "s",
                                    &msg->filename);
             if (rc != SSH_OK) {
-                ssh_set_error_oom(session);
-                sftp_client_message_free(msg);
-                return NULL;
+                goto error;
             }
             if(sftp->version > 3) {
                 ssh_buffer_unpack(payload, "d", &msg->flags);
@@ -420,15 +392,11 @@ sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp)
                                    &msg->filename,
                                    &msg->flags);
             if (rc != SSH_OK) {
-                ssh_set_error_oom(session);
-                sftp_client_message_free(msg);
-                return NULL;
+                goto error;
             }
             msg->attr = sftp_parse_attr(sftp, payload, 0);
             if (msg->attr == NULL) {
-                ssh_set_error_oom(session);
-                sftp_client_message_free(msg);
-                return NULL;
+                goto error;
             }
             break;
         case SSH_FXP_FSTAT:
@@ -436,9 +404,7 @@ sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp)
                                    "S",
                                    &msg->handle);
             if (rc != SSH_OK) {
-                ssh_set_error_oom(session);
-                sftp_client_message_free(msg);
-                return NULL;
+                goto error;
             }
             break;
         case SSH_FXP_EXTENDED:
@@ -446,9 +412,7 @@ sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp)
                                    "s",
                                    &msg->submessage);
             if (rc != SSH_OK) {
-                ssh_set_error_oom(session);
-                sftp_client_message_free(msg);
-                return NULL;
+                goto error;
             }
 
             if (strcmp(msg->submessage, "hardlink@openssh.com") == 0 ||
@@ -458,18 +422,14 @@ sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp)
                                        &msg->filename,
                                        &msg->data);
                 if (rc != SSH_OK) {
-                    ssh_set_error_oom(session);
-                    sftp_client_message_free(msg);
-                    return NULL;
+                    goto error;
                 }
             } else if (strcmp(msg->submessage, "statvfs@openssh.com") == 0 ){
                 rc = ssh_buffer_unpack(payload,
                                        "s",
                                        &msg->filename);
                 if (rc != SSH_OK) {
-                    ssh_set_error_oom(session);
-                    sftp_client_message_free(msg);
-                    return NULL;
+                    goto error;
                 }
             }
             break;
@@ -481,6 +441,11 @@ sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp)
     }
 
     return msg;
+
+error:
+    ssh_set_error_oom(session);
+    sftp_client_message_free(msg);
+    return NULL;
 }
 
 
@@ -722,8 +687,8 @@ int sftp_reply_data(sftp_client_message msg, const void *data, int len) {
 
 int sftp_reply_statvfs(sftp_client_message msg, sftp_statvfs_t st)
 {
+  int ret = 0;
   ssh_buffer out;
-
   out = ssh_buffer_new();
   if (out == NULL) {
     return -1;
@@ -742,12 +707,11 @@ int sftp_reply_statvfs(sftp_client_message msg, sftp_statvfs_t st)
       ssh_buffer_add_u64(out, ntohll(st->f_flag)) < 0 ||
       ssh_buffer_add_u64(out, ntohll(st->f_namemax)) < 0 ||
       sftp_packet_write(msg->sftp, SSH_FXP_EXTENDED_REPLY, out) < 0) {
-    SSH_BUFFER_FREE(out);
-    return -1;
+    ret = -1;
   }
   SSH_BUFFER_FREE(out);
 
-  return 0;
+  return ret;
 }
 
 

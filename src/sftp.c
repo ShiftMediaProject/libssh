@@ -356,7 +356,6 @@ void sftp_server_free(sftp_session sftp)
 
 int sftp_process_init_packet(sftp_client_message client_msg)
 {
-    int ret = SSH_OK;
     sftp_session sftp = client_msg->sftp;
     ssh_session session = sftp->session;
     int version;
@@ -384,7 +383,8 @@ int sftp_process_init_packet(sftp_client_message client_msg)
         return -1;
     }
 
-    if (sftp_packet_write(sftp, SSH_FXP_VERSION, reply) < 0) {
+    rc = sftp_packet_write(sftp, SSH_FXP_VERSION, reply);
+    if (rc < 0) {
         SSH_BUFFER_FREE(reply);
         return -1;
     }
@@ -395,10 +395,10 @@ int sftp_process_init_packet(sftp_client_message client_msg)
     if (version > LIBSFTP_VERSION) {
         sftp->version = LIBSFTP_VERSION;
     } else {
-        sftp->version = (int)version;
+        sftp->version = version;
     }
 
-    return ret;
+    return SSH_OK;
 }
 
 #endif /* WITH_SERVER */
@@ -443,26 +443,35 @@ int sftp_decode_channel_data_to_packet(sftp_session sftp, void *data)
     int offset;
     int to_read;
 
-    if(packet->sftp == NULL)
+    if (packet->sftp == NULL) {
         packet->sftp = sftp;
+    }
 
     packet->type = *((uint8_t *)data + sizeof(uint32_t));
     payload_len = PULL_BE_U32(data, 0);
 
     /* We should check the legality of payload length */
-    if(payload_len > MAX_PACKET_LEN || payload_len < 0)
+    if (payload_len > MAX_PACKET_LEN || payload_len < 0) {
         return SSH_ERROR;
-    
+    }
+
     offset = sizeof(int) + sizeof(uint8_t);
     to_read = payload_len - sizeof(uint8_t);
-    ssh_buffer_add_data(packet->payload, (void*)((uint8_t *)data + offset), payload_len - sizeof(uint8_t));
+    ssh_buffer_add_data(packet->payload,
+                        (void*)((uint8_t *)data + offset),
+                        payload_len - sizeof(uint8_t));
     nread = ssh_buffer_get_len(packet->payload);
 
     /* We should check if we copied the whole data */
-    if(nread != to_read)
+    if (nread != to_read) {
         return SSH_ERROR;
+    }
 
-    return payload_len + sizeof(int);
+    /*
+     * We should return how many bytes we decoded, including packet length header
+     * and the payload length.
+     */
+    return payload_len + sizeof(uint32_t);
 }
 
 int sftp_packet_write(sftp_session sftp, uint8_t type, ssh_buffer payload)
