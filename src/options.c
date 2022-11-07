@@ -221,14 +221,30 @@ int ssh_options_copy(ssh_session src, ssh_session *dest)
 
 int ssh_options_set_algo(ssh_session session,
                          enum ssh_kex_types_e algo,
-                         const char *list)
+                         const char *list,
+                         char **place)
 {
-    char *p = NULL;
+    /* When the list start with +,-,^ the filtration of unknown algorithms
+     * gets handled inside the helper functions, otherwise the list is taken
+     * as it is. */
+    char *p = (char *)list;
 
-    if (ssh_fips_mode()) {
-        p = ssh_keep_fips_algos(algo, list);
-    } else {
-        p = ssh_keep_known_algos(algo, list);
+    if (algo < SSH_COMP_C_S) {
+        if (list[0] == '+') {
+            p = ssh_add_to_default_algos(algo, list+1);
+        } else if (list[0] == '-') {
+            p = ssh_remove_from_default_algos(algo, list+1);
+        } else if (list[0] == '^') {
+            p = ssh_prefix_default_algos(algo, list+1);
+        }
+    }
+
+    if (p == list) {
+        if (ssh_fips_mode()) {
+            p = ssh_keep_fips_algos(algo, list);
+        } else {
+            p = ssh_keep_known_algos(algo, list);
+        }
     }
 
     if (p == NULL) {
@@ -238,8 +254,8 @@ int ssh_options_set_algo(ssh_session session,
         return -1;
     }
 
-    SAFE_FREE(session->opts.wanted_methods[algo]);
-    session->opts.wanted_methods[algo] = p;
+    SAFE_FREE(*place);
+    *place = p;
 
     return 0;
 }
@@ -356,34 +372,60 @@ int ssh_options_set_algo(ssh_session session,
  *
  *              - SSH_OPTIONS_CIPHERS_C_S:
  *                Set the symmetric cipher client to server (const char *,
- *                comma-separated list).
+ *                comma-separated list). The list can be prepended by +,-,^
+ *                which can append, remove or move to the beginning
+ *                (prioritizing) of the default list respectively. Giving an
+ *                empty list after + and ^ will cause error.
  *
  *              - SSH_OPTIONS_CIPHERS_S_C:
  *                Set the symmetric cipher server to client (const char *,
- *                comma-separated list).
+ *                comma-separated list). The list can be prepended by +,-,^
+ *                which can append, remove or move to the beginning
+ *                (prioritizing) of the default list respectively. Giving an
+ *                empty list after + and ^ will cause error.
  *
  *              - SSH_OPTIONS_KEY_EXCHANGE:
  *                Set the key exchange method to be used (const char *,
  *                comma-separated list). ex:
  *                "ecdh-sha2-nistp256,diffie-hellman-group14-sha1,diffie-hellman-group1-sha1"
+ *                The list can be prepended by +,-,^ which will append,
+ *                remove or move to the beginning (prioritizing) of the
+ *                default list respectively. Giving an empty list
+ *                after + and ^ will cause error.
  *
  *              - SSH_OPTIONS_HMAC_C_S:
  *                Set the Message Authentication Code algorithm client to server
- *                (const char *, comma-separated list).
+ *                (const char *, comma-separated list). The list can be
+ *                prepended by +,-,^ which will append, remove or move to
+ *                the beginning (prioritizing) of the default list
+ *                respectively. Giving an empty list after + and ^ will
+ *                cause error.
  *
  *              - SSH_OPTIONS_HMAC_S_C:
  *                Set the Message Authentication Code algorithm server to client
- *                (const char *, comma-separated list).
+ *                (const char *, comma-separated list). The list can be
+ *                prepended by +,-,^ which will append, remove or move to
+ *                the beginning (prioritizing) of the default list
+ *                respectively. Giving an empty list after + and ^ will
+ *                cause error.
  *
  *              - SSH_OPTIONS_HOSTKEYS:
  *                Set the preferred server host key types (const char *,
  *                comma-separated list). ex:
- *                "ssh-rsa,ssh-dss,ecdh-sha2-nistp256"
+ *                "ssh-rsa,ssh-dss,ecdh-sha2-nistp256". The list can be
+ *                prepended by +,-,^ which will append, remove or move to
+ *                the beginning (prioritizing) of the default list
+ *                respectively. Giving an empty list after + and ^ will
+ *                cause error.
  *
  *              - SSH_OPTIONS_PUBLICKEY_ACCEPTED_TYPES:
  *                Set the preferred public key algorithms to be used for
  *                authentication (const char *, comma-separated list). ex:
  *                "ssh-rsa,rsa-sha2-256,ssh-dss,ecdh-sha2-nistp256"
+ *                The list can be prepended by +,-,^ which will append,
+ *                remove or move to the beginning (prioritizing) of the
+ *                default list respectively. Giving an empty list
+ *                after + and ^ will cause error.
  *
  *              - SSH_OPTIONS_COMPRESSION_C_S:
  *                Set the compression to use for client to server
@@ -501,6 +543,7 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
     long int i;
     unsigned int u;
     int rc;
+    char **wanted_methods = session->opts.wanted_methods;
 
     if (session == NULL) {
         return -1;
@@ -784,7 +827,11 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 ssh_set_error_invalid(session);
                 return -1;
             } else {
-                if (ssh_options_set_algo(session, SSH_CRYPT_C_S, v) < 0)
+                rc = ssh_options_set_algo(session,
+                                          SSH_CRYPT_C_S,
+                                          v,
+                                          &wanted_methods[SSH_CRYPT_C_S]);
+                if (rc < 0)
                     return -1;
             }
             break;
@@ -794,7 +841,11 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 ssh_set_error_invalid(session);
                 return -1;
             } else {
-                if (ssh_options_set_algo(session, SSH_CRYPT_S_C, v) < 0)
+                rc = ssh_options_set_algo(session,
+                                          SSH_CRYPT_S_C,
+                                          v,
+                                          &wanted_methods[SSH_CRYPT_S_C]);
+                if (rc < 0)
                     return -1;
             }
             break;
@@ -804,7 +855,11 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 ssh_set_error_invalid(session);
                 return -1;
             } else {
-                if (ssh_options_set_algo(session, SSH_KEX, v) < 0)
+                rc = ssh_options_set_algo(session,
+                                          SSH_KEX,
+                                          v,
+                                          &wanted_methods[SSH_KEX]);
+                if (rc < 0)
                     return -1;
             }
             break;
@@ -814,7 +869,11 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 ssh_set_error_invalid(session);
                 return -1;
             } else {
-                if (ssh_options_set_algo(session, SSH_HOSTKEYS, v) < 0)
+                rc = ssh_options_set_algo(session,
+                                          SSH_HOSTKEYS,
+                                          v,
+                                          &wanted_methods[SSH_HOSTKEYS]);
+                if (rc < 0)
                     return -1;
             }
             break;
@@ -824,20 +883,12 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 ssh_set_error_invalid(session);
                 return -1;
             } else {
-                if (ssh_fips_mode()) {
-                    p = ssh_keep_fips_algos(SSH_HOSTKEYS, v);
-                } else {
-                    p = ssh_keep_known_algos(SSH_HOSTKEYS, v);
-                }
-                if (p == NULL) {
-                    ssh_set_error(session, SSH_REQUEST_DENIED,
-                        "Setting method: no known public key algorithm (%s)",
-                         v);
+                rc = ssh_options_set_algo(session,
+                                          SSH_HOSTKEYS,
+                                          v,
+                                          &session->opts.pubkey_accepted_types);
+                if (rc < 0)
                     return -1;
-                }
-
-                SAFE_FREE(session->opts.pubkey_accepted_types);
-                session->opts.pubkey_accepted_types = p;
             }
             break;
         case SSH_OPTIONS_HMAC_C_S:
@@ -846,7 +897,11 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 ssh_set_error_invalid(session);
                 return -1;
             } else {
-                if (ssh_options_set_algo(session, SSH_MAC_C_S, v) < 0)
+                rc = ssh_options_set_algo(session,
+                                          SSH_MAC_C_S,
+                                          v,
+                                          &wanted_methods[SSH_MAC_C_S]);
+                if (rc < 0)
                     return -1;
             }
             break;
@@ -856,7 +911,11 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 ssh_set_error_invalid(session);
                 return -1;
             } else {
-                if (ssh_options_set_algo(session, SSH_MAC_S_C, v) < 0)
+                rc = ssh_options_set_algo(session,
+                                          SSH_MAC_S_C,
+                                          v,
+                                          &wanted_methods[SSH_MAC_S_C]);
+                if (rc < 0)
                     return -1;
             }
             break;
@@ -866,16 +925,18 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 ssh_set_error_invalid(session);
                 return -1;
             } else {
-                if (strcasecmp(value,"yes")==0){
-                    if(ssh_options_set_algo(session,SSH_COMP_C_S,"zlib@openssh.com,zlib,none") < 0)
-                        return -1;
-                } else if (strcasecmp(value,"no")==0){
-                    if(ssh_options_set_algo(session,SSH_COMP_C_S,"none,zlib@openssh.com,zlib") < 0)
-                        return -1;
-                } else {
-                    if (ssh_options_set_algo(session, SSH_COMP_C_S, v) < 0)
-                        return -1;
+                const char *tmp = v;
+                if (strcasecmp(value, "yes") == 0){
+                    tmp = "zlib@openssh.com,zlib,none";
+                } else if (strcasecmp(value, "no") == 0){
+                    tmp = "none,zlib@openssh.com,zlib";
                 }
+                rc = ssh_options_set_algo(session,
+                                          SSH_COMP_C_S,
+                                          tmp,
+                                          &wanted_methods[SSH_COMP_C_S]);
+                if (rc < 0)
+                    return -1;
             }
             break;
         case SSH_OPTIONS_COMPRESSION_S_C:
@@ -884,16 +945,19 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 ssh_set_error_invalid(session);
                 return -1;
             } else {
-                if (strcasecmp(value,"yes")==0){
-                    if(ssh_options_set_algo(session,SSH_COMP_S_C,"zlib@openssh.com,zlib,none") < 0)
-                        return -1;
-                } else if (strcasecmp(value,"no")==0){
-                    if(ssh_options_set_algo(session,SSH_COMP_S_C,"none,zlib@openssh.com,zlib") < 0)
-                        return -1;
-                } else {
-                    if (ssh_options_set_algo(session, SSH_COMP_S_C, v) < 0)
-                        return -1;
+                const char *tmp = v;
+                if (strcasecmp(value, "yes") == 0){
+                    tmp = "zlib@openssh.com,zlib,none";
+                } else if (strcasecmp(value, "no") == 0){
+                    tmp = "none,zlib@openssh.com,zlib";
                 }
+
+                rc = ssh_options_set_algo(session,
+                                          SSH_COMP_S_C,
+                                          tmp,
+                                          &wanted_methods[SSH_COMP_S_C]);
+                if (rc < 0)
+                    return -1;
             }
             break;
         case SSH_OPTIONS_COMPRESSION:
@@ -1618,26 +1682,12 @@ ssh_bind_set_key(ssh_bind sshbind, char **key_loc, const void *value)
 
 static int ssh_bind_set_algo(ssh_bind sshbind,
                              enum ssh_kex_types_e algo,
-                             const char *list)
+                             const char *list,
+                             char **place)
 {
-    char *p = NULL;
-
-    if (ssh_fips_mode()) {
-        p = ssh_keep_fips_algos(algo, list);
-    } else {
-        p = ssh_keep_known_algos(algo, list);
-    }
-    if (p == NULL) {
-        ssh_set_error(sshbind, SSH_REQUEST_DENIED,
-                      "Setting method: no algorithm for method \"%s\" (%s)",
-                      ssh_kex_get_description(algo), list);
-        return -1;
-    }
-
-    SAFE_FREE(sshbind->wanted_methods[algo]);
-    sshbind->wanted_methods[algo] = p;
-
-    return 0;
+    /* sshbind is needed only for ssh_set_error which takes void*
+     * the typecast is only to satisfy function parameter type */
+    return ssh_options_set_algo((ssh_session)sshbind, algo, list, place);
 }
 
 /**
@@ -1779,6 +1829,7 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
   char *p, *q;
   const char *v;
   int i, rc;
+  char **wanted_methods = sshbind->wanted_methods;
 
   if (sshbind == NULL) {
     return -1;
@@ -2028,8 +2079,13 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
             ssh_set_error_invalid(sshbind);
             return -1;
         } else {
-            if (ssh_bind_set_algo(sshbind, SSH_CRYPT_C_S, v) < 0)
+            rc = ssh_bind_set_algo(sshbind,
+                                   SSH_CRYPT_C_S,
+                                   v,
+                                   &wanted_methods[SSH_CRYPT_C_S]);
+            if (rc < 0) {
                 return -1;
+            }
         }
         break;
     case SSH_BIND_OPTIONS_CIPHERS_S_C:
@@ -2038,8 +2094,13 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
             ssh_set_error_invalid(sshbind);
             return -1;
         } else {
-            if (ssh_bind_set_algo(sshbind, SSH_CRYPT_S_C, v) < 0)
+            rc = ssh_bind_set_algo(sshbind,
+                                   SSH_CRYPT_S_C,
+                                   v,
+                                   &wanted_methods[SSH_CRYPT_S_C]);
+            if (rc < 0) {
                 return -1;
+            }
         }
         break;
     case SSH_BIND_OPTIONS_KEY_EXCHANGE:
@@ -2048,7 +2109,10 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
             ssh_set_error_invalid(sshbind);
             return -1;
         } else {
-            rc = ssh_bind_set_algo(sshbind, SSH_KEX, v);
+            rc = ssh_bind_set_algo(sshbind,
+                                   SSH_KEX,
+                                   v,
+                                   &wanted_methods[SSH_KEX]);
             if (rc < 0) {
                 return -1;
             }
@@ -2060,8 +2124,13 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
             ssh_set_error_invalid(sshbind);
             return -1;
         } else {
-            if (ssh_bind_set_algo(sshbind, SSH_MAC_C_S, v) < 0)
+            rc = ssh_bind_set_algo(sshbind,
+                                   SSH_MAC_C_S,
+                                   v,
+                                   &wanted_methods[SSH_MAC_C_S]);
+            if (rc < 0) {
                 return -1;
+            }
         }
         break;
      case SSH_BIND_OPTIONS_HMAC_S_C:
@@ -2070,8 +2139,13 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
             ssh_set_error_invalid(sshbind);
             return -1;
         } else {
-            if (ssh_bind_set_algo(sshbind, SSH_MAC_S_C, v) < 0)
+            rc = ssh_bind_set_algo(sshbind,
+                                   SSH_MAC_S_C,
+                                   v,
+                                   &wanted_methods[SSH_MAC_S_C]);
+            if (rc < 0) {
                 return -1;
+            }
         }
         break;
     case SSH_BIND_OPTIONS_CONFIG_DIR:
@@ -2096,20 +2170,13 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
             ssh_set_error_invalid(sshbind);
             return -1;
         } else {
-            if (ssh_fips_mode()) {
-                p = ssh_keep_fips_algos(SSH_HOSTKEYS, v);
-            } else {
-                p = ssh_keep_known_algos(SSH_HOSTKEYS, v);
-            }
-            if (p == NULL) {
-                ssh_set_error(sshbind, SSH_REQUEST_DENIED,
-                    "Setting method: no known public key algorithm (%s)",
-                     v);
+            rc = ssh_bind_set_algo(sshbind,
+                                   SSH_HOSTKEYS,
+                                   v,
+                                   &sshbind->pubkey_accepted_key_types);
+            if (rc < 0) {
                 return -1;
             }
-
-            SAFE_FREE(sshbind->pubkey_accepted_key_types);
-            sshbind->pubkey_accepted_key_types = p;
         }
         break;
     case SSH_BIND_OPTIONS_HOSTKEY_ALGORITHMS:
@@ -2118,7 +2185,10 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
             ssh_set_error_invalid(sshbind);
             return -1;
         } else {
-            rc = ssh_bind_set_algo(sshbind, SSH_HOSTKEYS, v);
+            rc = ssh_bind_set_algo(sshbind,
+                                   SSH_HOSTKEYS,
+                                   v,
+                                   &wanted_methods[SSH_HOSTKEYS]);
             if (rc < 0) {
                 return -1;
             }

@@ -160,7 +160,8 @@ int server_set_kex(ssh_session session)
 
     rc = ssh_options_set_algo(session,
                               SSH_HOSTKEYS,
-                              kept);
+                              kept,
+                              &session->opts.wanted_methods[SSH_HOSTKEYS]);
     SAFE_FREE(kept);
     if (rc < 0) {
         return -1;
