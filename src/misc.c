@@ -826,7 +826,7 @@ void ssh_list_remove(struct ssh_list *list, struct ssh_iterator *iterator)
  * @brief Removes the top element of the list and returns the data value
  * attached to it.
  *
- * @param[in[  list     The ssh_list to remove the element.
+ * @param[in]  list     The ssh_list to remove the element.
  *
  * @returns             A pointer to the element being stored in head, or NULL
  *                      if the list is empty.
