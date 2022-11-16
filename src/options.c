@@ -52,7 +52,7 @@
  * @brief Duplicate the options of a session structure.
  *
  * If you make several sessions with the same options this is useful. You
- * cannot use twice the same option structure in ssh_session_connect.
+ * cannot use twice the same option structure in ssh_connect.
  *
  * @param src           The session to use to copy the options.
  *
@@ -61,13 +61,14 @@
  *
  * @returns             0 on success, -1 on error with errno set.
  *
- * @see ssh_session_connect()
+ * @see ssh_connect()
  * @see ssh_free()
  */
 int ssh_options_copy(ssh_session src, ssh_session *dest)
 {
     ssh_session new;
     struct ssh_iterator *it = NULL;
+    struct ssh_list *list = NULL;
     char *id = NULL;
     int i;
 
@@ -105,14 +106,15 @@ int ssh_options_copy(ssh_session src, ssh_session *dest)
     }
 
     /* Remove the default identities */
-    for (id = ssh_list_pop_head(char *, new->opts.identity);
+    for (id = ssh_list_pop_head(char *, new->opts.identity_non_exp);
          id != NULL;
-         id = ssh_list_pop_head(char *, new->opts.identity)) {
+         id = ssh_list_pop_head(char *, new->opts.identity_non_exp)) {
         SAFE_FREE(id);
     }
     /* Copy the new identities from the source list */
-    if (src->opts.identity != NULL) {
-        it = ssh_list_get_iterator(src->opts.identity);
+    list = new->opts.identity_non_exp;
+    it = ssh_list_get_iterator(src->opts.identity_non_exp);
+    for (i = 0; i < 2; i++) {
         while (it) {
             int rc;
 
@@ -122,7 +124,7 @@ int ssh_options_copy(ssh_session src, ssh_session *dest)
                 return -1;
             }
 
-            rc = ssh_list_append(new->opts.identity, id);
+            rc = ssh_list_append(list, id);
             if (rc < 0) {
                 free(id);
                 ssh_free(new);
@@ -130,6 +132,10 @@ int ssh_options_copy(ssh_session src, ssh_session *dest)
             }
             it = it->next;
         }
+
+        /* copy the identity list if there is any already */
+        list = new->opts.identity;
+        it = ssh_list_get_iterator(src->opts.identity);
     }
 
     if (src->opts.sshdir != NULL) {
@@ -315,7 +321,7 @@ int ssh_options_set_algo(ssh_session session,
  *                Add a new identity file (const char *, format string) to
  *                the identity list.\n
  *                \n
- *                By default identity, id_dsa and id_rsa are checked.\n
+ *                By default id_rsa, id_ecdsa and id_ed25519 files are used.\n
  *                \n
  *                The identity used to authenticate with public key will be
  *                prepended to the list.
@@ -657,7 +663,11 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
             if (q == NULL) {
                 return -1;
             }
-            rc = ssh_list_prepend(session->opts.identity, q);
+            if (session->opts.exp_flags & SSH_OPT_EXP_FLAG_IDENTITY) {
+                rc = ssh_list_append(session->opts.identity_non_exp, q);
+            } else {
+                rc = ssh_list_prepend(session->opts.identity_non_exp, q);
+            }
             if (rc < 0) {
                 free(q);
                 return -1;
@@ -1138,7 +1148,7 @@ int ssh_options_get_port(ssh_session session, unsigned int* port_target) {
  *              - SSH_OPTIONS_IDENTITY:
  *                Get the first identity file name (const char *).\n
  *                \n
- *                By default identity, id_dsa and id_rsa are checked.
+ *                By default id_rsa, id_ecdsa and id_ed25519 files are used.
  *
  *              - SSH_OPTIONS_PROXYCOMMAND:
  *                Get the proxycommand necessary to log into the
@@ -1182,7 +1192,11 @@ int ssh_options_get(ssh_session session, enum ssh_options_e type, char** value)
             break;
         }
         case SSH_OPTIONS_IDENTITY: {
-            struct ssh_iterator *it = ssh_list_get_iterator(session->opts.identity);
+            struct ssh_iterator *it;
+            it = ssh_list_get_iterator(session->opts.identity);
+            if (it == NULL) {
+                it = ssh_list_get_iterator(session->opts.identity_non_exp);
+            }
             if (it == NULL) {
                 return SSH_ERROR;
             }
@@ -1477,7 +1491,6 @@ out:
 
 int ssh_options_apply(ssh_session session)
 {
-    struct ssh_iterator *it;
     char *tmp;
     int rc;
 
@@ -1522,15 +1535,17 @@ int ssh_options_apply(ssh_session session)
         size_t plen = strlen(session->opts.ProxyCommand) +
                       5 /* strlen("exec ") */;
 
-        p = malloc(plen + 1 /* \0 */);
-        if (p == NULL) {
-            return -1;
-        }
+        if (strncmp(session->opts.ProxyCommand, "exec ", 5) != 0) {
+            p = malloc(plen + 1 /* \0 */);
+            if (p == NULL) {
+                return -1;
+            }
 
-        rc = snprintf(p, plen + 1, "exec %s", session->opts.ProxyCommand);
-        if ((size_t)rc != plen) {
-            free(p);
-            return -1;
+            rc = snprintf(p, plen + 1, "exec %s", session->opts.ProxyCommand);
+            if ((size_t)rc != plen) {
+                free(p);
+                return -1;
+            }
         }
 
         tmp = ssh_path_expand_escape(session, p);
@@ -1542,24 +1557,33 @@ int ssh_options_apply(ssh_session session)
         session->opts.ProxyCommand = tmp;
     }
 
-    for (it = ssh_list_get_iterator(session->opts.identity);
-         it != NULL;
-         it = it->next) {
-        char *id = (char *) it->data;
-        if (strncmp(id, "pkcs11:", 6) == 0) {
+    for (tmp = ssh_list_pop_head(char *, session->opts.identity_non_exp);
+         tmp != NULL;
+         tmp = ssh_list_pop_head(char *, session->opts.identity_non_exp)) {
+        char *id = tmp;
+        if (strncmp(id, "pkcs11:", 6) != 0) {
             /* PKCS#11 URIs are using percent-encoding so we can not mix
              * it with ssh expansion of ssh escape characters.
-             * Skip these identities now, before we will have PKCS#11 support
              */
-             continue;
+            tmp = ssh_path_expand_escape(session, id);
+            if (tmp == NULL) {
+                return -1;
+            }
+            free(id);
         }
-        tmp = ssh_path_expand_escape(session, id);
-        if (tmp == NULL) {
+
+        /* use append to keep the order at first call and use prepend
+         * to put anything that comes on the nth calls to the beginning */
+        if (session->opts.exp_flags & SSH_OPT_EXP_FLAG_IDENTITY) {
+            rc = ssh_list_prepend(session->opts.identity, tmp);
+        } else {
+            rc = ssh_list_append(session->opts.identity, tmp);
+        }
+        if (rc != SSH_OK) {
             return -1;
         }
-        free(id);
-        it->data = tmp;
     }
+    session->opts.exp_flags |= SSH_OPT_EXP_FLAG_IDENTITY;
 
     return 0;
 }
