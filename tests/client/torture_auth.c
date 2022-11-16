@@ -715,7 +715,7 @@ static void torture_auth_agent_identities_only(void **state)
     assert_int_equal(rc, SSH_OK);
 
     /* Remove the default identities */
-    while ((id = ssh_list_pop_head(char *, session->opts.identity)) != NULL) {
+    while ((id = ssh_list_pop_head(char *, session->opts.identity_non_exp)) != NULL) {
         SAFE_FREE(id);
     }
 
@@ -772,7 +772,7 @@ static void torture_auth_agent_identities_only_protected(void **state)
     assert_int_equal(rc, SSH_OK);
 
     /* Remove the default identities */
-    while ((id = ssh_list_pop_head(char *, session->opts.identity)) != NULL) {
+    while ((id = ssh_list_pop_head(char *, session->opts.identity_non_exp)) != NULL) {
         SAFE_FREE(id);
     }
 

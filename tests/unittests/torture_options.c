@@ -406,12 +406,12 @@ static void torture_options_set_identity(void **state) {
 
     rc = ssh_options_set(session, SSH_OPTIONS_ADD_IDENTITY, "identity1");
     assert_true(rc == 0);
-    assert_string_equal(session->opts.identity->root->data, "identity1");
+    assert_string_equal(session->opts.identity_non_exp->root->data, "identity1");
 
     rc = ssh_options_set(session, SSH_OPTIONS_IDENTITY, "identity2");
     assert_true(rc == 0);
-    assert_string_equal(session->opts.identity->root->data, "identity2");
-    assert_string_equal(session->opts.identity->root->next->data, "identity1");
+    assert_string_equal(session->opts.identity_non_exp->root->data, "identity2");
+    assert_string_equal(session->opts.identity_non_exp->root->next->data, "identity1");
 }
 
 static void torture_options_get_identity(void **state) {
@@ -429,7 +429,7 @@ static void torture_options_get_identity(void **state) {
 
     rc = ssh_options_set(session, SSH_OPTIONS_IDENTITY, "identity2");
     assert_int_equal(rc, SSH_OK);
-    assert_string_equal(session->opts.identity->root->data, "identity2");
+    assert_string_equal(session->opts.identity_non_exp->root->data, "identity2");
     rc = ssh_options_get(session, SSH_OPTIONS_IDENTITY, &identity);
     assert_int_equal(rc, SSH_OK);
     assert_non_null(identity);
@@ -867,9 +867,9 @@ static void torture_options_copy(void **state)
     assert_non_null(new);
 
     /* Check the identities match */
-    it = ssh_list_get_iterator(session->opts.identity);
+    it = ssh_list_get_iterator(session->opts.identity_non_exp);
     assert_non_null(it);
-    it2 = ssh_list_get_iterator(new->opts.identity);
+    it2 = ssh_list_get_iterator(new->opts.identity_non_exp);
     assert_non_null(it2);
     while (it != NULL && it2 != NULL) {
         assert_string_equal(it->data, it2->data);
@@ -956,7 +956,7 @@ static void torture_options_getopt(void **state)
                         "aes128-ctr");
     assert_string_equal(session->opts.wanted_methods[SSH_CRYPT_S_C],
                         "aes128-ctr");
-    assert_string_equal(session->opts.identity->root->data, "id_rsa");
+    assert_string_equal(session->opts.identity_non_exp->root->data, "id_rsa");
 #ifdef WITH_ZLIB
     assert_string_equal(session->opts.wanted_methods[SSH_COMP_C_S],
                         "zlib@openssh.com,zlib,none");
