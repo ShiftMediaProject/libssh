@@ -1697,7 +1697,8 @@ static void torture_config_identity(void **state)
 
     _parse_config(session, NULL, LIBSSH_TESTCONFIG_STRING13, SSH_OK);
 
-    it = ssh_list_get_iterator(session->opts.identity);
+    /* The identities are first added to this temporary list before expanding */
+    it = ssh_list_get_iterator(session->opts.identity_non_exp);
     assert_non_null(it);
     id = it->data;
     /* The identities are prepended to the list so we start with second one */
