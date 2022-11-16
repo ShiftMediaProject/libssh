@@ -209,6 +209,7 @@ struct ssh_session_struct {
 #endif
     struct {
         struct ssh_list *identity;
+        struct ssh_list *identity_non_exp;
         char *username;
         char *host;
         char *bindaddr; /* bind the client to an ip addr */

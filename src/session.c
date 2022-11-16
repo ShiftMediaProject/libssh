@@ -119,13 +119,17 @@ ssh_session ssh_new(void)
     if (session->opts.identity == NULL) {
         goto err;
     }
+    session->opts.identity_non_exp = ssh_list_new();
+    if (session->opts.identity_non_exp == NULL) {
+        goto err;
+    }
 
     id = strdup("%d/id_ed25519");
     if (id == NULL) {
         goto err;
     }
 
-    rc = ssh_list_append(session->opts.identity, id);
+    rc = ssh_list_append(session->opts.identity_non_exp, id);
     if (rc == SSH_ERROR) {
         goto err;
     }
@@ -135,7 +139,7 @@ ssh_session ssh_new(void)
     if (id == NULL) {
         goto err;
     }
-    rc = ssh_list_append(session->opts.identity, id);
+    rc = ssh_list_append(session->opts.identity_non_exp, id);
     if (rc == SSH_ERROR) {
         goto err;
     }
@@ -145,7 +149,7 @@ ssh_session ssh_new(void)
     if (id == NULL) {
         goto err;
     }
-    rc = ssh_list_append(session->opts.identity, id);
+    rc = ssh_list_append(session->opts.identity_non_exp, id);
     if (rc == SSH_ERROR) {
         goto err;
     }
@@ -155,7 +159,7 @@ ssh_session ssh_new(void)
     if (id == NULL) {
         goto err;
     }
-    rc = ssh_list_append(session->opts.identity, id);
+    rc = ssh_list_append(session->opts.identity_non_exp, id);
     if (rc == SSH_ERROR) {
         goto err;
     }
@@ -283,6 +287,17 @@ void ssh_free(ssh_session session)
           SAFE_FREE(id);
       }
       ssh_list_free(session->opts.identity);
+  }
+
+  if (session->opts.identity_non_exp) {
+      char *id;
+
+      for (id = ssh_list_pop_head(char *, session->opts.identity_non_exp);
+           id != NULL;
+           id = ssh_list_pop_head(char *, session->opts.identity_non_exp)) {
+          SAFE_FREE(id);
+      }
+      ssh_list_free(session->opts.identity_non_exp);
   }
 
     while ((b = ssh_list_pop_head(struct ssh_buffer_struct *,
