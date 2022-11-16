@@ -1115,6 +1115,170 @@ static void torture_options_getopt(void **state)
 #endif /* _NSC_VER */
 }
 
+static void torture_options_apply (void **state) {
+    ssh_session session = *state;
+    struct ssh_list *awaited_list = NULL;
+    struct ssh_iterator *it1 = NULL, *it2 = NULL;
+    char *id = NULL;
+    int rc;
+
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_KNOWNHOSTS,
+                         "%%d/.ssh/known_hosts");
+    assert_ssh_return_code(session, rc);
+
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_GLOBAL_KNOWNHOSTS,
+                         "/etc/%%u/libssh/known_hosts");
+    assert_ssh_return_code(session, rc);
+
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_PROXYCOMMAND,
+                         "exec echo \"Hello libssh %%d!\"");
+    assert_ssh_return_code(session, rc);
+
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_ADD_IDENTITY,
+                         "%%d/do_not_expand");
+    assert_ssh_return_code(session, rc);
+
+    rc = ssh_options_apply(session);
+    assert_ssh_return_code(session, rc);
+
+    /* check that the values got expanded */
+    assert_true(session->opts.exp_flags & SSH_OPT_EXP_FLAG_KNOWNHOSTS);
+    assert_true(session->opts.exp_flags & SSH_OPT_EXP_FLAG_GLOBAL_KNOWNHOSTS);
+    assert_true(session->opts.exp_flags & SSH_OPT_EXP_FLAG_PROXYCOMMAND);
+    assert_true(ssh_list_count(session->opts.identity_non_exp) == 0);
+    assert_true(ssh_list_count(session->opts.identity) > 0);
+
+    /* should not change anything calling it again */
+    rc = ssh_options_apply(session);
+    assert_ssh_return_code(session, rc);
+
+    /* check that the expansion was done only once */
+    assert_string_equal(session->opts.knownhosts, "%d/.ssh/known_hosts");
+    assert_string_equal(session->opts.global_knownhosts,
+                        "/etc/%u/libssh/known_hosts");
+    /* no exec should be added if there already is one */
+    assert_string_equal(session->opts.ProxyCommand,
+                        "exec echo \"Hello libssh %d!\"");
+    assert_string_equal(session->opts.identity->root->data,
+                        "%d/do_not_expand");
+
+    /* apply should keep the freshest setting */
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_KNOWNHOSTS,
+                         "hello there");
+    assert_ssh_return_code(session, rc);
+
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_GLOBAL_KNOWNHOSTS,
+                         "lorem ipsum");
+    assert_ssh_return_code(session, rc);
+
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_PROXYCOMMAND,
+                         "mission_impossible");
+    assert_ssh_return_code(session, rc);
+
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_ADD_IDENTITY,
+                         "007");
+    assert_ssh_return_code(session, rc);
+
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_ADD_IDENTITY,
+                         "3");
+    assert_ssh_return_code(session, rc);
+
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_ADD_IDENTITY,
+                         "2");
+    assert_ssh_return_code(session, rc);
+
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_ADD_IDENTITY,
+                         "1");
+    assert_ssh_return_code(session, rc);
+
+    /* check that flags show need of escape expansion */
+    assert_false(session->opts.exp_flags & SSH_OPT_EXP_FLAG_KNOWNHOSTS);
+    assert_false(session->opts.exp_flags & SSH_OPT_EXP_FLAG_GLOBAL_KNOWNHOSTS);
+    assert_false(session->opts.exp_flags & SSH_OPT_EXP_FLAG_PROXYCOMMAND);
+    assert_false(ssh_list_count(session->opts.identity_non_exp) == 0);
+
+    rc = ssh_options_apply(session);
+    assert_ssh_return_code(session, rc);
+
+    /* check that the values got expanded */
+    assert_true(session->opts.exp_flags & SSH_OPT_EXP_FLAG_KNOWNHOSTS);
+    assert_true(session->opts.exp_flags & SSH_OPT_EXP_FLAG_GLOBAL_KNOWNHOSTS);
+    assert_true(session->opts.exp_flags & SSH_OPT_EXP_FLAG_PROXYCOMMAND);
+    assert_true(ssh_list_count(session->opts.identity_non_exp) == 0);
+
+    assert_string_equal(session->opts.knownhosts, "hello there");
+    assert_string_equal(session->opts.global_knownhosts, "lorem ipsum");
+    /* check that the "exec " was added at the beginning */
+    assert_string_equal(session->opts.ProxyCommand, "exec mission_impossible");
+    assert_string_equal(session->opts.identity->root->data, "1");
+
+    /* check the order of the identity files after double expansion */
+    awaited_list = ssh_list_new();
+    /* append the new data in order */
+    id = strdup("1");
+    rc = ssh_list_append(awaited_list, id);
+    assert_int_equal(rc, SSH_OK);
+    id = strdup("2");
+    rc = ssh_list_append(awaited_list, id);
+    assert_int_equal(rc, SSH_OK);
+    id = strdup("3");
+    rc = ssh_list_append(awaited_list, id);
+    assert_int_equal(rc, SSH_OK);
+    id = strdup("007");
+    rc = ssh_list_append(awaited_list, id);
+    assert_int_equal(rc, SSH_OK);
+    id = strdup("%d/do_not_expand");
+    rc = ssh_list_append(awaited_list, id);
+    assert_int_equal(rc, SSH_OK);
+    /* append the defaults; this list is copied from ssh_new@src/session.c */
+    id = ssh_path_expand_escape(session, "%d/id_ed25519");
+    rc = ssh_list_append(awaited_list, id);
+    assert_int_equal(rc, SSH_OK);
+#ifdef HAVE_ECC
+    id = ssh_path_expand_escape(session, "%d/id_ecdsa");
+    rc = ssh_list_append(awaited_list, id);
+    assert_int_equal(rc, SSH_OK);
+#endif
+    id = ssh_path_expand_escape(session, "%d/id_rsa");
+    rc = ssh_list_append(awaited_list, id);
+    assert_int_equal(rc, SSH_OK);
+#ifdef HAVE_DSA
+    id = ssh_path_expand_escape(session, "%d/id_dsa");
+    rc = ssh_list_append(awaited_list, id);
+    assert_int_equal(rc, SSH_OK);
+#endif
+
+    assert_int_equal(ssh_list_count(awaited_list),
+                     ssh_list_count(session->opts.identity));
+
+    it1 = ssh_list_get_iterator(awaited_list);
+    assert_non_null(it1);
+    it2 = ssh_list_get_iterator(session->opts.identity);
+    assert_non_null(it2);
+    while (it1 != NULL && it2 != NULL) {
+        assert_string_equal(it1->data, it2->data);
+
+        free((void*)it1->data);
+        it1 = it1->next;
+        it2 = it2->next;
+    }
+    assert_null(it1);
+    assert_null(it2);
+
+    ssh_list_free(awaited_list);
+}
+
 #ifdef WITH_SERVER
 const char template[] = "temp_dir_XXXXXX";
 
@@ -1909,6 +2073,7 @@ int torture_run_tests(void) {
                                         setup, teardown),
         cmocka_unit_test_setup_teardown(torture_options_getopt,
                                         setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_apply, setup, teardown),
     };
 
 #ifdef WITH_SERVER
