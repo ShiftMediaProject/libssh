@@ -918,6 +918,34 @@ static void torture_options_copy(void **state)
                         sizeof(session->opts.options_seen));
 
     ssh_free(new);
+
+    /* test if ssh_options_apply was called before ssh_options_copy
+     * the opts.identity list gets copied (percent expanded list) */
+    rv = ssh_options_apply(session);
+    assert_ssh_return_code(session, rv);
+
+    rv = ssh_options_copy(session, &new);
+    assert_ssh_return_code(session, rv);
+    assert_non_null(new);
+
+    it = ssh_list_get_iterator(session->opts.identity_non_exp);
+    assert_null(it);
+    it2 = ssh_list_get_iterator(new->opts.identity_non_exp);
+    assert_null(it2);
+
+    it = ssh_list_get_iterator(session->opts.identity);
+    assert_non_null(it);
+    it2 = ssh_list_get_iterator(new->opts.identity);
+    assert_non_null(it2);
+    while (it != NULL && it2 != NULL) {
+        assert_string_equal(it->data, it2->data);
+        it = it->next;
+        it2 = it2->next;
+    }
+    assert_null(it);
+    assert_null(it2);
+
+    ssh_free(new);
 }
 
 #define EXECUTABLE_NAME "test-exec"
