@@ -1058,7 +1058,7 @@ static int pkd_cleanup_temp_dir(void) {
 
     if (rmdir(pkd_dargs.opts.temp_dir.mkdtemp_str) != 0) {
         fprintf(stderr, "pkd_cleanup_temp_dir rmdir '%s' failed\n",
-                        pkd_dargs.opts.temp_dir.mkdtemp_str);
+                pkd_dargs.opts.temp_dir.mkdtemp_str);
         rc = -1;
         goto out;
     }
@@ -1080,13 +1080,13 @@ static int pkd_cleanup_socket_wrapper(void) {
     /* clean up socket-wrapper unix domain sockets */
     if (pkd_rmfiles(pkd_dargs.opts.socket_wrapper.mkdtemp_str) != 0) {
         fprintf(stderr, "pkd_cleanup_socket_wrapper pkd_rmfiles '%s' failed\n",
-                        pkd_dargs.opts.socket_wrapper.mkdtemp_str);
+                pkd_dargs.opts.socket_wrapper.mkdtemp_str);
         goto errrmfiles;
     }
 
     if (rmdir(pkd_dargs.opts.socket_wrapper.mkdtemp_str) != 0) {
         fprintf(stderr, "pkd_cleanup_socket_wrapper rmdir '%s' failed\n",
-                        pkd_dargs.opts.socket_wrapper.mkdtemp_str);
+                pkd_dargs.opts.socket_wrapper.mkdtemp_str);
         goto errrmdir;
     }
 
