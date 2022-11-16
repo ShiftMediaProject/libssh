@@ -114,6 +114,8 @@ ssh_session ssh_new(void)
                           SSH_OPT_FLAG_KBDINT_AUTH |
                           SSH_OPT_FLAG_GSSAPI_AUTH;
 
+    session->opts.exp_flags = 0;
+
     session->opts.identity = ssh_list_new();
     if (session->opts.identity == NULL) {
         goto err;
