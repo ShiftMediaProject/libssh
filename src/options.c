@@ -735,6 +735,7 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                     ssh_set_error_oom(session);
                     return -1;
                 }
+                session->opts.exp_flags &= ~SSH_OPT_EXP_FLAG_KNOWNHOSTS;
             }
             break;
         case SSH_OPTIONS_GLOBAL_KNOWNHOSTS:
@@ -756,6 +757,7 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                     ssh_set_error_oom(session);
                     return -1;
                 }
+                session->opts.exp_flags &= ~SSH_OPT_EXP_FLAG_GLOBAL_KNOWNHOSTS;
             }
             break;
         case SSH_OPTIONS_TIMEOUT:
@@ -1019,6 +1021,7 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                         return -1;
                     }
                     session->opts.ProxyCommand = q;
+                    session->opts.exp_flags &= ~SSH_OPT_EXP_FLAG_PROXYCOMMAND;
                 }
             }
             break;
@@ -1586,53 +1589,67 @@ int ssh_options_apply(ssh_session session)
         }
     }
 
-    if (session->opts.knownhosts == NULL) {
-        tmp = ssh_path_expand_escape(session, "%d/known_hosts");
-    } else {
-        tmp = ssh_path_expand_escape(session, session->opts.knownhosts);
-    }
-    if (tmp == NULL) {
-        return -1;
-    }
-    free(session->opts.knownhosts);
-    session->opts.knownhosts = tmp;
-
-    if (session->opts.global_knownhosts == NULL) {
-        tmp = strdup("/etc/ssh/ssh_known_hosts");
-    } else {
-        tmp = ssh_path_expand_escape(session, session->opts.global_knownhosts);
-    }
-    if (tmp == NULL) {
-        return -1;
-    }
-    free(session->opts.global_knownhosts);
-    session->opts.global_knownhosts = tmp;
-
-    if (session->opts.ProxyCommand != NULL) {
-        char *p = NULL;
-        size_t plen = strlen(session->opts.ProxyCommand) +
-                      5 /* strlen("exec ") */;
-
-        if (strncmp(session->opts.ProxyCommand, "exec ", 5) != 0) {
-            p = malloc(plen + 1 /* \0 */);
-            if (p == NULL) {
-                return -1;
-            }
-
-            rc = snprintf(p, plen + 1, "exec %s", session->opts.ProxyCommand);
-            if ((size_t)rc != plen) {
-                free(p);
-                return -1;
-            }
+    if ((session->opts.exp_flags & SSH_OPT_EXP_FLAG_KNOWNHOSTS) == 0) {
+        if (session->opts.knownhosts == NULL) {
+            tmp = ssh_path_expand_escape(session, "%d/known_hosts");
+        } else {
+            tmp = ssh_path_expand_escape(session, session->opts.knownhosts);
         }
-
-        tmp = ssh_path_expand_escape(session, p);
-        free(p);
         if (tmp == NULL) {
             return -1;
         }
-        free(session->opts.ProxyCommand);
-        session->opts.ProxyCommand = tmp;
+        free(session->opts.knownhosts);
+        session->opts.knownhosts = tmp;
+        session->opts.exp_flags |= SSH_OPT_EXP_FLAG_KNOWNHOSTS;
+    }
+
+    if ((session->opts.exp_flags & SSH_OPT_EXP_FLAG_GLOBAL_KNOWNHOSTS) == 0) {
+        if (session->opts.global_knownhosts == NULL) {
+            tmp = strdup("/etc/ssh/ssh_known_hosts");
+        } else {
+            tmp = ssh_path_expand_escape(session,
+                                         session->opts.global_knownhosts);
+        }
+        if (tmp == NULL) {
+            return -1;
+        }
+        free(session->opts.global_knownhosts);
+        session->opts.global_knownhosts = tmp;
+        session->opts.exp_flags |= SSH_OPT_EXP_FLAG_GLOBAL_KNOWNHOSTS;
+    }
+
+
+    if ((session->opts.exp_flags & SSH_OPT_EXP_FLAG_PROXYCOMMAND) == 0) {
+        if (session->opts.ProxyCommand != NULL) {
+            char *p = NULL;
+            size_t plen = strlen(session->opts.ProxyCommand) +
+                          5 /* strlen("exec ") */;
+
+            if (strncmp(session->opts.ProxyCommand, "exec ", 5) != 0) {
+                p = malloc(plen + 1 /* \0 */);
+                if (p == NULL) {
+                    return -1;
+                }
+
+                rc = snprintf(p, plen + 1, "exec %s", session->opts.ProxyCommand);
+                if ((size_t)rc != plen) {
+                    free(p);
+                    return -1;
+                }
+                tmp = ssh_path_expand_escape(session, p);
+                free(p);
+            } else {
+                tmp = ssh_path_expand_escape(session,
+                                             session->opts.ProxyCommand);
+            }
+
+            if (tmp == NULL) {
+                return -1;
+            }
+            free(session->opts.ProxyCommand);
+            session->opts.ProxyCommand = tmp;
+            session->opts.exp_flags |= SSH_OPT_EXP_FLAG_PROXYCOMMAND;
+        }
     }
 
     for (tmp = ssh_list_pop_head(char *, session->opts.identity_non_exp);

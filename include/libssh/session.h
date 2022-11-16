@@ -93,6 +93,12 @@ enum ssh_pending_call_e {
 #define SSH_OPT_FLAG_KBDINT_AUTH 0x4
 #define SSH_OPT_FLAG_GSSAPI_AUTH 0x8
 
+/* Escape expansion of different variables */
+#define SSH_OPT_EXP_FLAG_KNOWNHOSTS 0x1
+#define SSH_OPT_EXP_FLAG_GLOBAL_KNOWNHOSTS 0x2
+#define SSH_OPT_EXP_FLAG_PROXYCOMMAND 0x4
+#define SSH_OPT_EXP_FLAG_IDENTITY 0x8
+
 /* extensions flags */
 /* negotiation enabled */
 #define SSH_EXT_NEGOTIATION     0x01
@@ -232,6 +238,7 @@ struct ssh_session_struct {
         char *gss_client_identity;
         int gss_delegate_creds;
         int flags;
+        int exp_flags;
         int nodelay;
         bool config_processed;
         uint8_t options_seen[SOC_MAX];
