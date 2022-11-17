@@ -44,10 +44,12 @@ struct pkd_daemon_args {
         unsigned int iterations;
 
         struct {
+            const char *argv_mkdtemp_str;
             char *mkdtemp_str;
         } socket_wrapper;
 
         struct {
+            const char *argv_mkdtemp_str;
             char *mkdtemp_str;
         } temp_dir;
     } opts;

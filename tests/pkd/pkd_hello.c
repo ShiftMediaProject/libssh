@@ -94,7 +94,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         pkd_dargs.opts.list = 1;
         break;
     case 'L':
-        pkd_dargs.opts.temp_dir.mkdtemp_str = arg;
+        pkd_dargs.opts.temp_dir.argv_mkdtemp_str = arg;
         break;
     case 'i':
         pkd_dargs.opts.iterations = atoi(arg);
@@ -115,7 +115,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state) {
         pkd_dargs.opts.libssh_log_level += 1;
         break;
     case 'w':
-        pkd_dargs.opts.socket_wrapper.mkdtemp_str = arg;
+        pkd_dargs.opts.socket_wrapper.argv_mkdtemp_str = arg;
         break;
     default:
         return ARGP_ERR_UNKNOWN;
@@ -961,7 +961,7 @@ static int pkd_init_temp_dir(void) {
     char *mkdtemp_str = NULL;
     pkd_dargs.original_dir_fd = -1;
 
-    if (pkd_dargs.opts.temp_dir.mkdtemp_str == NULL) {
+    if (pkd_dargs.opts.temp_dir.argv_mkdtemp_str == NULL) {
         return 0;
     }
 
@@ -971,7 +971,7 @@ static int pkd_init_temp_dir(void) {
         return -1;
     }
 
-    mkdtemp_str = strdup(pkd_dargs.opts.temp_dir.mkdtemp_str);
+    mkdtemp_str = strdup(pkd_dargs.opts.temp_dir.argv_mkdtemp_str);
     if (mkdtemp_str == NULL) {
         fprintf(stderr, "pkd_init_temp_dir strdup failed\n");
         goto errstrdup;
@@ -1006,11 +1006,11 @@ static int pkd_init_socket_wrapper(void) {
     int rc = 0;
     char *mkdtemp_str = NULL;
 
-    if (pkd_dargs.opts.socket_wrapper.mkdtemp_str == NULL) {
+    if (pkd_dargs.opts.socket_wrapper.argv_mkdtemp_str == NULL) {
         goto out;
     }
 
-    mkdtemp_str = strdup(pkd_dargs.opts.socket_wrapper.mkdtemp_str);
+    mkdtemp_str = strdup(pkd_dargs.opts.socket_wrapper.argv_mkdtemp_str);
     if (mkdtemp_str == NULL) {
         fprintf(stderr, "pkd_init_socket_wrapper strdup failed\n");
         goto errstrdup;
