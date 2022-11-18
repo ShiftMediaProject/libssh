@@ -57,7 +57,7 @@ int ssh_dh_keypair_get_keys(struct dh_ctx *ctx, int peer,
                             bignum *priv, bignum *pub);
 #endif /* OPENSSL_VERSION_NUMBER */
 int ssh_dh_keypair_set_keys(struct dh_ctx *ctx, int peer,
-                            const bignum priv, const bignum pub);
+                            bignum priv, bignum pub);
 
 int ssh_dh_compute_shared_secret(struct dh_ctx *ctx, int local, int remote,
                                  bignum *dest);
