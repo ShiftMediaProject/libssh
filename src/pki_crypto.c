@@ -1492,18 +1492,18 @@ int pki_privkey_build_dss(ssh_key key,
                           ssh_string privkey)
 {
     int rc;
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
     BIGNUM *bp, *bq, *bg, *bpub_key, *bpriv_key;
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    OSSL_PARAM_BLD *param_bld = OSSL_PARAM_BLD_new();
+    if (param_bld == NULL) {
+        return SSH_ERROR;
+    }
 #else
-    const BIGNUM *pb, *qb, *gb, *pubb, *privb;
-    OSSL_PARAM_BLD *param_bld;
-#endif /* OPENSSL_VERSION_NUMBER */
-
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
     key->dsa = DSA_new();
     if (key->dsa == NULL) {
         return SSH_ERROR;
     }
+#endif /* OPENSSL_VERSION_NUMBER */
 
     bp = ssh_make_string_bn(p);
     bq = ssh_make_string_bn(q);
@@ -1512,9 +1512,11 @@ int pki_privkey_build_dss(ssh_key key,
     bpriv_key = ssh_make_string_bn(privkey);
     if (bp == NULL || bq == NULL ||
         bg == NULL || bpub_key == NULL) {
+        rc = SSH_ERROR;
         goto fail;
     }
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     /* Memory management of bp, qq and bg is transferred to DSA object */
     rc = DSA_set0_pqg(key->dsa, bp, bq, bg);
     if (rc == 0) {
@@ -1532,39 +1534,43 @@ fail:
     DSA_free(key->dsa);
     return SSH_ERROR;
 #else
-    param_bld = OSSL_PARAM_BLD_new();
-    if (param_bld == NULL)
-        goto err;
-
-    pb = ssh_make_string_bn(p);
-    qb = ssh_make_string_bn(q);
-    gb = ssh_make_string_bn(g);
-    pubb = ssh_make_string_bn(pubkey);
-    privb = ssh_make_string_bn(privkey);
-
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_P, pb);
-    if (rc != 1)
-        goto err;
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_Q, qb);
-    if (rc != 1)
-        goto err;
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_G, gb);
-    if (rc != 1)
-        goto err;
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_PUB_KEY, pubb);
-    if (rc != 1)
-        goto err;
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_PRIV_KEY, privb);
-    if (rc != 1)
-        goto err;
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_P, bp);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_Q, bq);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_G, bg);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_PUB_KEY, bpub_key);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_PRIV_KEY, bpriv_key);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
 
     rc = evp_build_pkey("DSA", param_bld, &(key->key), EVP_PKEY_KEYPAIR);
+
+fail:
     OSSL_PARAM_BLD_free(param_bld);
+    bignum_safe_free(bp);
+    bignum_safe_free(bq);
+    bignum_safe_free(bg);
+    bignum_safe_free(bpub_key);
+    bignum_safe_free(bpriv_key);
 
     return rc;
-err:
-    OSSL_PARAM_BLD_free(param_bld);
-    return -1;
 #endif /* OPENSSL_VERSION_NUMBER */
 }
 
@@ -1574,18 +1580,18 @@ int pki_pubkey_build_dss(ssh_key key,
                          ssh_string g,
                          ssh_string pubkey) {
     int rc;
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
     BIGNUM *bp = NULL, *bq = NULL, *bg = NULL, *bpub_key = NULL;
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    OSSL_PARAM_BLD *param_bld = OSSL_PARAM_BLD_new();
+    if (param_bld == NULL) {
+        return SSH_ERROR;
+    }
 #else
-    const BIGNUM *pb, *qb, *gb, *pubb;
-    OSSL_PARAM_BLD *param_bld;
-#endif /* OPENSSL_VERSION_NUMBER */
-
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
     key->dsa = DSA_new();
     if (key->dsa == NULL) {
         return SSH_ERROR;
     }
+#endif /* OPENSSL_VERSION_NUMBER */
 
     bp = ssh_make_string_bn(p);
     bq = ssh_make_string_bn(q);
@@ -1593,9 +1599,11 @@ int pki_pubkey_build_dss(ssh_key key,
     bpub_key = ssh_make_string_bn(pubkey);
     if (bp == NULL || bq == NULL ||
         bg == NULL || bpub_key == NULL) {
+        rc = SSH_ERROR;
         goto fail;
     }
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     /* Memory management of bp, bq and bg is transferred to DSA object */
     rc = DSA_set0_pqg(key->dsa, bp, bq, bg);
     if (rc == 0) {
@@ -1613,35 +1621,37 @@ fail:
     DSA_free(key->dsa);
     return SSH_ERROR;
 #else
-    param_bld = OSSL_PARAM_BLD_new();
-    if (param_bld == NULL)
-        goto err;
-
-    pb = ssh_make_string_bn(p);
-    qb = ssh_make_string_bn(q);
-    gb = ssh_make_string_bn(g);
-    pubb = ssh_make_string_bn(pubkey);
-
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_P, pb);
-    if (rc != 1)
-        goto err;
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_Q, qb);
-    if (rc != 1)
-        goto err;
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_G, gb);
-    if (rc != 1)
-        goto err;
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_PUB_KEY, pubb);
-    if (rc != 1)
-        goto err;
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_P, bp);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_Q, bq);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_FFC_G, bg);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_PUB_KEY, bpub_key);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
 
     rc = evp_build_pkey("DSA", param_bld, &(key->key), EVP_PKEY_PUBLIC_KEY);
+
+fail:
     OSSL_PARAM_BLD_free(param_bld);
+    bignum_safe_free(bp);
+    bignum_safe_free(bq);
+    bignum_safe_free(bg);
+    bignum_safe_free(bpub_key);
 
     return rc;
-err:
-    OSSL_PARAM_BLD_free(param_bld);
-    return -1;
 #endif /* OPENSSL_VERSION_NUMBER */
 }
 
@@ -1654,18 +1664,18 @@ int pki_privkey_build_rsa(ssh_key key,
                           ssh_string q)
 {
     int rc;
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
     BIGNUM *be, *bn, *bd/*, *biqmp*/, *bp, *bq;
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    OSSL_PARAM_BLD *param_bld = OSSL_PARAM_BLD_new();
+    if (param_bld == NULL) {
+        return SSH_ERROR;
+    }
 #else
-    const BIGNUM *nb, *eb, *db, *pb, *qb;
-    OSSL_PARAM_BLD *param_bld;
-#endif /* OPENSSL_VERSION_NUMBER */
-
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
     key->rsa = RSA_new();
     if (key->rsa == NULL) {
         return SSH_ERROR;
     }
+#endif /* OPENSSL_VERSION_NUMBER */
 
     bn = ssh_make_string_bn(n);
     be = ssh_make_string_bn(e);
@@ -1675,9 +1685,11 @@ int pki_privkey_build_rsa(ssh_key key,
     bq = ssh_make_string_bn(q);
     if (be == NULL || bn == NULL || bd == NULL ||
         /*biqmp == NULL ||*/ bp == NULL || bq == NULL) {
+        rc = SSH_ERROR;
         goto fail;
     }
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     /* Memory management of be, bn and bd is transferred to RSA object */
     rc = RSA_set0_key(key->rsa, bn, be, bd);
     if (rc == 0) {
@@ -1702,41 +1714,49 @@ fail:
     RSA_free(key->rsa);
     return SSH_ERROR;
 #else
-    param_bld = OSSL_PARAM_BLD_new();
-    if (param_bld == NULL)
-        goto err;
-
-    nb = ssh_make_string_bn(n);
-    eb = ssh_make_string_bn(e);
-    db = ssh_make_string_bn(d);
-    pb = ssh_make_string_bn(p);
-    qb = ssh_make_string_bn(q);
-
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_RSA_N, nb);
-    if (rc != 1)
-        goto err;
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_RSA_E, eb);
-    if (rc != 1)
-        goto err;
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_RSA_D, db);
-    if (rc != 1)
-        goto err;
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_RSA_N, bn);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_RSA_E, be);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_RSA_D, bd);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
 
     rc = evp_build_pkey("RSA", param_bld, &(key->key), EVP_PKEY_KEYPAIR);
+    if (rc != SSH_OK) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+
+    rc = EVP_PKEY_set_bn_param(key->key, OSSL_PKEY_PARAM_RSA_FACTOR1, bp);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+
+    rc = EVP_PKEY_set_bn_param(key->key, OSSL_PKEY_PARAM_RSA_FACTOR2, bq);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+
+fail:
     OSSL_PARAM_BLD_free(param_bld);
-
-    rc = EVP_PKEY_set_bn_param(key->key, OSSL_PKEY_PARAM_RSA_FACTOR1, pb);
-    if (rc != 1)
-        goto err;
-
-    rc = EVP_PKEY_set_bn_param(key->key, OSSL_PKEY_PARAM_RSA_FACTOR2, qb);
-    if (rc != 1)
-        goto err;
+    bignum_safe_free(bn);
+    bignum_safe_free(be);
+    bignum_safe_free(bd);
+    bignum_safe_free(bp);
+    bignum_safe_free(bq);
 
     return rc;
-err:
-    OSSL_PARAM_BLD_free(param_bld);
-    return -1;
 #endif /* OPENSSL_VERSION_NUMBER */
 }
 
@@ -1744,25 +1764,27 @@ int pki_pubkey_build_rsa(ssh_key key,
                          ssh_string e,
                          ssh_string n) {
     int rc;
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
     BIGNUM *be = NULL, *bn = NULL;
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
+    OSSL_PARAM_BLD *param_bld = OSSL_PARAM_BLD_new();
+    if (param_bld == NULL) {
+        return SSH_ERROR;
+    }
 #else
-    const BIGNUM *eb, *nb;
-    OSSL_PARAM_BLD *param_bld;
-#endif /* OPENSSL_VERSION_NUMBER */
-
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
     key->rsa = RSA_new();
     if (key->rsa == NULL) {
         return SSH_ERROR;
     }
+#endif /* OPENSSL_VERSION_NUMBER */
 
     be = ssh_make_string_bn(e);
     bn = ssh_make_string_bn(n);
     if (be == NULL || bn == NULL) {
+        rc = SSH_ERROR;
         goto fail;
     }
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     /* Memory management of bn and be is transferred to RSA object */
     rc = RSA_set0_key(key->rsa, bn, be, NULL);
     if (rc == 0) {
@@ -1774,27 +1796,25 @@ fail:
     RSA_free(key->rsa);
     return SSH_ERROR;
 #else
-    nb = ssh_make_string_bn(n);
-    eb = ssh_make_string_bn(e);
-
-    param_bld = OSSL_PARAM_BLD_new();
-    if (param_bld == NULL)
-        goto err;
-
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_RSA_N, nb);
-    if (rc != 1)
-        goto err;
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_RSA_E, eb);
-    if (rc != 1)
-        goto err;
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_RSA_N, bn);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_RSA_E, be);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
 
     rc = evp_build_pkey("RSA", param_bld, &(key->key), EVP_PKEY_PUBLIC_KEY);
+
+fail:
     OSSL_PARAM_BLD_free(param_bld);
+    bignum_safe_free(bn);
+    bignum_safe_free(be);
 
     return rc;
-err:
-    OSSL_PARAM_BLD_free(param_bld);
-    return -1;
 #endif /* OPENSSL_VERSION_NUMBER */
 }
 
