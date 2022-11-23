@@ -22,6 +22,9 @@
  */
 
 #include "config.h"
+
+#include <stdio.h>
+
 #include "libssh/priv.h"
 #include "libssh/socket.h"
 #include "libssh/dh.h"
