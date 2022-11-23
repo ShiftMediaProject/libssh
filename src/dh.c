@@ -25,6 +25,8 @@
 
 #include "config.h"
 
+#include <stdio.h>
+
 #include "libssh/priv.h"
 #include "libssh/crypto.h"
 #include "libssh/buffer.h"
