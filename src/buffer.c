@@ -26,6 +26,7 @@
 #include <limits.h>
 #include <stdarg.h>
 #include <stdbool.h>
+#include <stdio.h>
 
 #ifndef _WIN32
 #include <netinet/in.h>
