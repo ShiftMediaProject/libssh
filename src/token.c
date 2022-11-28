@@ -454,7 +454,7 @@ char *ssh_remove_all_matching(const char *list,
 
     ret = calloc(1, strlen(list) + 1);
     if (ret == NULL) {
-        return NULL;
+        goto out;
     }
 
     for (i = 0; l_tok->tokens[i]; i++) {
