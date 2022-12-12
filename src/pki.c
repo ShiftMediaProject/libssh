@@ -1112,7 +1112,7 @@ ssh_public_key ssh_pki_convert_key_to_publickey(const ssh_key key)
     pub->type = tmp->type;
     pub->type_c = tmp->type_c;
 
-#if !defined(HAVE_LIBCRYPTO) || OPENSSL_VERSION_NUMBER < 0x30000000L
+#ifndef HAVE_LIBCRYPTO
     pub->dsa_pub = tmp->dsa;
     tmp->dsa = NULL;
     pub->rsa_pub = tmp->rsa;
@@ -1120,7 +1120,7 @@ ssh_public_key ssh_pki_convert_key_to_publickey(const ssh_key key)
 #else
     pub->key_pub = tmp->key;
     tmp->key = NULL;
-#endif /* OPENSSL_VERSION_NUMBER */
+#endif /* HAVE_LIBCRYPTO */
 
     ssh_key_free(tmp);
 
@@ -1138,12 +1138,12 @@ ssh_private_key ssh_pki_convert_key_to_privatekey(const ssh_key key)
     }
 
     privkey->type = key->type;
-#if !defined(HAVE_LIBCRYPTO) || OPENSSL_VERSION_NUMBER < 0x30000000L
+#ifndef HAVE_LIBCRYPTO
     privkey->dsa_priv = key->dsa;
     privkey->rsa_priv = key->rsa;
 #else
     privkey->key_priv = key->key;
-#endif /* OPENSSL_VERSION_NUMBER */
+#endif /* HAVE_LIBCRYPTO */
 
     return privkey;
 }

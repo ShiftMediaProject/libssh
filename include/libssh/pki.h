@@ -65,10 +65,6 @@ struct ssh_key_struct {
     mbedtls_ecdsa_context *ecdsa;
     void *dsa;
 #elif defined(HAVE_LIBCRYPTO)
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-    DSA *dsa;
-    RSA *rsa;
-#endif /* OPENSSL_VERSION_NUMBER */
 /* TODO Change to new API when the OpenSSL will support export of uncompressed EC keys
  * https://github.com/openssl/openssl/pull/16624
  * Move into the #if above

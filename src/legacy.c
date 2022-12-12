@@ -83,20 +83,20 @@ int ssh_userauth_pubkey(ssh_session session,
     key->type = privatekey->type;
     key->type_c = ssh_key_type_to_char(key->type);
     key->flags = SSH_KEY_FLAG_PRIVATE|SSH_KEY_FLAG_PUBLIC;
-#if !defined(HAVE_LIBCRYPTO) || OPENSSL_VERSION_NUMBER < 0x30000000L
+#ifndef HAVE_LIBCRYPTO
     key->dsa = privatekey->dsa_priv;
     key->rsa = privatekey->rsa_priv;
 #else
     key->key = privatekey->key_priv;
-#endif /* OPENSSL_VERSION_NUMBER */
+#endif /* HAVE_LIBCRYPTO */
 
     rc = ssh_userauth_publickey(session, username, key);
-#if !defined(HAVE_LIBCRYPTO) || OPENSSL_VERSION_NUMBER < 0x30000000L
+#ifndef HAVE_LIBCRYPTO
     key->dsa = NULL;
     key->rsa = NULL;
 #else
     key->key = NULL;
-#endif /* OPENSSL_VERSION_NUMBER */
+#endif /* HAVE_LIBCRYPTO */
     ssh_key_free(key);
 
     return rc;
@@ -362,22 +362,14 @@ void publickey_free(ssh_public_key key) {
 #ifdef HAVE_LIBGCRYPT
       gcry_sexp_release(key->dsa_pub);
 #elif defined HAVE_LIBCRYPTO
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-      DSA_free(key->dsa_pub);
-#else
       EVP_PKEY_free(key->key_pub);
-#endif /* OPENSSL_VERSION_NUMBER */
 #endif /* HAVE_LIBGCRYPT */
       break;
     case SSH_KEYTYPE_RSA:
 #ifdef HAVE_LIBGCRYPT
       gcry_sexp_release(key->rsa_pub);
 #elif defined HAVE_LIBCRYPTO
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-      RSA_free(key->rsa_pub);
-#else
       EVP_PKEY_free(key->key_pub);
-#endif /* OPENSSL_VERSION_NUMBER */
 #elif defined HAVE_LIBMBEDCRYPTO
       mbedtls_pk_free(key->rsa_pub);
       SAFE_FREE(key->rsa_pub);
@@ -403,20 +395,20 @@ ssh_public_key publickey_from_privatekey(ssh_private_key prv) {
     privkey->type = prv->type;
     privkey->type_c = ssh_key_type_to_char(privkey->type);
     privkey->flags = SSH_KEY_FLAG_PRIVATE | SSH_KEY_FLAG_PUBLIC;
-#if !defined(HAVE_LIBCRYPTO) || OPENSSL_VERSION_NUMBER < 0x30000000L
+#ifndef HAVE_LIBCRYPTO
     privkey->dsa = prv->dsa_priv;
     privkey->rsa = prv->rsa_priv;
 #else
     privkey->key = prv->key_priv;
-#endif /* OPENSSL_VERSION_NUMBER */
+#endif /* HAVE_LIBCRYPTO */
 
     rc = ssh_pki_export_privkey_to_pubkey(privkey, &pubkey);
-#if !defined(HAVE_LIBCRYPTO) || OPENSSL_VERSION_NUMBER < 0x30000000L
+#ifndef HAVE_LIBCRYPTO
     privkey->dsa = NULL;
     privkey->rsa = NULL;
 #else
     privkey->key = NULL;
-#endif /* OPENSSL_VERSION_NUMBER */
+#endif /* HAVE_LIBCRYPTO */
     ssh_key_free(privkey);
     if (rc < 0) {
         return NULL;
@@ -462,7 +454,7 @@ ssh_private_key privatekey_from_file(ssh_session session,
     }
 
     privkey->type = key->type;
-#if !defined(HAVE_LIBCRYPTO) || OPENSSL_VERSION_NUMBER < 0x30000000L
+#ifndef HAVE_LIBCRYPTO
     privkey->dsa_priv = key->dsa;
     privkey->rsa_priv = key->rsa;
 
@@ -472,7 +464,7 @@ ssh_private_key privatekey_from_file(ssh_session session,
     privkey->key_priv = key->key;
 
     key->key = NULL;
-#endif /* OPENSSL_VERSION_NUMBER */
+#endif /* HAVE_LIBCRYPTO */
 
     ssh_key_free(key);
 
@@ -494,12 +486,7 @@ void privatekey_free(ssh_private_key prv) {
   gcry_sexp_release(prv->dsa_priv);
   gcry_sexp_release(prv->rsa_priv);
 #elif defined HAVE_LIBCRYPTO
-#if OPENSSL_VERSION_NUMBER < 0x30000000L
-  DSA_free(prv->dsa_priv);
-  RSA_free(prv->rsa_priv);
-#else
   EVP_PKEY_free(prv->key_priv);
-#endif /* OPENSSL_VERSION_NUMBER */
 #elif defined HAVE_LIBMBEDCRYPTO
   mbedtls_pk_free(prv->rsa_priv);
   SAFE_FREE(prv->rsa_priv);
@@ -564,7 +551,7 @@ ssh_public_key publickey_from_string(ssh_session session, ssh_string pubkey_s) {
     pubkey->type = key->type;
     pubkey->type_c = key->type_c;
 
-#if !defined(HAVE_LIBCRYPTO) || OPENSSL_VERSION_NUMBER < 0x30000000L
+#ifndef HAVE_LIBCRYPTO
     pubkey->dsa_pub = key->dsa;
     key->dsa = NULL;
     pubkey->rsa_pub = key->rsa;
@@ -572,7 +559,7 @@ ssh_public_key publickey_from_string(ssh_session session, ssh_string pubkey_s) {
 #else
     pubkey->key_pub = key->key;
     key->key = NULL;
-#endif /* OPENSSL_VERSION_NUMBER */
+#endif /* HAVE_LIBCRYPTO */
 
     ssh_key_free(key);
 
@@ -596,24 +583,24 @@ ssh_string publickey_to_string(ssh_public_key pubkey) {
     key->type = pubkey->type;
     key->type_c = pubkey->type_c;
 
-#if !defined(HAVE_LIBCRYPTO) || OPENSSL_VERSION_NUMBER < 0x30000000L
+#ifndef HAVE_LIBCRYPTO
     key->dsa = pubkey->dsa_pub;
     key->rsa = pubkey->rsa_pub;
 #else
     key->key = pubkey->key_pub;
-#endif /* OPENSSL_VERSION_NUMBER */
+#endif /* HAVE_LIBCRYPTO */
 
     rc = ssh_pki_export_pubkey_blob(key, &key_blob);
     if (rc < 0) {
         key_blob = NULL;
     }
 
-#if !defined(HAVE_LIBCRYPTO) || OPENSSL_VERSION_NUMBER < 0x30000000L
+#ifndef HAVE_LIBCRYPTO
     key->dsa = NULL;
     key->rsa = NULL;
 #else
     key->key = NULL;
-#endif /* OPENSSL_VERSION_NUMBER */
+#endif /* HAVE_LIBCRYPTO */
     ssh_key_free(key);
 
     return key_blob;

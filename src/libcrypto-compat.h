@@ -7,4 +7,8 @@
 #define NISTP384 "P-384"
 #define NISTP521 "P-521"
 
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
+#define EVP_PKEY_eq EVP_PKEY_cmp
+#endif /* OPENSSL_VERSION_NUMBER */
+
 #endif /* LIBCRYPTO_COMPAT_H */
