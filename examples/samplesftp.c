@@ -42,7 +42,7 @@ static void do_sftp(ssh_session session) {
     sftp_attributes file;
     sftp_statvfs_t sftpstatvfs;
     struct statvfs sysstatvfs;
-    sftp_file fichier;
+    sftp_file source;
     sftp_file to;
     int len = 1;
     unsigned int i;
@@ -189,8 +189,8 @@ static void do_sftp(ssh_session session) {
     /* the small buffer size was intended to stress the library. of course, you
      * can use a buffer till 20kbytes without problem */
 
-    fichier = sftp_open(sftp, "/usr/bin/ssh", O_RDONLY, 0);
-    if (!fichier) {
+    source = sftp_open(sftp, "/usr/bin/ssh", O_RDONLY, 0);
+    if (!source) {
         fprintf(stderr, "Error opening /usr/bin/ssh: %s\n",
                 ssh_get_error(session));
         goto end;
@@ -201,16 +201,16 @@ static void do_sftp(ssh_session session) {
     if (!to) {
         fprintf(stderr, "Error opening ssh-copy for writing: %s\n",
                 ssh_get_error(session));
-        sftp_close(fichier);
+        sftp_close(source);
         goto end;
     }
 
-    while ((len = sftp_read(fichier, data, 4096)) > 0) {
+    while ((len = sftp_read(source, data, 4096)) > 0) {
         if (sftp_write(to, data, len) != len) {
             fprintf(stderr, "Error writing %d bytes: %s\n",
                     len, ssh_get_error(session));
             sftp_close(to);
-            sftp_close(fichier);
+            sftp_close(source);
             goto end;
         }
     }
@@ -220,10 +220,10 @@ static void do_sftp(ssh_session session) {
         fprintf(stderr, "Error reading file: %s\n", ssh_get_error(session));
     }
 
-    sftp_close(fichier);
+    sftp_close(source);
     sftp_close(to);
-    printf("fichiers ferm\n");
-    to = sftp_open(sftp, "/tmp/grosfichier", O_WRONLY|O_CREAT, 0644);
+    printf("file closed\n");
+    to = sftp_open(sftp, "/tmp/large_file", O_WRONLY|O_CREAT, 0644);
 
     for (i = 0; i < 1000; ++i) {
         len = sftp_write(to, data, sizeof(data));
