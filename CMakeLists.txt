@@ -103,9 +103,7 @@ if (WITH_NACL)
     endif (NOT NACL_FOUND)
 endif (WITH_NACL)
 
-if (BSD OR SOLARIS OR OSX OR CYGWIN)
-    find_package(Argp)
-endif (BSD OR SOLARIS OR OSX OR CYGWIN)
+find_package(Argp)
 
 # Disable symbol versioning in non UNIX platforms
 if (UNIX)
