@@ -772,6 +772,8 @@ LIBSSH_API int sftp_symlink(sftp_session sftp, const char *target, const char *d
  * @param  path         Specifies the path name of the symlink to be read.
  *
  * @return              The target of the link, NULL on error.
+ *                      The caller needs to free the memory
+ *                      using ssh_string_free_char().
  *
  * @see sftp_get_error()
  */
