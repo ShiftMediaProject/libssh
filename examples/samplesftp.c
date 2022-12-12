@@ -47,7 +47,7 @@ static void do_sftp(ssh_session session) {
     int len = 1;
     unsigned int i;
     char data[BUF_SIZE] = {0};
-    char *lnk;
+    char *lnk = NULL;
 
     unsigned int count;
 
@@ -86,6 +86,7 @@ static void do_sftp(ssh_session session) {
         goto end;
     }
     printf("readlink /tmp/sftp_symlink_test: %s\n", lnk);
+    ssh_string_free_char(lnk);
 
     sftp_unlink(sftp, "/tmp/sftp_symlink_test");
 
