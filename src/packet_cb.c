@@ -244,6 +244,8 @@ SSH_PACKET_CALLBACK(ssh_packet_ext_info)
             if (ssh_match_group(value, "rsa-sha2-256")) {
                 session->extensions |= SSH_EXT_SIG_RSA_SHA256;
             }
+        } else {
+            SSH_LOG(SSH_LOG_PACKET, "Unknown extension: %s", name);
         }
         free(name);
         free(value);
