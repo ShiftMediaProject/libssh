@@ -274,6 +274,7 @@ static void torture_rekey_recv(void **state)
 
     /* The blocks limit is set correctly */
     c = s->ssh.session->current_crypto;
+    assert_non_null(c);
     assert_int_equal(c->in_cipher->max_blocks, bytes / c->in_cipher->blocksize);
     assert_int_equal(c->out_cipher->max_blocks, bytes / c->out_cipher->blocksize);
     /* We should have less encrypted packets than transferred (first are not encrypted) */
@@ -670,6 +671,78 @@ static void torture_rekey_server_recv(void **state)
 }
 #endif /* WITH_SFTP */
 
+#ifdef WITH_ZLIB
+/* This is disabled by OpenSSH since OpenSSH 7.4p1 */
+#if (OPENSSH_VERSION_MAJOR == 7 && OPENSSH_VERSION_MINOR < 4) || OPENSSH_VERSION_MAJOR < 7
+/* Compression can be funky to get right after rekey
+ */
+static void torture_rekey_send_compression(void **state)
+{
+    struct torture_state *s = *state;
+    const char *comp = "zlib";
+    int rc;
+
+    rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_COMPRESSION_C_S, comp);
+    assert_ssh_return_code(s->ssh.session, rc);
+
+    rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_COMPRESSION_S_C, comp);
+    assert_ssh_return_code(s->ssh.session, rc);
+
+    torture_rekey_send(state);
+}
+
+#ifdef WITH_SFTP
+static void torture_rekey_recv_compression(void **state)
+{
+    struct torture_state *s = *state;
+    const char *comp = "zlib";
+    int rc;
+
+    rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_COMPRESSION_C_S, comp);
+    assert_ssh_return_code(s->ssh.session, rc);
+
+    rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_COMPRESSION_S_C, comp);
+    assert_ssh_return_code(s->ssh.session, rc);
+
+    torture_rekey_recv(state);
+}
+#endif /* WITH_SFTP */
+#endif
+
+/* Especially the delayed compression by openssh.
+ */
+static void torture_rekey_send_compression_delayed(void **state)
+{
+    struct torture_state *s = *state;
+    const char *comp = "zlib@openssh.com";
+    int rc;
+
+    rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_COMPRESSION_C_S, comp);
+    assert_ssh_return_code(s->ssh.session, rc);
+
+    rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_COMPRESSION_S_C, comp);
+    assert_ssh_return_code(s->ssh.session, rc);
+
+    torture_rekey_send(state);
+}
+
+#ifdef WITH_SFTP
+static void torture_rekey_recv_compression_delayed(void **state)
+{
+    struct torture_state *s = *state;
+    const char *comp = "zlib@openssh.com";
+    int rc;
+
+    rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_COMPRESSION_C_S, comp);
+    assert_ssh_return_code(s->ssh.session, rc);
+
+    rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_COMPRESSION_S_C, comp);
+    assert_ssh_return_code(s->ssh.session, rc);
+
+    torture_rekey_recv(state);
+}
+#endif /* WITH_SFTP */
+#endif /* WITH_ZLIB */
 
 int torture_run_tests(void) {
     int rc;
@@ -703,6 +776,26 @@ int torture_run_tests(void) {
         cmocka_unit_test_setup_teardown(torture_rekey_server_different_kex,
                                         session_setup,
                                         session_teardown),
+#ifdef WITH_ZLIB
+#if (OPENSSH_VERSION_MAJOR == 7 && OPENSSH_VERSION_MINOR < 4) || OPENSSH_VERSION_MAJOR < 7
+        cmocka_unit_test_setup_teardown(torture_rekey_send_compression,
+                                        session_setup,
+                                        session_teardown),
+#ifdef WITH_SFTP
+        cmocka_unit_test_setup_teardown(torture_rekey_recv_compression,
+                                        session_setup_sftp_client,
+                                        session_teardown),
+#endif /* WITH_SFTP */
+#endif
+        cmocka_unit_test_setup_teardown(torture_rekey_send_compression_delayed,
+                                        session_setup,
+                                        session_teardown),
+#ifdef WITH_SFTP
+        cmocka_unit_test_setup_teardown(torture_rekey_recv_compression_delayed,
+                                        session_setup_sftp_client,
+                                        session_teardown),
+#endif /* WITH_SFTP */
+#endif /* WITH_ZLIB */
         /* TODO verify the two rekey are possible and the states are not broken after rekey */
     };
 
