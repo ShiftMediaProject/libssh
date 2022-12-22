@@ -229,6 +229,8 @@ enum ssh_keytypes_e ssh_key_type(const ssh_key key)
  *
  * @param[in]  type     The algorithm type to convert.
  *
+ * @param[in] hash_type The hash type to convert
+ *
  * @return              A string for the keytype or NULL if unknown.
  */
 const char *

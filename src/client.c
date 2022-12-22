@@ -731,7 +731,7 @@ ssh_session_set_disconnect_message(ssh_session session, const char *message)
  * The session can then be reused to open a new session.
  *
  * @note Note that this function won't close the socket if it was set with
- * @ssh_options_set and SSH_OPTIONS_FD. You're responsible for closing the
+ * ssh_options_set and SSH_OPTIONS_FD. You're responsible for closing the
  * socket. This is new behavior in libssh 0.10.
  *
  * @param[in]  session  The SSH session to use.

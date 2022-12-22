@@ -239,7 +239,7 @@ void ssh_socket_set_connected(ssh_socket s, struct ssh_poll_handle_struct *p)
  * @param p             Poll object this callback belongs to.
  * @param fd            The raw socket.
  * @param revents       The current poll events on the socket.
- * @param userdata      Userdata to be passed to the callback function,
+ * @param v_s           Userdata to be passed to the callback function,
  *                      in this case the socket object.
  *
  * @return              0 on success, < 0 when the poll object has been removed
