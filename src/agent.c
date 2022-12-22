@@ -160,7 +160,11 @@ static void agent_set_channel(struct ssh_agent_struct *agent, ssh_channel channe
  * The SSH agent channel will be used to authenticate this client using
  * an agent through a channel, from another session. The most likely use
  * is to implement SSH Agent forwarding into a SSH proxy.
+ *
+ * @param session the session
+ *
  * @param[in] channel a SSH channel from another session.
+ *
  * @returns SSH_OK in case of success
  *          SSH_ERROR in case of an error
  */

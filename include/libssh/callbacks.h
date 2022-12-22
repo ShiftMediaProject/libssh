@@ -84,7 +84,7 @@ typedef void (*ssh_log_callback) (ssh_session session, int priority,
  *
  * @param function  The function name calling the logging functions.
  *
- * @param message   The actual message
+ * @param buffer   The actual message
  *
  * @param userdata Userdata to be passed to the callback function.
  */
@@ -118,6 +118,8 @@ typedef void (*ssh_global_request_callback) (ssh_session session,
  * sends back an X11 connection attempt. This is a client-side API
  * @param session current session handler
  * @param userdata Userdata to be passed to the callback function.
+ * @param originator_address    IP address of the machine who sent the request
+ * @param originator_port   port number of the machine who sent the request
  * @returns a valid ssh_channel handle if the request is to be allowed
  * @returns NULL if the request should not be allowed
  * @warning The channel pointer returned by this callback must be closed by the application.
@@ -626,6 +628,7 @@ typedef void (*ssh_channel_signal_callback) (ssh_session session,
  * @brief SSH channel exit status callback. Called when a channel has received an exit status
  * @param session Current session handler
  * @param channel the actual channel
+ * @param exit_status Exit status of the ran command
  * @param userdata Userdata to be passed to the callback function.
  */
 typedef void (*ssh_channel_exit_status_callback) (ssh_session session,
@@ -653,12 +656,13 @@ typedef void (*ssh_channel_exit_signal_callback) (ssh_session session,
 
 /**
  * @brief SSH channel PTY request from a client.
+ * @param session the session
  * @param channel the channel
  * @param term The type of terminal emulation
  * @param width width of the terminal, in characters
  * @param height height of the terminal, in characters
  * @param pxwidth width of the terminal, in pixels
- * @param pxheight height of the terminal, in pixels
+ * @param pwheight height of the terminal, in pixels
  * @param userdata Userdata to be passed to the callback function.
  * @returns 0 if the pty request is accepted
  * @returns -1 if the request is denied
@@ -672,6 +676,7 @@ typedef int (*ssh_channel_pty_request_callback) (ssh_session session,
 
 /**
  * @brief SSH channel Shell request from a client.
+ * @param session the session
  * @param channel the channel
  * @param userdata Userdata to be passed to the callback function.
  * @returns 0 if the shell request is accepted
@@ -684,6 +689,7 @@ typedef int (*ssh_channel_shell_request_callback) (ssh_session session,
  * @brief SSH auth-agent-request from the client. This request is
  * sent by a client when agent forwarding is available.
  * Server is free to ignore this callback, no answer is expected.
+ * @param session the session
  * @param channel the channel
  * @param userdata Userdata to be passed to the callback function.
  */
@@ -695,7 +701,12 @@ typedef void (*ssh_channel_auth_agent_req_callback) (ssh_session session,
  * @brief SSH X11 request from the client. This request is
  * sent by a client when X11 forwarding is requested(and available).
  * Server is free to ignore this callback, no answer is expected.
+ * @param session the session
  * @param channel the channel
+ * @param single_connection If true, only one channel should be forwarded
+ * @param auth_protocol The X11 authentication method to be used
+ * @param auth_cookie   Authentication cookie encoded hexadecimal
+ * @param screen_number Screen number
  * @param userdata Userdata to be passed to the callback function.
  */
 typedef void (*ssh_channel_x11_req_callback) (ssh_session session,
@@ -707,11 +718,12 @@ typedef void (*ssh_channel_x11_req_callback) (ssh_session session,
                                             void *userdata);
 /**
  * @brief SSH channel PTY windows change (terminal size) from a client.
+ * @param session the session
  * @param channel the channel
  * @param width width of the terminal, in characters
  * @param height height of the terminal, in characters
  * @param pxwidth width of the terminal, in pixels
- * @param pxheight height of the terminal, in pixels
+ * @param pwheight height of the terminal, in pixels
  * @param userdata Userdata to be passed to the callback function.
  * @returns 0 if the pty request is accepted
  * @returns -1 if the request is denied
@@ -724,6 +736,7 @@ typedef int (*ssh_channel_pty_window_change_callback) (ssh_session session,
 
 /**
  * @brief SSH channel Exec request from a client.
+ * @param session the session
  * @param channel the channel
  * @param command the shell command to be executed
  * @param userdata Userdata to be passed to the callback function.
@@ -737,6 +750,7 @@ typedef int (*ssh_channel_exec_request_callback) (ssh_session session,
 
 /**
  * @brief SSH channel environment request from a client.
+ * @param session the session
  * @param channel the channel
  * @param env_name name of the environment value to be set
  * @param env_value value of the environment value to be set
@@ -753,6 +767,7 @@ typedef int (*ssh_channel_env_request_callback) (ssh_session session,
                                             void *userdata);
 /**
  * @brief SSH channel subsystem request from a client.
+ * @param session the session
  * @param channel the channel
  * @param subsystem the subsystem required
  * @param userdata Userdata to be passed to the callback function.
@@ -766,6 +781,8 @@ typedef int (*ssh_channel_subsystem_request_callback) (ssh_session session,
 
 /**
  * @brief SSH channel write will not block (flow control).
+ *
+ * @param session the session
  *
  * @param channel the channel
  *

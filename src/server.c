@@ -1218,7 +1218,7 @@ int ssh_execute_message_callbacks(ssh_session session){
 /**
  * @brief Sends a keepalive message to the session
  *
- * @param The session to send the message to
+ * @param session   The session to send the message to
  *
  * @returns SSH_OK
  */
