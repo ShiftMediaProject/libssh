@@ -296,7 +296,7 @@ LIBSSH_API const char *ssh_message_auth_user(ssh_message msg);
  *
  * @see ssh_message_get()
  * @see ssh_message_type()
- * @warning This function should not be used anymore as there is a
+ * @deprecated This function should not be used anymore as there is a
  * callback based server implementation now auth_password_function.
  */
 SSH_DEPRECATED LIBSSH_API const char *ssh_message_auth_password(ssh_message msg);
@@ -314,14 +314,19 @@ SSH_DEPRECATED LIBSSH_API const char *ssh_message_auth_password(ssh_message msg)
  * @see ssh_key_cmp()
  * @see ssh_message_get()
  * @see ssh_message_type()
- * @warning This function should not be used anymore as there is a
+ * @deprecated This function should not be used anymore as there is a
  * callback based server implementation auth_pubkey_function.
  */
 SSH_DEPRECATED LIBSSH_API ssh_key ssh_message_auth_pubkey(ssh_message msg);
 
 LIBSSH_API int ssh_message_auth_kbdint_is_response(ssh_message msg);
 
-/* Replaced by callback based server implementation auth_pubkey_function */
+/**
+ * @param[in] msg       The message to get the public key state from.
+ *
+ * @deprecated This function should not be used anymore as there is a
+ * callback based server implementation auth_pubkey_function
+ */
 SSH_DEPRECATED LIBSSH_API enum ssh_publickey_state_e ssh_message_auth_publickey_state(ssh_message msg);
 
 LIBSSH_API int ssh_message_auth_reply_success(ssh_message msg,int partial);

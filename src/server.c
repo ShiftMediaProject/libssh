@@ -726,6 +726,15 @@ int ssh_message_service_reply_success(ssh_message msg) {
     return rc;
 }
 
+/**
+ * @brief Send a global request success message
+ *
+ * @param msg The message
+ *
+ * @param bound_port The remote bind port
+ *
+ * @returns SSH_OK on success, otherwise SSH_ERROR
+ */
 int ssh_message_global_request_reply_success(ssh_message msg, uint16_t bound_port) {
     int rc;
 
@@ -842,7 +851,6 @@ ssh_key ssh_message_auth_pubkey(ssh_message msg) {
   return msg->auth_request.pubkey;
 }
 
-/* Get the publickey of an auth request */
 ssh_public_key ssh_message_auth_publickey(ssh_message msg){
   if (msg == NULL) {
     return NULL;
@@ -851,13 +859,6 @@ ssh_public_key ssh_message_auth_publickey(ssh_message msg){
   return ssh_pki_convert_key_to_publickey(msg->auth_request.pubkey);
 }
 
-/**
- * @brief Get the state of the public key authentication process
- *
- * @param msg   The message
- *
- * @returns state of the authentication
- */
 enum ssh_publickey_state_e ssh_message_auth_publickey_state(ssh_message msg){
 	if (msg == NULL) {
 	    return -1;
@@ -865,6 +866,13 @@ enum ssh_publickey_state_e ssh_message_auth_publickey_state(ssh_message msg){
 	  return msg->auth_request.signature_state;
 }
 
+/**
+ *  @brief Check if the message is a keyboard-interactive response
+ *
+ *  @param msg The message to check
+ *
+ *  @returns 1 if the message is a response, otherwise 0
+ */
 int ssh_message_auth_kbdint_is_response(ssh_message msg) {
   if (msg == NULL) {
     return -1;
@@ -874,6 +882,17 @@ int ssh_message_auth_kbdint_is_response(ssh_message msg) {
 }
 
 /* FIXME: methods should be unsigned */
+/**
+ * @brief Sets the supported authentication methods to a message
+ *
+ * @param msg The message
+ *
+ * @param methods Methods to set to the message.
+ * The supported methods are listed in ssh_set_auth_methods
+ * @see ssh_set_auth_methods
+ *
+ * @returns 0 on success, otherwise -1
+ */
 int ssh_message_auth_set_methods(ssh_message msg, int methods) {
   if (msg == NULL || msg->session == NULL) {
     return -1;
@@ -994,6 +1013,17 @@ int ssh_message_auth_interactive_request(ssh_message msg, const char *name,
   return rc;
 }
 
+/**
+ * @brief Sends SSH2_MSG_USERAUTH_SUCCESS or SSH2_MSG_USERAUTH_FAILURE message
+ * depending on the success of the authentication method
+ *
+ * @param session The session to reply to
+ *
+ * @param partial Denotes if the authentication process was partially completed
+ * (unsuccessful)
+ *
+ * @returns SSH_OK on success, otherwise SSH_ERROR
+ */
 int ssh_auth_reply_success(ssh_session session, int partial)
 {
     struct ssh_crypto_struct *crypto = NULL;
@@ -1043,7 +1073,17 @@ int ssh_message_auth_reply_success(ssh_message msg, int partial) {
 	return ssh_auth_reply_success(msg->session, partial);
 }
 
-/* Answer OK to a pubkey auth request */
+/**
+ * @brief Answer SSH2_MSG_USERAUTH_PK_OK to a pubkey authentication request
+ *
+ * @param msg The message
+ *
+ * @param algo The algorithm of the accepted public key
+ *
+ * @param pubkey The accepted public key
+ *
+ * @returns SSH_OK on success, otherwise SSH_ERROR
+ */
 int ssh_message_auth_reply_pk_ok(ssh_message msg, ssh_string algo, ssh_string pubkey) {
     int rc;
     if (msg == NULL) {
@@ -1064,6 +1104,13 @@ int ssh_message_auth_reply_pk_ok(ssh_message msg, ssh_string algo, ssh_string pu
     return rc;
 }
 
+/**
+ * @brief Answer SSH2_MSG_USERAUTH_PK_OK to a pubkey authentication request
+ *
+ * @param msg The message
+ *
+ * @returns SSH_OK on success, otherwise SSH_ERROR
+ */
 int ssh_message_auth_reply_pk_ok_simple(ssh_message msg) {
     ssh_string algo;
     ssh_string pubkey_blob = NULL;
