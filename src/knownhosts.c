@@ -480,6 +480,8 @@ static const char *ssh_known_host_sigs_from_hostkey_type(enum ssh_keytypes_e typ
         return "rsa-sha2-512,rsa-sha2-256,ssh-rsa";
     case SSH_KEYTYPE_ED25519:
         return "ssh-ed25519";
+    case SSH_KEYTYPE_SK_ED25519:
+        return "sk-ssh-ed25519@openssh.com";
 #ifdef HAVE_DSA
     case SSH_KEYTYPE_DSS:
         return "ssh-dss";
@@ -494,6 +496,8 @@ static const char *ssh_known_host_sigs_from_hostkey_type(enum ssh_keytypes_e typ
         return "ecdsa-sha2-nistp384";
     case SSH_KEYTYPE_ECDSA_P521:
         return "ecdsa-sha2-nistp521";
+    case SSH_KEYTYPE_SK_ECDSA:
+        return "sk-ecdsa-sha2-nistp256@openssh.com";
 #else
     case SSH_KEYTYPE_ECDSA_P256:
     case SSH_KEYTYPE_ECDSA_P384:
