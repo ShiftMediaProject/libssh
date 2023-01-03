@@ -101,12 +101,19 @@
 
 #ifdef HAVE_ECDH
 #define ECDH "ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,"
-#define EC_HOSTKEYS "ecdsa-sha2-nistp521,ecdsa-sha2-nistp384,ecdsa-sha2-nistp256,"
-#define EC_PUBLIC_KEY_ALGORITHMS "ecdsa-sha2-nistp521-cert-v01@openssh.com," \
+#define EC_HOSTKEYS "ecdsa-sha2-nistp521," \
+                    "ecdsa-sha2-nistp384," \
+                    "ecdsa-sha2-nistp256,"
+#define EC_SK_HOSTKEYS "sk-ecdsa-sha2-nistp256@openssh.com,"
+#define EC_FIPS_PUBLIC_KEY_ALGOS "ecdsa-sha2-nistp521-cert-v01@openssh.com," \
                                  "ecdsa-sha2-nistp384-cert-v01@openssh.com," \
                                  "ecdsa-sha2-nistp256-cert-v01@openssh.com,"
+#define EC_PUBLIC_KEY_ALGORITHMS EC_FIPS_PUBLIC_KEY_ALGOS \
+                                 "sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,"
 #else
 #define EC_HOSTKEYS ""
+#define EC_SK_HOSTKEYS ""
+#define EC_FIPS_PUBLIC_KEY_ALGOS ""
 #define EC_PUBLIC_KEY_ALGORITHMS ""
 #define ECDH ""
 #endif /* HAVE_ECDH */
@@ -127,16 +134,21 @@
 
 #define HOSTKEYS "ssh-ed25519," \
                  EC_HOSTKEYS \
+                 "sk-ssh-ed25519@openssh.com," \
+                 EC_SK_HOSTKEYS \
                  "rsa-sha2-512," \
                  "rsa-sha2-256," \
                  "ssh-rsa" \
                  DSA_HOSTKEYS
 #define DEFAULT_HOSTKEYS "ssh-ed25519," \
                          EC_HOSTKEYS \
+                         "sk-ssh-ed25519@openssh.com," \
+                         EC_SK_HOSTKEYS \
                          "rsa-sha2-512," \
                          "rsa-sha2-256"
 
 #define PUBLIC_KEY_ALGORITHMS "ssh-ed25519-cert-v01@openssh.com," \
+                              "sk-ssh-ed25519-cert-v01@openssh.com," \
                               EC_PUBLIC_KEY_ALGORITHMS \
                               "rsa-sha2-512-cert-v01@openssh.com," \
                               "rsa-sha2-256-cert-v01@openssh.com," \
@@ -186,7 +198,7 @@
                               "rsa-sha2-512," \
                               "rsa-sha2-256"
 
-#define FIPS_ALLOWED_PUBLIC_KEY_ALGORITHMS EC_PUBLIC_KEY_ALGORITHMS \
+#define FIPS_ALLOWED_PUBLIC_KEY_ALGORITHMS EC_FIPS_PUBLIC_KEY_ALGOS \
                                            "rsa-sha2-512-cert-v01@openssh.com," \
                                            "rsa-sha2-256-cert-v01@openssh.com," \
                                            FIPS_ALLOWED_HOSTKEYS

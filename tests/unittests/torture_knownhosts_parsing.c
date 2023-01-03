@@ -634,7 +634,9 @@ static void torture_knownhosts_algorithms(void **state)
     bool process_config = false;
     const char *expect = "ssh-ed25519,rsa-sha2-512,rsa-sha2-256,"
                          "ecdsa-sha2-nistp521,ecdsa-sha2-nistp384,"
-                         "ecdsa-sha2-nistp256";
+                         "ecdsa-sha2-nistp256,"
+                         "sk-ssh-ed25519@openssh.com,"
+                         "sk-ecdsa-sha2-nistp256@openssh.com";
     const char *expect_fips = "rsa-sha2-512,rsa-sha2-256,ecdsa-sha2-nistp521,"
                               "ecdsa-sha2-nistp384,ecdsa-sha2-nistp256";
 
@@ -669,7 +671,9 @@ static void torture_knownhosts_algorithms_global(void **state)
     bool process_config = false;
     const char *expect = "ssh-ed25519,rsa-sha2-512,rsa-sha2-256,"
                          "ecdsa-sha2-nistp521,ecdsa-sha2-nistp384,"
-                         "ecdsa-sha2-nistp256";
+                         "ecdsa-sha2-nistp256,"
+                         "sk-ssh-ed25519@openssh.com,"
+                         "sk-ecdsa-sha2-nistp256@openssh.com";
     const char *expect_fips = "rsa-sha2-512,rsa-sha2-256,ecdsa-sha2-nistp521,"
                               "ecdsa-sha2-nistp384,ecdsa-sha2-nistp256";
 
