@@ -259,18 +259,18 @@ static void torture_pki_rsa_uri_invalid_configurations(void **state)
     assert_null(pubkey);
 
     rc = ssh_pki_import_privkey_file(test_state->priv_uri_invalid_object,
-                                        NULL,
-                                        NULL,
-                                        NULL,
-                                        &privkey);
+                                     NULL,
+                                     NULL,
+                                     NULL,
+                                     &privkey);
     assert_int_not_equal(rc, 0);
     assert_null(privkey);
 
     rc = ssh_pki_import_privkey_file(test_state->priv_uri_invalid_token,
-                                        NULL,
-                                        NULL,
-                                        NULL,
-                                        &privkey);
+                                     NULL,
+                                     NULL,
+                                     NULL,
+                                     &privkey);
     assert_int_not_equal(rc, 0);
     assert_null(privkey);
 
@@ -278,7 +278,9 @@ static void torture_pki_rsa_uri_invalid_configurations(void **state)
     SSH_KEY_FREE(privkey);
 }
 
-int torture_run_tests(void) {
+int
+torture_run_tests(void)
+{
     int rc;
     struct CMUnitTest tests[] = {
         cmocka_unit_test(torture_pki_rsa_import_pubkey_uri),
@@ -290,11 +292,14 @@ int torture_run_tests(void) {
 
     ssh_session session = ssh_new();
     int verbosity = SSH_LOG_FUNCTIONS;
-    ssh_options_set(session,SSH_OPTIONS_LOG_VERBOSITY,&verbosity);
+
+    ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
     ssh_init();
 
     torture_filter_tests(tests);
-    rc = cmocka_run_group_tests(tests, setup_directory_structure, teardown_directory_structure);
+    rc = cmocka_run_group_tests(tests,
+                                setup_directory_structure,
+                                teardown_directory_structure);
 
     ssh_finalize();
 
