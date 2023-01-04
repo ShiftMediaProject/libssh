@@ -168,8 +168,10 @@ ssh_key ssh_pki_openssh_privkey_import(const char *text_key,
 ssh_string ssh_pki_openssh_privkey_export(const ssh_key privkey,
         const char *passphrase, ssh_auth_callback auth_fn, void *auth_data);
 
+#ifdef WITH_PKCS11_URI
 /* URI Function */
 int pki_uri_import(const char *uri_name, ssh_key *key, enum ssh_key_e key_type);
+#endif /* WITH_PKCS11_URI */
 
 bool ssh_key_size_allowed_rsa(int min_size, ssh_key key);
 #ifdef __cplusplus

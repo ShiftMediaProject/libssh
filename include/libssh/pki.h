@@ -193,8 +193,10 @@ bool ssh_key_size_allowed(ssh_session session, ssh_key key);
 int ssh_key_size(ssh_key key);
 
 /* PKCS11 URI function to check if filename is a path or a PKCS11 URI */
+#ifdef WITH_PKCS11_URI
 bool ssh_pki_is_uri(const char *filename);
 char *ssh_pki_export_pub_uri_from_priv_uri(const char *priv_uri);
+#endif /* WITH_PKCS11_URI */
 
 #ifdef __cplusplus
 }

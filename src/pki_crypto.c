@@ -3445,6 +3445,7 @@ ssh_signature pki_do_sign_hash(const ssh_key privkey,
 }
 #endif /* HAVE_OPENSSL_ED25519 */
 
+#ifdef WITH_PKCS11_URI
 /**
  * @internal
  *
@@ -3612,5 +3613,6 @@ fail:
 
     return SSH_ERROR;
 }
+#endif /* WITH_PKCS11_URI */
 
 #endif /* _PKI_CRYPTO_H */
