@@ -2055,7 +2055,7 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
 #if 0
                 const void *pubkey;
                 size_t pubkey_len;
-                OSSL_PARAM *params, *locate_param;
+                OSSL_PARAM *params = NULL, *locate_param = NULL;
 #endif /* OPENSSL_VERSION_NUMBER */
 
                 type_s = ssh_string_from_char(pki_key_ecdsa_nid_to_char(key->ecdsa_nid));
@@ -2087,13 +2087,6 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
                 e = make_ecpoint_string(EC_KEY_get0_group(key->ecdsa),
                                         EC_KEY_get0_public_key(key->ecdsa));
 #else
-                rc = ssh_buffer_add_ssh_string(buffer, type_s);
-                SSH_STRING_FREE(type_s);
-                if (rc < 0) {
-                    SSH_BUFFER_FREE(buffer);
-                    return NULL;
-                }
-
                 rc = EVP_PKEY_todata(key->key, EVP_PKEY_PUBLIC_KEY, &params);
                 if (rc < 0) {
                     OSSL_PARAM_free(params);
@@ -2114,7 +2107,6 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
                 rc = OSSL_PARAM_get_octet_string_ptr(locate_param, &pubkey, &pubkey_len);
                 if (rc != 1) {
                     OSSL_PARAM_free(params);
-                    OSSL_PARAM_free(locate_param);
                     goto fail;
                 }
 
@@ -2132,7 +2124,6 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
 #if 0
                 if (memcpy(ssh_string_data(e), pubkey, pubkey_len) == NULL) {
                     OSSL_PARAM_free(params);
-                    OSSL_PARAM_free(locate_param);
                     goto fail;
                 }
 #endif /* OPENSSL_VERSION_NUMBER */
@@ -2144,7 +2135,6 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
  */
 #if 0
                     OSSL_PARAM_free(params);
-                    OSSL_PARAM_free(locate_param);
 #endif /* OPENSSL_VERSION_NUMBER */
                     goto fail;
                 }
@@ -2158,13 +2148,12 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
  */
 #if 0
                 OSSL_PARAM_free(params);
-                OSSL_PARAM_free(locate_param);
 #endif /* OPENSSL_VERSION_NUMBER */
 
-            if (key->type == SSH_KEYTYPE_SK_ECDSA &&
-                ssh_buffer_add_ssh_string(buffer, key->sk_application) < 0) {
-                goto fail;
-            }
+                if (key->type == SSH_KEYTYPE_SK_ECDSA &&
+                    ssh_buffer_add_ssh_string(buffer, key->sk_application) < 0) {
+                    goto fail;
+                }
 
                 break;
             }
