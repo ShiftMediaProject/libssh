@@ -1258,7 +1258,7 @@ int ssh_make_sessionid(ssh_session session)
     case SSH_KEX_ECDH_SHA2_NISTP521:
         if (session->next_crypto->ecdh_client_pubkey == NULL ||
             session->next_crypto->ecdh_server_pubkey == NULL) {
-            SSH_LOG(SSH_LOG_TRACE, "ECDH parameted missing");
+            SSH_LOG(SSH_LOG_TRACE, "ECDH parameter missing");
             goto error;
         }
         rc = ssh_buffer_pack(buf,
