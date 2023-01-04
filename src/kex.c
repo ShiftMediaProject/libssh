@@ -99,7 +99,7 @@
 #define CURVE25519 ""
 #endif /* HAVE_CURVE25519 */
 
-#ifdef HAVE_ECDH
+#ifdef HAVE_ECC
 #define ECDH "ecdh-sha2-nistp256,ecdh-sha2-nistp384,ecdh-sha2-nistp521,"
 #define EC_HOSTKEYS "ecdsa-sha2-nistp521," \
                     "ecdsa-sha2-nistp384," \
@@ -111,12 +111,12 @@
 #define EC_PUBLIC_KEY_ALGORITHMS EC_FIPS_PUBLIC_KEY_ALGOS \
                                  "sk-ecdsa-sha2-nistp256-cert-v01@openssh.com,"
 #else
+#define ECDH ""
 #define EC_HOSTKEYS ""
 #define EC_SK_HOSTKEYS ""
 #define EC_FIPS_PUBLIC_KEY_ALGOS ""
 #define EC_PUBLIC_KEY_ALGORITHMS ""
-#define ECDH ""
-#endif /* HAVE_ECDH */
+#endif /* HAVE_ECC */
 
 #ifdef HAVE_DSA
 #define DSA_HOSTKEYS ",ssh-dss"
