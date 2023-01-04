@@ -2543,6 +2543,7 @@ int ssh_key_size(ssh_key key)
     }
 }
 
+#ifdef WITH_PKCS11_URI
 int pki_uri_import(const char *uri_name, ssh_key *key, enum ssh_key_e key_type)
 {
     (void) uri_name;
@@ -2552,4 +2553,5 @@ int pki_uri_import(const char *uri_name, ssh_key *key, enum ssh_key_e key_type)
             "gcrypt does not support PKCS #11");
     return SSH_ERROR;
 }
+#endif /* WITH_PKCS11_URI */
 #endif /* HAVE_LIBGCRYPT */

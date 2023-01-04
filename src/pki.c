@@ -1721,6 +1721,7 @@ fail:
     return SSH_ERROR;
 }
 
+#ifdef WITH_PKCS11_URI
 /**
  *@brief Detect if the pathname in cmp is a PKCS #11 URI.
  *
@@ -1764,6 +1765,7 @@ char *ssh_pki_export_pub_uri_from_priv_uri(const char *priv_uri)
 
     return pub_uri_temp;
 }
+#endif /* WITH_PKCS11_URI */
 
 /**
  * @brief Import a public key from a file or a PKCS #11 device.

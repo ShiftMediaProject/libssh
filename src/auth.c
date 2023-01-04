@@ -1232,6 +1232,7 @@ int ssh_userauth_publickey_auto(ssh_session session,
             state->privkey = NULL;
             state->pubkey = NULL;
 
+#ifdef WITH_PKCS11_URI
             if (ssh_pki_is_uri(privkey_file)) {
                 char *pub_uri_from_priv = NULL;
                 SSH_LOG(SSH_LOG_INFO,
@@ -1244,7 +1245,9 @@ int ssh_userauth_publickey_auto(ssh_session session,
                              pub_uri_from_priv);
                     SAFE_FREE(pub_uri_from_priv);
                 }
-            } else {
+            } else
+#endif /* WITH_PKCS11_URI */
+            {
                 snprintf(pubkey_file, sizeof(pubkey_file), "%s.pub", privkey_file);
             }
 
