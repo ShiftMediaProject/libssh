@@ -489,7 +489,7 @@ static const char *ssh_known_host_sigs_from_hostkey_type(enum ssh_keytypes_e typ
         SSH_LOG(SSH_LOG_WARN, "DSS keys are not supported by this build");
         break;
 #endif
-#ifdef HAVE_ECDH
+#ifdef HAVE_ECC
     case SSH_KEYTYPE_ECDSA_P256:
         return "ecdsa-sha2-nistp256";
     case SSH_KEYTYPE_ECDSA_P384:
