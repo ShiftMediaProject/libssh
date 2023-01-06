@@ -273,9 +273,6 @@ static void torture_pki_rsa_uri_invalid_configurations(void **state)
                                      &privkey);
     assert_int_not_equal(rc, 0);
     assert_null(privkey);
-
-    SSH_KEY_FREE(pubkey);
-    SSH_KEY_FREE(privkey);
 }
 
 int

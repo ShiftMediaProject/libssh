@@ -205,7 +205,7 @@ torture_pki_ecdsa_publickey_from_privatekey_uri(void **state,
 
     snprintf(pub_filename, sizeof(pub_filename), "%s%s%s", LIBSSH_ECDSA_TESTKEY, type, ".pub");
     snprintf(pub_filename_generated, sizeof(pub_filename_generated), "%s%s%s",
-            LIBSSH_ECDSA_TESTKEY_PEM, type, "generated.pub");
+             LIBSSH_ECDSA_TESTKEY_PEM, type, "generated.pub");
     snprintf(pub_filename_pem, sizeof(pub_filename_pem), "%s%s%s", LIBSSH_ECDSA_TESTKEY_PEM, type, ".pub");
 
     rc = torture_read_one_line(pub_filename,
@@ -275,14 +275,12 @@ import_pubkey_without_loading_public_uri(void **state, const char *label)
     rc = ssh_pki_export_pubkey_blob(privkey, &pblob);
     assert_int_not_equal(rc, 0);
     assert_null(pblob);
-    ssh_string_free(pblob);
 
     rc = ssh_pki_export_privkey_to_pubkey(privkey, &pubkey);
     assert_int_not_equal(rc, 0);
     assert_null(pubkey);
 
     SSH_KEY_FREE(privkey);
-    SSH_KEY_FREE(pubkey);
 }
 
 static void torture_pki_ecdsa_import_pubkey_without_loading_public_uri_256(void **state)
@@ -547,9 +545,6 @@ static void torture_pki_ecdsa_import_pubkey_uri_invalid_configurations(void **st
                                      &pubkey);
     assert_int_not_equal(rc, 0);
     assert_null(pubkey);
-
-    SSH_KEY_FREE(privkey);
-    SSH_KEY_FREE(pubkey);
 }
 
 int torture_run_tests(void) {
