@@ -431,7 +431,8 @@ static void torture_pki_ecdsa_generate_pubkey_from_privkey(void **state)
                                sizeof(pubkey_generated));
     assert_true(rc == 0);
     len = torture_pubkey_len(pubkey_original);
-    assert_int_equal(strncmp(pubkey_original, pubkey_generated, len), 0);
+    assert_int_equal(len, torture_pubkey_len(pubkey_generated));
+    assert_memory_equal(pubkey_original, pubkey_generated, len);
 
     SSH_KEY_FREE(privkey);
     SSH_KEY_FREE(pubkey);
@@ -551,9 +552,9 @@ static void torture_pki_generate_key_ecdsa(void **state)
     type = ssh_key_type(key);
     assert_true(type == SSH_KEYTYPE_ECDSA_P256);
     type_char = ssh_key_type_to_char(type);
-    assert_true(strcmp(type_char, "ecdsa-sha2-nistp256") == 0);
+    assert_string_equal(type_char, "ecdsa-sha2-nistp256");
     etype_char = ssh_pki_key_ecdsa_name(key);
-    assert_true(strcmp(etype_char, "ecdsa-sha2-nistp256") == 0);
+    assert_string_equal(etype_char, "ecdsa-sha2-nistp256");
 
     ssh_signature_free(sign);
     SSH_KEY_FREE(key);
@@ -573,9 +574,9 @@ static void torture_pki_generate_key_ecdsa(void **state)
     type = ssh_key_type(key);
     assert_true(type == SSH_KEYTYPE_ECDSA_P256);
     type_char = ssh_key_type_to_char(type);
-    assert_true(strcmp(type_char, "ecdsa-sha2-nistp256") == 0);
+    assert_string_equal(type_char, "ecdsa-sha2-nistp256");
     etype_char = ssh_pki_key_ecdsa_name(key);
-    assert_true(strcmp(etype_char, "ecdsa-sha2-nistp256") == 0);
+    assert_string_equal(etype_char, "ecdsa-sha2-nistp256");
 
     ssh_signature_free(sign);
     SSH_KEY_FREE(key);
@@ -594,9 +595,9 @@ static void torture_pki_generate_key_ecdsa(void **state)
     type = ssh_key_type(key);
     assert_true(type == SSH_KEYTYPE_ECDSA_P384);
     type_char = ssh_key_type_to_char(type);
-    assert_true(strcmp(type_char, "ecdsa-sha2-nistp384") == 0);
-    etype_char =ssh_pki_key_ecdsa_name(key);
-    assert_true(strcmp(etype_char, "ecdsa-sha2-nistp384") == 0);
+    assert_string_equal(type_char, "ecdsa-sha2-nistp384");
+    etype_char = ssh_pki_key_ecdsa_name(key);
+    assert_string_equal(etype_char, "ecdsa-sha2-nistp384");
 
     ssh_signature_free(sign);
     SSH_KEY_FREE(key);
@@ -616,9 +617,9 @@ static void torture_pki_generate_key_ecdsa(void **state)
     type = ssh_key_type(key);
     assert_true(type == SSH_KEYTYPE_ECDSA_P384);
     type_char = ssh_key_type_to_char(type);
-    assert_true(strcmp(type_char, "ecdsa-sha2-nistp384") == 0);
-    etype_char =ssh_pki_key_ecdsa_name(key);
-    assert_true(strcmp(etype_char, "ecdsa-sha2-nistp384") == 0);
+    assert_string_equal(type_char, "ecdsa-sha2-nistp384");
+    etype_char = ssh_pki_key_ecdsa_name(key);
+    assert_string_equal(etype_char, "ecdsa-sha2-nistp384");
 
     ssh_signature_free(sign);
     SSH_KEY_FREE(key);
@@ -637,9 +638,9 @@ static void torture_pki_generate_key_ecdsa(void **state)
     type = ssh_key_type(key);
     assert_true(type == SSH_KEYTYPE_ECDSA_P521);
     type_char = ssh_key_type_to_char(type);
-    assert_true(strcmp(type_char, "ecdsa-sha2-nistp521") == 0);
+    assert_string_equal(type_char, "ecdsa-sha2-nistp521");
     etype_char =ssh_pki_key_ecdsa_name(key);
-    assert_true(strcmp(etype_char, "ecdsa-sha2-nistp521") == 0);
+    assert_string_equal(etype_char, "ecdsa-sha2-nistp521");
 
     ssh_signature_free(sign);
     SSH_KEY_FREE(key);
@@ -659,9 +660,9 @@ static void torture_pki_generate_key_ecdsa(void **state)
     type = ssh_key_type(key);
     assert_true(type == SSH_KEYTYPE_ECDSA_P521);
     type_char = ssh_key_type_to_char(type);
-    assert_true(strcmp(type_char, "ecdsa-sha2-nistp521") == 0);
-    etype_char =ssh_pki_key_ecdsa_name(key);
-    assert_true(strcmp(etype_char, "ecdsa-sha2-nistp521") == 0);
+    assert_string_equal(type_char, "ecdsa-sha2-nistp521");
+    etype_char = ssh_pki_key_ecdsa_name(key);
+    assert_string_equal(etype_char, "ecdsa-sha2-nistp521");
 
     ssh_signature_free(sign);
     SSH_KEY_FREE(key);
@@ -917,7 +918,7 @@ static void torture_pki_ecdsa_name(void **state, const char *expected_name)
     assert_non_null(key);
 
     etype_char =ssh_pki_key_ecdsa_name(key);
-    assert_true(strcmp(etype_char, expected_name) == 0);
+    assert_string_equal(etype_char, expected_name);
 
     SSH_KEY_FREE(key);
 }
