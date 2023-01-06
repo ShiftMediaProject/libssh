@@ -111,11 +111,7 @@ struct ssh_crypto_struct {
 #endif /* WITH_GEX */
 #ifdef HAVE_ECDH
 #ifdef HAVE_OPENSSL_ECC
-/* TODO Change to new API when the OpenSSL will support export of uncompressed EC keys
- * https://github.com/openssl/openssl/pull/16624
- * #if OPENSSL_VERSION_NUMBER < 0x30000000L
- */
-#if 1
+#if OPENSSL_VERSION_NUMBER < 0x30000000L
     EC_KEY *ecdh_privkey;
 #else
     EVP_PKEY *ecdh_privkey;

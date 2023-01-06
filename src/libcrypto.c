@@ -1505,57 +1505,59 @@ int evp_build_pkey(const char* name, OSSL_PARAM_BLD *param_bld,
  *
  * @return 0 on success, -1 on error
  */
-static int evp_dup_pkey(const char* name, const ssh_key key, int demote,
-                        ssh_key new_key)
+static int
+evp_dup_pkey(const char *name, const ssh_key key, int demote, ssh_key new_key)
 {
     int rc;
-    EVP_PKEY_CTX *ctx = EVP_PKEY_CTX_new_from_name(NULL, name, NULL);
+    EVP_PKEY_CTX *ctx = NULL;
     OSSL_PARAM *params = NULL;
 
+    /* The simple case -- just reference the existing key */
+    if (!demote || (key->flags & SSH_KEY_FLAG_PRIVATE) == 0) {
+        rc = EVP_PKEY_up_ref(key->key);
+        if (rc != 1) {
+            return -1;
+        }
+        new_key->key = key->key;
+        return SSH_OK;
+    }
+
+    /* demote == 1 */
+    ctx = EVP_PKEY_CTX_new_from_name(NULL, name, NULL);
     if (ctx == NULL) {
         return -1;
     }
 
-    if (!demote && (key->flags & SSH_KEY_FLAG_PRIVATE)) {
-        rc = EVP_PKEY_todata(key->key, EVP_PKEY_KEYPAIR, &params);
-        if (rc != 1) {
-            EVP_PKEY_CTX_free(ctx);
-            return -1;
-        }
+    rc = EVP_PKEY_todata(key->key, EVP_PKEY_PUBLIC_KEY, &params);
+    if (rc != 1) {
+        EVP_PKEY_CTX_free(ctx);
+        return -1;
+    }
 
-        rc = EVP_PKEY_fromdata_init(ctx);
-        if (rc != 1) {
+    if (strcmp(name, "EC") == 0) {
+        OSSL_PARAM *locate_param = NULL;
+        /* For ECC keys provided by engine or provider, we need to have the
+         * explicit public part available, otherwise the key will not be
+         * usable */
+        locate_param = OSSL_PARAM_locate(params, OSSL_PKEY_PARAM_PUB_KEY);
+        if (locate_param == NULL) {
             EVP_PKEY_CTX_free(ctx);
             OSSL_PARAM_free(params);
             return -1;
         }
+    }
+    rc = EVP_PKEY_fromdata_init(ctx);
+    if (rc != 1) {
+        EVP_PKEY_CTX_free(ctx);
+        OSSL_PARAM_free(params);
+        return -1;
+    }
 
-        rc = EVP_PKEY_fromdata(ctx, &(new_key->key), EVP_PKEY_KEYPAIR, params);
-        if (rc != 1) {
-            EVP_PKEY_CTX_free(ctx);
-            OSSL_PARAM_free(params);
-            return -1;
-        }
-    } else {
-        rc = EVP_PKEY_todata(key->key, EVP_PKEY_PUBLIC_KEY, &params);
-        if (rc != 1) {
-            EVP_PKEY_CTX_free(ctx);
-            return -1;
-        }
-
-        rc = EVP_PKEY_fromdata_init(ctx);
-        if (rc != 1) {
-            EVP_PKEY_CTX_free(ctx);
-            OSSL_PARAM_free(params);
-            return -1;
-        }
-
-        rc = EVP_PKEY_fromdata(ctx, &(new_key->key), EVP_PKEY_PUBLIC_KEY, params);
-        if (rc != 1) {
-            EVP_PKEY_CTX_free(ctx);
-            OSSL_PARAM_free(params);
-            return -1;
-        }
+    rc = EVP_PKEY_fromdata(ctx, &(new_key->key), EVP_PKEY_PUBLIC_KEY, params);
+    if (rc != 1) {
+        EVP_PKEY_CTX_free(ctx);
+        OSSL_PARAM_free(params);
+        return -1;
     }
 
     OSSL_PARAM_free(params);
@@ -1580,4 +1582,54 @@ int evp_dup_ecdsa_pkey(const ssh_key key, ssh_key new_key, int demote)
 }
 #endif /* OPENSSL_VERSION_NUMBER */
 
+ssh_string
+pki_key_make_ecpoint_string(const EC_GROUP *g, const EC_POINT *p)
+{
+    ssh_string s = NULL;
+    size_t len;
+
+    len = EC_POINT_point2oct(g,
+                             p,
+                             POINT_CONVERSION_UNCOMPRESSED,
+                             NULL,
+                             0,
+                             NULL);
+    if (len == 0) {
+        return NULL;
+    }
+
+    s = ssh_string_new(len);
+    if (s == NULL) {
+        return NULL;
+    }
+
+    len = EC_POINT_point2oct(g,
+                             p,
+                             POINT_CONVERSION_UNCOMPRESSED,
+                             ssh_string_data(s),
+                             ssh_string_len(s),
+                             NULL);
+    if (len != ssh_string_len(s)) {
+        SSH_STRING_FREE(s);
+        return NULL;
+    }
+
+    return s;
+}
+
+int pki_key_ecgroup_name_to_nid(const char *group)
+{
+    if (strcmp(group, NISTP256) == 0 ||
+        strcmp(group, "secp256r1") == 0 ||
+        strcmp(group, "prime256v1") == 0) {
+        return NID_X9_62_prime256v1;
+    } else if (strcmp(group, NISTP384) == 0 ||
+               strcmp(group, "secp384r1") == 0) {
+        return NID_secp384r1;
+    } else if (strcmp(group, NISTP521) == 0 ||
+               strcmp(group, "secp521r1") == 0) {
+        return NID_secp521r1;
+    }
+    return -1;
+}
 #endif /* LIBCRYPTO */

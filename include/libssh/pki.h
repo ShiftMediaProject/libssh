@@ -65,17 +65,8 @@ struct ssh_key_struct {
     mbedtls_ecdsa_context *ecdsa;
     void *dsa;
 #elif defined(HAVE_LIBCRYPTO)
-/* TODO Change to new API when the OpenSSL will support export of uncompressed EC keys
- * https://github.com/openssl/openssl/pull/16624
- * Move into the #if above
- */
-# if defined(HAVE_OPENSSL_ECC)
-    EC_KEY *ecdsa;
-# else
-    void *ecdsa;
-# endif /* HAVE_OPENSSL_EC_H */
     /* This holds either ENGINE key for PKCS#11 support or just key in
-     * high-level format required by OpenSSL 3.0 */
+     * high-level format */
     EVP_PKEY *key;
     uint8_t *ed25519_pubkey;
     uint8_t *ed25519_privkey;
@@ -103,7 +94,7 @@ struct ssh_signature_struct {
 #endif /* HAVE_LIBGCRYPT */
 #ifndef HAVE_LIBCRYPTO
     ed25519_signature *ed25519_sig;
-#endif
+#endif /* HAVE_LIBGCRYPT */
     ssh_string raw_sig;
 
     /* Security Key specific additions */

@@ -25,6 +25,7 @@
 
 #ifdef HAVE_LIBCRYPTO
 
+#include "libssh/libssh.h"
 #include <openssl/dsa.h>
 #include <openssl/rsa.h>
 #include <openssl/sha.h>
@@ -32,6 +33,7 @@
 #include <openssl/hmac.h>
 #include <openssl/evp.h>
 #include <openssl/crypto.h>
+#include <openssl/ec.h>
 
 typedef EVP_MD_CTX* SHACTX;
 typedef EVP_MD_CTX* SHA256CTX;
@@ -116,6 +118,8 @@ typedef BN_CTX* bignum_CTX;
 #define ssh_fips_mode() false
 #endif
 
+ssh_string pki_key_make_ecpoint_string(const EC_GROUP *g, const EC_POINT *p);
+int pki_key_ecgroup_name_to_nid(const char *group);
 #endif /* HAVE_LIBCRYPTO */
 
 #endif /* LIBCRYPTO_H_ */
