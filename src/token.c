@@ -435,7 +435,7 @@ char *ssh_remove_all_matching(const char *list,
     size_t len, pos = 0;
     bool exclude;
 
-    if ((list == NULL)) {
+    if (list == NULL) {
         return NULL;
     }
     if (remove_list == NULL) {
