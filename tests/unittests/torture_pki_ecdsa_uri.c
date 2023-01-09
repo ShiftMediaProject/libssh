@@ -143,7 +143,7 @@ static void torture_pki_ecdsa_import_pubkey_uri(void **state, const char *label)
     assert_non_null(pubkey);
 
     rc = ssh_key_is_public(pubkey);
-    assert_true(rc == 1);
+    assert_int_equal(rc, 1);
 
     SSH_KEY_FREE(pubkey);
 }
@@ -189,18 +189,15 @@ torture_pki_ecdsa_publickey_from_privatekey_uri(void **state,
                                      NULL,
                                      &privkey);
     assert_return_code(rc, errno);
-    assert_true(rc == 0);
     assert_non_null(privkey);
 
     rc = ssh_pki_export_pubkey_blob(privkey, &pblob);
     assert_return_code(rc, errno);
-    assert_true(rc == SSH_OK);
     assert_non_null(pblob);
     ssh_string_free(pblob);
 
     rc = ssh_pki_export_privkey_to_pubkey(privkey, &pubkey);
     assert_return_code(rc, errno);
-    assert_true(rc == SSH_OK);
     assert_non_null(pubkey);
 
     snprintf(pub_filename, sizeof(pub_filename), "%s%s%s", LIBSSH_ECDSA_TESTKEY, type, ".pub");
@@ -211,11 +208,10 @@ torture_pki_ecdsa_publickey_from_privatekey_uri(void **state,
     rc = torture_read_one_line(pub_filename,
                                pubkey_original,
                                sizeof(pubkey_original));
-    assert_true(rc == 0);
+    assert_return_code(rc, errno);
 
     rc = ssh_pki_export_pubkey_file(pubkey, pub_filename_generated);
     assert_return_code(rc, errno);
-    assert_true(rc == 0);
 
     /* remove the public key, generate it from the private key and write it. */
     unlink(pub_filename);
@@ -228,7 +224,7 @@ torture_pki_ecdsa_publickey_from_privatekey_uri(void **state,
     rc = torture_read_one_line(pub_filename_pem,
                                pubkey_generated,
                                sizeof(pubkey_generated));
-    assert_true(rc == 0);
+    assert_return_code(rc, errno);
 
     assert_memory_equal(pubkey_original, pubkey_generated, strlen(pubkey_original));
 
@@ -269,7 +265,6 @@ import_pubkey_without_loading_public_uri(void **state, const char *label)
                                      NULL,
                                      &privkey);
     assert_return_code(rc, errno);
-    assert_true(rc == 0);
     assert_non_null(privkey);
 
     rc = ssh_pki_export_pubkey_blob(privkey, &pblob);
@@ -323,12 +318,10 @@ torture_ecdsa_sign_verify_uri(void **state,
                                      NULL,
                                      &privkey);
     assert_return_code(rc, errno);
-    assert_true(rc == 0);
     assert_non_null(privkey);
 
     rc = ssh_pki_export_privkey_to_pubkey(privkey, &pubkey);
     assert_return_code(rc, errno);
-    assert_int_equal(rc, SSH_OK);
     assert_non_null(pubkey);
 
     sign = pki_do_sign(privkey, INPUT, sizeof(INPUT), dig_type);
@@ -336,7 +329,6 @@ torture_ecdsa_sign_verify_uri(void **state,
 
     rc = ssh_pki_signature_verify(session, sign, pubkey, INPUT, sizeof(INPUT));
     assert_return_code(rc, errno);
-    assert_true(rc == SSH_OK);
 
     type = ssh_key_type(privkey);
     type_char = ssh_key_type_to_char(type);
@@ -403,11 +395,11 @@ static void torture_pki_ecdsa_duplicate_key_uri(void **state, const char *label)
     assert_in_range(rc, 0, sizeof(priv_uri) - 1);
 
     rc = ssh_pki_import_pubkey_file(pub_uri, &pubkey);
-    assert_true(rc == 0);
+    assert_return_code(rc, errno);
     assert_non_null(pubkey);
 
     rc = ssh_pki_export_pubkey_base64(pubkey, &b64_key);
-    assert_true(rc == 0);
+    assert_return_code(rc, errno);
     assert_non_null(b64_key);
 
     rc = ssh_pki_import_privkey_file(priv_uri,
@@ -415,27 +407,27 @@ static void torture_pki_ecdsa_duplicate_key_uri(void **state, const char *label)
                                      NULL,
                                      NULL,
                                      &privkey);
-    assert_true(rc == 0);
+    assert_return_code(rc, errno);
     assert_non_null(privkey);
 
     privkey_dup = ssh_key_dup(privkey);
     assert_non_null(privkey_dup);
 
     rc = ssh_pki_export_privkey_to_pubkey(privkey, &pubkey_dup);
-    assert_true(rc == SSH_OK);
+    assert_return_code(rc, errno);
     assert_non_null(pubkey_dup);
 
     rc = ssh_pki_export_pubkey_base64(pubkey_dup, &b64_key_gen);
-    assert_true(rc == 0);
+    assert_return_code(rc, errno);
     assert_non_null(b64_key_gen);
 
     assert_string_equal(b64_key, b64_key_gen);
 
     rc = ssh_key_cmp(privkey, privkey_dup, SSH_KEY_CMP_PRIVATE);
-    assert_true(rc == 0);
+    assert_return_code(rc, errno);
 
     rc = ssh_key_cmp(pubkey, pubkey_dup, SSH_KEY_CMP_PUBLIC);
-    assert_true(rc == 0);
+    assert_return_code(rc, errno);
 
     SSH_KEY_FREE(pubkey);
     SSH_KEY_FREE(pubkey_dup);
@@ -479,7 +471,7 @@ torture_pki_ecdsa_duplicate_then_demote_uri(void **state, const char *label)
                                      NULL,
                                      NULL,
                                      &privkey);
-    assert_int_equal(rc, 0);
+    assert_return_code(rc, errno);
     assert_non_null(privkey);
 
     privkey_dup = ssh_key_dup(privkey);
@@ -487,7 +479,7 @@ torture_pki_ecdsa_duplicate_then_demote_uri(void **state, const char *label)
     assert_int_equal(privkey->ecdsa_nid, privkey_dup->ecdsa_nid);
 
     rc = ssh_pki_export_privkey_to_pubkey(privkey_dup, &pubkey);
-    assert_int_equal(rc, 0);
+    assert_return_code(rc, errno);
     assert_non_null(pubkey);
     assert_int_equal(pubkey->ecdsa_nid, privkey->ecdsa_nid);
 

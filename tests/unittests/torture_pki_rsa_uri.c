@@ -157,7 +157,7 @@ static void torture_pki_rsa_import_pubkey_uri(void **state)
     assert_non_null(pubkey);
 
     rc = ssh_key_is_public(pubkey);
-    assert_true(rc == 1);
+    assert_int_equal(rc, 1);
 
     SSH_KEY_FREE(pubkey);
 }
@@ -173,11 +173,11 @@ static void torture_pki_rsa_import_privkey_uri(void **state)
                                         NULL,
                                         NULL,
                                         &privkey);
-    assert_true(rc == 0);
+    assert_return_code(rc, errno);
     assert_non_null(privkey);
 
     rc = ssh_key_is_private(privkey);
-    assert_true(rc == 1);
+    assert_int_equal(rc, 1);
 
     SSH_KEY_FREE(privkey);
 }
@@ -196,18 +196,18 @@ static void torture_pki_sign_verify_uri(void **state)
                                         NULL,
                                         NULL,
                                         &privkey);
-    assert_int_equal(rc, SSH_OK);
+    assert_return_code(rc, errno);
     assert_non_null(privkey);
 
     rc = ssh_pki_import_pubkey_file(test_state->pub_uri, &pubkey);
-    assert_int_equal(rc, SSH_OK);
+    assert_return_code(rc, errno);
     assert_non_null(pubkey);
 
     sign = pki_do_sign(privkey, INPUT, sizeof(INPUT), SSH_DIGEST_SHA256);
     assert_non_null(sign);
 
     rc = ssh_pki_signature_verify(session, sign, pubkey, INPUT, sizeof(INPUT));
-    assert_true(rc == SSH_OK);
+    assert_return_code(rc, errno);
 
     ssh_signature_free(sign);
     SSH_KEY_FREE(privkey);
@@ -228,14 +228,14 @@ static void torture_pki_rsa_publickey_from_privatekey_uri(void **state)
                                         NULL,
                                         NULL,
                                         &privkey);
-    assert_true(rc == 0);
+    assert_return_code(rc, errno);
     assert_non_null(privkey);
 
     rc = ssh_key_is_private(privkey);
-    assert_true(rc == 1);
+    assert_int_equal(rc, 1);
 
     rc = ssh_pki_export_privkey_to_pubkey(privkey, &pubkey);
-    assert_true(rc == SSH_OK);
+    assert_return_code(rc, errno);
     assert_non_null(pubkey);
 
     SSH_KEY_FREE(privkey);
