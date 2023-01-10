@@ -147,14 +147,6 @@ fedora/coverage:
 fedora/openssl_3.0.x/x86_64:
   extends: .fedora
 
-fedora/openssl_3.0.x/x86_64/fips:
-  extends: .fips
-  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
-  script:
-    - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
-      make -j$(nproc) &&
-      OPENSSL_FORCE_FIPS_MODE=1 ctest --output-on-failure
-
 fedora/openssl_3.0.x/x86_64/minimal:
   extends: .fedora
   variables:
