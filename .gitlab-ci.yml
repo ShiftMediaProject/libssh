@@ -312,7 +312,7 @@ fedora/csbuild/mbedtls:
 ###############################################################################
 #                               Ubuntu builds                                 #
 ###############################################################################
-ubuntu/openssl_1.1.x/x86_64:
+ubuntu/openssl_3.0.x/x86_64:
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$UBUNTU_BUILD
   extends: .tests
 
@@ -320,7 +320,7 @@ ubuntu/openssl_1.1.x/x86_64:
 ###############################################################################
 #                               Alpine builds                                 #
 ###############################################################################
-alpine/musl:
+alpine/openssl_3.0.x/musl:
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$ALPINE_BUILD
   extends: .tests
   script:
@@ -405,7 +405,7 @@ tumbleweed/static-analysis:
 ###############################################################################
 # That is a specific runner that we cannot enable universally.
 # We restrict it to builds under the $BUILD_IMAGES_PROJECT project.
-freebsd/x86_64:
+freebsd/openssl_1.1.1/x86_64:
   image:
   extends: .tests
   before_script:
