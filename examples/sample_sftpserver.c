@@ -659,7 +659,6 @@ static int process_readdir(sftp_client_message client_msg)
     DIR *dir = NULL;
 
     char long_path[PATH_MAX];
-    int path_length;
     int srclen;
     char *handle_name;
 
@@ -692,9 +691,6 @@ static int process_readdir(sftp_client_message client_msg)
         sftp_reply_status(client_msg, SSH_FX_INVALID_HANDLE, NULL);
         return SSH_ERROR;
     }
-    strncpy(long_path, handle_name, PATH_MAX - strlen(long_path) - 1);
-    strncat(long_path, "/", PATH_MAX - strlen(long_path) - 1);
-    path_length = (int)strlen(long_path);
 
     for (int i = 0; i < MAX_ENTRIES_NUM_IN_PACKET; i++)
     {
@@ -706,13 +702,13 @@ static int process_readdir(sftp_client_message client_msg)
             struct stat st;
             char long_name[MAX_LONG_NAME_LEN];
 
-            if (strlen(dentry->d_name) + path_length + 1 >= PATH_MAX)
+            if (strlen(dentry->d_name) + srclen + 1 >= PATH_MAX)
             {
                 printf("handle string length exceed max length!\n");
                 sftp_reply_status(client_msg, SSH_FX_INVALID_HANDLE, NULL);
                 return SSH_ERROR;
             }
-            strncpy(&long_path[path_length], dentry->d_name, strlen(dentry->d_name) + 1);
+            snprintf(long_path, PATH_MAX, "%s/%s", handle_name, dentry->d_name);
 
             if (lstat(long_path, &st) == 0)
             {
