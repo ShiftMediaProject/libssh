@@ -77,14 +77,13 @@ struct ssh_key_struct {
     /* This holds either ENGINE key for PKCS#11 support or just key in
      * high-level format required by OpenSSL 3.0 */
     EVP_PKEY *key;
-#endif /* HAVE_LIBGCRYPT */
-#ifdef HAVE_LIBCRYPTO
     uint8_t *ed25519_pubkey;
     uint8_t *ed25519_privkey;
-#else
+#endif /* HAVE_LIBGCRYPT */
+#ifndef HAVE_LIBCRYPTO
     ed25519_pubkey *ed25519_pubkey;
     ed25519_privkey *ed25519_privkey;
-#endif
+#endif /* HAVE_LIBCRYPTO */
     ssh_string sk_application;
     void *cert;
     enum ssh_keytypes_e cert_type;

@@ -1178,7 +1178,6 @@ ssh_string pki_private_key_to_pem(const ssh_key key,
             break;
 #endif /* OPENSSL_VERSION_NUMBER */
         case SSH_KEYTYPE_ED25519:
-#ifdef HAVE_LIBCRYPTO
             /* In OpenSSL, the input is the private key seed only, which means
              * the first half of the SSH private key (the second half is the
              * public key) */
@@ -1195,10 +1194,6 @@ ssh_string pki_private_key_to_pem(const ssh_key key,
             /* Mark the operation as successful as for the other key types */
             rc = 1;
             break;
-#else
-            SSH_LOG(SSH_LOG_TRACE, "PEM output not supported for key type ssh-ed25519");
-            goto err;
-#endif /* HAVE_LIBCRYPTO */
         case SSH_KEYTYPE_DSS_CERT01:
         case SSH_KEYTYPE_RSA_CERT01:
         case SSH_KEYTYPE_ECDSA_P256_CERT01:
@@ -1275,11 +1270,7 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
 #else
     void *ecdsa = NULL;
 #endif /* HAVE_OPENSSL_ECC */
-#ifdef HAVE_LIBCRYPTO
     uint8_t *ed25519 = NULL;
-#else
-    ed25519_privkey *ed25519 = NULL;
-#endif /* HAVE_LIBCRYPTO */
     ssh_key key = NULL;
     enum ssh_keytypes_e type = SSH_KEYTYPE_UNKNOWN;
     EVP_PKEY *pkey = NULL;
@@ -1352,7 +1343,6 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
  */
         break;
 #endif /* HAVE_OPENSSL_ECC */
-#ifdef HAVE_LIBCRYPTO
     case EVP_PKEY_ED25519:
     {
         size_t key_len;
@@ -1389,7 +1379,6 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
 
     }
     break;
-#endif /* HAVE_LIBCRYPTO */
     default:
         SSH_LOG(SSH_LOG_TRACE, "Unknown or invalid private key type %d",
                 EVP_PKEY_base_id(pkey));
@@ -1437,9 +1426,7 @@ fail:
 #ifdef HAVE_OPENSSL_ECC
     EC_KEY_free(ecdsa);
 #endif
-#ifdef HAVE_LIBCRYPTO
     SAFE_FREE(ed25519);
-#endif
     return NULL;
 }
 
@@ -2930,7 +2917,6 @@ static EVP_PKEY *pki_key_to_pkey(ssh_key key)
     case SSH_KEYTYPE_ED25519_CERT01:
     case SSH_KEYTYPE_SK_ED25519:
     case SSH_KEYTYPE_SK_ED25519_CERT01:
-# ifdef HAVE_LIBCRYPTO
         if (ssh_key_is_private(key)) {
             if (key->ed25519_privkey == NULL) {
                 SSH_LOG(SSH_LOG_TRACE, "NULL key->ed25519_privkey");
@@ -2958,7 +2944,6 @@ static EVP_PKEY *pki_key_to_pkey(ssh_key key)
             return NULL;
         }
         break;
-#endif
     case SSH_KEYTYPE_UNKNOWN:
     default:
         SSH_LOG(SSH_LOG_TRACE, "Unknown private key algorithm for type: %d",
@@ -3013,14 +2998,6 @@ ssh_signature pki_sign_data(const ssh_key privkey,
     if (rc != SSH_OK) {
         return NULL;
     }
-
-#ifndef HAVE_LIBCRYPTO
-    if (privkey->type == SSH_KEYTYPE_ED25519 ||
-        privkey->type == SSH_KEYTYPE_ED25519_CERT01)
-    {
-        return pki_do_sign_hash(privkey, input, input_len, hash_type);
-    }
-#endif
 
     /* Set hash algorithm to be used */
     md = pki_digest_to_md(hash_type);
@@ -3137,11 +3114,7 @@ int pki_verify_data_signature(ssh_signature signature,
     int evp_rc;
 
     if (pubkey == NULL || ssh_key_is_private(pubkey) || input == NULL ||
-        signature == NULL || (signature->raw_sig == NULL
-#ifndef HAVE_LIBCRYPTO
-        && signature->ed25519_sig == NULL
-#endif
-        ))
+        signature == NULL || signature->raw_sig == NULL)
     {
         SSH_LOG(SSH_LOG_TRACE, "Bad parameter provided to "
                                "pki_verify_data_signature()");
@@ -3153,16 +3126,6 @@ int pki_verify_data_signature(ssh_signature signature,
     if (rc != SSH_OK) {
         return SSH_ERROR;
     }
-
-#ifndef HAVE_LIBCRYPTO
-    if (pubkey->type == SSH_KEYTYPE_ED25519 ||
-        pubkey->type == SSH_KEYTYPE_ED25519_CERT01 ||
-        pubkey->type == SSH_KEYTYPE_SK_ED25519 ||
-        pubkey->type == SSH_KEYTYPE_SK_ED25519_CERT01)
-    {
-        return pki_ed25519_verify(pubkey, signature, input, input_len);
-    }
-#endif
 
     /* Get the signature to be verified */
     raw_sig_data = ssh_string_data(signature->raw_sig);
@@ -3260,7 +3223,6 @@ int ssh_key_size(ssh_key key)
     }
 }
 
-#ifdef HAVE_LIBCRYPTO
 int pki_key_generate_ed25519(ssh_key key)
 {
     int evp_rc;
@@ -3345,40 +3307,6 @@ error:
 
     return SSH_ERROR;
 }
-#else
-ssh_signature pki_do_sign_hash(const ssh_key privkey,
-                               const unsigned char *hash,
-                               size_t hlen,
-                               enum ssh_digest_e hash_type)
-{
-    ssh_signature sig = NULL;
-    int rc;
-
-    sig = ssh_signature_new();
-    if (sig == NULL) {
-        return NULL;
-    }
-
-    sig->type = privkey->type;
-    sig->type_c = ssh_key_signature_to_char(privkey->type, hash_type);
-    sig->hash_type = hash_type;
-
-    switch(privkey->type) {
-        case SSH_KEYTYPE_ED25519:
-            rc = pki_ed25519_sign(privkey, sig, hash, hlen);
-            if (rc != SSH_OK) {
-                ssh_signature_free(sig);
-                return NULL;
-            }
-            break;
-        default:
-            ssh_signature_free(sig);
-            return NULL;
-    }
-
-    return sig;
-}
-#endif /* HAVE_LIBCRYPTO */
 
 #ifdef WITH_PKCS11_URI
 /**

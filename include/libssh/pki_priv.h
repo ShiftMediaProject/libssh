@@ -146,10 +146,12 @@ ssh_signature pki_do_sign_hash(const ssh_key privkey,
                                const unsigned char *hash,
                                size_t hlen,
                                enum ssh_digest_e hash_type);
+#ifndef HAVE_LIBCRYPTO
 int pki_ed25519_sign(const ssh_key privkey, ssh_signature sig,
         const unsigned char *hash, size_t hlen);
 int pki_ed25519_verify(const ssh_key pubkey, ssh_signature sig,
         const unsigned char *hash, size_t hlen);
+#endif /* HAVE_LIBCRYPTO */
 int pki_ed25519_key_cmp(const ssh_key k1,
                 const ssh_key k2,
                 enum ssh_keycmp_e what);
