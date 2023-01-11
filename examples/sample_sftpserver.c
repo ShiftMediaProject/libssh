@@ -1481,9 +1481,9 @@ static void sigchld_handler(int signo)
 
 int main(int argc, char **argv)
 {
-    ssh_bind sshbind;
-    ssh_session session;
-    ssh_event event;
+    ssh_bind sshbind = NULL;
+    ssh_session session = NULL;
+    ssh_event event = NULL;
     struct sigaction sa;
     int rc;
 
