@@ -266,66 +266,37 @@ error:
     return NULL;
 }
 
-int sftp_server_init(sftp_session sftp){
-  ssh_session session = sftp->session;
-  sftp_packet packet = NULL;
-  ssh_buffer reply = NULL;
-  uint32_t version;
-  int rc;
+/* FIXME Untested. To be @deprecated */
+int sftp_server_init(sftp_session sftp)
+{
+    ssh_session session = sftp->session;
+    sftp_client_message msg = NULL;
+    int rc;
 
-  packet = sftp_packet_read(sftp);
-  if (packet == NULL) {
-    return -1;
-  }
+    msg = sftp_get_client_message(sftp);
+    if (msg == NULL) {
+        return -1;
+    }
 
-  if (packet->type != SSH_FXP_INIT) {
-    ssh_set_error(session, SSH_FATAL,
-        "Packet read of type %d instead of SSH_FXP_INIT",
-        packet->type);
+    if (msg->type != SSH_FXP_INIT) {
+        ssh_set_error(session,
+                      SSH_FATAL,
+                      "Packet read of type %d instead of SSH_FXP_INIT",
+                      msg->type);
+        return -1;
+    }
 
-    return -1;
-  }
+    SSH_LOG(SSH_LOG_PACKET, "Received SSH_FXP_INIT");
 
-  SSH_LOG(SSH_LOG_PACKET, "Received SSH_FXP_INIT");
+    rc = sftp_process_init_packet(msg);
+    if (rc != SSH_OK) {
+        ssh_set_error(session,
+                      SSH_FATAL,
+                      "Failed to process the SSH_FXP_INIT message");
+        return -1;
+    }
 
-  ssh_buffer_get_u32(packet->payload, &version);
-  version = ntohl(version);
-  SSH_LOG(SSH_LOG_PACKET, "Client version: %" PRIu32, version);
-  sftp->client_version = (int)version;
-
-  reply = ssh_buffer_new();
-  if (reply == NULL) {
-    ssh_set_error_oom(session);
-    return -1;
-  }
-
-  rc = ssh_buffer_pack(reply, "dssss",
-                      LIBSFTP_VERSION,
-                      "posix-rename@openssh.com",
-                      "1",
-                      "hardlink@openssh.com",
-                      "1");
-  if (rc != SSH_OK) {
-    ssh_set_error_oom(session);
-    SSH_BUFFER_FREE(reply);
-    return -1;
-  }
-
-  if (sftp_packet_write(sftp, SSH_FXP_VERSION, reply) < 0) {
-    SSH_BUFFER_FREE(reply);
-    return -1;
-  }
-  SSH_BUFFER_FREE(reply);
-
-  SSH_LOG(SSH_LOG_DEBUG, "Server version sent");
-
-  if (version > LIBSFTP_VERSION) {
-    sftp->version = LIBSFTP_VERSION;
-  } else {
-    sftp->version = (int)version;
-  }
-
-  return 0;
+    return 0;
 }
 
 void sftp_server_free(sftp_session sftp)
@@ -352,53 +323,6 @@ void sftp_server_free(sftp_session sftp)
     sftp_ext_free(sftp->ext);
 
     SAFE_FREE(sftp);
-}
-
-int sftp_process_init_packet(sftp_client_message client_msg)
-{
-    sftp_session sftp = client_msg->sftp;
-    ssh_session session = sftp->session;
-    int version;
-    ssh_buffer reply;
-    int rc;
-
-    version = sftp->client_version;
-    reply = ssh_buffer_new();
-    if (reply == NULL) {
-        ssh_set_error_oom(session);
-        return -1;
-    }
-
-    rc = ssh_buffer_pack(reply, "dssssss",
-                        LIBSFTP_VERSION,
-                        "posix-rename@openssh.com",
-                        "1",
-                        "hardlink@openssh.com",
-                        "1",
-                        "statvfs@openssh.com",
-                        "2");
-    if (rc != SSH_OK) {
-        ssh_set_error_oom(session);
-        SSH_BUFFER_FREE(reply);
-        return -1;
-    }
-
-    rc = sftp_packet_write(sftp, SSH_FXP_VERSION, reply);
-    if (rc < 0) {
-        SSH_BUFFER_FREE(reply);
-        return -1;
-    }
-    SSH_BUFFER_FREE(reply);
-
-    SSH_LOG(SSH_LOG_PROTOCOL, "Server version sent");
-
-    if (version > LIBSFTP_VERSION) {
-        sftp->version = LIBSFTP_VERSION;
-    } else {
-        sftp->version = version;
-    }
-
-    return SSH_OK;
 }
 
 #endif /* WITH_SERVER */
@@ -2851,7 +2775,8 @@ int sftp_utimes(sftp_session sftp, const char *file,
   return sftp_setstat(sftp, file, &attr);
 }
 
-int sftp_symlink(sftp_session sftp, const char *target, const char *dest) {
+int sftp_symlink(sftp_session sftp, const char *target, const char *dest)
+{
   sftp_status_message status = NULL;
   sftp_message msg = NULL;
   ssh_buffer buffer;
