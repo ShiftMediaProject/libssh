@@ -59,9 +59,6 @@ static int setup_default_server(void **state)
     struct torture_state *s;
     struct server_state_st *ss;
     struct test_server_st *tss;
-#ifdef HAVE_DSA
-    char dsa_hostkey[1024];
-#endif /* HAVE_DSA */
 
     char ed25519_hostkey[1024] = {0};
     char rsa_hostkey[1024];
@@ -102,14 +99,6 @@ static int setup_default_server(void **state)
     torture_write_file(ed25519_hostkey,
                        torture_get_openssh_testkey(SSH_KEYTYPE_ED25519, 0));
 
-#ifdef HAVE_DSA
-    snprintf(dsa_hostkey,
-             sizeof(dsa_hostkey),
-             "%s/sshd/ssh_host_dsa_key",
-             s->socket_dir);
-    torture_write_file(dsa_hostkey, torture_get_testkey(SSH_KEYTYPE_DSS, 0));
-#endif /* HAVE_DSA */
-
     snprintf(rsa_hostkey,
              sizeof(rsa_hostkey),
              "%s/sshd/ssh_host_rsa_key",
@@ -134,11 +123,6 @@ static int setup_default_server(void **state)
 
     ss->ecdsa_key = strdup(ecdsa_hostkey);
     assert_non_null(ss->ecdsa_key);
-
-#ifdef HAVE_DSA
-    ss->dsa_key = strdup(dsa_hostkey);
-    assert_non_null(ss->dsa_key);
-#endif /* HAVE_DSA */
 
     ss->ed25519_key = strdup(ed25519_hostkey);
     assert_non_null(ed25519_hostkey);
