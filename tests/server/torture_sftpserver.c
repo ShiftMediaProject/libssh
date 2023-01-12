@@ -365,7 +365,7 @@ static void torture_server_test_sftp_function(void **state)
     sftp_dir dir;
 
     char data[65535] = {0};
-    sftp_file fichier;
+    sftp_file source;
     sftp_file to;
     int read_len;
     int write_len;
@@ -426,17 +426,17 @@ static void torture_server_test_sftp_function(void **state)
     assert_int_equal(rc, SSH_OK);
 
     /* file read and write */
-    fichier = sftp_open(sftp, "/usr/bin/ssh", O_RDONLY, 0);
-    assert_non_null(fichier);
+    source = sftp_open(sftp, "/usr/bin/ssh", O_RDONLY, 0);
+    assert_non_null(source);
 
     to = sftp_open(sftp, "ssh-copy", O_WRONLY | O_CREAT, 0700);
     assert_non_null(to);
 
-    read_len = sftp_read(fichier, data, 4096);
+    read_len = sftp_read(source, data, 4096);
     write_len = sftp_write(to, data, read_len);
     assert_int_equal(write_len, read_len);
 
-    rc = sftp_close(fichier);
+    rc = sftp_close(source);
     assert_int_equal(rc, SSH_OK);
 
     rc = sftp_close(to);
