@@ -126,13 +126,11 @@ fedora/ninja:
   script:
     - cmake -G Ninja $CMAKE_OPTIONS ../ && ninja && ninja test
 
-# Code coverage instrumentation breaks OpenSSH server so we are skipping client
-# testing part here as well as benchmarks (which turn on the client tests)
 fedora/coverage:
   extends: .fedora
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
   variables:
-    CMAKE_ADDITIONAL_OPTIONS: -DCMAKE_BUILD_TYPE=Coverage -DCLIENT_TESTING=OFF -DWITH_BENCHMARKS=OFF
+    CMAKE_ADDITIONAL_OPTIONS: -DCMAKE_BUILD_TYPE=Coverage
   script:
     - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
       make -j$(nproc) &&
