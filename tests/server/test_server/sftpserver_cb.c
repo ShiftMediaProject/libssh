@@ -203,7 +203,7 @@ static int handle_close_by_pointer(struct sftp_handle* handle) {
 }
 
 static void free_handles(int handle_num) {
- 
+
     for(int i = 0; i < handle_num; i++) {
         handle_close(i);
         //reinit this handle
@@ -231,8 +231,8 @@ static int add_handle(int type, void *dirp, int fd, const char *name, void *sess
             break;
         }
     }
-    
-    if(ret==SSH_ERROR) 
+
+    if(ret==SSH_ERROR)
         printf("no other space for new handle\n");
 
     return ret;
@@ -243,7 +243,7 @@ static char* get_handle_name(struct sftp_handle* handle) {
 
     if(handle!=NULL&&handle->name!=NULL)
         ret = handle->name;
-    
+
     return ret;
 }
 
@@ -254,7 +254,7 @@ static const char* ssh_str_error(int u_errno) {
             return "No such file";
         case SSH_FX_PERMISSION_DENIED:
             return "Permission denied";
-        case SSH_FX_BAD_MESSAGE:    
+        case SSH_FX_BAD_MESSAGE:
             return "Bad message";
         case SSH_FX_OP_UNSUPPORTED:
             return "Operation not supported";
@@ -393,7 +393,7 @@ static int readdir_long_name(char* z_file_name, struct stat* z_st, char* z_long_
         *ptr++ = 'x';
     else
         *ptr++ = '-';
-    
+
     *ptr++ = ' ';
     *ptr = '\0';
 
@@ -412,7 +412,8 @@ static int readdir_long_name(char* z_file_name, struct stat* z_st, char* z_long_
     return SSH_OK;
 }
 
-static int process_open(sftp_client_message client_msg) {
+static int process_open(sftp_client_message client_msg)
+{
     int ret = SSH_OK;
     const char *filename = sftp_client_message_get_filename(client_msg);
     uint32_t msg_flag = sftp_client_message_get_flags(client_msg);
@@ -421,7 +422,9 @@ static int process_open(sftp_client_message client_msg) {
     int handle_ind = -1;
     int status;
 
-    if (( (msg_flag&(uint32_t)SSH_FXF_READ) == SSH_FXF_READ) && 
+    SSH_LOG(SSH_LOG_PROTOCOL, "try to open file: %s", filename);
+
+    if (( (msg_flag&(uint32_t)SSH_FXF_READ) == SSH_FXF_READ) &&
        ( (msg_flag&(uint32_t)SSH_FXF_WRITE) == SSH_FXF_WRITE)) {
         file_flag = O_RDWR; //file must exist
         if ((msg_flag & (uint32_t)SSH_FXF_CREAT) == SSH_FXF_CREAT)
@@ -437,40 +440,46 @@ static int process_open(sftp_client_message client_msg) {
     }
 
     fd = open(filename, file_flag, 0600);
-    if(fd == -1){
+    if (fd == -1) {
         status = unix_errno_to_ssh_stat(errno);
-        printf("error open file with error: %d\n", errno);
+        SSH_LOG(SSH_LOG_PROTOCOL, "error open file with error: %d", errno);
         sftp_reply_status(client_msg, status, "Write error");
         ret = SSH_ERROR;
         return ret;
     }
 
     handle_ind = add_handle(FILE_HANDLE, NULL, fd, filename, client_msg->sftp);
-    if(handle_ind >= 0){
+    if (handle_ind >= 0) {
         void *handle_ptr = &s_handle_table[handle_ind];
         ssh_string handle_s = sftp_handle_alloc(client_msg->sftp, handle_ptr);
         sftp_reply_handle(client_msg, handle_s);
         ssh_string_free(handle_s);
         ret = SSH_OK;
-    }else {
+    } else {
         close(fd);
-        printf("opening file failed");
+        SSH_LOG(SSH_LOG_PROTOCOL, "opening file failed", errno);
         sftp_reply_status(client_msg, SSH_FX_FAILURE, "No handle available");
     }
-    
+
     return ret;
 }
 
-static int process_read(sftp_client_message client_msg) {
+static int process_read(sftp_client_message client_msg)
+{
     int ret = SSH_OK;
-    struct sftp_handle *client_handle = (struct sftp_handle*)sftp_handle(client_msg->sftp, client_msg->handle);
+    struct sftp_handle *client_handle;
     uint32_t readn;
     int fd;
     char *buffer;
     int rv;
 
+    client_handle = (struct sftp_handle*)sftp_handle(client_msg->sftp,
+                                                     client_msg->handle);
+
+    SSH_LOG(SSH_LOG_PROTOCOL, "try to read a file from handle");
+
     if (client_handle == NULL || client_handle->session_id != client_msg->sftp) {
-        printf("get wrong handle from msg\n");
+        SSH_LOG(SSH_LOG_PROTOCOL, "got wrong handle from msg");
         sftp_reply_status(client_msg, SSH_FX_FAILURE, NULL);
         return SSH_ERROR;
     }
@@ -479,14 +488,15 @@ static int process_read(sftp_client_message client_msg) {
 
     if (fd < 0) {
         sftp_reply_status(client_msg, SSH_FX_INVALID_HANDLE, NULL);
-        printf("error reading file fd: %d\n", fd);
+        SSH_LOG(SSH_LOG_PROTOCOL, "error reading file fd: %d", fd);
         ret = SSH_ERROR;
         return ret;
     }
     rv = lseek(fd, client_msg->offset, SEEK_SET);
     if (rv == -1) {
         sftp_reply_status(client_msg, SSH_FX_FAILURE, NULL);
-        printf("error seeking file fd: %d at offset: %ld\n", fd, client_msg->offset);
+        SSH_LOG(SSH_LOG_PROTOCOL, "error seeking file fd: %d at offset: %ld",
+                fd, client_msg->offset);
         ret = SSH_ERROR;
         return ret;
     }
@@ -494,28 +504,34 @@ static int process_read(sftp_client_message client_msg) {
     buffer = malloc((client_msg->len)*sizeof(char));
     readn = read(fd, buffer, client_msg->len);
 
-    if(readn > 0){
+    if (readn > 0) {
         sftp_reply_data(client_msg, buffer, readn);
-    }else if(readn == 0) {
+    } else if (readn == 0) {
         sftp_reply_status(client_msg, SSH_FX_EOF, "EOF encountered");
-    }else {
+    } else {
         sftp_reply_status(client_msg, SSH_FX_FAILURE, NULL);
-        printf("read file error!\n");
+        SSH_LOG(SSH_LOG_PROTOCOL, "read file error!");
     }
     return ret;
 }
 
-static int process_write(sftp_client_message client_msg) {
+static int process_write(sftp_client_message client_msg)
+{
     int ret = SSH_OK;
-    struct sftp_handle *client_handle = (struct sftp_handle*)sftp_handle(client_msg->sftp, client_msg->handle);
+    struct sftp_handle *client_handle;
     uint32_t writen;
     int fd;
     const char *msg_data;
     uint32_t len;
     int rv;
 
+    client_handle = (struct sftp_handle*)sftp_handle(client_msg->sftp,
+                                                     client_msg->handle);
+
+    SSH_LOG(SSH_LOG_PROTOCOL, "try to write a file from handle");
+
     if (client_handle == NULL || client_handle->session_id != client_msg->sftp) {
-        printf("get wrong handle from msg\n");
+        SSH_LOG(SSH_LOG_PROTOCOL, "got wrong handle from msg");
         sftp_reply_status(client_msg, SSH_FX_FAILURE, NULL);
         return SSH_ERROR;
     }
@@ -524,7 +540,7 @@ static int process_write(sftp_client_message client_msg) {
 
     if (fd < 0) {
         sftp_reply_status(client_msg, SSH_FX_INVALID_HANDLE, NULL);
-        printf("write file fd error!\n");
+        SSH_LOG(SSH_LOG_PROTOCOL, "write file fd error!");
         ret = SSH_ERROR;
         return ret;
     }
@@ -535,7 +551,8 @@ static int process_write(sftp_client_message client_msg) {
     rv = lseek(fd, client_msg->offset, SEEK_SET);
     if (rv == -1) {
         sftp_reply_status(client_msg, SSH_FX_FAILURE, NULL);
-        printf("error seeking file at offset: %ld\n", client_msg->offset);
+        SSH_LOG(SSH_LOG_PROTOCOL, "error seeking file at offset: %ld\n",
+                client_msg->offset);
     }
     writen = write(fd, msg_data, len);
     if(writen == len) {
@@ -547,9 +564,15 @@ static int process_write(sftp_client_message client_msg) {
     return ret;
 }
 
-static int process_close(sftp_client_message client_msg) {
+static int process_close(sftp_client_message client_msg)
+{
     int ret = SSH_OK;
-    struct sftp_handle *client_handle = (struct sftp_handle*)sftp_handle(client_msg->sftp, client_msg->handle);
+    struct sftp_handle *client_handle;
+
+    client_handle = (struct sftp_handle*)sftp_handle(client_msg->sftp,
+                                                     client_msg->handle);
+
+    SSH_LOG(SSH_LOG_PROTOCOL, "try to close handle");
 
     if (client_handle == NULL) {
         printf("get wrong handle from msg\n");
@@ -561,18 +584,21 @@ static int process_close(sftp_client_message client_msg) {
         reinit_single_handle(client_handle);
         sftp_reply_status(client_msg, SSH_FX_OK, NULL);
     } else {
-        printf("closing file failed\n");
+        SSH_LOG(SSH_LOG_PROTOCOL, "closing file failed");
         sftp_reply_status(client_msg, SSH_FX_BAD_MESSAGE, "Invalid handle");
     }
 
     return ret;
 }
 
-static int process_opendir(sftp_client_message client_msg) {
+static int process_opendir(sftp_client_message client_msg)
+{
     int ret = SSH_OK;
     DIR *dir = NULL;
     const char *dir_name = sftp_client_message_get_filename(client_msg);
     int handle_ind = -1;
+
+    SSH_LOG(SSH_LOG_PROTOCOL, "try to open dir: %s", dir_name);
 
     dir = opendir(dir_name);
     if (dir == NULL) {
@@ -590,7 +616,7 @@ static int process_opendir(sftp_client_message client_msg) {
         closedir(dir);
         sftp_reply_status(client_msg, SSH_FX_FAILURE, "No handle available");
     }
-    
+
     return ret;
 }
 
@@ -651,7 +677,7 @@ static int process_readdir(sftp_client_message client_msg) {
             } else {
                 printf("readdir long name error\n");
             }
-            
+
             entries++;
         } else {
             break;
@@ -688,7 +714,7 @@ static int process_mkdir(sftp_client_message client_msg) {
     }
 
     sftp_reply_status(client_msg, status, NULL);
-    
+
     return ret;
 }
 
@@ -710,7 +736,7 @@ static int process_rmdir(sftp_client_message client_msg) {
     }
 
     sftp_reply_status(client_msg, status, NULL);
-    
+
     return ret;
 }
 
@@ -736,11 +762,12 @@ static int process_lstat(sftp_client_message client_msg) {
         stat_to_filexfer_attrib(&st, &attr);
         sftp_reply_attr(client_msg, &attr);
     }
-      
+
     return ret;
 }
 
-static int process_readlink(sftp_client_message client_msg) {
+static int process_readlink(sftp_client_message client_msg)
+{
     int ret = SSH_OK;
     const char *filename = sftp_client_message_get_filename(client_msg);
     char buf[PATH_MAX];
@@ -748,16 +775,18 @@ static int process_readlink(sftp_client_message client_msg) {
     const char *err_msg;
     int status = SSH_FX_OK;
 
-    if (filename==NULL) {
+    if (filename == NULL) {
         sftp_reply_status(client_msg, SSH_FX_NO_SUCH_FILE, "File name error");
         return SSH_ERROR;
     }
 
+    SSH_LOG(SSH_LOG_PROTOCOL, "read link : %s", filename);
+
     len = readlink(filename, buf, sizeof(buf) - 1);
     if (len < 0) {
-        printf("read link error with reason: %d\n", errno);
         status = unix_errno_to_ssh_stat(errno);
         err_msg = ssh_str_error(status);
+        SSH_LOG(SSH_LOG_PROTOCOL, "read link error with reason: %s", err_msg);
         sftp_reply_status(client_msg, status, err_msg);
         ret = SSH_ERROR;
     } else {
@@ -768,14 +797,17 @@ static int process_readlink(sftp_client_message client_msg) {
     return ret;
 }
 
-static int process_symlink(sftp_client_message client_msg) {
+static int process_symlink(sftp_client_message client_msg)
+{
     int ret = SSH_OK;
     const char *destpath = sftp_client_message_get_filename(client_msg);
     const char *srcpath = ssh_string_get_char(client_msg->data);
     int status = SSH_FX_OK;
     int rv;
-    // printf("try to create link with src: %s and dest: %s \n", srcpath, destpath);
-    
+
+    SSH_LOG(SSH_LOG_PROTOCOL, "try to create link with src: %s and dest: %s",
+            srcpath, destpath);
+
     if (srcpath == NULL || destpath == NULL) {
         sftp_reply_status(client_msg, SSH_FX_NO_SUCH_FILE, "File name error");
         return SSH_ERROR;
@@ -785,7 +817,9 @@ static int process_symlink(sftp_client_message client_msg) {
     if (rv < 0) {
         status = unix_errno_to_ssh_stat(errno);
         printf("error symlink with error: %d\n", errno);
-        sftp_reply_status(client_msg, status, "Write error");
+        SSH_LOG(SSH_LOG_PROTOCOL, "error symlink with error: %s\n",
+                strerror(errno));
+        sftp_reply_status(client_msg, status, strerror(errno));
         ret = SSH_ERROR;
     } else {
         sftp_reply_status(client_msg, SSH_FX_OK, "write success");
@@ -794,21 +828,25 @@ static int process_symlink(sftp_client_message client_msg) {
     return ret;
 }
 
-static int process_remove(sftp_client_message client_msg) {
+static int process_remove(sftp_client_message client_msg)
+{
     int ret = SSH_OK;
     const char *filename = sftp_client_message_get_filename(client_msg);
     int rv;
     int status = SSH_FX_OK;
 
+    SSH_LOG(SSH_LOG_PROTOCOL, "try to remove: %s ", filename);
+
     rv = unlink(filename);
     if (rv < 0) {
-        printf("unlink error with reason: %d\n", errno);
+        SSH_LOG(SSH_LOG_PROTOCOL, "unlink error with reason: %s ",
+                strerror(errno));
         status = unix_errno_to_ssh_stat(errno);
         ret = SSH_ERROR;
     }
 
     sftp_reply_status(client_msg, status, NULL);
-       
+
     return ret;
 }
 
@@ -835,7 +873,7 @@ static int process_extended_statvfs(sftp_client_message client_msg) {
         if (sftp_statvfs == NULL) {
             goto error;
         }
-        
+
         flag = (st.f_flag & ST_RDONLY) ? SSH_FXE_STATVFS_ST_RDONLY : 0;
         flag |= (st.f_flag & ST_NOSUID) ? SSH_FXE_STATVFS_ST_NOSUID : 0;
 
@@ -850,7 +888,7 @@ static int process_extended_statvfs(sftp_client_message client_msg) {
         sftp_statvfs->f_fsid = st.f_fsid;
         sftp_statvfs->f_flag = flag;
         sftp_statvfs->f_namemax = st.f_namemax;
-        
+
         if(sftp_reply_statvfs(client_msg, sftp_statvfs) == 0)
             return ret;
     }
@@ -902,7 +940,7 @@ static int dispatch_sftp_request(sftp_client_message sftp_msg) {
         status = handler(sftp_msg);
     else
         goto not_implemented;
-    
+
     return status;
 
 not_implemented:
@@ -1001,7 +1039,7 @@ static int sftp_channel_data_cb(UNUSED_PARAM(ssh_session session),
     sftp_client_message_free(msg);
     if(rc != SSH_OK)
         printf("process sftp failed!\n");
-    
+
     return decode_len;
 }
 
@@ -1304,7 +1342,7 @@ void sftp_handle_session_cb(ssh_event event,
             (cdata.pid == 0 || waitpid(cdata.pid, &rc, WNOHANG) == 0));
 
     free_handles(MAX_HANDLE_NUM);
-    
+
     ssh_channel_send_eof(sdata.channel);
     ssh_channel_close(sdata.channel);
 
