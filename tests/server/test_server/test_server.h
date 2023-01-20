@@ -52,6 +52,8 @@ struct server_state_st {
     char *config_file;
     bool parse_global_config;
 
+    char *log_file;
+
     /* State */
     int  max_tries;
     int  error;

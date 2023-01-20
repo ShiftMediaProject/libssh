@@ -40,7 +40,7 @@
 void free_server_state(struct server_state_st *state)
 {
     if (state == NULL) {
-        goto end;
+        return;
     }
 
     SAFE_FREE(state->address);
@@ -55,9 +55,7 @@ void free_server_state(struct server_state_st *state)
     SAFE_FREE(state->expected_username);
     SAFE_FREE(state->expected_password);
     SAFE_FREE(state->config_file);
-
-end:
-    return;
+    SAFE_FREE(state->log_file);
 }
 
 /* SIGCHLD handler for cleaning up dead children. */
@@ -92,6 +90,30 @@ int run_server(struct server_state_st *state)
     if (sigaction(SIGCHLD, &sa, NULL) != 0) {
         fprintf(stderr, "Failed to register SIGCHLD handler\n");
         return SSH_ERROR;
+    }
+
+    /* Redirect all the output and errors to the file to avoid mixing up with
+     * the output from the client */
+    if (state->log_file != NULL) {
+        int fd;
+        FILE *f = fopen(state->log_file, "a");
+        if (f == NULL) {
+            fprintf(stderr, "Failed to open the log file: %s\n", strerror(errno));
+            return SSH_ERROR;
+        }
+        fd = dup2(fileno(f), STDERR_FILENO);
+        if (fd == -1) {
+            fprintf(stderr, "dup2 of log file to stderr failed: %s\n",
+                    strerror(errno));
+            return SSH_ERROR;
+        }
+        fd = dup2(fileno(f), STDOUT_FILENO);
+        if (fd == -1) {
+            fprintf(stderr, "dup2 of log file to stdout failed: %s\n",
+                    strerror(errno));
+            return SSH_ERROR;
+        }
+        fclose(f);
     }
 
     if (state->address == NULL) {
