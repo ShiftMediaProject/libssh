@@ -66,6 +66,7 @@ static int setup_default_server(void **state)
     //char trusted_ca_pubkey[1024];
 
     char sshd_path[1024];
+    char log_file[1024];
     int rc;
 
     char pid_str[1024];
@@ -91,6 +92,11 @@ static int setup_default_server(void **state)
 
     rc = mkdir(sshd_path, 0755);
     assert_return_code(rc, errno);
+
+    snprintf(log_file,
+             sizeof(log_file),
+             "%s/sshd/log",
+             s->socket_dir);
 
     snprintf(ed25519_hostkey,
              sizeof(ed25519_hostkey),
@@ -136,7 +142,9 @@ static int setup_default_server(void **state)
     ss->expected_username = NULL;
     ss->expected_password = NULL;
 
+    /* not to mix up the client and server messages */
     ss->verbosity = torture_libssh_verbosity();
+    ss->log_file = strdup(log_file);
 
     ss->auth_methods = SSH_AUTH_METHOD_PASSWORD | SSH_AUTH_METHOD_PUBLICKEY;
 
