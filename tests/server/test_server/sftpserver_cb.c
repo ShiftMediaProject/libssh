@@ -1186,8 +1186,8 @@ end:
 };
 
 void sftp_handle_session_cb(ssh_event event,
-                               ssh_session session,
-                               struct server_state_st *state)
+                            ssh_session session,
+                            struct server_state_st *state)
 {
     int n;
     int rc = 0;
@@ -1202,12 +1202,6 @@ void sftp_handle_session_cb(ssh_event event,
 
     /* Our struct holding information about the channel. */
     struct channel_data_st cdata = {
-        .pid = 0,
-        .pty_master = -1,
-        .pty_slave = -1,
-        .child_stdin = -1,
-        .child_stdout = -1,
-        .child_stderr = -1,
         .event = NULL,
         .winsize = &wsize,
         .sftp = NULL
@@ -1257,7 +1251,6 @@ void sftp_handle_session_cb(ssh_event event,
     }
 
     sdata.server_state = (void *)state;
-    cdata.server_state = (void *)state;
 
 #ifdef WITH_PCAP
     set_pcap(&sdata, session, state->pcap_file);
@@ -1329,19 +1322,16 @@ void sftp_handle_session_cb(ssh_event event,
         /* Poll the main event which takes care of the session, the channel and
          * even our child process's stdout/stderr (once it's started). */
         if (ssh_event_dopoll(event, -1) == SSH_ERROR) {
-          ssh_channel_close(sdata.channel);
+            ssh_channel_close(sdata.channel);
         }
 
         /* If child process's stdout/stderr has been registered with the event,
          * or the child process hasn't started yet, continue. */
-        if (cdata.event != NULL || cdata.pid == 0) {
+        if (cdata.event != NULL) {
             continue;
         }
 
-    } while(ssh_channel_is_open(sdata.channel) &&
-            (cdata.pid == 0 || waitpid(cdata.pid, &rc, WNOHANG) == 0));
-
-    free_handles(MAX_HANDLE_NUM);
+    } while (ssh_channel_is_open(sdata.channel));
 
     ssh_channel_send_eof(sdata.channel);
     ssh_channel_close(sdata.channel);

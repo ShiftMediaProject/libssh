@@ -1215,20 +1215,8 @@ static struct argp argp = {options, parse_opt, args_doc, doc, NULL, NULL, NULL};
 /* A userdata struct for channel. */
 struct channel_data_struct
 {
-    /* pid of the child process the channel will spawn. */
-    pid_t pid;
-    /* For PTY allocation */
-    socket_t pty_master;
-    socket_t pty_slave;
-    /* For communication with the child process. */
-    socket_t child_stdin;
-    socket_t child_stdout;
-    /* Only used for subsystem and exec requests. */
-    socket_t child_stderr;
     /* Event which is used to poll the above descriptors. */
     ssh_event event;
-    /* Terminal size struct. */
-    struct winsize *winsize;
     sftp_session sftp;
 };
 
@@ -1358,32 +1346,18 @@ static ssh_channel channel_open(ssh_session session, void *userdata)
 static void handle_session(ssh_event event, ssh_session session)
 {
     int n;
-    int rc = 0;
-
-    /* Structure for storing the pty size. */
-    struct winsize wsize = {
-        .ws_row = 0,
-        .ws_col = 0,
-        .ws_xpixel = 0,
-        .ws_ypixel = 0};
 
     /* Our struct holding information about the channel. */
     struct channel_data_struct cdata = {
-        .pid = 0,
-        .pty_master = -1,
-        .pty_slave = -1,
-        .child_stdin = -1,
-        .child_stdout = -1,
-        .child_stderr = -1,
-        .event = NULL,
-        .winsize = &wsize,
-        .sftp = NULL};
+        .sftp = NULL,
+    };
 
     /* Our struct holding information about the session. */
     struct session_data_struct sdata = {
         .channel = NULL,
         .auth_attempts = 0,
-        .authenticated = 0};
+        .authenticated = 0,
+    };
 
     struct ssh_channel_callbacks_struct channel_cb = {
         .userdata = &cdata,
@@ -1418,17 +1392,14 @@ static void handle_session(ssh_event event, ssh_session session)
     ssh_event_add_session(event, session);
 
     n = 0;
-    while (sdata.authenticated == 0 || sdata.channel == NULL)
-    {
+    while (sdata.authenticated == 0 || sdata.channel == NULL) {
         /* If the user has used up all attempts, or if he hasn't been able to
          * authenticate in 10 seconds (n * 100ms), disconnect. */
-        if (sdata.auth_attempts >= 3 || n >= 100)
-        {
+        if (sdata.auth_attempts >= 3 || n >= 100) {
             return;
         }
 
-        if (ssh_event_dopoll(event, 100) == SSH_ERROR)
-        {
+        if (ssh_event_dopoll(event, 100) == SSH_ERROR) {
             fprintf(stderr, "%s\n", ssh_get_error(session));
             return;
         }
@@ -1437,33 +1408,29 @@ static void handle_session(ssh_event event, ssh_session session)
 
     ssh_set_channel_callbacks(sdata.channel, &channel_cb);
 
-    do
-    {
+    do {
         /* Poll the main event which takes care of the session, the channel and
          * even our child process's stdout/stderr (once it's started). */
-        if (ssh_event_dopoll(event, -1) == SSH_ERROR)
-        {
+        if (ssh_event_dopoll(event, -1) == SSH_ERROR) {
             ssh_channel_close(sdata.channel);
         }
 
         /* If child process's stdout/stderr has been registered with the event,
          * or the child process hasn't started yet, continue. */
-        if (cdata.event != NULL || cdata.pid == 0)
-        {
+        if (cdata.event != NULL) {
             continue;
         }
+        /* FIXME The server keeps hanging in the poll above when the client
+         * closes the channel */
+    } while (ssh_channel_is_open(sdata.channel));
 
-    } while (ssh_channel_is_open(sdata.channel) &&
-             (cdata.pid == 0 || waitpid(cdata.pid, &rc, WNOHANG) == 0));
-
-    free_handles();
+    sftp_server_free_handles();
 
     ssh_channel_send_eof(sdata.channel);
     ssh_channel_close(sdata.channel);
 
     /* Wait up to 5 seconds for the client to terminate the session. */
-    for (n = 0; n < 50 && (ssh_get_status(session) & SESSION_END) == 0; n++)
-    {
+    for (n = 0; n < 50 && (ssh_get_status(session) & SESSION_END) == 0; n++) {
         ssh_event_dopoll(event, 100);
     }
 }
