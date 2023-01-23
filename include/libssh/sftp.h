@@ -891,50 +891,6 @@ LIBSSH_API int sftp_server_init(sftp_session sftp);
  * @param sftp          The sftp session handle to free.
  */
 LIBSSH_API void sftp_server_free(sftp_session sftp);
-
-/**
- * @brief Decode the data from channel buffer into sftp read_packet.
- *
- * @param  sftp         The sftp session handle.
- *
- * @param  data         The pointer to the data buffer of channel.
- *
- * @return              Length of data decoded.
- */
-LIBSSH_API int sftp_decode_channel_data_to_packet(sftp_session sftp, void *data);
-
-/**
- * @brief Get the client message from a sftp packet.
- *
- * @param  sftp         The sftp session handle.
- *
- * @return              The pointer to the generated sftp client message.
- */
-LIBSSH_API sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp);
-
-/**
- * @brief Handle the sftp_init request from client.
- *
- * @param  client_msg         The pointer to client message.
- *
- * @return                    0 on success, < 0 on error with ssh and sftp error set.
- *
- * @see sftp_get_error()
- */
-LIBSSH_API int sftp_process_init_packet(sftp_client_message client_msg);
-
-/**
- * @brief Handle the statvfs request, return information the mounted file system.
- *
- * @param  msg          The sftp client message.
- *
- * @param  st           The statvfs state of target file.
- *
- * @return              0 on success, < 0 on error with ssh and sftp error set.
- *
- * @see sftp_get_error()
- */
-LIBSSH_API int sftp_reply_statvfs(sftp_client_message msg, sftp_statvfs_t st);
 #endif  /* WITH_SERVER */
 
 /* sftpserver.c */

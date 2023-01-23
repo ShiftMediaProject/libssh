@@ -459,3 +459,10 @@ LIBSSH_4_9_0    # Released
         ssh_vlog;
 } LIBSSH_4_8_1;
 
+LIBSSH_AFTER_4_9_0
+{
+    global:
+        sftp_channel_default_data_callback;
+        sftp_channel_default_subsystem_request;
+} LIBSSH_4_9_0;
+

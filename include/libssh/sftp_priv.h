@@ -32,6 +32,27 @@ int buffer_add_attributes(ssh_buffer buffer, sftp_attributes attr);
 sftp_attributes sftp_parse_attr(sftp_session session,
                                 ssh_buffer buf,
                                 int expectname);
+/**
+ * @brief Handle the sftp_init request from client.
+ *
+ * @param  client_msg         The pointer to client message.
+ *
+ * @return                    0 on success, < 0 on error with ssh and sftp error set.
+ *
+ * @see sftp_get_error()
+ */
+int sftp_process_init_packet(sftp_client_message client_msg);
+/**
+ * @brief Decode the data from channel buffer into sftp read_packet.
+ *
+ * @param  sftp         The sftp session handle.
+ *
+ * @param  data         The pointer to the data buffer of channel.
+ * @param  len          The data buffer length
+ *
+ * @return              Length of data decoded.
+ */
+int sftp_decode_channel_data_to_packet(sftp_session sftp, void *data);
 
 #ifdef __cplusplus
 }

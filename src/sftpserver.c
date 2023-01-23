@@ -258,7 +258,15 @@ sftp_client_message sftp_get_client_message(sftp_session sftp)
     return sftp_make_client_message(sftp, packet);
 }
 
-sftp_client_message sftp_get_client_message_from_packet(sftp_session sftp)
+/**
+ * @brief Get the client message from a sftp packet.
+ *
+ * @param  sftp         The sftp session handle.
+ *
+ * @return              The pointer to the generated sftp client message.
+ */
+static sftp_client_message
+sftp_get_client_message_from_packet(sftp_session sftp)
 {
     sftp_packet packet = NULL;
 
@@ -505,7 +513,19 @@ int sftp_reply_data(sftp_client_message msg, const void *data, int len) {
   return 0;
 }
 
-int sftp_reply_statvfs(sftp_client_message msg, sftp_statvfs_t st)
+/**
+ * @brief Handle the statvfs request, return information the mounted file system.
+ *
+ * @param  msg          The sftp client message.
+ *
+ * @param  st           The statvfs state of target file.
+ *
+ * @return              0 on success, < 0 on error with ssh and sftp error set.
+ *
+ * @see sftp_get_error()
+ */
+static int
+sftp_reply_statvfs(sftp_client_message msg, sftp_statvfs_t st)
 {
   int ret = 0;
   ssh_buffer out;
