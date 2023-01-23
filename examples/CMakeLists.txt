@@ -32,7 +32,7 @@ if (UNIX AND NOT WIN32)
 
         add_executable(sample_sftpserver sample_sftpserver.c ${examples_SRCS})
         target_compile_options(sample_sftpserver PRIVATE ${DEFAULT_C_COMPILE_FLAGS})
-        target_link_libraries(sample_sftpserver ssh::ssh)
+        target_link_libraries(sample_sftpserver ssh::ssh ${ARGP_LIBRARIES})
     endif (WITH_SFTP)
 
     add_executable(ssh-client ssh_client.c ${examples_SRCS})
