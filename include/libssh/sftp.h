@@ -899,7 +899,7 @@ LIBSSH_API void sftp_server_free(sftp_session sftp);
  *
  * @param  data         The pointer to the data buffer of channel.
  *
- * @return              Length of data deocded.
+ * @return              Length of data decoded.
  */
 LIBSSH_API int sftp_decode_channel_data_to_packet(sftp_session sftp, void *data);
 
@@ -927,7 +927,7 @@ LIBSSH_API int sftp_process_init_packet(sftp_client_message client_msg);
  * @brief Handle the statvfs request, return information the mounted file system.
  *
  * @param  msg          The sftp client message.
- * 
+ *
  * @param  st           The statvfs state of target file.
  *
  * @return              0 on success, < 0 on error with ssh and sftp error set.
