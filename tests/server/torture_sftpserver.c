@@ -131,7 +131,7 @@ static int setup_default_server(void **state)
     assert_non_null(ss->ecdsa_key);
 
     ss->ed25519_key = strdup(ed25519_hostkey);
-    assert_non_null(ed25519_hostkey);
+    assert_non_null(ss->ed25519_key);
 
     ss->rsa_key = strdup(rsa_hostkey);
     assert_non_null(ss->rsa_key);
