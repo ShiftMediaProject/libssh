@@ -356,7 +356,7 @@ ssh_exec_shell(char *cmd)
         if (rc == -1) {
             SSH_LOG(SSH_LOG_WARN, "dup2: %s",
                     ssh_strerror(errno, err_msg, SSH_ERRNO_MSG_MAX));
-	    exit(1);
+            exit(1);
         }
         if (devnull > STDERR_FILENO) {
             close(devnull);
