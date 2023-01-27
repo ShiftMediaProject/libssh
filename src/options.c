@@ -367,6 +367,7 @@ int ssh_options_set_algo(ssh_session session,
  *                - SSH_LOG_PROTOCOL: High level protocol information
  *                - SSH_LOG_PACKET: Lower level protocol information, packet level
  *                - SSH_LOG_FUNCTIONS: Every function path
+ *                The default is SSH_LOG_NOLOG.
  *
  *              - SSH_OPTIONS_LOG_VERBOSITY_STR:
  *                Set the session logging verbosity via a
@@ -1768,6 +1769,7 @@ static int ssh_bind_set_algo(ssh_bind sshbind,
  *                        - SSH_LOG_PROTOCOL: High level protocol information
  *                        - SSH_LOG_PACKET: Lower level protocol information, packet level
  *                        - SSH_LOG_FUNCTIONS: Every function path
+ *                        The default is SSH_LOG_NOLOG.
  *
  *                      - SSH_BIND_OPTIONS_LOG_VERBOSITY_STR:
  *                        Set the session logging verbosity via a
