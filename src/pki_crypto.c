@@ -113,11 +113,16 @@ static int pki_key_ecdsa_to_nid(EC_KEY *k)
 static int pki_key_ecdsa_to_nid(EVP_PKEY *k)
 {
     char gname[25] = { 0 };
-    int nid, rc;
+    int rc;
 
-    rc = EVP_PKEY_get_utf8_string_param(k, "group", gname, 25, NULL);
-    if (rc != 1)
+    rc = EVP_PKEY_get_utf8_string_param(k,
+                                        OSSL_PKEY_PARAM_GROUP_NAME,
+                                        gname,
+                                        25,
+                                        NULL);
+    if (rc != 1) {
         return -1;
+    }
 
     return pki_key_ecgroup_name_to_nid(gname);
 }
@@ -1912,7 +1917,7 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
                 const void *pubkey;
                 size_t pubkey_len;
-                OSSL_PARAM *params = NULL, *locate_param = NULL;
+                OSSL_PARAM *locate_param = NULL;
 #else
                 EC_KEY *ec = NULL;
 #endif /* OPENSSL_VERSION_NUMBER */
@@ -1952,7 +1957,6 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
 #else
                 rc = EVP_PKEY_todata(key->key, EVP_PKEY_PUBLIC_KEY, &params);
                 if (rc < 0) {
-                    OSSL_PARAM_free(params);
                     goto fail;
                 }
 
@@ -1963,14 +1967,12 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
                             " public ECDSA key objects in the PKCS #11 device."
                             " Unlike RSA, ECDSA public keys cannot be derived"
                             " from their private keys.");
-                    OSSL_PARAM_free(params);
                     goto fail;
                 }
 #endif /* WITH_PKCS11_URI */
 
                 rc = OSSL_PARAM_get_octet_string_ptr(locate_param, &pubkey, &pubkey_len);
                 if (rc != 1) {
-                    OSSL_PARAM_free(params);
                     goto fail;
                 }
                 /* Convert the data to low-level representation */
@@ -1992,9 +1994,6 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
 
                 rc = ssh_buffer_add_ssh_string(buffer, e);
                 if (rc < 0) {
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
-                    OSSL_PARAM_free(params);
-#endif /* OPENSSL_VERSION_NUMBER */
                     goto fail;
                 }
 
