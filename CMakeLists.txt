@@ -103,8 +103,6 @@ if (WITH_NACL)
     endif (NOT NACL_FOUND)
 endif (WITH_NACL)
 
-find_package(Argp)
-
 # Disable symbol versioning in non UNIX platforms
 if (UNIX)
     find_package(ABIMap 0.3.1)
@@ -115,6 +113,10 @@ endif (UNIX)
 # config.h checks
 include(ConfigureChecks.cmake)
 configure_file(config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h)
+
+if (NOT HAVE_ARGP_PARSE)
+  find_package(Argp)
+endif (NOT HAVE_ARGP_PARSE)
 
 # check subdirectories
 add_subdirectory(doc)

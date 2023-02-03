@@ -44,6 +44,8 @@ int main(void){ return 0; }
 endif(CMAKE_COMPILER_IS_GNUCC AND NOT MINGW AND NOT OS2)
 
 # HEADER FILES
+check_function_exists(argp_parse HAVE_ARGP_PARSE)
+
 set(CMAKE_REQUIRED_INCLUDES ${CMAKE_REQUIRED_INCLUDES} ${ARGP_INCLUDE_DIR})
 check_include_file(argp.h HAVE_ARGP_H)
 unset(CMAKE_REQUIRED_INCLUDES)
