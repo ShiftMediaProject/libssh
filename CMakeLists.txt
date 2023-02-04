@@ -221,7 +221,7 @@ if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
         NAME "coverage"
         EXECUTABLE make test
         DEPENDENCIES ssh tests)
-    set(GCOVR_ADDITIONAL_ARGS --xml-pretty --exclude-unreachable-branches --print-summary)
+    set(GCOVR_ADDITIONAL_ARGS --xml-pretty --exclude-unreachable-branches --print-summary --gcov-ignore-parse-errors)
     setup_target_for_coverage_gcovr_xml(
         NAME "coverage_xml"
         EXECUTABLE make test
