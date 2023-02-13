@@ -2487,6 +2487,7 @@ int pki_uri_import(const char *uri_name,
 #else /* WITH_PKCS11_PROVIDER */
     OSSL_STORE_CTX *store = NULL;
     OSSL_STORE_INFO *info = NULL;
+    int rv, expect_type = OSSL_STORE_INFO_PKEY;
 
     /* The provider can be either configured in openssl.cnf or dynamically
      * loaded, assuming it does not need any special configuration */
@@ -2511,6 +2512,15 @@ int pki_uri_import(const char *uri_name,
                 "Failed to open OpenSSL store: %s",
                 ERR_error_string(ERR_get_error(), NULL));
         goto fail;
+    }
+    if (key_type == SSH_KEY_PUBLIC) {
+        expect_type = OSSL_STORE_INFO_PUBKEY;
+    }
+    rv = OSSL_STORE_expect(store, expect_type);
+    if (rv != 1) {
+        SSH_LOG(SSH_LOG_TRACE,
+                "Failed to set the store preference. Ignoring the error: %s",
+                ERR_error_string(ERR_get_error(), NULL));
     }
 
     for (info = OSSL_STORE_load(store);
