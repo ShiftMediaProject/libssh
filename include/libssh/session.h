@@ -140,7 +140,7 @@ struct ssh_session_struct {
 
     ssh_string banner; /* that's the issue banner from
                        the server */
-    char *discon_msg; /* disconnect message from
+    char *peer_discon_msg; /* disconnect message from
                          the remote host */
     char *disconnect_message; /* disconnect message to be set */
     ssh_buffer in_buffer;

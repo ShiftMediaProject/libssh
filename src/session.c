@@ -826,11 +826,11 @@ const char *ssh_get_disconnect_message(ssh_session session) {
   if (session->session_state != SSH_SESSION_STATE_DISCONNECTED) {
     ssh_set_error(session, SSH_REQUEST_DENIED,
         "Connection not closed yet");
-  } else if(!session->discon_msg) {
+  } else if(!session->peer_discon_msg) {
     ssh_set_error(session, SSH_FATAL,
         "Connection correctly closed but no disconnect message");
   } else {
-    return session->discon_msg;
+    return session->peer_discon_msg;
   }
 
   return NULL;
