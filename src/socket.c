@@ -261,7 +261,8 @@ int ssh_socket_pollcallback(struct ssh_poll_handle_struct *p,
     if (!ssh_socket_is_open(s)) {
         return -1;
     }
-    SSH_LOG(SSH_LOG_TRACE, "Poll callback on socket %d (%s%s%s), out buffer %d",fd,
+    SSH_LOG(SSH_LOG_TRACE,
+            "Poll callback on socket %d (%s%s%s), out buffer %" PRIu32, fd,
             (revents & POLLIN) ? "POLLIN ":"",
             (revents & POLLOUT) ? "POLLOUT ":"",
             (revents & POLLERR) ? "POLLERR":"",
@@ -332,12 +333,13 @@ int ssh_socket_pollcallback(struct ssh_poll_handle_struct *p,
 
         /* Call the callback */
         if (s->callbacks != NULL && s->callbacks->data != NULL) {
+            size_t processed;
             do {
-                nread = s->callbacks->data(ssh_buffer_get(s->in_buffer),
-                                       ssh_buffer_get_len(s->in_buffer),
-                                       s->callbacks->userdata);
-                ssh_buffer_pass_bytes(s->in_buffer, nread);
-            } while ((nread > 0) && (s->state == SSH_SOCKET_CONNECTED));
+                processed = s->callbacks->data(ssh_buffer_get(s->in_buffer),
+                                               ssh_buffer_get_len(s->in_buffer),
+                                               s->callbacks->userdata);
+                ssh_buffer_pass_bytes(s->in_buffer, processed);
+            } while ((processed > 0) && (s->state == SSH_SOCKET_CONNECTED));
 
             /* p may have been freed, so don't use it
              * anymore in this function */
@@ -382,7 +384,7 @@ int ssh_socket_pollcallback(struct ssh_poll_handle_struct *p,
             ssh_socket_nonblocking_flush(s);
         } else if (s->callbacks != NULL && s->callbacks->controlflow != NULL) {
             /* Otherwise advertise the upper level that write can be done */
-            SSH_LOG(SSH_LOG_TRACE,"sending control flow event");
+            SSH_LOG(SSH_LOG_TRACE, "sending control flow event");
             s->callbacks->controlflow(SSH_SOCKET_FLOW_WRITEWONTBLOCK,
                                       s->callbacks->userdata);
         }
@@ -569,9 +571,9 @@ static ssize_t ssh_socket_unbuffered_read(ssh_socket s,
         return -1;
     }
     if (s->fd_is_socket) {
-        rc = recv(s->fd,buffer, len, 0);
+        rc = recv(s->fd, buffer, len, 0);
     } else {
-        rc = read(s->fd,buffer, len);
+        rc = read(s->fd, buffer, len);
     }
 #ifdef _WIN32
     s->last_errno = WSAGetLastError();
@@ -582,6 +584,8 @@ static ssize_t ssh_socket_unbuffered_read(ssh_socket s,
 
     if (rc < 0) {
         s->data_except = 1;
+    } else {
+        SSH_LOG(SSH_LOG_TRACE, "read %zd", rc);
     }
 
     return rc;
@@ -619,12 +623,13 @@ static ssize_t ssh_socket_unbuffered_write(ssh_socket s,
     /* Reactive the POLLOUT detector in the poll multiplexer system */
     if (s->poll_handle) {
         SSH_LOG(SSH_LOG_PACKET, "Enabling POLLOUT for socket");
-        ssh_poll_set_events(s->poll_handle,ssh_poll_get_events(s->poll_handle) | POLLOUT);
+        ssh_poll_add_events(s->poll_handle, POLLOUT);
     }
     if (w < 0) {
         s->data_except = 1;
     }
 
+    SSH_LOG(SSH_LOG_TRACE, "wrote %zd", w);
     return w;
 }
 
@@ -747,6 +752,8 @@ int ssh_socket_nonblocking_flush(ssh_socket s)
     /* Is there some data pending? */
     len = ssh_buffer_get_len(s->out_buffer);
     if (s->poll_handle && len > 0) {
+        SSH_LOG(SSH_LOG_TRACE,
+                "did not send all the data, queuing pollout event");
         /* force the poll system to catch pollout events */
         ssh_poll_add_events(s->poll_handle, POLLOUT);
 
