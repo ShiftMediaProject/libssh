@@ -883,7 +883,7 @@ process_read(sftp_client_message client_msg)
     sftp_session sftp = client_msg->sftp;
     ssh_string handle = client_msg->handle;
     struct sftp_handle *h = NULL;
-    uint32_t readn;
+    ssize_t allreadn = 0;
     int fd = -1;
     char *buffer = NULL;
     int rv;
@@ -909,18 +909,18 @@ process_read(sftp_client_message client_msg)
     }
 
     buffer = malloc(client_msg->len);
-    readn = read(fd, buffer, client_msg->len);
+    do {
+        ssize_t readn = read(fd, buffer + allreadn, client_msg->len - allreadn);
+        if (readn < 0) {
+            sftp_reply_status(client_msg, SSH_FX_FAILURE, NULL);
+            SSH_LOG(SSH_LOG_PROTOCOL, "read file error!");
+            free(buffer);
+            return SSH_ERROR;
+        }
+        allreadn += readn;
+    } while (allreadn < (ssize_t)client_msg->len);
 
-    if (readn > 0) {
-        sftp_reply_data(client_msg, buffer, readn);
-    } else if (readn == 0) {
-        sftp_reply_status(client_msg, SSH_FX_EOF, "EOF encountered");
-    } else {
-        sftp_reply_status(client_msg, SSH_FX_FAILURE, NULL);
-        SSH_LOG(SSH_LOG_PROTOCOL, "read file error!");
-        free(buffer);
-        return SSH_ERROR;
-    }
+    sftp_reply_data(client_msg, buffer, allreadn);
 
     free(buffer);
     return SSH_OK;
@@ -932,7 +932,7 @@ process_write(sftp_client_message client_msg)
     sftp_session sftp = client_msg->sftp;
     ssh_string handle = client_msg->handle;
     struct sftp_handle *h = NULL;
-    int written;
+    ssize_t written = 0;
     int fd = -1;
     const char *msg_data = NULL;
     uint32_t len;
@@ -957,14 +957,17 @@ process_write(sftp_client_message client_msg)
         SSH_LOG(SSH_LOG_PROTOCOL, "error seeking file at offset: %" PRIu64,
                 client_msg->offset);
     }
-    written = write(fd, msg_data, len);
-    if (written == (int)len) {
-        sftp_reply_status(client_msg, SSH_FX_OK, NULL);
-    } else if (written == -1) {
-        sftp_reply_status(client_msg, SSH_FX_FAILURE, "Write error");
-    } else {
-        sftp_reply_status(client_msg, SSH_FX_FAILURE, "Partial write");
-    }
+    do {
+        rv = write(fd, msg_data + written, len - written);
+        if (rv < 0) {
+            sftp_reply_status(client_msg, SSH_FX_FAILURE, "Write error");
+            SSH_LOG(SSH_LOG_PROTOCOL, "file write error!");
+            return SSH_ERROR;
+        }
+        written += rv;
+    } while (written < (int)len);
+
+    sftp_reply_status(client_msg, SSH_FX_OK, NULL);
 
     return SSH_OK;
 }
