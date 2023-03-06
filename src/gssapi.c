@@ -654,7 +654,7 @@ fail:
 static int ssh_gssapi_match(ssh_session session, gss_OID_set *valid_oids)
 {
     OM_uint32 maj_stat, min_stat, lifetime;
-    gss_OID_set actual_mechs;
+    gss_OID_set actual_mechs = GSS_C_NO_OID_SET;
     gss_buffer_desc namebuf;
     gss_name_t client_id = GSS_C_NO_NAME;
     gss_OID oid;
@@ -716,6 +716,7 @@ static int ssh_gssapi_match(ssh_session session, gss_OID_set *valid_oids)
     ret = SSH_OK;
 
 end:
+    gss_release_oid_set(&min_stat, &actual_mechs);
     gss_release_name(&min_stat, &client_id);
     return ret;
 }
