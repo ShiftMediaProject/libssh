@@ -321,6 +321,10 @@ static int cmp_first_kex_algo(const char *client_str,
 
     int is_wrong = 1;
 
+    if (client_str == NULL || server_str == NULL) {
+        return is_wrong;
+    }
+
     colon = strchr(client_str, ',');
     if (colon == NULL) {
         client_kex_len = strlen(client_str);
