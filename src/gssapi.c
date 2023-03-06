@@ -327,6 +327,7 @@ ssh_gssapi_handle_userauth(ssh_session session, const char *user,
     session->gssapi->mech.elements = malloc(oid.length);
     if (session->gssapi->mech.elements == NULL){
         ssh_set_error_oom(session);
+        gss_release_oid_set(&min_stat, &selected);
         return SSH_ERROR;
     }
     memcpy(session->gssapi->mech.elements, oid.elements, oid.length);
