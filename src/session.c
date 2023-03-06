@@ -317,6 +317,7 @@ void ssh_free(ssh_session session)
   SAFE_FREE(session->clientbanner);
   SAFE_FREE(session->banner);
   SAFE_FREE(session->disconnect_message);
+  SAFE_FREE(session->peer_discon_msg);
 
   SAFE_FREE(session->opts.agent_socket);
   SAFE_FREE(session->opts.bindaddr);
