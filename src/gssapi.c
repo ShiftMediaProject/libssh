@@ -949,8 +949,10 @@ static int ssh_gssapi_send_mic(ssh_session session)
 
     maj_stat = gss_get_mic(&min_stat,session->gssapi->ctx, GSS_C_QOP_DEFAULT,
                            &mic_buf, &mic_token_buf);
+
+    SSH_BUFFER_FREE(mic_buffer);
+
     if (GSS_ERROR(maj_stat)){
-        SSH_BUFFER_FREE(mic_buffer);
         ssh_gssapi_log_error(SSH_LOG_DEBUG,
                              "generating MIC",
                              maj_stat,
@@ -967,7 +969,6 @@ static int ssh_gssapi_send_mic(ssh_session session)
     gss_release_buffer(&min_stat, &mic_token_buf);
 
     if (rc != SSH_OK) {
-        SSH_BUFFER_FREE(mic_buffer);
         ssh_set_error_oom(session);
         return SSH_ERROR;
     }
