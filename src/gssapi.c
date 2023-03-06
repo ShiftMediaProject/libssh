@@ -1030,6 +1030,8 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_gssapi_token_client){
         ssh_packet_send(session);
     }
 
+    gss_release_buffer(&min_stat, &output_token);
+
     if (maj_stat == GSS_S_COMPLETE) {
         ssh_gssapi_send_mic(session);
         session->auth.state = SSH_AUTH_STATE_GSSAPI_MIC_SENT;
