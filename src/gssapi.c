@@ -433,6 +433,7 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_gssapi_token_server){
                              "Gssapi error",
                              maj_stat,
                              min_stat);
+        gss_release_buffer(&min_stat, &output_token);
         ssh_auth_reply_default(session,0);
         ssh_gssapi_free(session);
         session->gssapi=NULL;
@@ -450,6 +451,9 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_gssapi_token_server){
                         (size_t)output_token.length, output_token.value);
         ssh_packet_send(session);
     }
+
+    gss_release_buffer(&min_stat, &output_token);
+
     if(maj_stat == GSS_S_COMPLETE){
         session->gssapi->state = SSH_GSSAPI_STATE_RCV_MIC;
     }
