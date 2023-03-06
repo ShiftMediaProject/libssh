@@ -958,6 +958,9 @@ static int ssh_gssapi_send_mic(ssh_session session)
                          SSH2_MSG_USERAUTH_GSSAPI_MIC,
                          mic_token_buf.length,
                          (size_t)mic_token_buf.length, mic_token_buf.value);
+
+    gss_release_buffer(&min_stat, &mic_token_buf);
+
     if (rc != SSH_OK) {
         SSH_BUFFER_FREE(mic_buffer);
         ssh_set_error_oom(session);
