@@ -913,6 +913,8 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_gssapi_response){
         ssh_packet_send(session);
         session->auth.state = SSH_AUTH_STATE_GSSAPI_TOKEN;
     }
+
+    gss_release_buffer(&min_stat, &output_token);
     return SSH_PACKET_USED;
 
 error:
