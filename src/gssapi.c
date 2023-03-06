@@ -349,6 +349,7 @@ static char *ssh_gssapi_name_to_char(gss_name_t name)
                          min_stat);
     ptr = malloc(buffer.length + 1);
     if (ptr == NULL) {
+        gss_release_buffer(&min_stat, &buffer);
         return NULL;
     }
     memcpy(ptr, buffer.value, buffer.length);
