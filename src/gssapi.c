@@ -730,7 +730,7 @@ end:
 int ssh_gssapi_auth_mic(ssh_session session)
 {
     size_t i;
-    gss_OID_set selected; /* oid selected for authentication */
+    gss_OID_set selected = GSS_C_NO_OID_SET; /* oid selected for authentication */
     ssh_string *oids = NULL;
     int rc;
     size_t n_oids = 0;
@@ -807,6 +807,8 @@ out:
         SSH_STRING_FREE(oids[i]);
     }
     free(oids);
+    gss_release_oid_set(&min_stat, &selected);
+
     if (rc != SSH_ERROR) {
         return SSH_AUTH_AGAIN;
     }
