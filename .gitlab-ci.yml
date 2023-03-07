@@ -117,7 +117,8 @@ fedora/docs:
   extends: .build
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
   script:
-    - cmake .. && make docs
+    - cmake .. && make docs_coverage && make docs
+  coverage: '/^Documentation coverage is \d+.\d+%/'
 
 fedora/ninja:
   extends: .fedora
