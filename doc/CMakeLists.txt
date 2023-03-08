@@ -82,6 +82,8 @@ if (DOXYGEN_FOUND)
                      ${CMAKE_SOURCE_DIR}/include/libssh
                      ${CMAKE_SOURCE_DIR}/src
                      ${CMAKE_CURRENT_SOURCE_DIR})
+
+    add_custom_target(docs_coverage COMMAND ${CMAKE_SOURCE_DIR}/doc/doc_coverage.sh ${CMAKE_BINARY_DIR})
 endif() # DOXYGEN_FOUND
 
 endif() # CMAKE_VERSION
