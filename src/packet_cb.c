@@ -64,7 +64,9 @@ SSH_PACKET_CALLBACK(ssh_packet_disconnect_callback){
     SSH_STRING_FREE(error_s);
   }
 
-  session->peer_discon_msg = strdup(error);
+  if (error != NULL) {
+    session->peer_discon_msg = strdup(error);
+  }
 
   SSH_LOG(SSH_LOG_PACKET, "Received SSH_MSG_DISCONNECT %d:%s",
                           code, error != NULL ? error : "no error");
