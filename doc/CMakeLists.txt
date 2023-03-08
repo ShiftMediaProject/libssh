@@ -34,7 +34,7 @@ if (DOXYGEN_FOUND)
                                  ${CMAKE_CURRENT_SOURCE_DIR}/that_style/img/folderclosed.svg
                                  ${CMAKE_CURRENT_SOURCE_DIR}/that_style/img/folderopen.svg
                                  ${CMAKE_CURRENT_SOURCE_DIR}/that_style/js/striped_bg.js)
-     set(DOXYGEN_EXCLUDE_PATTERNS src/external/* fe25519.h ge25519.h sc25519.h
+     set(DOXYGEN_EXCLUDE_PATTERNS */src/external/* fe25519.h ge25519.h sc25519.h
                                   blf.h)
      set(DOXYGEN_EXCLUDE_SYMBOLS_STRUCTS chacha20_poly1305_keysched,dh_ctx,dh_ctx,dh_keypair,error_struct,
                                          packet_struct,pem_get_password_struct,ssh_tokens_st,
