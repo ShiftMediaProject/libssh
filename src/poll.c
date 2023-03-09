@@ -68,7 +68,7 @@ struct ssh_poll_handle_struct {
     size_t idx;
   } x;
   short events;
-  int lock;
+  uint32_t lock_cnt;
   ssh_poll_callback cb;
   void *cb_data;
 };
@@ -422,7 +422,7 @@ void ssh_poll_set_events(ssh_poll_handle p, short events)
 {
     p->events = events;
     if (p->ctx != NULL) {
-        if (!p->lock) {
+        if (p->lock_cnt == 0) {
             p->ctx->pollfds[p->x.idx].events = events;
         } else if (!(p->ctx->pollfds[p->x.idx].events & POLLOUT)) {
             /* if locked, allow only setting POLLOUT to prevent recursive
@@ -703,7 +703,7 @@ int ssh_poll_ctx_dopoll(ssh_poll_ctx ctx, int timeout)
      * output buffer */
     for (i = 0; i < ctx->polls_used; i++) {
         /* The lock prevents invoking POLLIN events: drop them now */
-        if (ctx->pollptrs[i]->lock) {
+        if (ctx->pollptrs[i]->lock_cnt > 0) {
             ctx->pollfds[i].events &= ~POLLIN;
         }
     }
@@ -732,7 +732,7 @@ int ssh_poll_ctx_dopoll(ssh_poll_ctx ctx, int timeout)
             revents = ctx->pollfds[i].revents;
             /* avoid having any event caught during callback */
             ctx->pollfds[i].events = 0;
-            p->lock++;
+            p->lock_cnt++;
             if (p->cb && (ret = p->cb(p, fd, revents, p->cb_data)) < 0) {
                 if (ret == -2) {
                     return -1;
@@ -743,7 +743,7 @@ int ssh_poll_ctx_dopoll(ssh_poll_ctx ctx, int timeout)
             } else {
                 ctx->pollfds[i].revents = 0;
                 ctx->pollfds[i].events = p->events;
-                p->lock--;
+                p->lock_cnt--;
                 i++;
             }
 
