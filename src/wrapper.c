@@ -150,15 +150,16 @@ static void cipher_free(struct ssh_cipher_struct *cipher) {
   SAFE_FREE(cipher);
 }
 
-struct ssh_crypto_struct *crypto_new(void) {
-   struct ssh_crypto_struct *crypto;
+struct ssh_crypto_struct *crypto_new(void)
+{
+    struct ssh_crypto_struct *crypto;
 
-  crypto = malloc(sizeof(struct ssh_crypto_struct));
-  if (crypto == NULL) {
-    return NULL;
-  }
-  ZERO_STRUCTP(crypto);
-  return crypto;
+    crypto = malloc(sizeof(struct ssh_crypto_struct));
+    if (crypto == NULL) {
+        return NULL;
+    }
+    ZERO_STRUCTP(crypto);
+    return crypto;
 }
 
 void crypto_free(struct ssh_crypto_struct *crypto)
