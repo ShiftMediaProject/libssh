@@ -161,6 +161,9 @@ SSH_PACKET_CALLBACK(ssh_packet_newkeys){
                                   session->next_crypto->digest_len);
     SSH_SIGNATURE_FREE(sig);
     if (rc == SSH_ERROR) {
+      ssh_set_error(session,
+                    SSH_FATAL,
+                    "Failed to verify server hostkey signature");
       goto error;
     }
     SSH_LOG(SSH_LOG_PROTOCOL,"Signature verified and valid");
