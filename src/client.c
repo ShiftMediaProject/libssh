@@ -438,7 +438,7 @@ static void ssh_client_connection_callback(ssh_session session)
     case SSH_SESSION_STATE_KEXINIT_RECEIVED:
         set_status(session, 0.6f);
         ssh_list_kex(&session->next_crypto->server_kex);
-        if (session->next_crypto->client_kex.methods[0] == NULL) {
+        if ((session->flags & SSH_SESSION_FLAG_KEXINIT_SENT) == 0) {
             /* in rekeying state if next_crypto client_kex might be empty */
             rc = ssh_set_client_kex(session);
             if (rc != SSH_OK) {
