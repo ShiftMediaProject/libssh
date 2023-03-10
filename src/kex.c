@@ -413,7 +413,7 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
         str = NULL;
     }
 
-    /* copy the server kex info into an array of strings */
+    /* copy the peer kex info into an array of strings */
     if (server_kex) {
         for (i = 0; i < SSH_KEX_METHODS; i++) {
             session->next_crypto->client_kex.methods[i] = strings[i];
