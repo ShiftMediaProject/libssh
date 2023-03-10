@@ -1940,7 +1940,7 @@ ssh_packet_set_newkeys(ssh_session session,
         memcpy(session->next_crypto->session_id,
                session->current_crypto->session_id,
                session_id_len);
-	session->next_crypto->session_id_len = session_id_len;
+        session->next_crypto->session_id_len = session_id_len;
 
         return SSH_OK;
     }
