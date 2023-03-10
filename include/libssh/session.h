@@ -79,6 +79,11 @@ enum ssh_pending_call_e {
 /* Do not accept new session channels (no-more-sessions@openssh.com) */
 #define SSH_SESSION_FLAG_NO_MORE_SESSIONS 0x0004
 
+/* The KEXINIT message can be sent first by either of the parties so this flag
+ * indicates that the message was already sent to make sure it is sent and avoid
+ * sending it twice during key exchange to simplify the state machine. */
+#define SSH_SESSION_FLAG_KEXINIT_SENT 0x0008
+
 /* codes to use with ssh_handle_packets*() */
 /* Infinite timeout */
 #define SSH_TIMEOUT_INFINITE -1

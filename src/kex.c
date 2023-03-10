@@ -361,7 +361,17 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
     (void)user;
 
     if (session->session_state == SSH_SESSION_STATE_AUTHENTICATED) {
-        SSH_LOG(SSH_LOG_DEBUG, "Initiating key re-exchange");
+        if (session->dh_handshake_state == DH_STATE_FINISHED) {
+            SSH_LOG(SSH_LOG_DEBUG, "Peer initiated key re-exchange");
+            /* Reset the sent flag if the re-kex was initiated by the peer */
+            session->flags &= ~SSH_SESSION_FLAG_KEXINIT_SENT;
+        } else if (session->dh_handshake_state == DH_STATE_INIT_SENT) {
+            SSH_LOG(SSH_LOG_DEBUG, "Receeved peer kexinit answer");
+        } else {
+            ssh_set_error(session, SSH_FATAL,
+                          "SSH_KEXINIT received in wrong state");
+            goto error;
+        }
     } else if (session->session_state != SSH_SESSION_STATE_INITIAL_KEX) {
         ssh_set_error(session, SSH_FATAL,
                       "SSH_KEXINIT received in wrong state");
@@ -383,6 +393,11 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
                           "ssh_packet_kexinit: adding cookie failed");
             goto error;
         }
+
+        ok = server_set_kex(session);
+        if (ok == SSH_ERROR) {
+            goto error;
+        }
 #endif /* WITH_SERVER */
     } else {
         len = ssh_buffer_get_data(packet, crypto->server_kex.cookie, 16);
@@ -396,6 +411,11 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
         if (ok < 0) {
             ssh_set_error(session, SSH_FATAL,
                           "ssh_packet_kexinit: adding cookie failed");
+            goto error;
+        }
+
+        ok = ssh_set_client_kex(session);
+        if (ok == SSH_ERROR) {
             goto error;
         }
     }
@@ -446,23 +466,38 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
      * 'make_sessionid').
      */
 
+    rc = ssh_buffer_get_u8(packet, &first_kex_packet_follows);
+    if (rc != 1) {
+        goto error;
+    }
+
+    rc = ssh_buffer_add_u8(session->in_hashbuf, first_kex_packet_follows);
+    if (rc < 0) {
+        goto error;
+    }
+
+    rc = ssh_buffer_add_u32(session->in_hashbuf, kexinit_reserved);
+    if (rc < 0) {
+        goto error;
+    }
+
+    /*
+     * Remember whether 'first_kex_packet_follows' was set and the client
+     * guess was wrong: in this case the next SSH_MSG_KEXDH_INIT message
+     * must be ignored.
+     */
+    if (first_kex_packet_follows) {
+        char **client_methods = crypto->client_kex.methods;
+        char **server_methods = crypto->server_kex.methods;
+        session->first_kex_follows_guess_wrong =
+            cmp_first_kex_algo(client_methods[SSH_KEX],
+                               server_methods[SSH_KEX]) ||
+            cmp_first_kex_algo(client_methods[SSH_HOSTKEYS],
+                               server_methods[SSH_HOSTKEYS]);
+    }
+
 #ifdef WITH_SERVER
     if (server_kex) {
-        rc = ssh_buffer_get_u8(packet, &first_kex_packet_follows);
-        if (rc != 1) {
-            goto error;
-        }
-
-        rc = ssh_buffer_add_u8(session->in_hashbuf, first_kex_packet_follows);
-        if (rc < 0) {
-            goto error;
-        }
-
-        rc = ssh_buffer_add_u32(session->in_hashbuf, kexinit_reserved);
-        if (rc < 0) {
-            goto error;
-        }
-
         /*
          * If client sent a ext-info-c message in the kex list, it supports
          * RFC 8308 extension negotiation.
@@ -533,19 +568,6 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
                     "negotiation. Enabled signature algorithms: %s%s",
                     session->extensions & SSH_EXT_SIG_RSA_SHA256 ? "SHA256" : "",
                     session->extensions & SSH_EXT_SIG_RSA_SHA512 ? " SHA512" : "");
-        }
-
-        /*
-         * Remember whether 'first_kex_packet_follows' was set and the client
-         * guess was wrong: in this case the next SSH_MSG_KEXDH_INIT message
-         * must be ignored.
-         */
-        if (first_kex_packet_follows) {
-          session->first_kex_follows_guess_wrong =
-            cmp_first_kex_algo(session->next_crypto->client_kex.methods[SSH_KEX],
-                               session->next_crypto->server_kex.methods[SSH_KEX]) ||
-            cmp_first_kex_algo(session->next_crypto->client_kex.methods[SSH_HOSTKEYS],
-                               session->next_crypto->server_kex.methods[SSH_HOSTKEYS]);
         }
     }
 #endif /* WITH_SERVER */
@@ -702,13 +724,17 @@ int ssh_set_client_kex(ssh_session session)
     int i;
     size_t kex_len, len;
 
+    /* Skip if already set, for example for the rekey or when we do the guessing
+     * it could have been already used to make some protocol decisions. */
+    if (client->methods[0] != NULL) {
+        return SSH_OK;
+    }
+
     ok = ssh_get_random(client->cookie, 16, 0);
     if (!ok) {
         ssh_set_error(session, SSH_FATAL, "PRNG error");
         return SSH_ERROR;
     }
-
-    memset(client->methods, 0, SSH_KEX_METHODS * sizeof(char **));
 
     /* Set the list of allowed algorithms in order of preference, if it hadn't
      * been set yet. */
@@ -960,11 +986,22 @@ int ssh_send_kex(ssh_session session)
         goto error;
     }
 
+    /* Prepare also the first_kex_packet_follows and reserved to 0 */
+    rc = ssh_buffer_add_u8(session->out_hashbuf, 0);
+    if (rc < 0) {
+        goto error;
+    }
+    rc = ssh_buffer_add_u32(session->out_hashbuf, 0);
+    if (rc < 0) {
+        goto error;
+    }
+
     rc = ssh_packet_send(session);
     if (rc == SSH_ERROR) {
         return -1;
     }
 
+    session->flags |= SSH_SESSION_FLAG_KEXINIT_SENT;
     SSH_LOG(SSH_LOG_PACKET, "SSH_MSG_KEXINIT sent");
     return 0;
 
@@ -1204,33 +1241,6 @@ int ssh_make_sessionid(ssh_session session)
     } else {
         server_hash = session->out_hashbuf;
         client_hash = session->in_hashbuf;
-    }
-
-    /*
-     * Handle the two final fields for the KEXINIT message (RFC 4253 7.1):
-     *
-     *      boolean      first_kex_packet_follows
-     *      uint32       0 (reserved for future extension)
-     */
-    rc = ssh_buffer_add_u8(server_hash, 0);
-    if (rc < 0) {
-        goto error;
-    }
-    rc = ssh_buffer_add_u32(server_hash, 0);
-    if (rc < 0) {
-        goto error;
-    }
-
-    /* These fields are handled for the server case in ssh_packet_kexinit. */
-    if (session->client) {
-        rc = ssh_buffer_add_u8(client_hash, 0);
-        if (rc < 0) {
-            goto error;
-        }
-        rc = ssh_buffer_add_u32(client_hash, 0);
-        if (rc < 0) {
-            goto error;
-        }
     }
 
     rc = ssh_dh_get_next_server_publickey_blob(session, &server_pubkey_blob);

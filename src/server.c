@@ -92,7 +92,11 @@ int server_set_kex(ssh_session session)
     size_t len;
     int ok;
 
-    ZERO_STRUCTP(server);
+    /* Skip if already set, for example for the rekey or when we do the guessing
+     * it could have been already used to make some protocol decisions. */
+    if (server->methods[0] != NULL) {
+        return SSH_OK;
+    }
 
     ok = ssh_get_random(server->cookie, 16, 0);
     if (!ok) {
@@ -366,7 +370,7 @@ static void ssh_server_connection_callback(ssh_session session)
         break;
     case SSH_SESSION_STATE_KEXINIT_RECEIVED:
         set_status(session, 0.6f);
-        if (session->next_crypto->server_kex.methods[0] == NULL) {
+        if ((session->flags & SSH_SESSION_FLAG_KEXINIT_SENT) == 0) {
             rc = server_set_kex(session);
             if (rc == SSH_ERROR) {
                 goto error;
