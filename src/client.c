@@ -424,7 +424,7 @@ static void ssh_client_connection_callback(ssh_session session)
         if (rc != SSH_OK) {
             goto error;
         }
-        rc = ssh_send_kex(session, 0);
+        rc = ssh_send_kex(session);
         if (rc < 0) {
             goto error;
         }
@@ -443,7 +443,7 @@ static void ssh_client_connection_callback(ssh_session session)
             if (rc != SSH_OK) {
                 goto error;
             }
-            rc = ssh_send_kex(session, 0);
+            rc = ssh_send_kex(session);
             if (rc < 0) {
                 goto error;
             }

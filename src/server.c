@@ -356,7 +356,7 @@ static void ssh_server_connection_callback(ssh_session session)
         ssh_packet_set_default_callbacks(session);
         set_status(session, 0.5f);
         session->session_state = SSH_SESSION_STATE_INITIAL_KEX;
-        rc = ssh_send_kex(session, 1);
+        rc = ssh_send_kex(session);
         if (rc < 0) {
             goto error;
         }
@@ -372,7 +372,7 @@ static void ssh_server_connection_callback(ssh_session session)
                 goto error;
             }
             /* We are in a rekeying, so we need to send the server kex */
-            rc = ssh_send_kex(session, 1);
+            rc = ssh_send_kex(session);
             if (rc < 0) {
                 goto error;
             }
