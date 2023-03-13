@@ -870,9 +870,9 @@ int ssh_kex_select_methods (ssh_session session)
 
 
 /* this function only sends the predefined set of kex methods */
-int ssh_send_kex(ssh_session session, int server_kex)
+int ssh_send_kex(ssh_session session)
 {
-    struct ssh_kex_struct *kex = (server_kex ?
+    struct ssh_kex_struct *kex = (session->server ?
         &session->next_crypto->server_kex :
         &session->next_crypto->client_kex);
     ssh_string str = NULL;
@@ -974,7 +974,7 @@ int ssh_send_rekex(ssh_session session)
     }
 
     session->dh_handshake_state = DH_STATE_INIT;
-    rc = ssh_send_kex(session, session->server);
+    rc = ssh_send_kex(session);
     if (rc < 0) {
         SSH_LOG(SSH_LOG_PACKET, "Failed to send kex");
         return rc;

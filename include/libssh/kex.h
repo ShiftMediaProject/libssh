@@ -37,7 +37,7 @@ extern "C" {
 
 SSH_PACKET_CALLBACK(ssh_packet_kexinit);
 
-int ssh_send_kex(ssh_session session, int server_kex);
+int ssh_send_kex(ssh_session session);
 void ssh_list_kex(struct ssh_kex_struct *kex);
 int ssh_set_client_kex(ssh_session session);
 int ssh_kex_select_methods(ssh_session session);

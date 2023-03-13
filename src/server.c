@@ -367,7 +367,7 @@ static void ssh_server_connection_callback(ssh_session session)
         ssh_packet_set_default_callbacks(session);
         set_status(session, 0.5f);
         session->session_state = SSH_SESSION_STATE_INITIAL_KEX;
-        if (ssh_send_kex(session, 1) < 0) {
+        if (ssh_send_kex(session) < 0) {
             goto error;
         }
         break;
@@ -380,7 +380,7 @@ static void ssh_server_connection_callback(ssh_session session)
             if (server_set_kex(session) == SSH_ERROR)
                 goto error;
             /* We are in a rekeying, so we need to send the server kex */
-            if (ssh_send_kex(session, 1) < 0)
+            if (ssh_send_kex(session) < 0)
                 goto error;
         }
         ssh_list_kex(&session->next_crypto->client_kex); // log client kex
