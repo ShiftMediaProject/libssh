@@ -982,9 +982,9 @@ static void torture_options_getopt(void **state)
     assert_string_equal(session->opts.identity_non_exp->root->data, "id_rsa");
 #ifdef WITH_ZLIB
     assert_string_equal(session->opts.wanted_methods[SSH_COMP_C_S],
-                        "zlib@openssh.com,zlib,none");
+                        "zlib@openssh.com,none");
     assert_string_equal(session->opts.wanted_methods[SSH_COMP_S_C],
-                        "zlib@openssh.com,zlib,none");
+                        "zlib@openssh.com,none");
 #else
     assert_string_equal(session->opts.wanted_methods[SSH_COMP_C_S],
                         "none");
@@ -1052,9 +1052,9 @@ static void torture_options_getopt(void **state)
     assert_ssh_return_code(session, rc);
 #ifdef WITH_ZLIB
     assert_string_equal(session->opts.wanted_methods[SSH_COMP_C_S],
-                        "none,zlib@openssh.com,zlib");
+                        "none,zlib@openssh.com");
     assert_string_equal(session->opts.wanted_methods[SSH_COMP_S_C],
-                        "none,zlib@openssh.com,zlib");
+                        "none,zlib@openssh.com");
 #else
     assert_string_equal(session->opts.wanted_methods[SSH_COMP_C_S],
                         "none");
@@ -1068,9 +1068,9 @@ static void torture_options_getopt(void **state)
     assert_string_equal(argv[0], EXECUTABLE_NAME);
 #ifdef WITH_ZLIB
     assert_string_equal(session->opts.wanted_methods[SSH_COMP_C_S],
-                        "zlib@openssh.com,zlib,none");
+                        "zlib@openssh.com,none");
     assert_string_equal(session->opts.wanted_methods[SSH_COMP_S_C],
-                        "zlib@openssh.com,zlib,none");
+                        "zlib@openssh.com,none");
 #else
     assert_string_equal(session->opts.wanted_methods[SSH_COMP_C_S],
                         "none");

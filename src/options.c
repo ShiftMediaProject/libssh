@@ -940,9 +940,9 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
             } else {
                 const char *tmp = v;
                 if (strcasecmp(value, "yes") == 0){
-                    tmp = "zlib@openssh.com,zlib,none";
+                    tmp = "zlib@openssh.com,none";
                 } else if (strcasecmp(value, "no") == 0){
-                    tmp = "none,zlib@openssh.com,zlib";
+                    tmp = "none,zlib@openssh.com";
                 }
                 rc = ssh_options_set_algo(session,
                                           SSH_COMP_C_S,
@@ -960,9 +960,9 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
             } else {
                 const char *tmp = v;
                 if (strcasecmp(value, "yes") == 0){
-                    tmp = "zlib@openssh.com,zlib,none";
+                    tmp = "zlib@openssh.com,none";
                 } else if (strcasecmp(value, "no") == 0){
-                    tmp = "none,zlib@openssh.com,zlib";
+                    tmp = "none,zlib@openssh.com";
                 }
 
                 rc = ssh_options_set_algo(session,
