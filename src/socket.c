@@ -65,8 +65,6 @@ struct sockaddr_un {
 #include "libssh/session.h"
 
 /**
- * @internal
- *
  * @defgroup libssh_socket The SSH socket functions.
  * @ingroup libssh
  *

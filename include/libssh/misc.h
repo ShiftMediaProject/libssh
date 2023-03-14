@@ -79,7 +79,7 @@ const void *_ssh_list_pop_head(struct ssh_list *list);
 
 /** @brief fetch the head element of a list and remove it from list
  * @param type type of the element to return
- * @param list the ssh_list to use
+ * @param ssh_list the ssh_list to use
  * @return the first element of the list, or NULL if the list is empty
  */
 #define ssh_list_pop_head(type, ssh_list)\

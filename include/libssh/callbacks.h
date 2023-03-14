@@ -965,7 +965,7 @@ LIBSSH_API int ssh_remove_channel_callbacks(ssh_channel channel,
 
 /** @} */
 
-/** @group libssh_threads
+/** @addtogroup libssh_threads
  * @{
  */
 
