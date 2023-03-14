@@ -541,9 +541,9 @@ static void torture_config_new(void ** state,
     assert_string_equal(session->opts.bindaddr, BIND_ADDRESS);
 #ifdef WITH_ZLIB
     assert_string_equal(session->opts.wanted_methods[SSH_COMP_C_S],
-                        "zlib@openssh.com,zlib,none");
+                        "zlib@openssh.com,none");
     assert_string_equal(session->opts.wanted_methods[SSH_COMP_S_C],
-                        "zlib@openssh.com,zlib,none");
+                        "zlib@openssh.com,none");
 #else
     assert_string_equal(session->opts.wanted_methods[SSH_COMP_C_S],
                         "none");
