@@ -360,6 +360,7 @@ static int cmp_first_kex_algo(const char *client_str,
 SSH_PACKET_CALLBACK(ssh_packet_kexinit)
 {
     int i, ok;
+    struct ssh_crypto_struct *crypto = session->next_crypto;
     int server_kex = session->server;
     ssh_string str = NULL;
     char *strings[SSH_KEX_METHODS] = {0};
@@ -376,32 +377,37 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
     if (session->session_state == SSH_SESSION_STATE_AUTHENTICATED) {
         SSH_LOG(SSH_LOG_INFO, "Initiating key re-exchange");
     } else if (session->session_state != SSH_SESSION_STATE_INITIAL_KEX) {
-        ssh_set_error(session,SSH_FATAL,"SSH_KEXINIT received in wrong state");
+        ssh_set_error(session, SSH_FATAL,
+                      "SSH_KEXINIT received in wrong state");
         goto error;
     }
 
     if (server_kex) {
-        len = ssh_buffer_get_data(packet,session->next_crypto->client_kex.cookie, 16);
+        len = ssh_buffer_get_data(packet, crypto->client_kex.cookie, 16);
         if (len != 16) {
-            ssh_set_error(session, SSH_FATAL, "ssh_packet_kexinit: no cookie in packet");
+            ssh_set_error(session, SSH_FATAL,
+                          "ssh_packet_kexinit: no cookie in packet");
             goto error;
         }
 
-        ok = ssh_hashbufin_add_cookie(session, session->next_crypto->client_kex.cookie);
+        ok = ssh_hashbufin_add_cookie(session, crypto->client_kex.cookie);
         if (ok < 0) {
-            ssh_set_error(session, SSH_FATAL, "ssh_packet_kexinit: adding cookie failed");
+            ssh_set_error(session, SSH_FATAL,
+                          "ssh_packet_kexinit: adding cookie failed");
             goto error;
         }
     } else {
-        len = ssh_buffer_get_data(packet,session->next_crypto->server_kex.cookie, 16);
+        len = ssh_buffer_get_data(packet, crypto->server_kex.cookie, 16);
         if (len != 16) {
-            ssh_set_error(session, SSH_FATAL, "ssh_packet_kexinit: no cookie in packet");
+            ssh_set_error(session, SSH_FATAL,
+                          "ssh_packet_kexinit: no cookie in packet");
             goto error;
         }
 
-        ok = ssh_hashbufin_add_cookie(session, session->next_crypto->server_kex.cookie);
+        ok = ssh_hashbufin_add_cookie(session, crypto->server_kex.cookie);
         if (ok < 0) {
-            ssh_set_error(session, SSH_FATAL, "ssh_packet_kexinit: adding cookie failed");
+            ssh_set_error(session, SSH_FATAL,
+                          "ssh_packet_kexinit: adding cookie failed");
             goto error;
         }
     }
@@ -414,7 +420,8 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
 
         rc = ssh_buffer_add_ssh_string(session->in_hashbuf, str);
         if (rc < 0) {
-            ssh_set_error(session, SSH_FATAL, "Error adding string in hash buffer");
+            ssh_set_error(session, SSH_FATAL,
+                          "Error adding string in hash buffer");
             goto error;
         }
 
@@ -430,11 +437,11 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
     /* copy the peer kex info into an array of strings */
     if (server_kex) {
         for (i = 0; i < SSH_KEX_METHODS; i++) {
-            session->next_crypto->client_kex.methods[i] = strings[i];
+            crypto->client_kex.methods[i] = strings[i];
         }
     } else { /* client */
         for (i = 0; i < SSH_KEX_METHODS; i++) {
-            session->next_crypto->server_kex.methods[i] = strings[i];
+            crypto->server_kex.methods[i] = strings[i];
         }
     }
 
@@ -468,10 +475,10 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
          * If client sent a ext-info-c message in the kex list, it supports
          * RFC 8308 extension negotiation.
          */
-        ok = ssh_match_group(session->next_crypto->client_kex.methods[SSH_KEX],
+        ok = ssh_match_group(crypto->client_kex.methods[SSH_KEX],
                              KEX_EXTENSION_CLIENT);
         if (ok) {
-            const char *hostkeys = NULL;
+            const char *hostkeys = NULL, *wanted_hostkeys = NULL;
 
             /* The client supports extension negotiation */
             session->extensions |= SSH_EXT_NEGOTIATION;
@@ -481,14 +488,14 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
              * by the client and enable the respective extensions to provide
              * correct signature in the next packet if RSA is negotiated
              */
-            hostkeys = session->next_crypto->client_kex.methods[SSH_HOSTKEYS];
+            hostkeys = crypto->client_kex.methods[SSH_HOSTKEYS];
+            wanted_hostkeys = session->opts.wanted_methods[SSH_HOSTKEYS];
             ok = ssh_match_group(hostkeys, "rsa-sha2-512");
             if (ok) {
                 /* Check if rsa-sha2-512 is allowed by config */
-                if (session->opts.wanted_methods[SSH_HOSTKEYS] != NULL) {
-                    char *is_allowed =
-                        ssh_find_matching(session->opts.wanted_methods[SSH_HOSTKEYS],
-                                          "rsa-sha2-512");
+                if (wanted_hostkeys != NULL) {
+                    char *is_allowed = ssh_find_matching(wanted_hostkeys,
+                                                         "rsa-sha2-512");
                     if (is_allowed != NULL) {
                         session->extensions |= SSH_EXT_SIG_RSA_SHA512;
                     }
@@ -498,10 +505,9 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
             ok = ssh_match_group(hostkeys, "rsa-sha2-256");
             if (ok) {
                 /* Check if rsa-sha2-256 is allowed by config */
-                if (session->opts.wanted_methods[SSH_HOSTKEYS] != NULL) {
-                    char *is_allowed =
-                        ssh_find_matching(session->opts.wanted_methods[SSH_HOSTKEYS],
-                                          "rsa-sha2-256");
+                if (wanted_hostkeys != NULL) {
+                    char *is_allowed = ssh_find_matching(wanted_hostkeys,
+                                                         "rsa-sha2-256");
                     if (is_allowed != NULL) {
                         session->extensions |= SSH_EXT_SIG_RSA_SHA256;
                     }
@@ -517,7 +523,7 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
                 (session->extensions & SSH_EXT_SIG_RSA_SHA512)) {
                 session->extensions &= ~(SSH_EXT_SIG_RSA_SHA256 | SSH_EXT_SIG_RSA_SHA512);
                 rsa_sig_ext = ssh_find_matching("rsa-sha2-512,rsa-sha2-256",
-                                                session->next_crypto->client_kex.methods[SSH_HOSTKEYS]);
+                                                hostkeys);
                 if (rsa_sig_ext == NULL) {
                     goto error; /* should never happen */
                 } else if (strcmp(rsa_sig_ext, "rsa-sha2-512") == 0) {
