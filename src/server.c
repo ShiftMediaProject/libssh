@@ -548,10 +548,14 @@ int ssh_send_issue_banner(ssh_session session, const ssh_string banner)
 }
 
 /* Do the banner and key exchange */
-int ssh_handle_key_exchange(ssh_session session) {
+int ssh_handle_key_exchange(ssh_session session)
+{
     int rc;
-    if (session->session_state != SSH_SESSION_STATE_NONE)
-      goto pending;
+
+    if (session->session_state != SSH_SESSION_STATE_NONE) {
+        goto pending;
+    }
+
     rc = ssh_send_banner(session, 1);
     if (rc < 0) {
         return SSH_ERROR;
@@ -562,27 +566,28 @@ int ssh_handle_key_exchange(ssh_session session) {
     session->ssh_connection_callback = ssh_server_connection_callback;
     session->session_state = SSH_SESSION_STATE_SOCKET_CONNECTED;
     ssh_socket_set_callbacks(session->socket,&session->socket_callbacks);
-    session->socket_callbacks.data=callback_receive_banner;
-    session->socket_callbacks.exception=ssh_socket_exception_callback;
-    session->socket_callbacks.userdata=session;
+    session->socket_callbacks.data = callback_receive_banner;
+    session->socket_callbacks.exception = ssh_socket_exception_callback;
+    session->socket_callbacks.userdata = session;
 
     rc = server_set_kex(session);
     if (rc < 0) {
         return SSH_ERROR;
     }
-    pending:
+pending:
     rc = ssh_handle_packets_termination(session, SSH_TIMEOUT_USER,
-        ssh_server_kex_termination,session);
+                                        ssh_server_kex_termination,session);
     SSH_LOG(SSH_LOG_PACKET, "ssh_handle_key_exchange: current state : %d",
-        session->session_state);
-    if (rc != SSH_OK)
-      return rc;
+            session->session_state);
+    if (rc != SSH_OK) {
+        return rc;
+    }
     if (session->session_state == SSH_SESSION_STATE_ERROR ||
         session->session_state == SSH_SESSION_STATE_DISCONNECTED) {
-      return SSH_ERROR;
+        return SSH_ERROR;
     }
 
-  return SSH_OK;
+    return SSH_OK;
 }
 
 /* messages */
