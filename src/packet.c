@@ -1394,17 +1394,22 @@ error:
     return processed;
 }
 
-void ssh_packet_register_socket_callback(ssh_session session, ssh_socket s){
-	session->socket_callbacks.data=ssh_packet_socket_callback;
-	session->socket_callbacks.connected=NULL;
-	session->socket_callbacks.userdata=session;
-	ssh_socket_set_callbacks(s,&session->socket_callbacks);
+void ssh_packet_register_socket_callback(ssh_session session, ssh_socket s)
+{
+    struct ssh_socket_callbacks_struct *callbacks = &session->socket_callbacks;
+
+    callbacks->data = ssh_packet_socket_callback;
+    callbacks->connected = NULL;
+    callbacks->userdata = session;
+    ssh_socket_set_callbacks(s, callbacks);
 }
 
 /** @internal
  * @brief sets the callbacks for the packet layer
  */
-void ssh_packet_set_callbacks(ssh_session session, ssh_packet_callbacks callbacks){
+void
+ssh_packet_set_callbacks(ssh_session session, ssh_packet_callbacks callbacks)
+{
     if (session->packet_callbacks == NULL) {
         session->packet_callbacks = ssh_list_new();
         if (session->packet_callbacks == NULL) {
@@ -1418,8 +1423,11 @@ void ssh_packet_set_callbacks(ssh_session session, ssh_packet_callbacks callback
 /** @internal
  * @brief remove the callbacks from the packet layer
  */
-void ssh_packet_remove_callbacks(ssh_session session, ssh_packet_callbacks callbacks){
+void
+ssh_packet_remove_callbacks(ssh_session session, ssh_packet_callbacks callbacks)
+{
     struct ssh_iterator *it = NULL;
+
     it = ssh_list_find(session->packet_callbacks, callbacks);
     if (it != NULL) {
         ssh_list_remove(session->packet_callbacks, it);
@@ -1429,12 +1437,15 @@ void ssh_packet_remove_callbacks(ssh_session session, ssh_packet_callbacks callb
 /** @internal
  * @brief sets the default packet handlers
  */
-void ssh_packet_set_default_callbacks(ssh_session session){
-	session->default_packet_callbacks.start=1;
-	session->default_packet_callbacks.n_callbacks=sizeof(default_packet_handlers)/sizeof(ssh_packet_callback);
-	session->default_packet_callbacks.user=session;
-	session->default_packet_callbacks.callbacks=default_packet_handlers;
-	ssh_packet_set_callbacks(session, &session->default_packet_callbacks);
+void ssh_packet_set_default_callbacks(ssh_session session)
+{
+    struct ssh_packet_callbacks_struct *c = &session->default_packet_callbacks;
+
+    c->start = 1;
+    c->n_callbacks = sizeof(default_packet_handlers) / sizeof(ssh_packet_callback);
+    c->user = session;
+    c->callbacks = default_packet_handlers;
+    ssh_packet_set_callbacks(session, c);
 }
 
 /** @internal
