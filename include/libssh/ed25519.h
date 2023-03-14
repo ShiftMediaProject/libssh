@@ -24,10 +24,10 @@
 
 /**
  * @defgroup ed25519 ed25519 API
- * @internal
  * @brief API for DJB's ed25519
  *
- * @{ */
+ * @{
+ */
 
 #define ED25519_PK_LEN 32
 #define ED25519_SK_LEN 64

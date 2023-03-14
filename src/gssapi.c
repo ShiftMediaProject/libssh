@@ -593,6 +593,7 @@ ssh_gssapi_creds ssh_gssapi_get_creds(ssh_session session)
  * Unlike ssh_gssapi_get_creds() this is called on the client side of an ssh
  * connection.
  *
+ * @param[in] session The session
  * @param[in] creds gssapi credentials handle.
  */
 void ssh_gssapi_set_creds(ssh_session session, const ssh_gssapi_creds creds)
