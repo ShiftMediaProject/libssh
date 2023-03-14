@@ -366,6 +366,11 @@ static enum ssh_packet_filter_result_e ssh_packet_incoming_filter(ssh_session se
          * - session->dh_handshake_state = DH_STATE_NEWKEYS_SENT
          * */
 
+        if (!session->server) {
+            rc = SSH_PACKET_DENIED;
+            break;
+        }
+
         if (session->session_state != SSH_SESSION_STATE_DH) {
             rc = SSH_PACKET_DENIED;
             break;
