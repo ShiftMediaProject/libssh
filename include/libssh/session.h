@@ -141,10 +141,8 @@ struct ssh_session_struct {
     /* Extensions negotiated using RFC 8308 */
     uint32_t extensions;
 
-    ssh_string banner; /* that's the issue banner from
-                       the server */
-    char *peer_discon_msg; /* disconnect message from
-                         the remote host */
+    ssh_string banner; /* that's the issue banner from the server */
+    char *peer_discon_msg; /* disconnect message from the remote host */
     char *disconnect_message; /* disconnect message to be set */
     ssh_buffer in_buffer;
     PACKET in_packet;
@@ -181,13 +179,14 @@ struct ssh_session_struct {
     ssh_buffer in_hashbuf;
     ssh_buffer out_hashbuf;
     struct ssh_crypto_struct *current_crypto;
-    struct ssh_crypto_struct *next_crypto;  /* next_crypto is going to be used after a SSH2_MSG_NEWKEYS */
+    /* next_crypto is going to be used after a SSH2_MSG_NEWKEYS */
+    struct ssh_crypto_struct *next_crypto;
 
     struct ssh_list *channels; /* linked list of channels */
     uint32_t maxchannel;
     ssh_agent agent; /* ssh agent */
 
-/* keyb interactive data */
+    /* keyboard interactive data */
     struct ssh_kbdint_struct *kbdint;
     struct ssh_gssapi_struct *gssapi;
 
@@ -203,7 +202,8 @@ struct ssh_session_struct {
 
     /* auths accepted by server */
     struct ssh_list *ssh_message_list; /* list of delayed SSH messages */
-    int (*ssh_message_callback)( struct ssh_session_struct *session, ssh_message msg, void *userdata);
+    int (*ssh_message_callback)(struct ssh_session_struct *session,
+                                ssh_message msg, void *userdata);
     void *ssh_message_callback_data;
     ssh_server_callbacks server_callbacks;
     void (*ssh_connection_callback)( struct ssh_session_struct *session);
