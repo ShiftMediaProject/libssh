@@ -861,61 +861,66 @@ int ssh_kex_select_methods (ssh_session session)
 /* this function only sends the predefined set of kex methods */
 int ssh_send_kex(ssh_session session, int server_kex)
 {
-  struct ssh_kex_struct *kex = (server_kex ? &session->next_crypto->server_kex :
-      &session->next_crypto->client_kex);
-  ssh_string str = NULL;
-  int i;
-  int rc;
+    struct ssh_kex_struct *kex = (server_kex ?
+        &session->next_crypto->server_kex :
+        &session->next_crypto->client_kex);
+    ssh_string str = NULL;
+    int i;
+    int rc;
 
-  rc = ssh_buffer_pack(session->out_buffer,
-                       "bP",
-                       SSH2_MSG_KEXINIT,
-                       16,
-                       kex->cookie); /* cookie */
-  if (rc != SSH_OK)
-    goto error;
-  if (ssh_hashbufout_add_cookie(session) < 0) {
-    goto error;
-  }
-
-  ssh_list_kex(kex);
-
-  for (i = 0; i < SSH_KEX_METHODS; i++) {
-    str = ssh_string_from_char(kex->methods[i]);
-    if (str == NULL) {
-      goto error;
+    rc = ssh_buffer_pack(session->out_buffer,
+                         "bP",
+                         SSH2_MSG_KEXINIT,
+                         16,
+                         kex->cookie); /* cookie */
+    if (rc != SSH_OK)
+        goto error;
+    if (ssh_hashbufout_add_cookie(session) < 0) {
+        goto error;
     }
 
-    if (ssh_buffer_add_ssh_string(session->out_hashbuf, str) < 0) {
-      goto error;
+    ssh_list_kex(kex);
+
+    for (i = 0; i < SSH_KEX_METHODS; i++) {
+        str = ssh_string_from_char(kex->methods[i]);
+        if (str == NULL) {
+            goto error;
+        }
+
+        rc = ssh_buffer_add_ssh_string(session->out_hashbuf, str);
+        if (rc < 0) {
+            goto error;
+        }
+        rc = ssh_buffer_add_ssh_string(session->out_buffer, str);
+        if (rc < 0) {
+            goto error;
+        }
+        SSH_STRING_FREE(str);
+        str = NULL;
     }
-    if (ssh_buffer_add_ssh_string(session->out_buffer, str) < 0) {
-      goto error;
+
+    rc = ssh_buffer_pack(session->out_buffer,
+                         "bd",
+                         0,
+                         0);
+    if (rc != SSH_OK) {
+        goto error;
     }
-    SSH_STRING_FREE(str);
-    str = NULL;
-  }
 
-  rc = ssh_buffer_pack(session->out_buffer,
-                       "bd",
-                       0,
-                       0);
-  if (rc != SSH_OK) {
-    goto error;
-  }
+    rc = ssh_packet_send(session);
+    if (rc == SSH_ERROR) {
+        return -1;
+    }
 
-  if (ssh_packet_send(session) == SSH_ERROR) {
-    return -1;
-  }
+    SSH_LOG(SSH_LOG_PACKET, "SSH_MSG_KEXINIT sent");
+    return 0;
 
-  SSH_LOG(SSH_LOG_PACKET, "SSH_MSG_KEXINIT sent");
-  return 0;
 error:
-  ssh_buffer_reinit(session->out_buffer);
-  ssh_buffer_reinit(session->out_hashbuf);
-  SSH_STRING_FREE(str);
+    ssh_buffer_reinit(session->out_buffer);
+    ssh_buffer_reinit(session->out_hashbuf);
+    SSH_STRING_FREE(str);
 
-  return -1;
+    return -1;
 }
 
 /*
