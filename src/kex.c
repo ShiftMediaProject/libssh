@@ -89,8 +89,10 @@
 
 #ifdef WITH_ZLIB
 #define ZLIB "none,zlib@openssh.com,zlib"
+#define ZLIB_DEFAULT "none,zlib@openssh.com"
 #else
 #define ZLIB "none"
+#define ZLIB_DEFAULT "none"
 #endif /* WITH_ZLIB */
 
 #ifdef HAVE_CURVE25519
@@ -226,8 +228,8 @@ static const char *fips_methods[] = {
     FIPS_ALLOWED_CIPHERS,
     FIPS_ALLOWED_MACS,
     FIPS_ALLOWED_MACS,
-    ZLIB,
-    ZLIB,
+    ZLIB_DEFAULT,
+    ZLIB_DEFAULT,
     "",
     "",
     NULL
@@ -241,8 +243,8 @@ static const char *default_methods[] = {
     CHACHA20 AES,
     "hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,hmac-sha2-256,hmac-sha2-512",
     "hmac-sha2-256-etm@openssh.com,hmac-sha2-512-etm@openssh.com,hmac-sha2-256,hmac-sha2-512",
-    ZLIB,
-    ZLIB,
+    ZLIB_DEFAULT,
+    ZLIB_DEFAULT,
     "",
     "",
     NULL
