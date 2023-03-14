@@ -447,16 +447,17 @@ error:
  * @param  user is a pointer to session
  * @returns Number of bytes processed, or zero if the banner is not complete.
  */
-static size_t callback_receive_banner(const void *data, size_t len, void *user) {
-    char *buffer = (char *) data;
-    ssh_session session = (ssh_session) user;
+static size_t callback_receive_banner(const void *data, size_t len, void *user)
+{
+    char *buffer = (char *)data;
+    ssh_session session = (ssh_session)user;
     char *str = NULL;
     size_t i;
     size_t processed = 0;
 
     for (i = 0; i < len; i++) {
 #ifdef WITH_PCAP
-        if(session->pcap_ctx && buffer[i] == '\n') {
+        if (session->pcap_ctx && buffer[i] == '\n') {
             ssh_pcap_context_write(session->pcap_ctx,
                                    SSH_PCAP_DIR_IN,
                                    buffer,
@@ -465,11 +466,11 @@ static size_t callback_receive_banner(const void *data, size_t len, void *user) 
         }
 #endif
         if (buffer[i] == '\r') {
-            buffer[i]='\0';
+            buffer[i] = '\0';
         }
 
         if (buffer[i] == '\n') {
-            buffer[i]='\0';
+            buffer[i] = '\0';
 
             str = strdup(buffer);
             /* number of bytes read */
@@ -482,10 +483,11 @@ static size_t callback_receive_banner(const void *data, size_t len, void *user) 
             return processed;
         }
 
-        if(i > 127) {
+        if (i > 127) {
             /* Too big banner */
             session->session_state = SSH_SESSION_STATE_ERROR;
-            ssh_set_error(session, SSH_FATAL, "Receiving banner: too large banner");
+            ssh_set_error(session, SSH_FATAL,
+                          "Receiving banner: too large banner");
 
             return 0;
         }
