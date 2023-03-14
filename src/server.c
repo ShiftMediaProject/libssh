@@ -324,116 +324,127 @@ ssh_get_key_params(ssh_session session,
  * @brief A function to be called each time a step has been done in the
  * connection.
  */
-static void ssh_server_connection_callback(ssh_session session){
+static void ssh_server_connection_callback(ssh_session session)
+{
     int rc;
 
-    switch(session->session_state){
-        case SSH_SESSION_STATE_NONE:
-        case SSH_SESSION_STATE_CONNECTING:
-        case SSH_SESSION_STATE_SOCKET_CONNECTED:
-            break;
-        case SSH_SESSION_STATE_BANNER_RECEIVED:
-            if (session->clientbanner == NULL) {
-                goto error;
-            }
-            set_status(session, 0.4f);
-            SSH_LOG(SSH_LOG_DEBUG,
-                    "SSH client banner: %s", session->clientbanner);
-
-            /* Here we analyze the different protocols the server allows. */
-            rc = ssh_analyze_banner(session, 1);
-            if (rc < 0) {
-                ssh_set_error(session, SSH_FATAL,
-                        "No version of SSH protocol usable (banner: %s)",
-                        session->clientbanner);
-                goto error;
-            }
-
-            /* from now, the packet layer is handling incoming packets */
-            ssh_packet_register_socket_callback(session, session->socket);
-
-            ssh_packet_set_default_callbacks(session);
-            set_status(session, 0.5f);
-            session->session_state=SSH_SESSION_STATE_INITIAL_KEX;
-            if (ssh_send_kex(session, 1) < 0) {
-                goto error;
-            }
-            break;
-        case SSH_SESSION_STATE_INITIAL_KEX:
-            /* TODO: This state should disappear in favor of get_key handle */
-            break;
-        case SSH_SESSION_STATE_KEXINIT_RECEIVED:
-            set_status(session,0.6f);
-            if(session->next_crypto->server_kex.methods[0]==NULL){
-                if(server_set_kex(session) == SSH_ERROR)
-                    goto error;
-                /* We are in a rekeying, so we need to send the server kex */
-                if(ssh_send_kex(session, 1) < 0)
-                    goto error;
-            }
-            ssh_list_kex(&session->next_crypto->client_kex); // log client kex
-            if (ssh_kex_select_methods(session) < 0) {
-                goto error;
-            }
-            if (crypt_set_algorithms_server(session) == SSH_ERROR)
-                goto error;
-            set_status(session,0.8f);
-            session->session_state=SSH_SESSION_STATE_DH;
-            break;
-        case SSH_SESSION_STATE_DH:
-            if(session->dh_handshake_state==DH_STATE_FINISHED){
-
-                rc = ssh_packet_set_newkeys(session, SSH_DIRECTION_IN);
-                if (rc != SSH_OK) {
-                    goto error;
-                }
-
-                /*
-                 * If the client supports extension negotiation, we will send
-                 * our supported extensions now. This is the first message after
-                 * sending NEWKEYS message and after turning on crypto.
-                 */
-                if (session->extensions & SSH_EXT_NEGOTIATION &&
-                    session->session_state != SSH_SESSION_STATE_AUTHENTICATED) {
-
-                    /*
-                     * Only send an SSH_MSG_EXT_INFO message the first time the client
-                     * undergoes NEWKEYS.  It is unexpected for this message to be sent
-                     * upon rekey, and may cause clients to log error messages.
-                     *
-                     * The session_state can not be used for this purpose because it is
-                     * re-set to SSH_SESSION_STATE_KEXINIT_RECEIVED during rekey.  So,
-                     * use the connected flag which transitions from non-zero below.
-                     *
-                     * See also:
-                     * - https://bugzilla.mindrot.org/show_bug.cgi?id=2929
-                     */
-                    if (session->connected == 0) {
-                        ssh_server_send_extensions(session);
-                    }
-                }
-
-                set_status(session,1.0f);
-                session->connected = 1;
-                session->session_state=SSH_SESSION_STATE_AUTHENTICATING;
-                if (session->flags & SSH_SESSION_FLAG_AUTHENTICATED)
-                    session->session_state = SSH_SESSION_STATE_AUTHENTICATED;
-
-            }
-            break;
-        case SSH_SESSION_STATE_AUTHENTICATING:
-            break;
-        case SSH_SESSION_STATE_ERROR:
+    switch (session->session_state) {
+    case SSH_SESSION_STATE_NONE:
+    case SSH_SESSION_STATE_CONNECTING:
+    case SSH_SESSION_STATE_SOCKET_CONNECTED:
+        break;
+    case SSH_SESSION_STATE_BANNER_RECEIVED:
+        if (session->clientbanner == NULL) {
             goto error;
-        default:
-            ssh_set_error(session,SSH_FATAL,"Invalid state %d",session->session_state);
+        }
+        set_status(session, 0.4f);
+        SSH_LOG(SSH_LOG_DEBUG,
+                "SSH client banner: %s", session->clientbanner);
+
+        /* Here we analyze the different protocols the server allows. */
+        rc = ssh_analyze_banner(session, 1);
+        if (rc < 0) {
+            ssh_set_error(session, SSH_FATAL,
+                    "No version of SSH protocol usable (banner: %s)",
+                    session->clientbanner);
+            goto error;
+        }
+
+        /* from now, the packet layer is handling incoming packets */
+        ssh_packet_register_socket_callback(session, session->socket);
+
+        ssh_packet_set_default_callbacks(session);
+        set_status(session, 0.5f);
+        session->session_state = SSH_SESSION_STATE_INITIAL_KEX;
+        rc = ssh_send_kex(session, 1);
+        if (rc < 0) {
+            goto error;
+        }
+        break;
+    case SSH_SESSION_STATE_INITIAL_KEX:
+        /* TODO: This state should disappear in favor of get_key handle */
+        break;
+    case SSH_SESSION_STATE_KEXINIT_RECEIVED:
+        set_status(session, 0.6f);
+        if (session->next_crypto->server_kex.methods[0] == NULL) {
+            rc = server_set_kex(session);
+            if (rc == SSH_ERROR) {
+                goto error;
+            }
+            /* We are in a rekeying, so we need to send the server kex */
+            rc = ssh_send_kex(session, 1);
+            if (rc < 0) {
+                goto error;
+            }
+        }
+        ssh_list_kex(&session->next_crypto->client_kex); // log client kex
+        rc = ssh_kex_select_methods(session);
+        if (rc < 0) {
+            goto error;
+        }
+        rc = crypt_set_algorithms_server(session);
+        if (rc == SSH_ERROR) {
+            goto error;
+        }
+        set_status(session, 0.8f);
+        session->session_state = SSH_SESSION_STATE_DH;
+        break;
+    case SSH_SESSION_STATE_DH:
+        if (session->dh_handshake_state == DH_STATE_FINISHED) {
+
+            rc = ssh_packet_set_newkeys(session, SSH_DIRECTION_IN);
+            if (rc != SSH_OK) {
+                goto error;
+            }
+
+            /*
+             * If the client supports extension negotiation, we will send
+             * our supported extensions now. This is the first message after
+             * sending NEWKEYS message and after turning on crypto.
+             */
+            if (session->extensions & SSH_EXT_NEGOTIATION &&
+                session->session_state != SSH_SESSION_STATE_AUTHENTICATED) {
+                /*
+                 * Only send an SSH_MSG_EXT_INFO message the first time the
+                 * client undergoes NEWKEYS.  It is unexpected for this message
+                 * to be sent upon rekey, and may cause clients to log error
+                 * messages.
+                 *
+                 * The session_state can not be used for this purpose because it
+                 * is re-set to SSH_SESSION_STATE_KEXINIT_RECEIVED during rekey.
+                 * So, use the connected flag which transitions from non-zero
+                 * below.
+                 *
+                 * See also:
+                 * - https://bugzilla.mindrot.org/show_bug.cgi?id=2929
+                 */
+                if (session->connected == 0) {
+                    ssh_server_send_extensions(session);
+                }
+            }
+
+            set_status(session, 1.0f);
+            session->connected = 1;
+            session->session_state = SSH_SESSION_STATE_AUTHENTICATING;
+            if (session->flags & SSH_SESSION_FLAG_AUTHENTICATED)
+                session->session_state = SSH_SESSION_STATE_AUTHENTICATED;
+
+        }
+        break;
+    case SSH_SESSION_STATE_AUTHENTICATING:
+        break;
+    case SSH_SESSION_STATE_ERROR:
+        goto error;
+    default:
+        ssh_set_error(session, SSH_FATAL, "Invalid state %d",
+                      session->session_state);
     }
 
     return;
 error:
     ssh_socket_close(session->socket);
     session->alive = 0;
-    session->session_state=SSH_SESSION_STATE_ERROR;
+    session->session_state = SSH_SESSION_STATE_ERROR;
 }
 
 /**
