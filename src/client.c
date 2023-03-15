@@ -691,6 +691,28 @@ int ssh_get_openssh_version(ssh_session session)
 
     return session->openssh;
 }
+
+/**
+ * @brief Most SSH connections will only ever request a single session, but an
+ * attacker may abuse a running ssh client to surreptitiously open
+ * additional sessions under their control. OpenSSH provides a global
+ * request "no-more-sessions@openssh.com" to mitigate this attack.
+ *
+ * @param[in]  session  The SSH session to use.
+ *
+ * @returns             SSH_OK on success, SSH_ERROR on error.
+ * @returns             SSH_AGAIN, if the session is in nonblocking mode,
+ *                      and call must be done again.
+ */
+int ssh_request_no_more_sessions(ssh_session session)
+{
+    if (session == NULL) {
+        return SSH_ERROR;
+    }
+
+    return ssh_global_request(session, "no-more-sessions@openssh.com", NULL, 1);
+}
+
 /**
  * @brief Add disconnect message when ssh_session is disconnected
  * To add a disconnect message to give peer a better hint.
