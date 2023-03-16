@@ -775,9 +775,10 @@ static const char *ssh_find_aead_hmac(const char *cipher)
  */
 int ssh_kex_select_methods (ssh_session session)
 {
-    struct ssh_kex_struct *server = &session->next_crypto->server_kex;
-    struct ssh_kex_struct *client = &session->next_crypto->client_kex;
-    char *ext_start = NULL;
+    struct ssh_crypto_struct *crypto = session->next_crypto;
+    struct ssh_kex_struct *server = &crypto->server_kex;
+    struct ssh_kex_struct *client = &crypto->client_kex;
+    char *ext_start = NULL, *kex;
     const char *aead_hmac = NULL;
     int i;
 
@@ -789,50 +790,54 @@ int ssh_kex_select_methods (ssh_session session)
     }
 
     for (i = 0; i < SSH_KEX_METHODS; i++) {
-        session->next_crypto->kex_methods[i]=ssh_find_matching(server->methods[i],client->methods[i]);
+        crypto->kex_methods[i] = ssh_find_matching(server->methods[i],
+                                                   client->methods[i]);
 
         if (i == SSH_MAC_C_S || i == SSH_MAC_S_C) {
-            aead_hmac = ssh_find_aead_hmac(session->next_crypto->kex_methods[i-2]);
+            aead_hmac = ssh_find_aead_hmac(crypto->kex_methods[i - 2]);
             if (aead_hmac) {
-                free(session->next_crypto->kex_methods[i]);
-                session->next_crypto->kex_methods[i] = strdup(aead_hmac);
+                free(crypto->kex_methods[i]);
+                crypto->kex_methods[i] = strdup(aead_hmac);
             }
         }
-        if (session->next_crypto->kex_methods[i] == NULL && i < SSH_LANG_C_S){
-            ssh_set_error(session,SSH_FATAL,"kex error : no match for method %s: server [%s], client [%s]",
-                    ssh_kex_descriptions[i],server->methods[i],client->methods[i]);
+        if (crypto->kex_methods[i] == NULL && i < SSH_LANG_C_S) {
+            ssh_set_error(session, SSH_FATAL,
+                          "kex error : no match for method %s: server [%s], "
+                          "client [%s]", ssh_kex_descriptions[i],
+                          server->methods[i], client->methods[i]);
             return SSH_ERROR;
-        } else if ((i >= SSH_LANG_C_S) && (session->next_crypto->kex_methods[i] == NULL)) {
+        } else if ((i >= SSH_LANG_C_S) && (crypto->kex_methods[i] == NULL)) {
             /* we can safely do that for languages */
-            session->next_crypto->kex_methods[i] = strdup("");
+            crypto->kex_methods[i] = strdup("");
         }
     }
-    if (strcmp(session->next_crypto->kex_methods[SSH_KEX], "diffie-hellman-group1-sha1") == 0){
-      session->next_crypto->kex_type=SSH_KEX_DH_GROUP1_SHA1;
-    } else if (strcmp(session->next_crypto->kex_methods[SSH_KEX], "diffie-hellman-group14-sha1") == 0){
-      session->next_crypto->kex_type=SSH_KEX_DH_GROUP14_SHA1;
-    } else if (strcmp(session->next_crypto->kex_methods[SSH_KEX], "diffie-hellman-group14-sha256") == 0){
-      session->next_crypto->kex_type=SSH_KEX_DH_GROUP14_SHA256;
-    } else if (strcmp(session->next_crypto->kex_methods[SSH_KEX], "diffie-hellman-group16-sha512") == 0){
-      session->next_crypto->kex_type=SSH_KEX_DH_GROUP16_SHA512;
-    } else if (strcmp(session->next_crypto->kex_methods[SSH_KEX], "diffie-hellman-group18-sha512") == 0){
-      session->next_crypto->kex_type=SSH_KEX_DH_GROUP18_SHA512;
+    kex = session->next_crypto->kex_methods[SSH_KEX];
+    if (strcmp(kex, "diffie-hellman-group1-sha1") == 0) {
+        session->next_crypto->kex_type = SSH_KEX_DH_GROUP1_SHA1;
+    } else if (strcmp(kex, "diffie-hellman-group14-sha1") == 0) {
+        session->next_crypto->kex_type = SSH_KEX_DH_GROUP14_SHA1;
+    } else if (strcmp(kex, "diffie-hellman-group14-sha256") == 0) {
+        session->next_crypto->kex_type = SSH_KEX_DH_GROUP14_SHA256;
+    } else if (strcmp(kex, "diffie-hellman-group16-sha512") == 0) {
+        session->next_crypto->kex_type = SSH_KEX_DH_GROUP16_SHA512;
+    } else if (strcmp(kex, "diffie-hellman-group18-sha512") == 0) {
+        session->next_crypto->kex_type = SSH_KEX_DH_GROUP18_SHA512;
 #ifdef WITH_GEX
-    } else if (strcmp(session->next_crypto->kex_methods[SSH_KEX], "diffie-hellman-group-exchange-sha1") == 0){
-      session->next_crypto->kex_type=SSH_KEX_DH_GEX_SHA1;
-    } else if (strcmp(session->next_crypto->kex_methods[SSH_KEX], "diffie-hellman-group-exchange-sha256") == 0){
-        session->next_crypto->kex_type=SSH_KEX_DH_GEX_SHA256;
+    } else if (strcmp(kex, "diffie-hellman-group-exchange-sha1") == 0) {
+        session->next_crypto->kex_type = SSH_KEX_DH_GEX_SHA1;
+    } else if (strcmp(kex, "diffie-hellman-group-exchange-sha256") == 0) {
+        session->next_crypto->kex_type = SSH_KEX_DH_GEX_SHA256;
 #endif /* WITH_GEX */
-    } else if (strcmp(session->next_crypto->kex_methods[SSH_KEX], "ecdh-sha2-nistp256") == 0){
-      session->next_crypto->kex_type=SSH_KEX_ECDH_SHA2_NISTP256;
-    } else if (strcmp(session->next_crypto->kex_methods[SSH_KEX], "ecdh-sha2-nistp384") == 0){
-      session->next_crypto->kex_type=SSH_KEX_ECDH_SHA2_NISTP384;
-    } else if (strcmp(session->next_crypto->kex_methods[SSH_KEX], "ecdh-sha2-nistp521") == 0){
-      session->next_crypto->kex_type=SSH_KEX_ECDH_SHA2_NISTP521;
-    } else if (strcmp(session->next_crypto->kex_methods[SSH_KEX], "curve25519-sha256@libssh.org") == 0){
-      session->next_crypto->kex_type=SSH_KEX_CURVE25519_SHA256_LIBSSH_ORG;
-    } else if (strcmp(session->next_crypto->kex_methods[SSH_KEX], "curve25519-sha256") == 0){
-      session->next_crypto->kex_type=SSH_KEX_CURVE25519_SHA256;
+    } else if (strcmp(kex, "ecdh-sha2-nistp256") == 0) {
+        session->next_crypto->kex_type = SSH_KEX_ECDH_SHA2_NISTP256;
+    } else if (strcmp(kex, "ecdh-sha2-nistp384") == 0) {
+        session->next_crypto->kex_type = SSH_KEX_ECDH_SHA2_NISTP384;
+    } else if (strcmp(kex, "ecdh-sha2-nistp521") == 0) {
+        session->next_crypto->kex_type = SSH_KEX_ECDH_SHA2_NISTP521;
+    } else if (strcmp(kex, "curve25519-sha256@libssh.org") == 0) {
+        session->next_crypto->kex_type = SSH_KEX_CURVE25519_SHA256_LIBSSH_ORG;
+    } else if (strcmp(kex, "curve25519-sha256") == 0) {
+        session->next_crypto->kex_type = SSH_KEX_CURVE25519_SHA256;
     }
     SSH_LOG(SSH_LOG_DEBUG, "Negotiated %s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
             session->next_crypto->kex_methods[SSH_KEX],
