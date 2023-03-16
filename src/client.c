@@ -391,36 +391,55 @@ static void ssh_client_connection_callback(ssh_session session)
 {
     int rc;
 
-    switch(session->session_state) {
-        case SSH_SESSION_STATE_NONE:
-        case SSH_SESSION_STATE_CONNECTING:
-            break;
-        case SSH_SESSION_STATE_SOCKET_CONNECTED:
-            ssh_set_fd_towrite(session);
-            ssh_send_banner(session, 0);
+    switch (session->session_state) {
+    case SSH_SESSION_STATE_NONE:
+    case SSH_SESSION_STATE_CONNECTING:
+        break;
+    case SSH_SESSION_STATE_SOCKET_CONNECTED:
+        ssh_set_fd_towrite(session);
+        ssh_send_banner(session, 0);
 
-            break;
-        case SSH_SESSION_STATE_BANNER_RECEIVED:
-            if (session->serverbanner == NULL) {
-                goto error;
-            }
-            set_status(session, 0.4f);
-            SSH_LOG(SSH_LOG_PROTOCOL,
-                    "SSH server banner: %s", session->serverbanner);
+        break;
+    case SSH_SESSION_STATE_BANNER_RECEIVED:
+        if (session->serverbanner == NULL) {
+            goto error;
+        }
+        set_status(session, 0.4f);
+        SSH_LOG(SSH_LOG_PROTOCOL,
+                "SSH server banner: %s", session->serverbanner);
 
-            /* Here we analyze the different protocols the server allows. */
-            rc = ssh_analyze_banner(session, 0);
-            if (rc < 0) {
-                ssh_set_error(session, SSH_FATAL,
-                        "No version of SSH protocol usable (banner: %s)",
-                        session->serverbanner);
-                goto error;
-            }
+        /* Here we analyze the different protocols the server allows. */
+        rc = ssh_analyze_banner(session, 0);
+        if (rc < 0) {
+            ssh_set_error(session, SSH_FATAL,
+                          "No version of SSH protocol usable (banner: %s)",
+                          session->serverbanner);
+            goto error;
+        }
 
-            ssh_packet_register_socket_callback(session, session->socket);
+        ssh_packet_register_socket_callback(session, session->socket);
 
-            ssh_packet_set_default_callbacks(session);
-            session->session_state = SSH_SESSION_STATE_INITIAL_KEX;
+        ssh_packet_set_default_callbacks(session);
+        session->session_state = SSH_SESSION_STATE_INITIAL_KEX;
+        rc = ssh_set_client_kex(session);
+        if (rc != SSH_OK) {
+            goto error;
+        }
+        rc = ssh_send_kex(session, 0);
+        if (rc < 0) {
+            goto error;
+        }
+        set_status(session, 0.5f);
+
+        break;
+    case SSH_SESSION_STATE_INITIAL_KEX:
+        /* TODO: This state should disappear in favor of get_key handle */
+        break;
+    case SSH_SESSION_STATE_KEXINIT_RECEIVED:
+        set_status(session, 0.6f);
+        ssh_list_kex(&session->next_crypto->server_kex);
+        if (session->next_crypto->client_kex.methods[0] == NULL) {
+            /* in rekeying state if next_crypto client_kex might be empty */
             rc = ssh_set_client_kex(session);
             if (rc != SSH_OK) {
                 goto error;
@@ -429,57 +448,39 @@ static void ssh_client_connection_callback(ssh_session session)
             if (rc < 0) {
                 goto error;
             }
-            set_status(session, 0.5f);
-
-            break;
-        case SSH_SESSION_STATE_INITIAL_KEX:
-            /* TODO: This state should disappear in favor of get_key handle */
-            break;
-        case SSH_SESSION_STATE_KEXINIT_RECEIVED:
-            set_status(session,0.6f);
-            ssh_list_kex(&session->next_crypto->server_kex);
-            if (session->next_crypto->client_kex.methods[0] == NULL) {
-                /* in rekeying state if next_crypto client_kex is empty */
-                rc = ssh_set_client_kex(session);
-                if (rc != SSH_OK) {
-                    goto error;
-                }
-                rc = ssh_send_kex(session, 0);
-                if (rc < 0) {
-                    goto error;
-                }
-            }
-            if (ssh_kex_select_methods(session) == SSH_ERROR)
-                goto error;
-            set_status(session,0.8f);
-            session->session_state=SSH_SESSION_STATE_DH;
-            if (dh_handshake(session) == SSH_ERROR) {
-                goto error;
-            }
-            FALL_THROUGH;
-        case SSH_SESSION_STATE_DH:
-            if(session->dh_handshake_state==DH_STATE_FINISHED){
-                set_status(session,1.0f);
-                session->connected = 1;
-                if (session->flags & SSH_SESSION_FLAG_AUTHENTICATED)
-                    session->session_state = SSH_SESSION_STATE_AUTHENTICATED;
-                else
-                    session->session_state=SSH_SESSION_STATE_AUTHENTICATING;
-            }
-            break;
-        case SSH_SESSION_STATE_AUTHENTICATING:
-            break;
-        case SSH_SESSION_STATE_ERROR:
+        }
+        if (ssh_kex_select_methods(session) == SSH_ERROR)
             goto error;
-        default:
-            ssh_set_error(session,SSH_FATAL,"Invalid state %d",session->session_state);
+        set_status(session, 0.8f);
+        session->session_state = SSH_SESSION_STATE_DH;
+        if (dh_handshake(session) == SSH_ERROR) {
+            goto error;
+        }
+        FALL_THROUGH;
+    case SSH_SESSION_STATE_DH:
+        if (session->dh_handshake_state == DH_STATE_FINISHED) {
+            set_status(session, 1.0f);
+            session->connected = 1;
+            if (session->flags & SSH_SESSION_FLAG_AUTHENTICATED)
+                session->session_state = SSH_SESSION_STATE_AUTHENTICATED;
+            else
+                session->session_state=SSH_SESSION_STATE_AUTHENTICATING;
+        }
+        break;
+    case SSH_SESSION_STATE_AUTHENTICATING:
+        break;
+    case SSH_SESSION_STATE_ERROR:
+        goto error;
+    default:
+        ssh_set_error(session, SSH_FATAL, "Invalid state %d",
+                      session->session_state);
     }
 
     return;
 error:
     ssh_socket_close(session->socket);
     session->alive = 0;
-    session->session_state=SSH_SESSION_STATE_ERROR;
+    session->session_state = SSH_SESSION_STATE_ERROR;
 
 }
 
