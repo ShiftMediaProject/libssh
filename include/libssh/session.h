@@ -169,14 +169,21 @@ struct ssh_session_struct {
         uint32_t current_method;
     } auth;
 
+    /* Sending this flag before key exchange to save one round trip during the
+     * key exchange. This might make sense on high-latency connections.
+     * So far internal only for testing. Usable only on the client side --
+     * there is no key exchange method that would start with server message */
+    bool send_first_kex_follows;
     /*
      * RFC 4253, 7.1: if the first_kex_packet_follows flag was set in
      * the received SSH_MSG_KEXINIT, but the guess was wrong, this
      * field will be set such that the following guessed packet will
-     * be ignored.  Once that packet has been received and ignored,
-     * this field is cleared.
+     * be ignored on the receiving side.  Once that packet has been received and
+     * ignored, this field is cleared.
+     * On the sending side, this is set after we got peer KEXINIT message and we
+     * need to resend the initial message of the negotiated KEX algorithm.
      */
-    int first_kex_follows_guess_wrong;
+    bool first_kex_follows_guess_wrong;
 
     ssh_buffer in_hashbuf;
     ssh_buffer out_hashbuf;

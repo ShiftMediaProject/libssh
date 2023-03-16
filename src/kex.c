@@ -28,6 +28,7 @@
 #include <stdio.h>
 #include <stdbool.h>
 
+#include "libssh/libssh.h"
 #include "libssh/priv.h"
 #include "libssh/buffer.h"
 #include "libssh/dh.h"
@@ -374,14 +375,19 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
     (void)type;
     (void)user;
 
+    SSH_LOG(SSH_LOG_TRACE, "KEXINIT received");
+
     if (session->session_state == SSH_SESSION_STATE_AUTHENTICATED) {
         if (session->dh_handshake_state == DH_STATE_FINISHED) {
             SSH_LOG(SSH_LOG_DEBUG, "Peer initiated key re-exchange");
             /* Reset the sent flag if the re-kex was initiated by the peer */
             session->flags &= ~SSH_SESSION_FLAG_KEXINIT_SENT;
-        } else if (session->dh_handshake_state == DH_STATE_INIT_SENT) {
-            SSH_LOG(SSH_LOG_DEBUG, "Receeved peer kexinit answer");
-        } else {
+        } else if (session->flags & SSH_SESSION_FLAG_KEXINIT_SENT &&
+                   session->dh_handshake_state == DH_STATE_INIT_SENT) {
+            /* This happens only when we are sending our-guessed first kex
+             * packet right after our KEXINIT packet. */
+            SSH_LOG(SSH_LOG_DEBUG, "Received peer kexinit answer.");
+        } else if (session->session_state != SSH_SESSION_STATE_INITIAL_KEX) {
             ssh_set_error(session, SSH_FATAL,
                           "SSH_KEXINIT received in wrong state");
             goto error;
@@ -495,9 +501,10 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
     /*
      * Remember whether 'first_kex_packet_follows' was set and the client
      * guess was wrong: in this case the next SSH_MSG_KEXDH_INIT message
-     * must be ignored.
+     * must be ignored on the server side.
+     * Client needs to start the Key exchange over with the correct method
      */
-    if (first_kex_packet_follows) {
+    if (first_kex_packet_follows || session->send_first_kex_follows) {
         char **client_methods = crypto->client_kex.methods;
         char **server_methods = crypto->server_kex.methods;
         session->first_kex_follows_guess_wrong =
@@ -505,6 +512,8 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
                                server_methods[SSH_KEX]) ||
             cmp_first_kex_algo(client_methods[SSH_HOSTKEYS],
                                server_methods[SSH_HOSTKEYS]);
+            SSH_LOG(SSH_LOG_DEBUG, "The initial guess was %s.",
+                    session->first_kex_follows_guess_wrong ? "wrong" : "right");
     }
 
     if (server_kex) {
@@ -583,7 +592,12 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
 
     /* Note, that his overwrites authenticated state in case of rekeying */
     session->session_state = SSH_SESSION_STATE_KEXINIT_RECEIVED;
-    session->dh_handshake_state = DH_STATE_INIT;
+    /* if we already sent our initial key exchange packet, do not reset the
+     * DH state. We will know if we were right with our guess only in
+     * dh_handshake_state() */
+    if (session->send_first_kex_follows == false) {
+        session->dh_handshake_state = DH_STATE_INIT;
+    }
     session->ssh_connection_callback(session);
     return SSH_PACKET_USED;
 
@@ -892,8 +906,9 @@ int ssh_kex_select_methods (ssh_session session)
     struct ssh_crypto_struct *crypto = session->next_crypto;
     struct ssh_kex_struct *server = &crypto->server_kex;
     struct ssh_kex_struct *client = &crypto->client_kex;
-    char *ext_start = NULL, *kex;
+    char *ext_start = NULL;
     const char *aead_hmac = NULL;
+    enum ssh_key_exchange_e kex_type;
     int i;
 
     /* Here we should drop the  ext-info-c  from the list so we avoid matching.
@@ -925,8 +940,18 @@ int ssh_kex_select_methods (ssh_session session)
             crypto->kex_methods[i] = strdup("");
         }
     }
-    kex = crypto->kex_methods[SSH_KEX];
-    crypto->kex_type = kex_select_kex_type(kex);
+
+    /* We can not set this value directly as the old value is needed to revert
+     * callbacks if we are client */
+    kex_type = kex_select_kex_type(crypto->kex_methods[SSH_KEX]);
+    if (session->client && session->first_kex_follows_guess_wrong) {
+        SSH_LOG(SSH_LOG_DEBUG, "Our guess was wrong. Restarting the KEX");
+        /* We need to remove the wrong callbacks and start kex again */
+        revert_kex_callbacks(session);
+        session->dh_handshake_state = DH_STATE_INIT;
+        session->first_kex_follows_guess_wrong = false;
+    }
+    crypto->kex_type = kex_type;
 
     SSH_LOG(SSH_LOG_INFO, "Negotiated %s,%s,%s,%s,%s,%s,%s,%s,%s,%s",
             session->next_crypto->kex_methods[SSH_KEX],
@@ -953,6 +978,19 @@ int ssh_send_kex(ssh_session session)
     ssh_string str = NULL;
     int i;
     int rc;
+    int first_kex_packet_follows = 0;
+
+    /* Only client can initiate the handshake methods we implement. If we
+     * already received the peer mechanisms, there is no point in guessing */
+    if (session->client &&
+        session->session_state != SSH_SESSION_STATE_KEXINIT_RECEIVED &&
+        session->send_first_kex_follows) {
+        first_kex_packet_follows = 1;
+    }
+
+    SSH_LOG(SSH_LOG_TRACE,
+            "Sending KEXINIT packet, first_kex_packet_follows = %d",
+            first_kex_packet_follows);
 
     rc = ssh_buffer_pack(session->out_buffer,
                          "bP",
@@ -987,14 +1025,14 @@ int ssh_send_kex(ssh_session session)
 
     rc = ssh_buffer_pack(session->out_buffer,
                          "bd",
-                         0,
+                         first_kex_packet_follows,
                          0);
     if (rc != SSH_OK) {
         goto error;
     }
 
     /* Prepare also the first_kex_packet_follows and reserved to 0 */
-    rc = ssh_buffer_add_u8(session->out_hashbuf, 0);
+    rc = ssh_buffer_add_u8(session->out_hashbuf, first_kex_packet_follows);
     if (rc < 0) {
         goto error;
     }
@@ -1010,6 +1048,30 @@ int ssh_send_kex(ssh_session session)
 
     session->flags |= SSH_SESSION_FLAG_KEXINIT_SENT;
     SSH_LOG(SSH_LOG_PACKET, "SSH_MSG_KEXINIT sent");
+
+    /* If we indicated that we are sending the guessed key exchange packet,
+     * do it now. The packet is simple, but we need to do some preparations */
+    if (first_kex_packet_follows) {
+        char *list = kex->methods[SSH_KEX];
+        char *colon = strchr(list, ',');
+        size_t kex_name_len = colon ? (size_t)(colon - list) : strlen(list);
+        char *kex_name = calloc(kex_name_len + 1, 1);
+        if (kex_name == NULL) {
+            ssh_set_error_oom(session);
+            goto error;
+        }
+        snprintf(kex_name, kex_name_len + 1, "%.*s", (int)kex_name_len, list);
+        SSH_LOG(SSH_LOG_TRACE, "Sending the first kex packet for %s", kex_name);
+
+        session->next_crypto->kex_type = kex_select_kex_type(kex_name);
+        free(kex_name);
+
+        /* run the first step of the DH handshake */
+        session->dh_handshake_state = DH_STATE_INIT;
+        if (dh_handshake(session) == SSH_ERROR) {
+            goto error;
+        }
+    }
     return 0;
 
 error:

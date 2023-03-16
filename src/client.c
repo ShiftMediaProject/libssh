@@ -246,9 +246,12 @@ end:
  * @warning this function returning is no proof that DH handshake is
  * completed
  */
-static int dh_handshake(ssh_session session)
+int dh_handshake(ssh_session session)
 {
   int rc = SSH_AGAIN;
+
+  SSH_LOG(SSH_LOG_TRACE, "dh_handshake_state = %d, kex_type = %d",
+          session->dh_handshake_state,  session->next_crypto->kex_type);
 
   switch (session->dh_handshake_state) {
     case DH_STATE_INIT:
@@ -391,6 +394,8 @@ static void ssh_client_connection_callback(ssh_session session)
 {
     int rc;
 
+    SSH_LOG(SSH_LOG_DEBUG, "session_state=%d", session->session_state);
+
     switch (session->session_state) {
     case SSH_SESSION_STATE_NONE:
     case SSH_SESSION_STATE_CONNECTING:
@@ -453,6 +458,9 @@ static void ssh_client_connection_callback(ssh_session session)
             goto error;
         set_status(session, 0.8f);
         session->session_state = SSH_SESSION_STATE_DH;
+
+        /* If the init packet was already sent in previous step, this will be no
+         * operation */
         if (dh_handshake(session) == SSH_ERROR) {
             goto error;
         }
