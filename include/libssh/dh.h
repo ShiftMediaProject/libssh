@@ -79,6 +79,7 @@ int ssh_dh_get_next_server_publickey_blob(ssh_session session,
                                           ssh_string *pubkey_blob);
 
 int ssh_client_dh_init(ssh_session session);
+void ssh_client_dh_remove_callbacks(ssh_session session);
 #ifdef WITH_SERVER
 void ssh_server_dh_init(ssh_session session);
 #endif /* WITH_SERVER */

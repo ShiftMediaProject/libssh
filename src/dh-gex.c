@@ -248,6 +248,11 @@ error:
     return SSH_PACKET_USED;
 }
 
+void ssh_client_dhgex_remove_callbacks(ssh_session session)
+{
+    ssh_packet_remove_callbacks(session, &ssh_dhgex_client_callbacks);
+}
+
 static SSH_PACKET_CALLBACK(ssh_packet_client_dhgex_reply)
 {
     struct ssh_crypto_struct *crypto=session->next_crypto;
@@ -258,7 +263,7 @@ static SSH_PACKET_CALLBACK(ssh_packet_client_dhgex_reply)
     (void)user;
     SSH_LOG(SSH_LOG_DEBUG, "SSH_MSG_KEX_DH_GEX_REPLY received");
 
-    ssh_packet_remove_callbacks(session, &ssh_dhgex_client_callbacks);
+    ssh_client_dhgex_remove_callbacks(session);
     rc = ssh_buffer_unpack(packet,
                            "SBS",
                            &pubkey_blob, &server_pubkey,

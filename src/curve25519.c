@@ -172,6 +172,11 @@ int ssh_client_curve25519_init(ssh_session session)
     return rc;
 }
 
+void ssh_client_curve25519_remove_callbacks(ssh_session session)
+{
+    ssh_packet_remove_callbacks(session, &ssh_curve25519_client_callbacks);
+}
+
 static int ssh_curve25519_build_k(ssh_session session)
 {
     ssh_curve25519_pubkey k;
@@ -285,7 +290,7 @@ static SSH_PACKET_CALLBACK(ssh_packet_client_curve25519_reply){
   (void)type;
   (void)user;
 
-  ssh_packet_remove_callbacks(session, &ssh_curve25519_client_callbacks);
+  ssh_client_curve25519_remove_callbacks(session);
 
   pubkey_blob = ssh_buffer_get_ssh_string(packet);
   if (pubkey_blob == NULL) {

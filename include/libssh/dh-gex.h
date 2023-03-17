@@ -28,6 +28,7 @@ extern "C" {
 #endif
 
 int ssh_client_dhgex_init(ssh_session session);
+void ssh_client_dhgex_remove_callbacks(ssh_session session);
 
 #ifdef WITH_SERVER
 void ssh_server_dhgex_init(ssh_session session);

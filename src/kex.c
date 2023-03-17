@@ -813,6 +813,44 @@ kex_select_kex_type(const char *kex)
     return 0;
 }
 
+
+/** @internal
+ * @brief Reverts guessed callbacks set during the dh_handshake()
+ * @param session session handle
+ * @returns void
+ */
+static void revert_kex_callbacks(ssh_session session)
+{
+    switch (session->next_crypto->kex_type) {
+    case SSH_KEX_DH_GROUP1_SHA1:
+    case SSH_KEX_DH_GROUP14_SHA1:
+    case SSH_KEX_DH_GROUP14_SHA256:
+    case SSH_KEX_DH_GROUP16_SHA512:
+    case SSH_KEX_DH_GROUP18_SHA512:
+        ssh_client_dh_remove_callbacks(session);
+        break;
+#ifdef WITH_GEX
+    case SSH_KEX_DH_GEX_SHA1:
+    case SSH_KEX_DH_GEX_SHA256:
+        ssh_client_dhgex_remove_callbacks(session);
+        break;
+#endif /* WITH_GEX */
+#ifdef HAVE_ECDH
+    case SSH_KEX_ECDH_SHA2_NISTP256:
+    case SSH_KEX_ECDH_SHA2_NISTP384:
+    case SSH_KEX_ECDH_SHA2_NISTP521:
+        ssh_client_ecdh_remove_callbacks(session);
+        break;
+#endif
+#ifdef HAVE_CURVE25519
+    case SSH_KEX_CURVE25519_SHA256:
+    case SSH_KEX_CURVE25519_SHA256_LIBSSH_ORG:
+        ssh_client_curve25519_remove_callbacks(session);
+        break;
+#endif
+    }
+}
+
 /** @brief Select the different methods on basis of client's and
  * server's kex messages, and watches out if a match is possible.
  */
