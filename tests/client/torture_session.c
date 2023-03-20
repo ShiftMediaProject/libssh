@@ -218,6 +218,39 @@ static void torture_max_sessions(void **state)
 #undef MAX_CHANNELS
 }
 
+static void torture_no_more_sessions(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    ssh_channel channels[2];
+    int rc;
+
+    /* Open a channel session */
+    channels[0] = ssh_channel_new(session);
+    assert_non_null(channels[0]);
+
+    rc = ssh_channel_open_session(channels[0]);
+    assert_ssh_return_code(session, rc);
+
+    /* Send no-more-sessions@openssh.com global request */
+    rc = ssh_request_no_more_sessions(session);
+    assert_ssh_return_code(session, rc);
+
+    /* Try to open an extra session and expect failure */
+    channels[1] = ssh_channel_new(session);
+    assert_non_null(channels[1]);
+
+    rc = ssh_channel_open_session(channels[1]);
+    assert_int_equal(rc, SSH_ERROR);
+
+    /* Free the unused channel */
+    ssh_channel_free(channels[1]);
+
+    /* Close and free open channel */
+    ssh_channel_close(channels[0]);
+    ssh_channel_free(channels[0]);
+}
+
 static void torture_channel_delayed_close(void **state)
 {
     struct torture_state *s = *state;
@@ -404,6 +437,9 @@ int torture_run_tests(void) {
                                         session_setup,
                                         session_teardown),
         cmocka_unit_test_setup_teardown(torture_max_sessions,
+                                        session_setup,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_no_more_sessions,
                                         session_setup,
                                         session_teardown),
         cmocka_unit_test_setup_teardown(torture_channel_delayed_close,
