@@ -71,10 +71,13 @@ enum ssh_pending_call_e {
 };
 
 /* libssh calls may block an undefined amount of time */
-#define SSH_SESSION_FLAG_BLOCKING 1
+#define SSH_SESSION_FLAG_BLOCKING 0x0001
 
 /* Client successfully authenticated */
-#define SSH_SESSION_FLAG_AUTHENTICATED 2
+#define SSH_SESSION_FLAG_AUTHENTICATED 0x0002
+
+/* Do not accept new session channels (no-more-sessions@openssh.com) */
+#define SSH_SESSION_FLAG_NO_MORE_SESSIONS 0x0004
 
 /* codes to use with ssh_handle_packets*() */
 /* Infinite timeout */

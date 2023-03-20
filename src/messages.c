@@ -1177,7 +1177,15 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_open){
     goto error;
   }
 
-  if (strcmp(type_c,"session") == 0) {
+  if (strcmp(type_c, "session") == 0) {
+    if (session->flags & SSH_SESSION_FLAG_NO_MORE_SESSIONS) {
+        ssh_session_set_disconnect_message(session, "No more sessions allowed!");
+        ssh_set_error(session, SSH_FATAL, "No more sessions allowed!");
+        session->session_state = SSH_SESSION_STATE_ERROR;
+        ssh_disconnect(session);
+        goto error;
+    }
+
     msg->channel_request_open.type = SSH_CHANNEL_SESSION;
     SAFE_FREE(type_c);
     goto end;
@@ -1190,9 +1198,9 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_open){
                            &destination_port,
                            &msg->channel_request_open.originator,
                            &originator_port);
-	if (rc != SSH_OK) {
-		goto error;
-	}
+    if (rc != SSH_OK) {
+      goto error;
+    }
 
     msg->channel_request_open.destination_port = (uint16_t) destination_port;
     msg->channel_request_open.originator_port = (uint16_t) originator_port;
@@ -1593,6 +1601,15 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request){
         } else {
             ssh_message_global_request_reply_success(msg, 0);
         }
+    } else if (strcmp(request, "no-more-sessions@openssh.com") == 0) {
+        msg->global_request.type = SSH_GLOBAL_REQUEST_NO_MORE_SESSIONS;
+        msg->global_request.want_reply = want_reply;
+
+        SSH_LOG(SSH_LOG_PROTOCOL, "Received no-more-sessions@openssh.com %d", want_reply);
+
+        ssh_message_global_request_reply_success(msg, 0);
+
+        session->flags |= SSH_SESSION_FLAG_NO_MORE_SESSIONS;
     } else {
         SSH_LOG(SSH_LOG_DEBUG, "UNKNOWN SSH_MSG_GLOBAL_REQUEST %s, "
                 "want_reply = %d", request, want_reply);
