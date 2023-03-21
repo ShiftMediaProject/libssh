@@ -481,9 +481,6 @@ freebsd/openssl_1.1.1/x86_64:
     paths:
       - obj/
   before_script:
-    # cmake is installed by default now
-    # - choco install --no-progress -y cmake
-    - $env:Path += ';C:\Program Files\CMake\bin'
     - If (!(test-path .vcpkg\archives)) { mkdir -p .vcpkg\archives }
     - $env:VCPKG_DEFAULT_BINARY_CACHE="$PWD\.vcpkg\archives"
     - echo $env:VCPKG_DEFAULT_BINARY_CACHE
