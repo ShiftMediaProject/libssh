@@ -596,6 +596,8 @@ int sftp_process_init_packet(sftp_client_message client_msg)
     ssh_buffer reply;
     int rc;
 
+    SSH_LOG(SSH_LOG_PROTOCOL, "Sending version packet");
+
     version = sftp->client_version;
     reply = ssh_buffer_new();
     if (reply == NULL) {
@@ -866,6 +868,8 @@ process_open(sftp_client_message client_msg)
     int fd = -1;
     int status;
 
+    SSH_LOG(SSH_LOG_PROTOCOL, "Processing open: filename %s", filename);
+
     if (((msg_flag & (uint32_t)SSH_FXF_READ) == SSH_FXF_READ) &&
         ((msg_flag & (uint32_t)SSH_FXF_WRITE) == SSH_FXF_WRITE)) {
         file_flag = O_RDWR; // file must exist
@@ -926,6 +930,10 @@ process_read(sftp_client_message client_msg)
     char *buffer = NULL;
     int rv;
 
+    ssh_log_hexdump("Processing read: handle:",
+                    (const unsigned char *)ssh_string_get_char(handle),
+                    ssh_string_len(handle));
+
     h = sftp_handle(sftp, handle);
     if (h->type == SFTP_FILE_HANDLE) {
         fd = h->fd;
@@ -976,6 +984,10 @@ process_write(sftp_client_message client_msg)
     uint32_t len;
     int rv;
 
+    ssh_log_hexdump("Processing write: handle",
+                    (const unsigned char *)ssh_string_get_char(handle),
+                    ssh_string_len(handle));
+
     h = sftp_handle(sftp, handle);
     if (h->type == SFTP_FILE_HANDLE) {
         fd = h->fd;
@@ -1018,6 +1030,10 @@ process_close(sftp_client_message client_msg)
     struct sftp_handle *h = NULL;
     int ret;
 
+    ssh_log_hexdump("Processing close: handle:",
+                    (const unsigned char *)ssh_string_get_char(handle),
+                    ssh_string_len(handle));
+
     h = sftp_handle(sftp, handle);
     if (h->type == SFTP_FILE_HANDLE) {
         int fd = h->fd;
@@ -1051,6 +1067,8 @@ process_opendir(sftp_client_message client_msg)
     const char *dir_name = sftp_client_message_get_filename(client_msg);
     ssh_string handle_s = NULL;
     struct sftp_handle *h = NULL;
+
+    SSH_LOG(SSH_LOG_PROTOCOL, "Processing opendir %s", dir_name);
 
     dir = opendir(dir_name);
     if (dir == NULL) {
@@ -1178,14 +1196,18 @@ process_readdir(sftp_client_message client_msg)
     int srclen;
     const char *handle_name = NULL;
 
+    ssh_log_hexdump("Processing readdir: handle",
+                    (const unsigned char *)ssh_string_get_char(handle),
+                    ssh_string_len(handle));
+
     h = sftp_handle(sftp, client_msg->handle);
     if (h->type == SFTP_DIR_HANDLE) {
         dir = h->dirp;
         handle_name = h->name;
     }
     if (dir == NULL) {
+        SSH_LOG(SSH_LOG_PROTOCOL, "got wrong handle from msg");
         sftp_reply_status(client_msg, SSH_FX_INVALID_HANDLE, NULL);
-        SSH_LOG(SSH_LOG_PROTOCOL, "read dir handle error!");
         return SSH_ERROR;
     }
 
@@ -1256,6 +1278,8 @@ process_mkdir(sftp_client_message client_msg)
     int status = SSH_FX_OK;
     int rv;
 
+    SSH_LOG(SSH_LOG_PROTOCOL, "Processing mkdir %s", filename);
+
     if (filename == NULL) {
         sftp_reply_status(client_msg, SSH_FX_NO_SUCH_FILE, "File name error");
         return SSH_ERROR;
@@ -1279,6 +1303,8 @@ process_rmdir(sftp_client_message client_msg)
     const char *filename = sftp_client_message_get_filename(client_msg);
     int status = SSH_FX_OK;
     int rv;
+
+    SSH_LOG(SSH_LOG_PROTOCOL, "Processing rmdir %s", filename);
 
     if (filename == NULL) {
         sftp_reply_status(client_msg, SSH_FX_NO_SUCH_FILE, "File name error");
@@ -1305,6 +1331,8 @@ process_lstat(sftp_client_message client_msg)
     struct stat st;
     int status = SSH_FX_OK;
     int rv;
+
+    SSH_LOG(SSH_LOG_PROTOCOL, "Processing lstat %s", filename);
 
     if (filename == NULL) {
         sftp_reply_status(client_msg, SSH_FX_NO_SUCH_FILE, "File name error");
@@ -1333,6 +1361,8 @@ process_readlink(sftp_client_message client_msg)
     int len = -1;
     const char *err_msg;
     int status = SSH_FX_OK;
+
+    SSH_LOG(SSH_LOG_PROTOCOL, "Processing readlink %s", filename);
 
     if (filename == NULL) {
         sftp_reply_status(client_msg, SSH_FX_NO_SUCH_FILE, "File name error");
@@ -1363,7 +1393,7 @@ process_symlink(sftp_client_message client_msg)
     int status = SSH_FX_OK;
     int rv;
 
-    SSH_LOG(SSH_LOG_PROTOCOL, "try to create link with src: %s and dest: %s",
+    SSH_LOG(SSH_LOG_PROTOCOL, "processing symlink: src=%s dest=%s",
             srcpath, destpath);
 
     if (srcpath == NULL || destpath == NULL) {
@@ -1391,6 +1421,8 @@ process_remove(sftp_client_message client_msg)
     const char *filename = sftp_client_message_get_filename(client_msg);
     int rv;
     int status = SSH_FX_OK;
+
+    SSH_LOG(SSH_LOG_PROTOCOL, "processing remove: %s", filename);
 
     rv = unlink(filename);
     if (rv < 0) {
@@ -1421,6 +1453,8 @@ process_extended_statvfs(sftp_client_message client_msg)
     struct statvfs st;
     int status;
     int rv;
+
+    SSH_LOG(SSH_LOG_PROTOCOL, "processing extended statvfs: %s", path);
 
     rv = statvfs(path, &st);
     if (rv == 0) {
@@ -1466,6 +1500,8 @@ process_extended(sftp_client_message sftp_msg)
     const char *subtype = sftp_msg->submessage;
     sftp_server_message_callback handler = NULL;
 
+    SSH_LOG(SSH_LOG_PROTOCOL, "processing extended message: %s", subtype);
+
     for (int i = 0; extended_handlers[i].cb != NULL; i++) {
         if (strcmp(subtype, extended_handlers[i].extended_name) == 0) {
             handler = extended_handlers[i].cb;
@@ -1490,6 +1526,8 @@ dispatch_sftp_request(sftp_client_message sftp_msg)
     int status = SSH_ERROR;
     sftp_server_message_callback handler = NULL;
     uint8_t type = sftp_client_message_get_type(sftp_msg);
+
+    SSH_LOG(SSH_LOG_PROTOCOL, "processing request type: %u", type);
 
     for (int i = 0; message_handlers[i].cb != NULL; i++) {
         if (type == message_handlers[i].type) {
@@ -1527,7 +1565,8 @@ process_client_message(sftp_client_message client_msg)
     }
 
     if (status != SSH_OK)
-        SSH_LOG(SSH_LOG_PROTOCOL, "error occur in process client message!");
+        SSH_LOG(SSH_LOG_PROTOCOL,
+                "error occurred during processing client message!");
 
     return status;
 }
