@@ -821,8 +821,10 @@ SSH_SFTP_CALLBACK(process_close);
 SSH_SFTP_CALLBACK(process_opendir);
 SSH_SFTP_CALLBACK(process_readdir);
 SSH_SFTP_CALLBACK(process_rmdir);
+SSH_SFTP_CALLBACK(process_realpath);
 SSH_SFTP_CALLBACK(process_mkdir);
 SSH_SFTP_CALLBACK(process_lstat);
+SSH_SFTP_CALLBACK(process_stat);
 SSH_SFTP_CALLBACK(process_readlink);
 SSH_SFTP_CALLBACK(process_symlink);
 SSH_SFTP_CALLBACK(process_remove);
@@ -842,8 +844,8 @@ const struct sftp_message_handler message_handlers[] = {
     {"remove", NULL, SSH_FXP_REMOVE, process_remove},
     {"mkdir", NULL, SSH_FXP_MKDIR, process_mkdir},
     {"rmdir", NULL, SSH_FXP_RMDIR, process_rmdir},
-    {"realpath", NULL, SSH_FXP_REALPATH, process_unsupposed},
-    {"stat", NULL, SSH_FXP_STAT, process_unsupposed},
+    {"realpath", NULL, SSH_FXP_REALPATH, process_realpath},
+    {"stat", NULL, SSH_FXP_STAT, process_stat},
     {"rename", NULL, SSH_FXP_RENAME, process_unsupposed},
     {"readlink", NULL, SSH_FXP_READLINK, process_readlink},
     {"symlink", NULL, SSH_FXP_SYMLINK, process_symlink},
@@ -1323,6 +1325,32 @@ process_rmdir(sftp_client_message client_msg)
 }
 
 static int
+process_realpath(sftp_client_message client_msg)
+{
+    const char *filename = sftp_client_message_get_filename(client_msg);
+    char *path = NULL;
+
+    SSH_LOG(SSH_LOG_PROTOCOL, "Processing realpath %s", filename);
+
+    if (filename[0] == '\0') {
+        path = realpath(".", NULL);
+    } else {
+        path = realpath(filename, NULL);
+    }
+    if (path == NULL) {
+        int status = unix_errno_to_ssh_stat(errno);
+        const char *err_msg = ssh_str_error(status);
+
+        SSH_LOG(SSH_LOG_PROTOCOL, "realpath failed: %d", errno);
+        sftp_reply_status(client_msg, status, err_msg);
+        return SSH_ERROR;
+    }
+    sftp_reply_name(client_msg, path, NULL);
+    free(path);
+    return SSH_OK;
+}
+
+static int
 process_lstat(sftp_client_message client_msg)
 {
     int ret = SSH_OK;
@@ -1340,6 +1368,36 @@ process_lstat(sftp_client_message client_msg)
     }
 
     rv = lstat(filename, &st);
+    if (rv < 0) {
+        status = unix_errno_to_ssh_stat(errno);
+        sftp_reply_status(client_msg, status, NULL);
+        ret = SSH_ERROR;
+    } else {
+        stat_to_filexfer_attrib(&st, &attr);
+        sftp_reply_attr(client_msg, &attr);
+    }
+
+    return ret;
+}
+
+static int
+process_stat(sftp_client_message client_msg)
+{
+    int ret = SSH_OK;
+    const char *filename = sftp_client_message_get_filename(client_msg);
+    struct sftp_attributes_struct attr;
+    struct stat st;
+    int status = SSH_FX_OK;
+    int rv;
+
+    SSH_LOG(SSH_LOG_PROTOCOL, "Processing stat %s", filename);
+
+    if (filename == NULL) {
+        sftp_reply_status(client_msg, SSH_FX_NO_SUCH_FILE, "File name error");
+        return SSH_ERROR;
+    }
+
+    rv = stat(filename, &st);
     if (rv < 0) {
         status = unix_errno_to_ssh_stat(errno);
         sftp_reply_status(client_msg, status, NULL);
