@@ -266,13 +266,14 @@ error:
     return NULL;
 }
 
-/* FIXME Untested. To be @deprecated */
+/* @deprecated in favor of sftp_server_new() and callbacks based sftp server */
 int sftp_server_init(sftp_session sftp)
 {
     ssh_session session = sftp->session;
     sftp_client_message msg = NULL;
     int rc;
 
+    /* handles setting the sftp->client_version */
     msg = sftp_get_client_message(sftp);
     if (msg == NULL) {
         return -1;

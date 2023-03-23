@@ -883,7 +883,7 @@ LIBSSH_API sftp_session sftp_server_new(ssh_session session, ssh_channel chan);
  *
  * @return             0 on success, < 0 on error.
  */
-LIBSSH_API int sftp_server_init(sftp_session sftp);
+SSH_DEPRECATED LIBSSH_API int sftp_server_init(sftp_session sftp);
 
 /**
  * @brief Close and deallocate a sftp server session.
