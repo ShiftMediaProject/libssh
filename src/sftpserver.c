@@ -871,7 +871,8 @@ process_open(sftp_client_message client_msg)
     int fd = -1;
     int status;
 
-    SSH_LOG(SSH_LOG_PROTOCOL, "Processing open: filename %s", filename);
+    SSH_LOG(SSH_LOG_PROTOCOL, "Processing open: filename %s, mode=0%o" PRIu32,
+            filename, mode);
 
     if (((msg_flag & (uint32_t)SSH_FXF_READ) == SSH_FXF_READ) &&
         ((msg_flag & (uint32_t)SSH_FXF_WRITE) == SSH_FXF_WRITE)) {
@@ -887,15 +888,17 @@ process_open(sftp_client_message client_msg)
     } else if ((msg_flag & (uint32_t)SSH_FXF_READ) == SSH_FXF_READ) {
         file_flag = O_RDONLY;
     } else {
-        SSH_LOG(SSH_LOG_PROTOCOL, "undefined message flag: %d", errno);
+        SSH_LOG(SSH_LOG_PROTOCOL, "undefined message flag: %" PRIu32, msg_flag);
         sftp_reply_status(client_msg, SSH_FX_FAILURE, "Flag error");
         return SSH_ERROR;
     }
 
     fd = open(filename, file_flag, mode);
     if (fd == -1) {
-        status = unix_errno_to_ssh_stat(errno);
-        SSH_LOG(SSH_LOG_PROTOCOL, "error open file with error: %d", errno);
+        int saved_errno = errno;
+        SSH_LOG(SSH_LOG_PROTOCOL, "error open file with error: %s",
+                strerror(saved_errno));
+        status = unix_errno_to_ssh_stat(saved_errno);
         sftp_reply_status(client_msg, status, "Write error");
         return SSH_ERROR;
     }
@@ -914,9 +917,10 @@ process_open(sftp_client_message client_msg)
         sftp_reply_handle(client_msg, handle_s);
         ssh_string_free(handle_s);
     } else {
-        SSH_LOG(SSH_LOG_PROTOCOL, "opening file failed: %d", errno);
         close(fd);
-        sftp_reply_status(client_msg, SSH_FX_FAILURE, "No handle available");
+        SSH_LOG(SSH_LOG_PROTOCOL, "Failed to allocate handle");
+        sftp_reply_status(client_msg, SSH_FX_FAILURE,
+                          "Failed to allocate handle");
     }
 
     return SSH_OK;
@@ -944,7 +948,7 @@ process_read(sftp_client_message client_msg)
 
     if (fd < 0) {
         sftp_reply_status(client_msg, SSH_FX_INVALID_HANDLE, NULL);
-        SSH_LOG(SSH_LOG_PROTOCOL, "error reading file fd: %d", fd);
+        SSH_LOG(SSH_LOG_PROTOCOL, "invalid fd (%d) received from handle", fd);
         return SSH_ERROR;
     }
     rv = lseek(fd, client_msg->offset, SEEK_SET);
@@ -952,8 +956,7 @@ process_read(sftp_client_message client_msg)
         sftp_reply_status(client_msg, SSH_FX_FAILURE, NULL);
         SSH_LOG(SSH_LOG_PROTOCOL,
                 "error seeking file fd: %d at offset: %" PRIu64,
-                fd,
-                client_msg->offset);
+                fd, client_msg->offset);
         return SSH_ERROR;
     }
 
@@ -1288,7 +1291,8 @@ process_mkdir(sftp_client_message client_msg)
     int status = SSH_FX_OK;
     int rv;
 
-    SSH_LOG(SSH_LOG_PROTOCOL, "Processing mkdir %s", filename);
+    SSH_LOG(SSH_LOG_PROTOCOL, "Processing mkdir %s, mode=0%o" PRIu32,
+            filename, mode);
 
     if (filename == NULL) {
         sftp_reply_status(client_msg, SSH_FX_NO_SUCH_FILE, "File name error");
@@ -1297,7 +1301,9 @@ process_mkdir(sftp_client_message client_msg)
 
     rv = mkdir(filename, mode);
     if (rv < 0) {
-        status = unix_errno_to_ssh_stat(errno);
+        int saved_errno = errno;
+        SSH_LOG(SSH_LOG_PROTOCOL, "failed to mkdir: %s", strerror(saved_errno));
+        status = unix_errno_to_ssh_stat(saved_errno);
         ret = SSH_ERROR;
     }
 
@@ -1346,10 +1352,11 @@ process_realpath(sftp_client_message client_msg)
         path = realpath(filename, NULL);
     }
     if (path == NULL) {
-        int status = unix_errno_to_ssh_stat(errno);
+        int saved_errno = errno;
+        int status = unix_errno_to_ssh_stat(saved_errno);
         const char *err_msg = ssh_str_error(status);
 
-        SSH_LOG(SSH_LOG_PROTOCOL, "realpath failed: %d", errno);
+        SSH_LOG(SSH_LOG_PROTOCOL, "realpath failed: %s", strerror(saved_errno));
         sftp_reply_status(client_msg, status, err_msg);
         return SSH_ERROR;
     }
@@ -1377,7 +1384,9 @@ process_lstat(sftp_client_message client_msg)
 
     rv = lstat(filename, &st);
     if (rv < 0) {
-        status = unix_errno_to_ssh_stat(errno);
+        int saved_errno = errno;
+        SSH_LOG(SSH_LOG_PROTOCOL, "lstat failed: %s", strerror(saved_errno));
+        status = unix_errno_to_ssh_stat(saved_errno);
         sftp_reply_status(client_msg, status, NULL);
         ret = SSH_ERROR;
     } else {
@@ -1407,7 +1416,9 @@ process_stat(sftp_client_message client_msg)
 
     rv = stat(filename, &st);
     if (rv < 0) {
-        status = unix_errno_to_ssh_stat(errno);
+        int saved_errno = errno;
+        SSH_LOG(SSH_LOG_PROTOCOL, "lstat failed: %s", strerror(saved_errno));
+        status = unix_errno_to_ssh_stat(saved_errno);
         sftp_reply_status(client_msg, status, NULL);
         ret = SSH_ERROR;
     } else {
@@ -1437,8 +1448,9 @@ process_readlink(sftp_client_message client_msg)
 
     len = readlink(filename, buf, sizeof(buf) - 1);
     if (len < 0) {
-        SSH_LOG(SSH_LOG_PROTOCOL, "read link error with reason: %d", errno);
-        status = unix_errno_to_ssh_stat(errno);
+        int saved_errno = errno;
+        SSH_LOG(SSH_LOG_PROTOCOL, "readlink failed: %s", strerror(saved_errno));
+        status = unix_errno_to_ssh_stat(saved_errno);
         err_msg = ssh_str_error(status);
         sftp_reply_status(client_msg, status, err_msg);
         ret = SSH_ERROR;
@@ -1469,8 +1481,9 @@ process_symlink(sftp_client_message client_msg)
 
     rv = symlink(srcpath, destpath);
     if (rv < 0) {
-        status = unix_errno_to_ssh_stat(errno);
-        SSH_LOG(SSH_LOG_PROTOCOL, "error symlink with error: %d", errno);
+        int saved_errno = errno;
+        status = unix_errno_to_ssh_stat(saved_errno);
+        SSH_LOG(SSH_LOG_PROTOCOL, "symlink failed: %s", strerror(saved_errno));
         sftp_reply_status(client_msg, status, "Write error");
         ret = SSH_ERROR;
     } else {
@@ -1492,8 +1505,9 @@ process_remove(sftp_client_message client_msg)
 
     rv = unlink(filename);
     if (rv < 0) {
-        SSH_LOG(SSH_LOG_PROTOCOL, "unlink error with reason: %d", errno);
-        status = unix_errno_to_ssh_stat(errno);
+        int saved_errno = errno;
+        SSH_LOG(SSH_LOG_PROTOCOL, "unlink failed: %s", strerror(saved_errno));
+        status = unix_errno_to_ssh_stat(saved_errno);
         ret = SSH_ERROR;
     }
 
@@ -1516,46 +1530,49 @@ static int
 process_extended_statvfs(sftp_client_message client_msg)
 {
     const char *path = sftp_client_message_get_filename(client_msg);
+    sftp_statvfs_t sftp_statvfs;
     struct statvfs st;
+    uint64_t flag;
     int status;
     int rv;
 
     SSH_LOG(SSH_LOG_PROTOCOL, "processing extended statvfs: %s", path);
 
     rv = statvfs(path, &st);
-    if (rv == 0) {
-        sftp_statvfs_t sftp_statvfs;
-        u_int64_t flag;
-
-        sftp_statvfs = calloc(1, sizeof(struct sftp_statvfs_struct));
-        if (sftp_statvfs != NULL) {
-            flag = (st.f_flag & ST_RDONLY) ? SSH_FXE_STATVFS_ST_RDONLY : 0;
-            flag |= (st.f_flag & ST_NOSUID) ? SSH_FXE_STATVFS_ST_NOSUID : 0;
-
-            sftp_statvfs->f_bsize = st.f_bsize;
-            sftp_statvfs->f_frsize = st.f_frsize;
-            sftp_statvfs->f_blocks = st.f_blocks;
-            sftp_statvfs->f_bfree = st.f_bfree;
-            sftp_statvfs->f_bavail = st.f_bavail;
-            sftp_statvfs->f_files = st.f_files;
-            sftp_statvfs->f_ffree = st.f_ffree;
-            sftp_statvfs->f_favail = st.f_favail;
-            sftp_statvfs->f_fsid = st.f_fsid;
-            sftp_statvfs->f_flag = flag;
-            sftp_statvfs->f_namemax = st.f_namemax;
-
-            rv = sftp_reply_statvfs(client_msg, sftp_statvfs);
-            free(sftp_statvfs);
-            if (rv == 0) {
-                return SSH_OK;
-            }
-        }
+    if (rv != 0) {
+        int saved_errno = errno;
+        SSH_LOG(SSH_LOG_PROTOCOL, "statvfs failed: %s", strerror(saved_errno));
+        status = unix_errno_to_ssh_stat(saved_errno);
+        sftp_reply_status(client_msg, status, NULL);
+        return SSH_ERROR;
     }
 
-    status = unix_errno_to_ssh_stat(errno);
-    sftp_reply_status(client_msg, status, NULL);
+    sftp_statvfs = calloc(1, sizeof(struct sftp_statvfs_struct));
+    if (sftp_statvfs == NULL) {
+        SSH_LOG(SSH_LOG_PROTOCOL, "Failed to allocate statvfs structure");
+        sftp_reply_status(client_msg, SSH_FX_FAILURE, NULL);
+        return SSH_ERROR;
+    }
+    flag = (st.f_flag & ST_RDONLY) ? SSH_FXE_STATVFS_ST_RDONLY : 0;
+    flag |= (st.f_flag & ST_NOSUID) ? SSH_FXE_STATVFS_ST_NOSUID : 0;
 
-    printf("statvfs send failed!\n");
+    sftp_statvfs->f_bsize = st.f_bsize;
+    sftp_statvfs->f_frsize = st.f_frsize;
+    sftp_statvfs->f_blocks = st.f_blocks;
+    sftp_statvfs->f_bfree = st.f_bfree;
+    sftp_statvfs->f_bavail = st.f_bavail;
+    sftp_statvfs->f_files = st.f_files;
+    sftp_statvfs->f_ffree = st.f_ffree;
+    sftp_statvfs->f_favail = st.f_favail;
+    sftp_statvfs->f_fsid = st.f_fsid;
+    sftp_statvfs->f_flag = flag;
+    sftp_statvfs->f_namemax = st.f_namemax;
+
+    rv = sftp_reply_statvfs(client_msg, sftp_statvfs);
+    free(sftp_statvfs);
+    if (rv == 0) {
+        return SSH_OK;
+    }
     return SSH_ERROR;
 }
 
