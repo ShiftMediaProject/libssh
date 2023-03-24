@@ -33,7 +33,7 @@ sftp_attributes sftp_parse_attr(sftp_session session,
                                 ssh_buffer buf,
                                 int expectname);
 /**
- * @brief Handle the sftp_init request from client.
+ * @brief Reply to the SSH_FXP_INIT message with the SSH_FXP_VERSION message
  *
  * @param  client_msg         The pointer to client message.
  *
@@ -41,7 +41,7 @@ sftp_attributes sftp_parse_attr(sftp_session session,
  *
  * @see sftp_get_error()
  */
-int sftp_process_init_packet(sftp_client_message client_msg);
+int sftp_reply_version(sftp_client_message client_msg);
 /**
  * @brief Decode the data from channel buffer into sftp read_packet.
  *

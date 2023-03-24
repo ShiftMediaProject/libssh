@@ -288,7 +288,7 @@ int sftp_server_init(sftp_session sftp)
 
     SSH_LOG(SSH_LOG_PACKET, "Received SSH_FXP_INIT");
 
-    rc = sftp_process_init_packet(msg);
+    rc = sftp_reply_version(msg);
     if (rc != SSH_OK) {
         ssh_set_error(session,
                       SSH_FATAL,

@@ -588,7 +588,7 @@ sftp_reply_statvfs(sftp_client_message msg, sftp_statvfs_t st)
     return ret;
 }
 
-int sftp_process_init_packet(sftp_client_message client_msg)
+int sftp_reply_version(sftp_client_message client_msg)
 {
     sftp_session sftp = client_msg->sftp;
     ssh_session session = sftp->session;
@@ -849,7 +849,7 @@ const struct sftp_message_handler message_handlers[] = {
     {"rename", NULL, SSH_FXP_RENAME, process_unsupposed},
     {"readlink", NULL, SSH_FXP_READLINK, process_readlink},
     {"symlink", NULL, SSH_FXP_SYMLINK, process_symlink},
-    {"init", NULL, SSH_FXP_INIT, sftp_process_init_packet},
+    {"init", NULL, SSH_FXP_INIT, sftp_reply_version},
     {NULL, NULL, 0, NULL},
 };
 
