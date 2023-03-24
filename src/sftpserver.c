@@ -864,6 +864,7 @@ process_open(sftp_client_message client_msg)
 {
     const char *filename = sftp_client_message_get_filename(client_msg);
     uint32_t msg_flag = sftp_client_message_get_flags(client_msg);
+    uint32_t mode = client_msg->attr->permissions;
     ssh_string handle_s = NULL;
     struct sftp_handle *h = NULL;
     int file_flag;
@@ -891,7 +892,7 @@ process_open(sftp_client_message client_msg)
         return SSH_ERROR;
     }
 
-    fd = open(filename, file_flag, 0600);
+    fd = open(filename, file_flag, mode);
     if (fd == -1) {
         status = unix_errno_to_ssh_stat(errno);
         SSH_LOG(SSH_LOG_PROTOCOL, "error open file with error: %d", errno);
