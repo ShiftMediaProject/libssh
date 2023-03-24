@@ -965,11 +965,18 @@ process_read(sftp_client_message client_msg)
             SSH_LOG(SSH_LOG_PROTOCOL, "read file error!");
             free(buffer);
             return SSH_ERROR;
+        } else if (readn == 0) {
+            /* no more data to read, EOF ? */
+            break;
         }
         allreadn += readn;
     } while (allreadn < (ssize_t)client_msg->len);
 
-    sftp_reply_data(client_msg, buffer, allreadn);
+    if (allreadn > 0) {
+        sftp_reply_data(client_msg, buffer, allreadn);
+    } else {
+        sftp_reply_status(client_msg, SSH_FX_EOF, NULL);
+    }
 
     free(buffer);
     return SSH_OK;
