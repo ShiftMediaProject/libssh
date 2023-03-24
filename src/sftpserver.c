@@ -1274,7 +1274,7 @@ process_mkdir(sftp_client_message client_msg)
 {
     int ret = SSH_OK;
     const char *filename = sftp_client_message_get_filename(client_msg);
-    uint32_t msg_flags = client_msg->flags;
+    uint32_t msg_flags = client_msg->attr->flags;
     uint32_t permission = client_msg->attr->permissions;
     uint32_t mode = (msg_flags & (uint32_t)SSH_FILEXFER_ATTR_PERMISSIONS)
                     ? permission & (uint32_t)07777 : 0777;
