@@ -2812,7 +2812,10 @@ int sftp_symlink(sftp_session sftp, const char *target, const char *dest)
 
   id = sftp_get_new_id(sftp);
 
-  /* TODO check for version number if they ever fix it. */
+  /* The OpenSSH sftp server has order of the arguments reversed, see the
+   * section "4.1 sftp: Reversal of arguments to SSH_FXP_SYMLINK' in
+   * https://github.com/openssh/openssh-portable/blob/master/PROTOCOL
+   * for more information */
   if (ssh_get_openssh_version(sftp->session)) {
       rc = ssh_buffer_pack(buffer,
                            "dss",

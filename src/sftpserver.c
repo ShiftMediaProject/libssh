@@ -1462,6 +1462,11 @@ process_readlink(sftp_client_message client_msg)
     return ret;
 }
 
+/* Note, that this function is using reversed order of the arguments than the
+ * OpenSSH sftp server as they have the arguments switched. See
+ * section "4.1 sftp: Reversal of arguments to SSH_FXP_SYMLINK' in
+ * https://github.com/openssh/openssh-portable/blob/master/PROTOCOL
+ * for more information */
 static int
 process_symlink(sftp_client_message client_msg)
 {
