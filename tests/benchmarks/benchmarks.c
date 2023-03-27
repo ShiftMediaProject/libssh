@@ -48,6 +48,7 @@ struct benchmark benchmarks[]= {
         .fct=benchmarks_scp_down,
         .enabled=0
     },
+#ifdef WITH_SFTP
     {
         .name="benchmark_sync_sftp_upload",
         .fct=benchmarks_sync_sftp_up,
@@ -63,6 +64,7 @@ struct benchmark benchmarks[]= {
         .fct=benchmarks_async_sftp_down,
         .enabled=0
     }
+#endif /* WITH_SFTP */
 };
 
 #ifdef HAVE_ARGP_H
