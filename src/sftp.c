@@ -360,31 +360,42 @@ void sftp_free(sftp_session sftp)
     SAFE_FREE(sftp);
 }
 
-int sftp_decode_channel_data_to_packet(sftp_session sftp, void *data)
+/* @internal
+ * Process the incoming data and copy them from the SSH packet buffer to the
+ * SFTP packet buffer.
+ * @returns number of decoded bytes.
+ */
+int
+sftp_decode_channel_data_to_packet(sftp_session sftp, void *data, uint32_t len)
 {
     sftp_packet packet = sftp->read_packet;
     int nread;
     int payload_len;
-    int offset;
+    unsigned int data_offset;
     int to_read;
 
     if (packet->sftp == NULL) {
         packet->sftp = sftp;
     }
 
-    packet->type = *((uint8_t *)data + sizeof(uint32_t));
-    payload_len = PULL_BE_U32(data, 0);
-
-    /* We should check the legality of payload length */
-    if (payload_len > MAX_PACKET_LEN || payload_len < 0) {
+    data_offset = sizeof(uint32_t) + sizeof(uint8_t);
+    /* not enough bytes to read */
+    if (len < data_offset) {
         return SSH_ERROR;
     }
 
-    offset = sizeof(int) + sizeof(uint8_t);
+    payload_len = PULL_BE_U32(data, 0);
+    packet->type = PULL_BE_U8(data, 4);
+
+    /* We should check the legality of payload length */
+    if (payload_len + sizeof(uint32_t) > len || payload_len < 0) {
+        return SSH_ERROR;
+    }
+
     to_read = payload_len - sizeof(uint8_t);
     ssh_buffer_add_data(packet->payload,
-                        (void*)((uint8_t *)data + offset),
-                        payload_len - sizeof(uint8_t));
+                        (void*)((uint8_t *)data + data_offset),
+                        to_read);
     nread = ssh_buffer_get_len(packet->payload);
 
     /* We should check if we copied the whole data */

@@ -52,7 +52,7 @@ int sftp_reply_version(sftp_client_message client_msg);
  *
  * @return              Length of data decoded.
  */
-int sftp_decode_channel_data_to_packet(sftp_session sftp, void *data);
+int sftp_decode_channel_data_to_packet(sftp_session sftp, void *data, uint32_t len);
 
 #ifdef __cplusplus
 }

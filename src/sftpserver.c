@@ -1702,7 +1702,7 @@ int
 sftp_channel_default_data_callback(UNUSED_PARAM(ssh_session session),
                                    UNUSED_PARAM(ssh_channel channel),
                                    void *data,
-                                   UNUSED_PARAM(uint32_t len),
+                                   uint32_t len,
                                    UNUSED_PARAM(int is_stderr),
                                    void *userdata)
 {
@@ -1718,7 +1718,7 @@ sftp_channel_default_data_callback(UNUSED_PARAM(ssh_session session),
     }
     sftp = *sftpp;
 
-    decode_len = sftp_decode_channel_data_to_packet(sftp, data);
+    decode_len = sftp_decode_channel_data_to_packet(sftp, data, len);
     if (decode_len == -1)
         return -1;
 
