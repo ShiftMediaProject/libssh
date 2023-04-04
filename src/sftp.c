@@ -2904,6 +2904,94 @@ char *sftp_readlink(sftp_session sftp, const char *path)
     return NULL;
 }
 
+int sftp_hardlink(sftp_session sftp, const char *oldpath, const char *newpath)
+{
+    ssh_buffer buffer = NULL;
+    uint32_t id;
+    const char *extension_name = "hardlink@openssh.com";
+    sftp_status_message status = NULL;
+    sftp_message msg = NULL;
+    int rc;
+
+    if (sftp == NULL) {
+        return -1;
+    }
+
+    if (oldpath == NULL || newpath == NULL) {
+        ssh_set_error_invalid(sftp->session);
+        sftp_set_error(sftp, SSH_FX_FAILURE);
+        return -1;
+    }
+
+    buffer = ssh_buffer_new();
+    if (buffer == NULL) {
+        ssh_set_error_oom(sftp->session);
+        sftp_set_error(sftp, SSH_FX_FAILURE);
+        return -1;
+    }
+
+    id = sftp_get_new_id(sftp);
+
+    rc = ssh_buffer_pack(buffer,
+                         "dsss",
+                         id,
+                         extension_name,
+                         oldpath,
+                         newpath);
+    if (rc != SSH_OK) {
+        ssh_set_error_oom(sftp->session);
+        SSH_BUFFER_FREE(buffer);
+        sftp_set_error(sftp, SSH_FX_FAILURE);
+        return -1;
+    }
+
+    rc = sftp_packet_write(sftp, SSH_FXP_EXTENDED, buffer);
+    SSH_BUFFER_FREE(buffer);
+    if (rc < 0) {
+        return -1;
+    }
+
+    while (msg == NULL) {
+        if (sftp_read_and_dispatch(sftp) < 0) {
+            return -1;
+        }
+        msg = sftp_dequeue(sftp, id);
+    }
+
+    /* By specification, this command only returns SSH_FXP_STATUS */
+    if (msg->packet_type == SSH_FXP_STATUS) {
+        status = parse_status_msg(msg);
+        sftp_message_free(msg);
+        if (status == NULL) {
+            return -1;
+        }
+        sftp_set_error(sftp, status->status);
+        switch (status->status) {
+            case SSH_FX_OK:
+                status_msg_free(status);
+                return 0;
+            default:
+                break;
+        }
+        /*
+         * Status should be SSH_FX_OK if the command was successful,
+         * if it didn't, then there was an error
+         */
+        ssh_set_error(sftp->session, SSH_REQUEST_DENIED,
+                      "SFTP server: %s", status->errormsg);
+        status_msg_free(status);
+        return -1;
+    } else {
+        ssh_set_error(sftp->session, SSH_FATAL,
+                      "Received message %d when attempting to create hardlink",
+                      msg->packet_type);
+        sftp_message_free(msg);
+        sftp_set_error(sftp, SSH_FX_BAD_MESSAGE);
+    }
+
+    return -1;
+}
+
 static sftp_statvfs_t sftp_parse_statvfs(sftp_session sftp, ssh_buffer buf) {
   sftp_statvfs_t  statvfs;
   int rc;

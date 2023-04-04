@@ -780,6 +780,22 @@ LIBSSH_API int sftp_symlink(sftp_session sftp, const char *target, const char *d
 LIBSSH_API char *sftp_readlink(sftp_session sftp, const char *path);
 
 /**
+ * @brief Create a hard link.
+ *
+ * @param  sftp         The sftp session handle.
+ *
+ * @param  oldpath      Specifies the pathname of the file for
+ *                      which the new hardlink is to be created.
+ *
+ * @param  newpath      Specifies the pathname of the hardlink to be created.
+ *
+ * @return              0 on success, -1 on error with ssh and sftp error set.
+ *
+ * @see sftp_get_error()
+ */
+LIBSSH_API int sftp_hardlink(sftp_session sftp, const char *oldpath, const char *newpath);
+
+/**
  * @brief Get information about a mounted file system.
  *
  * @param  sftp         The sftp session handle.
