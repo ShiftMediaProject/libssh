@@ -1,5 +1,4 @@
 cmake_minimum_required(VERSION 3.12.0)
-cmake_policy(SET CMP0048 NEW)
 
 # Specify search path for CMake modules to be loaded by include()
 # and find_package()
@@ -53,11 +52,6 @@ elseif(WITH_MBEDTLS)
     find_package(MbedTLS REQUIRED)
 else()
   find_package(OpenSSL 1.1.1 REQUIRED)
-  # On CMake < 3.16, OPENSSL_CRYPTO_LIBRARIES is usually a synonym for OPENSSL_CRYPTO_LIBRARY, but is not defined
-  # when building on Windows outside of Cygwin. We provide the synonym here, if FindOpenSSL didn't define it already.
-  if (NOT DEFINED OPENSSL_CRYPTO_LIBRARIES)
-    set(OPENSSL_CRYPTO_LIBRARIES ${OPENSSL_CRYPTO_LIBRARY})
-  endif (NOT DEFINED OPENSSL_CRYPTO_LIBRARIES)
 endif()
 
 if (UNIT_TESTING)

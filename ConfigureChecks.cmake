@@ -76,53 +76,32 @@ if (WIN32)
 endif (WIN32)
 
 if (OPENSSL_FOUND)
-    set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
+    set(CMAKE_REQUIRED_LIBRARIES OpenSSL::Crypto)
+
     check_include_file(openssl/des.h HAVE_OPENSSL_DES_H)
     if (NOT HAVE_OPENSSL_DES_H)
         message(FATAL_ERROR "Could not detect openssl/des.h")
     endif()
 
-    set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
     check_include_file(openssl/aes.h HAVE_OPENSSL_AES_H)
     if (NOT HAVE_OPENSSL_AES_H)
         message(FATAL_ERROR "Could not detect openssl/aes.h")
     endif()
 
     if (WITH_BLOWFISH_CIPHER)
-        set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
         check_include_file(openssl/blowfish.h HAVE_OPENSSL_BLOWFISH_H)
     endif()
 
-    set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
     check_include_file(openssl/ecdh.h HAVE_OPENSSL_ECDH_H)
-
-    set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
     check_include_file(openssl/ec.h HAVE_OPENSSL_EC_H)
-
-    set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
     check_include_file(openssl/ecdsa.h HAVE_OPENSSL_ECDSA_H)
 
-    set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
-    set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_CRYPTO_LIBRARIES})
     check_function_exists(EVP_KDF_CTX_new_id HAVE_OPENSSL_EVP_KDF_CTX_NEW_ID)
-
-    set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
-    set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_CRYPTO_LIBRARIES})
     check_function_exists(EVP_KDF_CTX_new HAVE_OPENSSL_EVP_KDF_CTX_NEW)
-
-    set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
-    set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_CRYPTO_LIBRARIES})
     check_function_exists(FIPS_mode HAVE_OPENSSL_FIPS_MODE)
-
-    set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
-    set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_CRYPTO_LIBRARIES})
     check_function_exists(RAND_priv_bytes HAVE_OPENSSL_RAND_PRIV_BYTES)
-
-    set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
-    set(CMAKE_REQUIRED_LIBRARIES ${OPENSSL_CRYPTO_LIBRARIES})
     check_function_exists(EVP_chacha20 HAVE_OPENSSL_EVP_CHACHA20)
 
-    unset(CMAKE_REQUIRED_INCLUDES)
     unset(CMAKE_REQUIRED_LIBRARIES)
 endif()
 

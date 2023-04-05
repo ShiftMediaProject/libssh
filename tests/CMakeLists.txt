@@ -6,9 +6,7 @@ endif (BSD OR SOLARIS OR OSX)
 
 set(TORTURE_LIBRARY torture)
 
-include_directories(${OPENSSL_INCLUDE_DIR}
-                    ${CMOCKA_INCLUDE_DIR}
-                    ${ZLIB_INCLUDE_DIR}
+include_directories(${CMOCKA_INCLUDE_DIR}
                     ${libssh_BINARY_DIR}/include
                     ${libssh_BINARY_DIR}
                     ${libssh_SOURCE_DIR}/src

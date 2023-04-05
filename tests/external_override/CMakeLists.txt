@@ -44,7 +44,7 @@ else ()
         ${libssh_SOURCE_DIR}/src/md_crypto.c
     )
     set(override_libs
-        ${OPENSSL_CRYPTO_LIBRARIES}
+        OpenSSL::Crypto
     )
 endif (WITH_GCRYPT)
 
