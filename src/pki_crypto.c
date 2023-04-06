@@ -1499,6 +1499,8 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
 
 #endif /* OPENSSL_VERSION_NUMBER */
                 e = pki_key_make_ecpoint_string(group, point);
+                EC_GROUP_free(group);
+                EC_POINT_free(point);
                 if (e == NULL) {
                     SSH_BUFFER_FREE(buffer);
                     return NULL;
