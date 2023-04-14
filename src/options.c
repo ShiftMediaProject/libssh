@@ -1352,7 +1352,6 @@ int ssh_options_getopt(ssh_session session, int *argcptr, char **argv)
     size_t i = 0;
     int argc = *argcptr;
     int debuglevel = 0;
-    int usersa = 0;
     int compress = 0;
     int cont = 1;
     size_t current = 0;
@@ -1378,7 +1377,6 @@ int ssh_options_getopt(ssh_session session, int *argcptr, char **argv)
             debuglevel++;
             break;
         case 'r':
-            usersa++;
             break;
         case 'c':
             cipher = optarg;
