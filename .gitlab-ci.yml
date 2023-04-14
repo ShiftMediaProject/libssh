@@ -352,7 +352,8 @@ tumbleweed/openssl_1.1.x/x86/gcc:
       -DWITH_ZLIB=ON
       -DWITH_PCAP=ON
       -DWITH_DSA=ON
-      -DUNIT_TESTING=ON ..
+      -DUNIT_TESTING=ON .. &&
+      make -j$(nproc)
 
 tumbleweed/openssl_1.1.x/x86_64/gcc7:
   extends: .tumbleweed
