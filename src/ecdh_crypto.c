@@ -74,7 +74,6 @@ static ssh_string ssh_ecdh_generate(ssh_session session)
     ssh_string pubkey_string = NULL;
     const EC_GROUP *group = NULL;
     const EC_POINT *point = NULL;
-    int rc;
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
     EC_KEY *key = NULL;
     int curve;
@@ -86,6 +85,7 @@ static ssh_string ssh_ecdh_generate(ssh_session session)
     const void *pubkey = NULL;
     size_t pubkey_len;
     int nid;
+    int rc;
 #endif /* OPENSSL_VERSION_NUMBER */
 
     curve = ecdh_kex_type_to_curve(session->next_crypto->kex_type);
