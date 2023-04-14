@@ -69,7 +69,7 @@ static const char *ecdh_kex_type_to_curve(enum ssh_key_exchange_e kex_type) {
  * @brief Generate ECDH key pair for ecdh key exchange and store it in the
  * session->next_crypto structure
  */
-ssh_string ssh_ecdh_generate(ssh_session session)
+static ssh_string ssh_ecdh_generate(ssh_session session)
 {
     ssh_string pubkey_string = NULL;
     const EC_GROUP *group = NULL;
