@@ -362,12 +362,12 @@ alpine/openssl_3.0.x/musl:
 ###############################################################################
 #                             Tumbleweed builds                               #
 ###############################################################################
-tumbleweed/openssl_1.1.x/x86_64/gcc:
+tumbleweed/openssl_3.0.x/x86_64/gcc:
   extends: .tumbleweed
   variables:
     CMAKE_ADDITIONAL_OPTIONS: "-DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config"
 
-tumbleweed/openssl_1.1.x/x86/gcc:
+tumbleweed/openssl_3.0.x/x86/gcc:
   extends: .tumbleweed
   script:
     - cmake
@@ -380,12 +380,12 @@ tumbleweed/openssl_1.1.x/x86/gcc:
       -DUNIT_TESTING=ON .. &&
       make -j$(nproc)
 
-tumbleweed/openssl_1.1.x/x86_64/gcc7:
+tumbleweed/openssl_3.0.x/x86_64/gcc7:
   extends: .tumbleweed
   variables:
     CMAKE_ADDITIONAL_OPTIONS: "-DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7 -DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config"
 
-tumbleweed/openssl_1.1.x/x86/gcc7:
+tumbleweed/openssl_3.0.x/x86/gcc7:
   extends: .tumbleweed
   script:
     - cmake
@@ -397,7 +397,7 @@ tumbleweed/openssl_1.1.x/x86/gcc7:
       make -j$(nproc) &&
       ctest --output-on-failure
 
-tumbleweed/openssl_1.1.x/x86_64/clang:
+tumbleweed/openssl_3.0.x/x86_64/clang:
   extends: .tumbleweed
   variables:
     CMAKE_ADDITIONAL_OPTIONS: "-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config"
