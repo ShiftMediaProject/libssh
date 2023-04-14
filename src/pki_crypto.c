@@ -1424,13 +1424,15 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
         case SSH_KEYTYPE_SK_ECDSA:
 #ifdef HAVE_OPENSSL_ECC
             {
+#if OPENSSL_VERSION_NUMBER >= 0x30000000L
                 EC_GROUP *group = NULL;
                 EC_POINT *point = NULL;
-#if OPENSSL_VERSION_NUMBER >= 0x30000000L
                 const void *pubkey;
                 size_t pubkey_len;
                 OSSL_PARAM *locate_param = NULL;
 #else
+                const EC_GROUP *group = NULL;
+                const EC_POINT *point = NULL;
                 EC_KEY *ec = NULL;
 #endif /* OPENSSL_VERSION_NUMBER */
 
@@ -1461,11 +1463,12 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
                     goto fail;
                 }
 #endif /* WITH_PKCS11_URI */
-                group = (EC_GROUP *)EC_KEY_get0_group(ec);
-                point = (EC_POINT *)EC_KEY_get0_public_key(ec);
+                group = EC_KEY_get0_group(ec);
+                point = EC_KEY_get0_public_key(ec);
                 if (group == NULL || point == NULL) {
                     goto fail;
                 }
+                e = pki_key_make_ecpoint_string(group, point);
 #else
                 rc = EVP_PKEY_todata(key->key, EVP_PKEY_PUBLIC_KEY, &params);
                 if (rc < 0) {
@@ -1497,10 +1500,10 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
                     goto fail;
                 }
 
-#endif /* OPENSSL_VERSION_NUMBER */
                 e = pki_key_make_ecpoint_string(group, point);
                 EC_GROUP_free(group);
                 EC_POINT_free(point);
+#endif /* OPENSSL_VERSION_NUMBER */
                 if (e == NULL) {
                     SSH_BUFFER_FREE(buffer);
                     return NULL;
