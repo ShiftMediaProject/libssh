@@ -2,6 +2,7 @@
 variables:
   BUILD_IMAGES_PROJECT: libssh/build-images
   CENTOS7_BUILD: buildenv-centos7
+  CENTOS8_BUILD: buildenv-c8s
   CENTOS9_BUILD: buildenv-c9s
   FEDORA_BUILD: buildenv-fedora
   MINGW_BUILD: buildenv-mingw
@@ -112,6 +113,24 @@ centos9s/openssl_3.0.x/x86_64/fips:
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$CENTOS9_BUILD
   script:
     - export OPENSSL_ENABLE_SHA1_SIGNATURES=1
+    - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
+      make -j$(nproc) &&
+      OPENSSL_FORCE_FIPS_MODE=1 ctest --output-on-failure
+
+centos8s/openssl_1.1.1/x86_64:
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$CENTOS8_BUILD
+  extends: .tests
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: -DWITH_PKCS11_URI=ON
+  script:
+    - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
+      make -j$(nproc) &&
+      ctest --output-on-failure
+
+centos8s/openssl_1.1.1/x86_64/fips:
+  extends: .fips
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$CENTOS8_BUILD
+  script:
     - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
       make -j$(nproc) &&
       OPENSSL_FORCE_FIPS_MODE=1 ctest --output-on-failure
