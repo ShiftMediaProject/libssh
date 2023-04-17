@@ -925,7 +925,12 @@ ssh_execute_command(const char *command, socket_t in, socket_t out)
     if (shell == NULL || shell[0] == '\0') {
         /* Fall back to bash. There are issues with dash or
          * whatever people tend to link to /bin/sh */
-        shell = "/bin/bash";
+        rc = access("/bin/bash", 0);
+        if (rc != 0) {
+            shell = "/bin/sh";
+        } else {
+            shell = "/bin/bash";
+        }
     }
     args[0] = shell;
 
