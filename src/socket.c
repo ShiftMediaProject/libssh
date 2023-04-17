@@ -923,8 +923,8 @@ ssh_execute_command(const char *command, socket_t in, socket_t out)
      */
     shell = getenv("SHELL");
     if (shell == NULL || shell[0] == '\0') {
-        /* Fall back to bash. There are issues with dash or
-         * whatever people tend to link to /bin/sh */
+        /* Fall back to the /bin/sh only if the bash is not available. But there are 
+         * issues with dash or whatever people tend to link to /bin/sh */
         rc = access("/bin/bash", 0);
         if (rc != 0) {
             shell = "/bin/sh";

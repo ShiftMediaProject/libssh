@@ -13,6 +13,7 @@
 #include "libssh/config_parser.h"
 #include "match.c"
 #include "config.c"
+#include "libssh/socket.h"
 
 extern LIBSSH_THREAD int ssh_log_level;
 
@@ -1760,17 +1761,20 @@ static void torture_config_nonewlineoneline_string(void **state)
             NULL, LIBSSH_TEST_NONEWLINEONELINE_STRING);
 }
 
-/* ssh_config_get_cmd() does three things:
+/* ssh_config_get_cmd() does these two things:
  *  * Strips leading whitespace
- *  * Terminate the character on the end of next quotes-enclosed string
  *  * Terminate on the end of line
  */
 static void torture_config_parser_get_cmd(void **state)
 {
     char *p = NULL, *tok = NULL;
     char data[256];
-
-    (void) state;
+#ifdef __unix__
+    FILE *outfile = NULL, *infile = NULL;
+    int pid;
+    char buffer[256] = {0};
+#endif
+    (void)state;
 
     /* Ignore leading whitespace */
     strncpy(data, "  \t\t  string\n", sizeof(data));
@@ -1786,14 +1790,11 @@ static void torture_config_parser_get_cmd(void **state)
     assert_string_equal(tok, "string  \t\t  ");
     assert_int_equal(*p, '\0');
 
-    /* should drop the quotes and split them into separate arguments */
+    /* should not drop the quotes and not split them into separate arguments */
     strncpy(data, "\"multi string\" something\n", sizeof(data));
     p = data;
     tok = ssh_config_get_cmd(&p);
-    assert_string_equal(tok, "multi string");
-    assert_int_equal(*p, ' ');
-    tok = ssh_config_get_cmd(&p);
-    assert_string_equal(tok, "something");
+    assert_string_equal(tok, "\"multi string\" something");
     assert_int_equal(*p, '\0');
 
     /* But it does not split tokens by whitespace
@@ -1803,6 +1804,46 @@ static void torture_config_parser_get_cmd(void **state)
     tok = ssh_config_get_cmd(&p);
     assert_string_equal(tok, "multi string something");
     assert_int_equal(*p, '\0');
+
+    /* Commands in quotes are not treated special */
+    sprintf(data, "%s%s%s%s", "\"", SOURCEDIR "/tests/unittests/hello world.sh", "\" ", "\"hello libssh\"\n");
+    printf("%s\n", data);
+    p = data;
+    tok = ssh_config_get_cmd(&p);
+    assert_string_equal(tok, data);
+    assert_int_equal(*p, '\0');
+
+#ifdef __unix__
+    /* Check if the command would get correctly executed
+     * Use the script file "hello world.sh" to echo the first argument
+     * Run as <= "/workdir/hello world.sh" "hello libssh" => */
+
+    /* output to file and check wrong */
+    outfile = fopen("output.log", "a+");
+    assert_non_null(outfile);
+    printf("the tok is %s\n", tok);
+
+    pid = fork();
+    if (pid == -1) {
+        perror("fork");
+    } else if (pid == 0) {
+        ssh_execute_command(tok, fileno(outfile), fileno(outfile));
+        /* Does not return */
+    } else {        
+        /* parent 
+         * wait child process */
+        wait(NULL); 
+        infile = fopen("output.log", "r");
+        assert_non_null(infile);
+        p = fgets(buffer, sizeof(buffer), infile);
+        fclose(infile);
+        remove("output.log");
+        assert_non_null(p);
+    }
+
+    fclose(outfile);
+    assert_string_equal(buffer, "hello libssh");
+#endif
 }
 
 /* ssh_config_get_token() should behave as expected
