@@ -192,10 +192,11 @@ static void torture_rekey_send(void **state)
     rc = ssh_userauth_publickey_auto(s->ssh.session, NULL, NULL);
     assert_int_equal(rc, SSH_AUTH_SUCCESS);
 
-    /* send ignore packets of up to 1KB to trigger rekey */
+    /* send ignore packets of up to 1KB to trigger rekey. Send little bit more
+     * to make sure it completes with all different ciphers */
     memset(data, 0, sizeof(data));
     memset(data, 'A', 128);
-    for (i = 0; i < 16; i++) {
+    for (i = 0; i < KEX_RETRY; i++) {
         ssh_send_ignore(s->ssh.session, data);
         ssh_handle_packets(s->ssh.session, 50);
     }
