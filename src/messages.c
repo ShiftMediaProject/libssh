@@ -317,6 +317,17 @@ static int ssh_execute_server_request(ssh_session session, ssh_message msg)
     return SSH_AGAIN;
 }
 
+static int ssh_reply_channel_open_request(ssh_message msg, ssh_channel channel)
+{
+    if (channel != NULL) {
+        return ssh_message_channel_request_open_reply_accept_channel(msg, channel);
+    }
+
+    ssh_message_reply_default(msg);
+
+    return SSH_OK;
+}
+
 static int ssh_execute_client_request(ssh_session session, ssh_message msg)
 {
     ssh_channel channel = NULL;
@@ -329,30 +340,26 @@ static int ssh_execute_client_request(ssh_session session, ssh_message msg)
                 msg->channel_request_open.originator,
                 msg->channel_request_open.originator_port,
                 session->common.callbacks->userdata);
-        if (channel != NULL) {
-            rc = ssh_message_channel_request_open_reply_accept_channel(msg, channel);
 
-            return rc;
-        } else {
-            ssh_message_reply_default(msg);
-        }
-
-        return SSH_OK;
+        return ssh_reply_channel_open_request(msg, channel);
     } else if (msg->type == SSH_REQUEST_CHANNEL_OPEN
                && msg->channel_request_open.type == SSH_CHANNEL_AUTH_AGENT
                && ssh_callbacks_exists(session->common.callbacks, channel_open_request_auth_agent_function)) {
         channel = session->common.callbacks->channel_open_request_auth_agent_function (session,
                 session->common.callbacks->userdata);
 
-        if (channel != NULL) {
-            rc = ssh_message_channel_request_open_reply_accept_channel(msg, channel);
+        return ssh_reply_channel_open_request(msg, channel);
+    } else if (msg->type == SSH_REQUEST_CHANNEL_OPEN
+               && msg->channel_request_open.type == SSH_CHANNEL_FORWARDED_TCPIP
+               && ssh_callbacks_exists(session->common.callbacks, channel_open_request_forwarded_tcpip_function)) {
+        channel = session->common.callbacks->channel_open_request_forwarded_tcpip_function(session,
+                msg->channel_request_open.destination,
+                msg->channel_request_open.destination_port,
+                msg->channel_request_open.originator,
+                msg->channel_request_open.originator_port,
+                session->common.callbacks->userdata);
 
-            return rc;
-        } else {
-            ssh_message_reply_default(msg);
-        }
-
-        return SSH_OK;
+        return ssh_reply_channel_open_request(msg, channel);
     }
 
     return rc;
