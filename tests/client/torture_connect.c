@@ -120,6 +120,29 @@ static void torture_connect_nonblocking(void **state) {
     assert_ssh_return_code(session, rc);
 }
 
+static void torture_connect_ipv6(void **state) {
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    int rc;
+
+    rc = ssh_options_set(session, SSH_OPTIONS_HOST, "testing");
+    assert_ssh_return_code(session, rc);
+    /* set non-blocking mode */
+    ssh_set_blocking(session, 0);
+
+    do {
+        rc = ssh_connect(session);
+    } while (rc == SSH_AGAIN);
+
+    assert_ssh_return_code(session, rc);
+
+    /* should work for blocking mode too */
+    ssh_disconnect(session);
+    ssh_set_blocking(session, 1);
+    rc = ssh_connect(session);
+    assert_ssh_return_code(session, rc);
+}
+
 #if 0 /* This does not work with socket_wrapper */
 static void torture_connect_timeout(void **state) {
     struct torture_state *s = *state;
@@ -240,6 +263,7 @@ int torture_run_tests(void) {
     struct CMUnitTest tests[] = {
         cmocka_unit_test_setup_teardown(torture_connect_peer_discon_msg, session_setup, session_teardown),
         cmocka_unit_test_setup_teardown(torture_connect_nonblocking, session_setup, session_teardown),
+        cmocka_unit_test_setup_teardown(torture_connect_ipv6, session_setup, session_teardown),
         cmocka_unit_test_setup_teardown(torture_connect_double, session_setup, session_teardown),
         cmocka_unit_test_setup_teardown(torture_connect_failure, session_setup, session_teardown),
 #if 0

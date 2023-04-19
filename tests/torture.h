@@ -46,6 +46,7 @@
 #endif /* assert_return_code */
 
 #define TORTURE_SSH_SERVER "127.0.0.10"
+#define TORTURE_SSH_SERVER_IP6 "fd00::5357:5f0a"
 #define TORTURE_SSH_USER_BOB "bob"
 #define TORTURE_SSH_USER_BOB_PASSWORD "secret"
 

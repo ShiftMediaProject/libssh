@@ -55,6 +55,9 @@ if (WITH_SFTP)
         ${SFTP_BENCHMARK_TESTS})
 endif (WITH_SFTP)
 
+set(TORTURE_CLIENT_ENVIRONMENT ${TORTURE_ENVIRONMENT})
+list(APPEND TORTURE_CLIENT_ENVIRONMENT NSS_WRAPPER_HOSTS=${CMAKE_BINARY_DIR}/tests/etc/hosts)
+
 foreach(_CLI_TEST ${LIBSSH_CLIENT_TESTS})
     add_cmocka_test(${_CLI_TEST}
                     SOURCES ${_CLI_TEST}.c
@@ -73,6 +76,6 @@ foreach(_CLI_TEST ${LIBSSH_CLIENT_TESTS})
             TEST
                 ${_CLI_TEST}
             PROPERTY
-                ENVIRONMENT ${TORTURE_ENVIRONMENT})
+                ENVIRONMENT ${TORTURE_CLIENT_ENVIRONMENT})
     endif()
 endforeach()

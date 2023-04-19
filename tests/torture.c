@@ -730,6 +730,7 @@ static void torture_setup_create_sshd_config(void **state, bool pam)
     const char config_string[]=
              "Port 22\n"
              "ListenAddress 127.0.0.10\n"
+             "ListenAddress fd00::5357:5f0a\n"
              "%s %s\n" /* ed25519 HostKey */
              "%s %s\n" /* RSA HostKey */
              "%s %s\n" /* ECDSA HostKey */
@@ -765,6 +766,7 @@ static void torture_setup_create_sshd_config(void **state, bool pam)
     const char fips_config_string[]=
              "Port 22\n"
              "ListenAddress 127.0.0.10\n"
+             "ListenAddress fd00::5357:5f0a\n"
              "%s %s\n" /* RSA HostKey */
              "%s %s\n" /* ECDSA HostKey */
              "\n"
