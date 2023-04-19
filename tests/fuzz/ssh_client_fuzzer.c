@@ -93,6 +93,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     ssize_t nwritten;
     bool no = false;
     int rc;
+    long timeout = 1; /* use short timeout to avoid timeouts during fuzzing */
 
     /* This is the maximum that can be handled by the socket buffer before the
      * other side will read some data. Other option would be feeding the socket
@@ -136,6 +137,8 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
     rc = ssh_options_set(session, SSH_OPTIONS_HMAC_S_C, "none");
     assert(rc == 0);
     rc = ssh_options_set(session, SSH_OPTIONS_PROCESS_CONFIG, &no);
+    assert(rc == 0);
+    rc = ssh_options_set(session, SSH_OPTIONS_TIMEOUT, &timeout);
     assert(rc == 0);
 
     ssh_callbacks_init(&cb);
