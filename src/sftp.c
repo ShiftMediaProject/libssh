@@ -2520,6 +2520,8 @@ int sftp_rename(sftp_session sftp, const char *original, const char *newname)
     sftp_message msg = NULL;
     ssh_buffer buffer = NULL;
     uint32_t id;
+    const char *extension_name = "posix-rename@openssh.com";
+    int request_type;
     int rc;
 
     buffer = ssh_buffer_new();
@@ -2531,27 +2533,52 @@ int sftp_rename(sftp_session sftp, const char *original, const char *newname)
 
     id = sftp_get_new_id(sftp);
 
-    rc = ssh_buffer_pack(buffer,
-                         "dss",
-                         id,
-                         original,
-                         newname);
-    if (rc != SSH_OK) {
-        ssh_set_error_oom(sftp->session);
-        SSH_BUFFER_FREE(buffer);
-        sftp_set_error(sftp, SSH_FX_FAILURE);
-        return -1;
+    /*
+     * posix-rename@openssh.com extension will be used
+     * if it is supported by sftp
+     */
+    if (sftp_extension_supported(sftp,
+                                 extension_name,
+                                 "1")) {
+        rc = ssh_buffer_pack(buffer,
+                             "dsss",
+                             id,
+                             extension_name,
+                             original,
+                             newname);
+        if (rc != SSH_OK) {
+            ssh_set_error_oom(sftp->session);
+            SSH_BUFFER_FREE(buffer);
+            sftp_set_error(sftp, SSH_FX_FAILURE);
+            return -1;
+        }
+
+        request_type = SSH_FXP_EXTENDED;
+    } else {
+        rc = ssh_buffer_pack(buffer,
+                             "dss",
+                             id,
+                             original,
+                             newname);
+        if (rc != SSH_OK) {
+            ssh_set_error_oom(sftp->session);
+            SSH_BUFFER_FREE(buffer);
+            sftp_set_error(sftp, SSH_FX_FAILURE);
+            return -1;
+        }
+
+        if (sftp->version >= 4) {
+            /*
+             * POSIX rename atomically replaces newpath,
+             * we should do the same only available on >=v4
+             */
+            ssh_buffer_add_u32(buffer, SSH_FXF_RENAME_OVERWRITE);
+        }
+
+        request_type = SSH_FXP_RENAME;
     }
 
-    if (sftp->version >= 4) {
-        /*
-         * POSIX rename atomically replaces newpath,
-         * we should do the same only available on >=v4
-         */
-        ssh_buffer_add_u32(buffer, SSH_FXF_RENAME_OVERWRITE);
-    }
-
-    rc = sftp_packet_write(sftp, SSH_FXP_RENAME, buffer);
+    rc = sftp_packet_write(sftp, request_type, buffer);
     SSH_BUFFER_FREE(buffer);
     if (rc < 0) {
         return -1;
