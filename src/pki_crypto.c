@@ -204,23 +204,26 @@ int pki_key_ecdsa_nid_from_name(const char *name)
 
 int pki_privkey_build_ecdsa(ssh_key key, int nid, ssh_string e, ssh_string exp)
 {
-    int rc;
+    int rc = 0;
+    BIGNUM *bexp = NULL;
+
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
     EC_POINT *p = NULL;
     const EC_GROUP *g = NULL;
-    int ok;
-    BIGNUM *bexp = NULL;
     EC_KEY *ecdsa = NULL;
 #else
-    const BIGNUM *expb;
     const char *group_name = OSSL_EC_curve_nid2name(nid);
     OSSL_PARAM_BLD *param_bld = NULL;
 
     if (group_name == NULL) {
         return -1;
     }
-    expb = ssh_make_string_bn(exp);
 #endif /* OPENSSL_VERSION_NUMBER */
+
+    bexp = ssh_make_string_bn(exp);
+    if (bexp == NULL) {
+        return -1;
+    }
 
     key->ecdsa_nid = nid;
     key->type_c = pki_key_ecdsa_nid_to_name(nid);
@@ -228,87 +231,98 @@ int pki_privkey_build_ecdsa(ssh_key key, int nid, ssh_string e, ssh_string exp)
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
     ecdsa = EC_KEY_new_by_curve_name(key->ecdsa_nid);
     if (ecdsa == NULL) {
-        return -1;
+        rc = -1;
+        goto cleanup;
     }
 
     g = EC_KEY_get0_group(ecdsa);
 
     p = EC_POINT_new(g);
     if (p == NULL) {
-        EC_KEY_free(ecdsa);
-        return -1;
+        rc = -1;
+        goto cleanup;
     }
 
-    ok = EC_POINT_oct2point(g,
+    rc = EC_POINT_oct2point(g,
                             p,
                             ssh_string_data(e),
                             ssh_string_len(e),
                             NULL);
-    if (!ok) {
-        EC_KEY_free(ecdsa);
-        EC_POINT_free(p);
-        return -1;
+    if (rc != 1) {
+        rc = -1;
+        goto cleanup;
     }
 
     /* EC_KEY_set_public_key duplicates p */
-    ok = EC_KEY_set_public_key(ecdsa, p);
-    EC_POINT_free(p);
-    if (!ok) {
-        EC_KEY_free(ecdsa);
-        return -1;
+    rc = EC_KEY_set_public_key(ecdsa, p);
+    if (rc != 1) {
+        rc = -1;
+        goto cleanup;
     }
 
-    bexp = ssh_make_string_bn(exp);
-    if (bexp == NULL) {
-        EC_KEY_free(ecdsa);
-        return -1;
-    }
     /* EC_KEY_set_private_key duplicates exp */
-    ok = EC_KEY_set_private_key(ecdsa, bexp);
-    BN_free(bexp);
-    if (!ok) {
-        EC_KEY_free(ecdsa);
-        return -1;
+    rc = EC_KEY_set_private_key(ecdsa, bexp);
+    if (rc != 1) {
+        rc = -1;
+        goto cleanup;
     }
 
     key->key = EVP_PKEY_new();
     if (key->key == NULL) {
-        EC_KEY_free(ecdsa);
-        return -1;
+        rc = -1;
+        goto cleanup;
     }
 
+    /* ecdsa will be freed when the EVP_PKEY key->key is freed */
     rc = EVP_PKEY_assign_EC_KEY(key->key, ecdsa);
     if (rc != 1) {
-        EVP_PKEY_free(key->key);
-        EC_KEY_free(ecdsa);
-        return -1;
+        rc = -1;
+        goto cleanup;
     }
+    /* ssh_key is now the owner of this memory */
+    ecdsa = NULL;
 
-    return 0;
+    /* set rc to 0 if everything went well */
+    rc = 0;
+
+cleanup:
+    EC_KEY_free(ecdsa);
+    EC_POINT_free(p);
+    BN_free(bexp);
+    return rc;
 #else
     param_bld = OSSL_PARAM_BLD_new();
-    if (param_bld == NULL)
-        goto err;
+    if (param_bld == NULL){
+        rc = -1;
+        goto cleanup;
+    }
 
     rc = OSSL_PARAM_BLD_push_utf8_string(param_bld, OSSL_PKEY_PARAM_GROUP_NAME,
                                          group_name, strlen(group_name));
-    if (rc != 1)
-        goto err;
+    if (rc != 1) {
+        rc = -1;
+        goto cleanup;
+    }
+
     rc = OSSL_PARAM_BLD_push_octet_string(param_bld, OSSL_PKEY_PARAM_PUB_KEY,
                                           ssh_string_data(e), ssh_string_len(e));
-    if (rc != 1)
-        goto err;
-    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_PRIV_KEY, expb);
-    if (rc != 1)
-        goto err;
+    if (rc != 1) {
+        rc = -1;
+        goto cleanup;
+    }
+
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_PRIV_KEY, bexp);
+    if (rc != 1) {
+        rc = -1;
+        goto cleanup;
+    }
 
     rc = evp_build_pkey("EC", param_bld, &(key->key), EVP_PKEY_KEYPAIR);
-    OSSL_PARAM_BLD_free(param_bld);
 
-    return rc;
-err:
+cleanup:
     OSSL_PARAM_BLD_free(param_bld);
-    return -1;
+    BN_free(bexp);
+    return rc;
 #endif /* OPENSSL_VERSION_NUMBER */
 }
 
