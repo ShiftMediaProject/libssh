@@ -2229,8 +2229,12 @@ int pki_verify_data_signature(ssh_signature signature,
     unsigned char *raw_sig_data = NULL;
     unsigned int raw_sig_len;
 
+    /* Function return code
+     * Do not change this variable throughout the function until the signature
+     * is successfully verified!
+     */
     int rc = SSH_ERROR;
-    int evp_rc;
+    int ok;
 
     if (pubkey == NULL || ssh_key_is_private(pubkey) || input == NULL ||
         signature == NULL || signature->raw_sig == NULL)
@@ -2241,8 +2245,8 @@ int pki_verify_data_signature(ssh_signature signature,
     }
 
     /* Check if public key and hash type are compatible */
-    rc = pki_key_check_hash_compatible(pubkey, signature->hash_type);
-    if (rc != SSH_OK) {
+    ok = pki_key_check_hash_compatible(pubkey, signature->hash_type);
+    if (ok != SSH_OK) {
         return SSH_ERROR;
     }
 
@@ -2277,24 +2281,24 @@ int pki_verify_data_signature(ssh_signature signature,
     }
 
     /* Verify the signature */
-    evp_rc = EVP_DigestVerifyInit(ctx, NULL, md, NULL, pkey);
-    if (evp_rc != 1){
+    ok = EVP_DigestVerifyInit(ctx, NULL, md, NULL, pkey);
+    if (ok != 1){
         SSH_LOG(SSH_LOG_TRACE,
                 "EVP_DigestVerifyInit() failed: %s",
                 ERR_error_string(ERR_get_error(), NULL));
         goto out;
     }
 
-    evp_rc = EVP_DigestVerify(ctx, raw_sig_data, raw_sig_len, input, input_len);
-    if (evp_rc == 1) {
-        SSH_LOG(SSH_LOG_TRACE, "Signature valid");
-        rc = SSH_OK;
-    } else {
+    ok = EVP_DigestVerify(ctx, raw_sig_data, raw_sig_len, input, input_len);
+    if (ok != 1) {
         SSH_LOG(SSH_LOG_TRACE,
                 "Signature invalid: %s",
                 ERR_error_string(ERR_get_error(), NULL));
-        rc = SSH_ERROR;
+        goto out;
     }
+
+    SSH_LOG(SSH_LOG_TRACE, "Signature valid");
+    rc = SSH_OK;
 
 out:
     if (ctx != NULL) {
