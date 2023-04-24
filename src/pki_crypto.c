@@ -3273,9 +3273,7 @@ int pki_verify_data_signature(ssh_signature signature,
     rc = SSH_OK;
 
 out:
-    if (ctx != NULL) {
-        EVP_MD_CTX_free(ctx);
-    }
+    EVP_MD_CTX_free(ctx);
     EVP_PKEY_free(pkey);
     return rc;
 }
