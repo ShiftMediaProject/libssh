@@ -337,3 +337,12 @@ endif ()
 if (FUZZ_TESTING)
     add_subdirectory(fuzz)
 endif()
+
+add_custom_target(test_memcheck
+    # FIXME: The threads_pki_rsa test is skipped under valgrind as it times out
+    # Passing suppression file is also stupid so lets go with override here:
+    # https://stackoverflow.com/a/56116311
+    COMMAND ${CMAKE_CTEST_COMMAND} -E torture_threads_pki_rsa
+        --output-on-failure --force-new-ctest-process --test-action memcheck
+        --overwrite MemoryCheckSuppressionFile=${CMAKE_SOURCE_DIR}/tests/valgrind.supp
+    WORKING_DIRECTORY "${CMAKE_BINARY_DIR}")

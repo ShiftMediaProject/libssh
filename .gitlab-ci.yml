@@ -198,6 +198,15 @@ fedora/openssl_3.0.x/x86_64/minimal:
       -DWITH_GEX=OFF .. &&
       make -j$(nproc)
 
+fedora/valgrind:
+  extends: .fedora
+  stage: analysis
+  script:
+    - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
+      make -j$(nproc) &&
+      make test_memcheck
+    - cat Testing/Temporary/MemoryChecker.*.log | wc -l | grep "^0$"
+
 # Address sanitizer doesn't mix well with LD_PRELOAD used in the testsuite
 # so, this is only enabled for unit tests right now.
 # TODO: add -DCLIENT_TESTING=ON -DSERVER_TESTING=ON
