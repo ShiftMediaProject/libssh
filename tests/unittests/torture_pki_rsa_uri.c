@@ -292,6 +292,8 @@ torture_run_tests(void)
                                 setup_directory_structure,
                                 teardown_directory_structure);
 
+    ssh_free(session);
+
     ssh_finalize();
 
     return rc;

@@ -56,7 +56,7 @@ static int sshd_setup(void **state)
     s = *((struct torture_state **)state);
     s->private_data = test_state;
 
-    test_state->orig_dir = strdup(torture_get_current_working_dir());
+    test_state->orig_dir = torture_get_current_working_dir();
     assert_non_null(test_state->orig_dir);
 
     temp_dir = torture_make_temp_dir(template);
@@ -137,7 +137,7 @@ static void test_algorithm(ssh_session session,
                            const char *cipher,
                            const char *hostkey)
 {
-    char data[256];
+    char data[256] = {0};
     int rc;
 
     if (kex != NULL) {
@@ -161,7 +161,7 @@ static void test_algorithm(ssh_session session,
     assert_ssh_return_code(session, rc);
 
     /* send ignore packets of all sizes */
-    memset(data, 'A', sizeof(data));
+    memset(data, 'A', sizeof(data) - 1);
     ssh_send_ignore(session, data);
     ssh_handle_packets(session, 50);
 

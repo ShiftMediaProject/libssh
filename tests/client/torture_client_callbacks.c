@@ -149,6 +149,7 @@ static void torture_open_success(void **state)
 
     assert_int_equal(STATE_SUCCESS, cb_state->open_response);
 
+    free(cb_state);
     ssh_channel_free(channel);
 }
 
@@ -170,6 +171,7 @@ static void torture_open_failure(void **state)
 
     assert_int_equal(STATE_FAILURE, cb_state->open_response);
 
+    free(cb_state);
     ssh_channel_free(channel);
 }
 
@@ -194,6 +196,7 @@ static void torture_request_success(void **state)
 
     assert_int_equal(STATE_SUCCESS, cb_state->request_response);
 
+    free(cb_state);
     ssh_channel_free(channel);
 }
 
@@ -218,6 +221,7 @@ static void torture_request_failure(void **state)
 
     assert_int_equal(STATE_SUCCESS, cb_state->request_response);
 
+    free(cb_state);
     ssh_channel_free(channel);
 }
 
