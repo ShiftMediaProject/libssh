@@ -404,9 +404,7 @@ uint32_t ssh_agent_get_ident_count(struct ssh_session_struct *session)
         return 0;
     }
 
-    if (session->agent->ident) {
-        ssh_buffer_reinit(session->agent->ident);
-    }
+    ssh_buffer_free(session->agent->ident);
     session->agent->ident = reply;
 
     return session->agent->count;
