@@ -1014,6 +1014,7 @@ int ssh_userauth_agent(ssh_session session,
                             "not listed in config, skipping", state->comment);
                     SSH_STRING_FREE_CHAR(state->comment);
                     state->comment = NULL;
+                    SSH_KEY_FREE(state->pubkey);
                     state->pubkey = ssh_agent_get_next_ident(
                         session, &state->comment);
 
@@ -1039,7 +1040,7 @@ int ssh_userauth_agent(ssh_session session,
                         "Public key of %s refused by server", state->comment);
                 SSH_STRING_FREE_CHAR(state->comment);
                 state->comment = NULL;
-                ssh_key_free(state->pubkey);
+                SSH_KEY_FREE(state->pubkey);
                 state->pubkey = ssh_agent_get_next_ident(session, &state->comment);
                 state->state = SSH_AGENT_STATE_NONE;
                 continue;
@@ -1063,7 +1064,7 @@ int ssh_userauth_agent(ssh_session session,
             } else if (rc != SSH_AUTH_SUCCESS) {
                 SSH_LOG(SSH_LOG_DEBUG,
                         "Server accepted public key but refused the signature");
-                ssh_key_free(state->pubkey);
+                SSH_KEY_FREE(state->pubkey);
                 state->pubkey = ssh_agent_get_next_ident(session, &state->comment);
                 state->state = SSH_AGENT_STATE_NONE;
                 continue;
