@@ -72,12 +72,14 @@ static const char *ecdh_kex_type_to_curve(enum ssh_key_exchange_e kex_type) {
 static ssh_string ssh_ecdh_generate(ssh_session session)
 {
     ssh_string pubkey_string = NULL;
-    const EC_GROUP *group = NULL;
-    const EC_POINT *point = NULL;
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
+    const EC_POINT *point = NULL;
+    const EC_GROUP *group = NULL;
     EC_KEY *key = NULL;
     int curve;
 #else
+    EC_POINT *point = NULL;
+    EC_GROUP *group = NULL;
     const char *curve = NULL;
     EVP_PKEY *key = NULL;
     OSSL_PARAM *out_params = NULL;
@@ -115,6 +117,8 @@ static ssh_string ssh_ecdh_generate(ssh_session session)
     EC_KEY_generate_key(key);
 
     point = EC_KEY_get0_public_key(key);
+
+    pubkey_string = pki_key_make_ecpoint_string(group, point);
 #else
     rc = EVP_PKEY_todata(key, EVP_PKEY_PUBLIC_KEY, &out_params);
     if (rc != 1) {
@@ -159,20 +163,25 @@ static ssh_string ssh_ecdh_generate(ssh_session session)
                       SSH_FATAL,
                       "Could not create point: %s",
                       ERR_error_string(ERR_get_error(), NULL));
+        EC_GROUP_free(group);
         OSSL_PARAM_free(out_params);
         EVP_PKEY_free(key);
         return NULL;
     }
-    rc = EC_POINT_oct2point(group, (EC_POINT *)point, pubkey, pubkey_len, NULL);
+    rc = EC_POINT_oct2point(group, point, pubkey, pubkey_len, NULL);
     OSSL_PARAM_free(out_params);
     if (rc != 1) {
         SSH_LOG(SSH_LOG_TRACE, "Failed to export public key");
+        EC_GROUP_free(group);
+        EC_POINT_free(point);
         EVP_PKEY_free(key);
         return NULL;
     }
 
-#endif /* OPENSSL_VERSION_NUMBER */
     pubkey_string = pki_key_make_ecpoint_string(group, point);
+    EC_GROUP_free(group);
+    EC_POINT_free(point);
+#endif /* OPENSSL_VERSION_NUMBER */
     if (pubkey_string == NULL) {
         SSH_LOG(SSH_LOG_TRACE, "Failed to convert public key");
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
@@ -352,6 +361,7 @@ int ecdh_build_k(ssh_session session)
   }
 
   rc = EVP_PKEY_derive_set_peer(dh_ctx, pubkey);
+  EVP_PKEY_free(pubkey);
   if (rc != 1) {
       ssh_set_error(session,
                     SSH_FATAL,
