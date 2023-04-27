@@ -198,7 +198,11 @@ fedora/openssl_3.0.x/x86_64/minimal:
       -DWITH_GEX=OFF .. &&
       make -j$(nproc)
 
+# The PKCS#11 support is turned off as it brings dozens of memory issues from
+# engine_pkcs11 or openssl itself
 fedora/valgrind:
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: -DWITH_PKCS11_URI=OFF
   extends: .fedora
   stage: analysis
   script:
