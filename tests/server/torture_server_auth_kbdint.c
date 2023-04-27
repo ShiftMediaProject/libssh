@@ -605,8 +605,8 @@ static int setup_kbdint_server(void **state)
     setenv("SOCKET_WRAPPER_DEFAULT_IFACE", "21", 1);
     unsetenv("PAM_WRAPPER");
 
-    /* Wait 200ms */
-    usleep(200 * 1000);
+    rc = torture_wait_for_daemon(15);
+    assert_int_equal(rc, 0);
 
     tss->state = s;
     tss->ss = ss;

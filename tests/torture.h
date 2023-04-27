@@ -120,6 +120,8 @@ void _torture_filter_tests(struct CMUnitTest *tests, size_t ntests);
 const char *torture_server_address(int domain);
 int torture_server_port(void);
 
+int torture_wait_for_daemon(unsigned int seconds);
+
 #ifdef SSHD_EXECUTABLE
 void torture_setup_socket_dir(void **state);
 void torture_setup_sshd_server(void **state, bool pam);

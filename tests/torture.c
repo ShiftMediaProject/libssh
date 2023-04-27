@@ -905,7 +905,7 @@ static void torture_setup_create_sshd_config(void **state, bool pam)
     torture_write_file(s->srv_config, sshd_config);
 }
 
-static int torture_wait_for_daemon(unsigned int seconds)
+int torture_wait_for_daemon(unsigned int seconds)
 {
     struct ssh_timestamp start;
     int rc;
