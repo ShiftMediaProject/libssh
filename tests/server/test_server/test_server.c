@@ -64,6 +64,15 @@ static void sigchld_handler(int signo) {
     while (waitpid(-1, NULL, WNOHANG) > 0);
 }
 
+bool done = false;
+
+static void sigterm_handler(int signo)
+{
+    (void) signo;
+    fprintf(stderr, "Received SIGTERM. Gracefully exiting ...\n");
+    done = true;
+}
+
 int run_server(struct server_state_st *state)
 {
     ssh_session session = NULL;
@@ -89,6 +98,15 @@ int run_server(struct server_state_st *state)
 
     if (sigaction(SIGCHLD, &sa, NULL) != 0) {
         fprintf(stderr, "Failed to register SIGCHLD handler\n");
+        return SSH_ERROR;
+    }
+
+    /* Set up SIGTERM handler. */
+    sa.sa_handler = sigterm_handler;
+    sa.sa_flags = 0;
+
+    if (sigaction(SIGTERM, &sa, NULL) != 0) {
+        fprintf(stderr, "Failed to register SIGTERM handler\n");
         return SSH_ERROR;
     }
 
@@ -227,7 +245,7 @@ int run_server(struct server_state_st *state)
 
     printf("Started libssh test server on port %d\n", state->port);
 
-    for (;;) {
+    while (done == false) {
         session = ssh_new();
         if (session == NULL) {
             fprintf(stderr, "Out of memory\n");
@@ -245,6 +263,9 @@ int run_server(struct server_state_st *state)
                 /* Remove the SIGCHLD handler inherited from parent. */
                 sa.sa_handler = SIG_DFL;
                 sigaction(SIGCHLD, &sa, NULL);
+                /* Remove the SIGTERM handler inherited from parent. */
+                sa.sa_handler = SIG_DFL;
+                sigaction(SIGTERM, &sa, NULL);
                 /* Remove socket binding, which allows us to restart the
                  * parent process, without terminating existing sessions. */
                 ssh_bind_free(sshbind);
