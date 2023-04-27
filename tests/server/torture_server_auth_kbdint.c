@@ -523,6 +523,7 @@ static int setup_kbdint_server(void **state)
     char rsa_hostkey[1024] = {0};
 
     char sshd_path[1024];
+    char log_file[1024];
 
     int rc;
 
@@ -550,6 +551,11 @@ static int setup_kbdint_server(void **state)
     rc = mkdir(sshd_path, 0755);
     assert_return_code(rc, errno);
 
+    snprintf(log_file,
+             sizeof(log_file),
+             "%s/sshd/log",
+             s->socket_dir);
+
     snprintf(rsa_hostkey,
              sizeof(rsa_hostkey),
              "%s/sshd/ssh_host_rsa_key",
@@ -569,7 +575,9 @@ static int setup_kbdint_server(void **state)
     ss->host_key = strdup(rsa_hostkey);
     assert_non_null(rsa_hostkey);
 
+    /* not to mix up the client and server messages */
     ss->verbosity = torture_libssh_verbosity();
+    ss->log_file = strdup(log_file);
 
 #ifdef WITH_PCAP
     ss->with_pcap = 1;
