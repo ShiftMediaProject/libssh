@@ -121,8 +121,9 @@ int run_server(struct server_state_st *state)
         return SSH_ERROR;
     }
 
-    if (state->address == NULL) {
-        fprintf(stderr, "Missing bind address\n");
+    if (state->host_key == NULL && state->rsa_key == NULL &&
+        state->ecdsa_key == NULL && state->ed25519_key) {
+        fprintf(stderr, "Missing host key\n");
         return SSH_ERROR;
     }
 
