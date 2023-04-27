@@ -53,6 +53,10 @@
 #include "libssh/misc.h"
 #include "libssh/token.h"
 
+#ifdef HAVE_VALGRIND_VALGRIND_H
+#include <valgrind/valgrind.h>
+#endif
+
 #define TORTURE_SSHD_SRV_IPV4 "127.0.0.10"
 /* socket wrapper IPv6 prefix  fd00::5357:5fxx */
 #define TORTURE_SSHD_SRV_IPV6 "fd00::5357:5f0a"
@@ -244,6 +248,13 @@ int torture_terminate_process(const char *pidfile)
 
         /* 10 ms */
         usleep(10 * 1000);
+#ifdef HAVE_VALGRIND_VALGRIND_H
+        if (RUNNING_ON_VALGRIND) {
+            SSH_LOG(SSH_LOG_INFO, "Running within Valgrind, wait one more "
+                    "second for the server to clean up.");
+            usleep(1000 * 1000);
+         }
+#endif /* HAVE_VALGRIND_VALGRIND_H */
 
         rc = kill(pid, 0);
         if (rc != 0) {
