@@ -369,6 +369,7 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
     }
 
     if (server_kex) {
+#ifdef WITH_SERVER
         len = ssh_buffer_get_data(packet, crypto->client_kex.cookie, 16);
         if (len != 16) {
             ssh_set_error(session, SSH_FATAL,
@@ -382,6 +383,7 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
                           "ssh_packet_kexinit: adding cookie failed");
             goto error;
         }
+#endif /* WITH_SERVER */
     } else {
         len = ssh_buffer_get_data(packet, crypto->server_kex.cookie, 16);
         if (len != 16) {
@@ -422,9 +424,11 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
 
     /* copy the peer kex info into an array of strings */
     if (server_kex) {
+#ifdef WITH_SERVER
         for (i = 0; i < SSH_KEX_METHODS; i++) {
             crypto->client_kex.methods[i] = strings[i];
         }
+#endif /* WITH_SERVER */
     } else { /* client */
         for (i = 0; i < SSH_KEX_METHODS; i++) {
             crypto->server_kex.methods[i] = strings[i];
@@ -441,6 +445,8 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
      * that its value is included when computing the session ID (see
      * 'make_sessionid').
      */
+
+#ifdef WITH_SERVER
     if (server_kex) {
         rc = ssh_buffer_get_u8(packet, &first_kex_packet_follows);
         if (rc != 1) {
@@ -542,6 +548,7 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
                                session->next_crypto->server_kex.methods[SSH_HOSTKEYS]);
         }
     }
+#endif /* WITH_SERVER */
 
     /* Note, that his overwrites authenticated state in case of rekeying */
     session->session_state = SSH_SESSION_STATE_KEXINIT_RECEIVED;
@@ -553,7 +560,9 @@ error:
     SSH_STRING_FREE(str);
     for (i = 0; i < SSH_KEX_METHODS; i++) {
         if (server_kex) {
+#ifdef WITH_SERVER
             session->next_crypto->client_kex.methods[i] = NULL;
+#endif /* WITH_SERVER */
         } else { /* client */
             session->next_crypto->server_kex.methods[i] = NULL;
         }
