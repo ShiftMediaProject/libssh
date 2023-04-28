@@ -596,9 +596,12 @@ int main(UNUSED_PARAM(int argc), UNUSED_PARAM(char **argv))
         .address = NULL,
         .with_global_config = true,
     };
-    struct server_state_st state = {
-        .address = NULL,
-    };
+    struct server_state_st *state = calloc(1, sizeof(struct server_state_st));
+
+    if (state == NULL) {
+        printf("Failed to allocate memory\n");
+        return -1;
+    }
 
 #ifdef HAVE_ARGP_H
     argp_parse (&argp, argc, argv, 0, 0, &arguments);
@@ -608,6 +611,8 @@ int main(UNUSED_PARAM(int argc), UNUSED_PARAM(char **argv))
         pid_file = fopen(arguments.pid_file, "w");
         if (pid_file == NULL) {
             rc = -1;
+            free_server_state(state);
+            SAFE_FREE(state);
             goto free_arguments;
         }
         pid = getpid();
@@ -616,22 +621,19 @@ int main(UNUSED_PARAM(int argc), UNUSED_PARAM(char **argv))
     }
 
     /* Initialize the state using default or given parameters */
-    rc = init_server_state(&state, &arguments);
+    rc = init_server_state(state, &arguments);
     if (rc != 0) {
+        free_server_state(state);
+        SAFE_FREE(state);
         goto free_arguments;
     }
 
     /* Free the arguments used to initialize the state before fork */
     free_arguments(&arguments);
 
-    /* Run the server */
-    rc = run_server(&state);
-    if (rc != 0) {
-        goto free_state;
-    }
+    /* Run the server: Frees the state in all processes */
+    rc = run_server(state);
 
-free_state:
-    free_server_state(&state);
 free_arguments:
     free_arguments(&arguments);
     return rc;
