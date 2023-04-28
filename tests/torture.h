@@ -155,6 +155,8 @@ __attribute__((weak)) int torture_run_tests(void);
 int torture_run_tests(void);
 #endif
 
+void torture_free_state(struct torture_state *s);
+
 char *torture_make_temp_dir(const char *template);
 char *torture_create_temp_file(const char *template);
 

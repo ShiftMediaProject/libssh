@@ -74,4 +74,7 @@ void free_server_state(struct server_state_st *state);
 int run_server(struct server_state_st *state);
 
 /*TODO: Add documentation */
-pid_t fork_run_server(struct server_state_st *state);
+pid_t
+fork_run_server(struct server_state_st *state,
+                void (*free_state) (void **userdata),
+                void *userdata);

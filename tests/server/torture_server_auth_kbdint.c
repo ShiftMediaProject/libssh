@@ -96,11 +96,7 @@ static void cleanup_pcap(struct session_data_st *sdata)
         return;
     }
 
-    /* Do not free the pcap data context here since its ownership was
-     * transferred to the session object, which will take care of its cleanup.
-     * Moreover it is still in use so we can very simply crash by freeing
-     * it here.
-     */
+    ssh_pcap_file_free(sdata->pcap);
     sdata->pcap = NULL;
 }
 #endif
@@ -514,6 +510,14 @@ end:
     return;
 }
 
+static void free_test_server_state(void **state)
+{
+    struct test_server_st *tss = *state;
+
+    torture_free_state(tss->state);
+    SAFE_FREE(tss);
+}
+
 static int setup_kbdint_server(void **state)
 {
     struct torture_state *s;
@@ -588,12 +592,15 @@ static int setup_kbdint_server(void **state)
     ss->max_tries = 3;
     ss->error = 0;
 
+    tss->state = s;
+    tss->ss = ss;
+
     /* Set the session handling function */
     ss->handle_session = handle_kbdint_session_cb;
     assert_non_null(ss->handle_session);
 
     /* Start the server */
-    pid = fork_run_server(ss);
+    pid = fork_run_server(ss, free_test_server_state, &tss);
     if (pid < 0) {
         fail();
     }
@@ -607,9 +614,6 @@ static int setup_kbdint_server(void **state)
 
     rc = torture_wait_for_daemon(15);
     assert_int_equal(rc, 0);
-
-    tss->state = s;
-    tss->ss = ss;
 
     *state = tss;
 

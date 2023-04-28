@@ -1114,6 +1114,16 @@ void torture_setup_sshd_server(void **state, bool pam)
     assert_int_equal(rc, 0);
 }
 
+void torture_free_state(struct torture_state *s)
+{
+    free(s->srv_config);
+    free(s->socket_dir);
+    free(s->pcap_file);
+    free(s->srv_pidfile);
+    free(s->srv_additional_config);
+    free(s);
+}
+
 void torture_teardown_socket_dir(void **state)
 {
     struct torture_state *s = *state;
@@ -1137,13 +1147,7 @@ void torture_teardown_socket_dir(void **state)
     }
     s->plain_pcap = NULL;
 #endif /* WITH_PCAP */
-
-    free(s->srv_config);
-    free(s->socket_dir);
-    free(s->pcap_file);
-    free(s->srv_pidfile);
-    free(s->srv_additional_config);
-    free(s);
+    torture_free_state(s);
 }
 
 static int
