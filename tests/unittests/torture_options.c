@@ -319,6 +319,7 @@ static void torture_options_set_port(void **state) {
 
     rc = ssh_options_set(session, SSH_OPTIONS_PORT_STR, "five");
     assert_true(rc == -1);
+    assert_int_not_equal(session->opts.port, 0);
 
     rc = ssh_options_set(session, SSH_OPTIONS_PORT, NULL);
     assert_true(rc == -1);
@@ -1279,6 +1280,26 @@ static void torture_options_apply (void **state) {
     ssh_list_free(awaited_list);
 }
 
+static void torture_options_set_verbosity (void **state)
+{
+    ssh_session session = *state;
+    int rc, new_level;
+
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_LOG_VERBOSITY_STR,
+                         "3");
+    assert_int_equal(rc, SSH_OK);
+    new_level = ssh_get_log_level();
+    assert_int_equal(new_level, SSH_LOG_PACKET);
+
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_LOG_VERBOSITY_STR,
+                         "datsun");
+    assert_int_equal(rc, -1);
+    new_level = ssh_get_log_level();
+    assert_int_not_equal(new_level, 0);
+}
+
 #ifdef WITH_SERVER
 const char template[] = "temp_dir_XXXXXX";
 
@@ -1533,6 +1554,10 @@ static void torture_bind_options_bindport_str(void **state)
     rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_BINDPORT_STR, "23");
     assert_int_equal(rc, 0);
     assert_int_equal(bind->bindport, 23);
+
+    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_BINDPORT_STR, "twentythree");
+    assert_int_equal(rc, -1);
+    assert_int_not_equal(bind->bindport, 0);
 }
 
 static void torture_bind_options_log_verbosity(void **state)
@@ -1581,6 +1606,11 @@ static void torture_bind_options_log_verbosity_str(void **state)
 
     new_level = ssh_get_log_level();
     assert_int_equal(new_level, SSH_LOG_PACKET);
+
+    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_LOG_VERBOSITY_STR, "verbosity");
+    assert_int_equal(rc, -1);
+    new_level = ssh_get_log_level();
+    assert_int_not_equal(new_level, 0);
 
     rc = ssh_set_log_level(previous_level);
     assert_int_equal(rc, SSH_OK);
@@ -2074,6 +2104,7 @@ int torture_run_tests(void) {
         cmocka_unit_test_setup_teardown(torture_options_getopt,
                                         setup, teardown),
         cmocka_unit_test_setup_teardown(torture_options_apply, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_set_verbosity, setup, teardown),
     };
 
 #ifdef WITH_SERVER
