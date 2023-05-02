@@ -620,7 +620,9 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 }
                 i = strtol(q, &p, 10);
                 if (q == p) {
+                    SSH_LOG(SSH_LOG_DEBUG, "No port number was parsed");
                     SAFE_FREE(q);
+                    return -1;
                 }
                 SAFE_FREE(q);
                 if (i <= 0) {
@@ -822,7 +824,9 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 }
                 i = strtol(q, &p, 10);
                 if (q == p) {
+                    SSH_LOG(SSH_LOG_DEBUG, "No log verbositiy was parsed");
                     SAFE_FREE(q);
+                    return -1;
                 }
                 SAFE_FREE(q);
                 if (i < 0) {
@@ -2018,7 +2022,9 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
         }
         i = strtol(q, &p, 10);
         if (q == p) {
-          SAFE_FREE(q);
+            SSH_LOG(SSH_LOG_DEBUG, "No bind port was parsed");
+            SAFE_FREE(q);
+            return -1;
         }
         SAFE_FREE(q);
 
@@ -2045,7 +2051,9 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
         }
         i = strtol(q, &p, 10);
         if (q == p) {
-          SAFE_FREE(q);
+            SSH_LOG(SSH_LOG_DEBUG, "No log verbositiy was parsed");
+            SAFE_FREE(q);
+            return -1;
         }
         SAFE_FREE(q);
 
