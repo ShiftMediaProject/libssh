@@ -42,6 +42,7 @@ struct callback_state
     int request_response;
     ssh_session expected_session;
     ssh_channel expected_channel;
+    struct ssh_channel_callbacks_struct *callback;
 };
 
 static void on_open_response(ssh_session session, ssh_channel channel, bool is_success, void *userdata)
@@ -82,6 +83,8 @@ static struct callback_state *set_callbacks(ssh_session session, ssh_channel cha
     rc = ssh_set_channel_callbacks(channel, cb);
     assert_ssh_return_code(session, rc);
 
+    /* Keep the reference so it can be cleaned up later */
+    cb_state->callback = cb;
     return cb_state;
 }
 
@@ -149,8 +152,9 @@ static void torture_open_success(void **state)
 
     assert_int_equal(STATE_SUCCESS, cb_state->open_response);
 
-    free(cb_state);
     ssh_channel_free(channel);
+    free(cb_state->callback);
+    free(cb_state);
 }
 
 static void torture_open_failure(void **state)
@@ -171,8 +175,9 @@ static void torture_open_failure(void **state)
 
     assert_int_equal(STATE_FAILURE, cb_state->open_response);
 
-    free(cb_state);
     ssh_channel_free(channel);
+    free(cb_state->callback);
+    free(cb_state);
 }
 
 static void torture_request_success(void **state)
@@ -196,8 +201,9 @@ static void torture_request_success(void **state)
 
     assert_int_equal(STATE_SUCCESS, cb_state->request_response);
 
-    free(cb_state);
     ssh_channel_free(channel);
+    free(cb_state->callback);
+    free(cb_state);
 }
 
 static void torture_request_failure(void **state)
@@ -221,8 +227,9 @@ static void torture_request_failure(void **state)
 
     assert_int_equal(STATE_SUCCESS, cb_state->request_response);
 
-    free(cb_state);
     ssh_channel_free(channel);
+    free(cb_state->callback);
+    free(cb_state);
 }
 
 int torture_run_tests(void)
