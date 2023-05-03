@@ -147,3 +147,14 @@
    fun:FIPS_mode_set
    fun:OPENSSL_init_library
 }
+# Cmocka
+{
+   This looks like leak from cmocka when the forked server is not properly terminated
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:calloc
+   ...
+   fun:_cmocka_run_group_tests
+   fun:torture_run_tests
+   fun:main
+}
