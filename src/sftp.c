@@ -1755,6 +1755,10 @@ static int sftp_handle_close(sftp_session sftp, ssh_string handle)
 int sftp_close(sftp_file file){
   int err = SSH_NO_ERROR;
 
+  if (file == NULL) {
+      return err;
+  }
+
   SAFE_FREE(file->name);
   if (file->handle){
     err = sftp_handle_close(file->sftp,file->handle);
@@ -1917,7 +1921,7 @@ void sftp_file_set_blocking(sftp_file handle){
 
 /* Read from a file using an opened sftp file handle. */
 ssize_t sftp_read(sftp_file handle, void *buf, size_t count) {
-  sftp_session sftp = handle->sftp;
+  sftp_session sftp;
   sftp_message msg = NULL;
   sftp_status_message status;
   ssh_string datastring;
@@ -1925,6 +1929,11 @@ ssize_t sftp_read(sftp_file handle, void *buf, size_t count) {
   ssh_buffer buffer;
   uint32_t id;
   int rc;
+
+  if (handle == NULL) {
+      return -1;
+  }
+  sftp = handle->sftp;
 
   if (handle->eof) {
     return 0;
@@ -2147,7 +2156,7 @@ int sftp_async_read(sftp_file file, void *data, uint32_t size, uint32_t id){
 }
 
 ssize_t sftp_write(sftp_file file, const void *buf, size_t count) {
-  sftp_session sftp = file->sftp;
+  sftp_session sftp;
   sftp_message msg = NULL;
   sftp_status_message status;
   ssh_buffer buffer;
@@ -2155,6 +2164,11 @@ ssize_t sftp_write(sftp_file file, const void *buf, size_t count) {
   ssize_t len;
   size_t packetlen;
   int rc;
+
+  if (file == NULL) {
+      return -1;
+  }
+  sftp = file->sftp;
 
   buffer = ssh_buffer_new();
   if (buffer == NULL) {
