@@ -55,6 +55,14 @@ void sftp_handle_session_cb(ssh_event event,
                             ssh_session session,
                             struct server_state_st *state);
 
+static void free_test_server_state(void **state)
+{
+    struct test_server_st *tss = *state;
+
+    torture_free_state(tss->state);
+    SAFE_FREE(tss);
+}
+
 static int setup_default_server(void **state)
 {
     struct torture_state *s;
@@ -159,6 +167,9 @@ static int setup_default_server(void **state)
     ss->max_tries = 3;
     ss->error = 0;
 
+    tss->state = s;
+    tss->ss = ss;
+
     /* Use the default session handling function */
     ss->handle_session = sftp_handle_session_cb;
     assert_non_null(ss->handle_session);
@@ -167,7 +178,7 @@ static int setup_default_server(void **state)
     ss->parse_global_config = false;
 
     /* Start the server using the default values */
-    pid = fork_run_server(ss);
+    pid = fork_run_server(ss, free_test_server_state, &tss);
     if (pid < 0) {
         fail();
     }
@@ -180,15 +191,8 @@ static int setup_default_server(void **state)
     unsetenv("PAM_WRAPPER");
 
     /* Wait until the sshd is ready to accept connections */
-    //rc = torture_wait_for_daemon(5);
-    //assert_int_equal(rc, 0);
-
-    /* TODO properly wait for the server (use ping approach) */
-    /* Wait 200ms */
-    usleep(200 * 1000);
-
-    tss->state = s;
-    tss->ss = ss;
+    rc = torture_wait_for_daemon(5);
+    assert_int_equal(rc, 0);
 
     *state = tss;
 
