@@ -41,10 +41,10 @@ index 6be33c77..70686735 100644
  
  #else
 diff --git a/src/init.c b/src/init.c
-index 7f184b9c..89796561 100644
+index e516c331..2df4aafa 100644
 --- a/src/init.c
 +++ b/src/init.c
-@@ -32,17 +32,40 @@
+@@ -35,17 +35,40 @@
  #include <winsock2.h>
  #endif
  
@@ -89,7 +89,7 @@ index 7f184b9c..89796561 100644
  
  /* Declare static mutex */
  static SSH_MUTEX ssh_init_mutex = SSH_MUTEX_STATIC_INIT;
-@@ -53,8 +76,8 @@ static int _ssh_initialized = 0;
+@@ -56,8 +79,8 @@ static int _ssh_initialized = 0;
  /* Cache the returned value */
  static int _ssh_init_ret = 0;
  
@@ -101,7 +101,7 @@ index 7f184b9c..89796561 100644
  static int _ssh_init(unsigned constructor) {
  
 diff --git a/src/libgcrypt.c b/src/libgcrypt.c
-index b8b86593..fd950225 100644
+index 2e44a53c..474fa4f8 100644
 --- a/src/libgcrypt.c
 +++ b/src/libgcrypt.c
 @@ -198,12 +198,12 @@ static int blowfish_set_key(struct ssh_cipher_struct *cipher, void *key, void *I
@@ -135,7 +135,7 @@ index b8b86593..fd950225 100644
  }
  
 diff --git a/src/misc.c b/src/misc.c
-index 3f2652d4..36678203 100644
+index 7c478a77..cc2110dc 100644
 --- a/src/misc.c
 +++ b/src/misc.c
 @@ -51,8 +51,10 @@
@@ -199,7 +199,7 @@ index 3f2652d4..36678203 100644
  
  int ssh_is_ipaddr_v4(const char *str)
 diff --git a/src/pki_gcrypt.c b/src/pki_gcrypt.c
-index b619b1a3..94017dc2 100644
+index 418a46b3..1d7dbaa7 100644
 --- a/src/pki_gcrypt.c
 +++ b/src/pki_gcrypt.c
 @@ -2141,7 +2141,11 @@ ssh_signature pki_do_sign_hash(const ssh_key privkey,
