@@ -2,8 +2,8 @@
 variables:
   BUILD_IMAGES_PROJECT: libssh/build-images
   CENTOS7_BUILD: buildenv-centos7
+  CENTOS8_BUILD: buildenv-c8s
   CENTOS9_BUILD: buildenv-c9s
-  COVERITY_BUILD: buildenv-coverity
   FEDORA_BUILD: buildenv-fedora
   MINGW_BUILD: buildenv-mingw
   TUMBLEWEED_BUILD: buildenv-tumbleweed
@@ -11,6 +11,7 @@ variables:
   ALPINE_BUILD: buildenv-alpine
 
 stages:
+  - review
   - build
   - test
   - analysis
@@ -66,6 +67,23 @@ stages:
   extends: .tests
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$TUMBLEWEED_BUILD
 
+.fips:
+  extends: .tests
+  variables:
+    # DSA is turned off in fips mode
+    CMAKE_ADDITIONAL_OPTIONS: -DWITH_PKCS11_URI=ON -DWITH_DSA=OFF
+  before_script:
+    - *build
+    - echo "# userspace fips" > /etc/system-fips
+    # We do not need the kernel part, but in case we ever do:
+    # mkdir -p /var/tmp/userspace-fips
+    # echo 1 > /var/tmp/userspace-fips/fips_enabled
+    # mount --bind /var/tmp/userspace-fips/fips_enabled \
+    # /proc/sys/crypto/fips_enabled
+    - update-crypto-policies --show
+    - update-crypto-policies --set FIPS
+    - update-crypto-policies --show
+
 
 ###############################################################################
 #                               CentOS builds                                 #
@@ -82,12 +100,40 @@ centos7/openssl_1.0.x/x86_64:
 centos9s/openssl_3.0.x/x86_64:
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$CENTOS9_BUILD
   extends: .tests
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: -DWITH_PKCS11_URI=ON
   script:
     - export OPENSSL_ENABLE_SHA1_SIGNATURES=1
-    - cmake3 $CMAKE_OPTIONS .. &&
+    - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
       make -j$(nproc) &&
       ctest --output-on-failure
 
+centos9s/openssl_3.0.x/x86_64/fips:
+  extends: .fips
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$CENTOS9_BUILD
+  script:
+    - export OPENSSL_ENABLE_SHA1_SIGNATURES=1
+    - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
+      make -j$(nproc) &&
+      OPENSSL_FORCE_FIPS_MODE=1 ctest --output-on-failure
+
+centos8s/openssl_1.1.1/x86_64:
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$CENTOS8_BUILD
+  extends: .tests
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: -DWITH_PKCS11_URI=ON
+  script:
+    - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
+      make -j$(nproc) &&
+      ctest --output-on-failure
+
+centos8s/openssl_1.1.1/x86_64/fips:
+  extends: .fips
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$CENTOS8_BUILD
+  script:
+    - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
+      make -j$(nproc) &&
+      OPENSSL_FORCE_FIPS_MODE=1 ctest --output-on-failure
 
 ###############################################################################
 #                               Fedora builds                                 #
@@ -110,31 +156,6 @@ fedora/ninja:
 
 fedora/openssl_3.0.x/x86_64:
   extends: .fedora
-
-fedora/openssl_3.0.x/x86_64/fips:
-  extends: .fedora
-  before_script:
-    - echo "# userspace fips" > /etc/system-fips
-    # We do not need the kernel part, but in case we ever do:
-    # mkdir -p /var/tmp/userspace-fips
-    # echo 1 > /var/tmp/userspace-fips/fips_enabled
-    # mount --bind /var/tmp/userspace-fips/fips_enabled \
-    # /proc/sys/crypto/fips_enabled
-    - update-crypto-policies --show
-    - update-crypto-policies --set FIPS
-    - update-crypto-policies --show
-    - mkdir -p obj && cd obj && cmake
-      -DCMAKE_BUILD_TYPE=RelWithDebInfo
-      -DPICKY_DEVELOPER=ON
-      -DWITH_BLOWFISH_CIPHER=ON
-      -DWITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON -DWITH_PCAP=ON
-      -DWITH_DEBUG_CRYPTO=ON -DWITH_DEBUG_PACKET=ON -DWITH_DEBUG_CALLTRACE=ON
-      -DWITH_DSA=ON
-      -DUNIT_TESTING=ON -DCLIENT_TESTING=ON -DSERVER_TESTING=ON ..
-  script:
-    - cmake $CMAKE_OPTIONS .. &&
-      make -j$(nproc) &&
-      OPENSSL_FORCE_FIPS_MODE=1 ctest --output-on-failure
 
 fedora/openssl_3.0.x/x86_64/minimal:
   extends: .fedora
@@ -309,7 +330,7 @@ fedora/csbuild/mbedtls:
 ###############################################################################
 #                               Ubuntu builds                                 #
 ###############################################################################
-ubuntu/openssl_1.1.x/x86_64:
+ubuntu/openssl_3.0.x/x86_64:
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$UBUNTU_BUILD
   extends: .tests
 
@@ -317,7 +338,7 @@ ubuntu/openssl_1.1.x/x86_64:
 ###############################################################################
 #                               Alpine builds                                 #
 ###############################################################################
-alpine/musl:
+alpine/openssl_3.0.x/musl:
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$ALPINE_BUILD
   extends: .tests
   script:
@@ -334,12 +355,12 @@ alpine/musl:
 ###############################################################################
 #                             Tumbleweed builds                               #
 ###############################################################################
-tumbleweed/openssl_1.1.x/x86_64/gcc:
+tumbleweed/openssl_3.0.x/x86_64/gcc:
   extends: .tumbleweed
   variables:
     CMAKE_ADDITIONAL_OPTIONS: "-DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config"
 
-tumbleweed/openssl_1.1.x/x86/gcc:
+tumbleweed/openssl_3.0.x/x86/gcc:
   extends: .tumbleweed
   script:
     - cmake
@@ -350,14 +371,15 @@ tumbleweed/openssl_1.1.x/x86/gcc:
       -DWITH_ZLIB=ON
       -DWITH_PCAP=ON
       -DWITH_DSA=ON
-      -DUNIT_TESTING=ON ..
+      -DUNIT_TESTING=ON .. &&
+      make -j$(nproc)
 
-tumbleweed/openssl_1.1.x/x86_64/gcc7:
+tumbleweed/openssl_3.0.x/x86_64/gcc7:
   extends: .tumbleweed
   variables:
     CMAKE_ADDITIONAL_OPTIONS: "-DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7 -DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config"
 
-tumbleweed/openssl_1.1.x/x86/gcc7:
+tumbleweed/openssl_3.0.x/x86/gcc7:
   extends: .tumbleweed
   script:
     - cmake
@@ -370,7 +392,7 @@ tumbleweed/openssl_1.1.x/x86/gcc7:
       make -j$(nproc) &&
       ctest --output-on-failure
 
-tumbleweed/openssl_1.1.x/x86_64/clang:
+tumbleweed/openssl_3.0.x/x86_64/clang:
   extends: .tumbleweed
   variables:
     CMAKE_ADDITIONAL_OPTIONS: "-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config"
@@ -402,7 +424,7 @@ tumbleweed/static-analysis:
 ###############################################################################
 # That is a specific runner that we cannot enable universally.
 # We restrict it to builds under the $BUILD_IMAGES_PROJECT project.
-freebsd/x86_64:
+freebsd/openssl_1.1.1/x86_64:
   image:
   extends: .tests
   before_script:
@@ -455,8 +477,6 @@ freebsd/x86_64:
     paths:
       - obj/
   before_script:
-    - choco install --no-progress -y cmake
-    - $env:Path += ';C:\Program Files\CMake\bin'
     - If (!(test-path .vcpkg\archives)) { mkdir -p .vcpkg\archives }
     - $env:VCPKG_DEFAULT_BINARY_CACHE="$PWD\.vcpkg\archives"
     - echo $env:VCPKG_DEFAULT_BINARY_CACHE
@@ -496,7 +516,7 @@ visualstudio/x86:
 
 coverity:
   stage: analysis
-  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$COVERITY_BUILD
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$CENTOS9_BUILD
   script:
     - mkdir obj && cd obj
     - wget https://scan.coverity.com/download/linux64 --post-data "token=$COVERITY_SCAN_TOKEN&project=$COVERITY_SCAN_PROJECT_NAME" -O /tmp/coverity_tool.tgz
@@ -526,3 +546,14 @@ coverity:
     when: on_failure
     paths:
       - obj/cov-int/*.txt
+
+###############################################################################
+#                                 Codespell                                   #
+###############################################################################
+codespell:
+  stage: review
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
+  script:
+    - codespell --ignore-words-list=keypair,sorce,ned,nd,ue
+  tags:
+    - shared
