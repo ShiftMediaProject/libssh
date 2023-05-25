@@ -257,6 +257,37 @@ static void torture_auth_none_nonblocking(void **state) {
 
 }
 
+/* Setting MaxAuthTries 0 makes libssh hang. The option is not practical,
+ * but simulates setting low value and requiring multiple authentication
+ * methods to succeed (T233)
+ */
+static void torture_auth_none_max_tries(void **state) {
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    int rc;
+    const char *sshd_config = "MaxAuthTries 0";
+
+    torture_update_sshd_config(state, sshd_config);
+
+    rc = ssh_options_set(session, SSH_OPTIONS_USER, TORTURE_SSH_USER_BOB);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_userauth_none(session,NULL);
+    assert_int_equal(rc, SSH_AUTH_DENIED);
+
+    /* This request should return a SSH_REQUEST_DENIED error */
+    if (rc == SSH_ERROR) {
+        assert_int_equal(ssh_get_error_code(session), SSH_REQUEST_DENIED);
+    }
+
+    /* Reset config back to defaults */
+    torture_update_sshd_config(state, "");
+}
+
+
 static void torture_auth_pubkey(void **state) {
     struct torture_state *s = *state;
     ssh_session session = s->ssh.session;
@@ -1321,6 +1352,9 @@ int torture_run_tests(void) {
                                         session_setup,
                                         session_teardown),
         cmocka_unit_test_setup_teardown(torture_auth_none_nonblocking,
+                                        session_setup,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_none_max_tries,
                                         session_setup,
                                         session_teardown),
         cmocka_unit_test_setup_teardown(torture_auth_password,
