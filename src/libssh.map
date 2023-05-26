@@ -464,5 +464,10 @@ LIBSSH_AFTER_4_9_0
     global:
         sftp_channel_default_data_callback;
         sftp_channel_default_subsystem_request;
+        sftp_aio_begin_read;
+        sftp_aio_begin_write;
+        sftp_aio_free;
+        sftp_aio_wait_read;
+        sftp_aio_wait_write;
 } LIBSSH_4_9_0;
 

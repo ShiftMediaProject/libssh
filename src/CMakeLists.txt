@@ -253,6 +253,7 @@ if (WITH_SFTP)
     ${libssh_SRCS}
     sftp.c
     sftp_common.c
+    sftp_aio.c
   )
 
   if (WITH_SERVER)
