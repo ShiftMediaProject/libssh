@@ -204,6 +204,14 @@ int ssh_options_copy(ssh_session src, ssh_session *dest)
         }
     }
 
+    if (src->opts.control_path != NULL) {
+        new->opts.control_path = strdup(src->opts.control_path);
+        if (new->opts.control_path == NULL) {
+            ssh_free(new);
+            return -1;
+        }
+    }
+
     memcpy(new->opts.options_seen, src->opts.options_seen,
            sizeof(new->opts.options_seen));
 
@@ -217,6 +225,7 @@ int ssh_options_copy(ssh_session src, ssh_session *dest)
     new->opts.flags                 = src->opts.flags;
     new->opts.nodelay               = src->opts.nodelay;
     new->opts.config_processed      = src->opts.config_processed;
+    new->opts.control_master        = src->opts.control_master;
     new->common.log_verbosity       = src->common.log_verbosity;
     new->common.callbacks           = src->common.callbacks;
 
@@ -535,6 +544,26 @@ int ssh_options_set_algo(ssh_session session,
  *                Use only keys specified in the SSH config, even if agent
  *                offers more.
  *                (bool)
+ *
+ *              - SSH_OPTIONS_CONTROL_MASTER
+ *                Set the option to enable the sharing of multiple sessions over a
+ *                single network connection using connection multiplexing.
+ *
+ *                The possible options are among the following:
+ *                 - SSH_CONTROL_MASTER_AUTO: enable connection sharing if possible
+ *                 - SSH_CONTROL_MASTER_YES: enable connection sharing unconditionally
+ *                 - SSH_CONTROL_MASTER_ASK: ask for confirmation if connection sharing is to be enabled
+ *                 - SSH_CONTROL_MASTER_AUTOASK: enable connection sharing if possible,
+ *                                               but ask for confirmation
+ *                 - SSH_CONTROL_MASTER_NO: disable connection sharing unconditionally
+ *
+ *                The default is SSH_CONTROL_MASTER_NO.
+ *
+ *              - SSH_OPTIONS_CONTROL_PATH
+ *                Set the path to the control socket used for connection sharing.
+ *                Set to "none" to disable connection sharing.
+ *                (const char *)
+ *
  *
  * @param  value The value to set. This is a generic pointer and the
  *               datatype which is used should be set according to the
@@ -1173,6 +1202,37 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 session->opts.identities_only = *x;
             }
             break;
+        case SSH_OPTIONS_CONTROL_MASTER:
+            if (value == NULL) {
+                ssh_set_error_invalid(session);
+                return -1;
+            } else {
+                int *x = (int *) value;
+                if (*x < SSH_CONTROL_MASTER_NO || *x > SSH_CONTROL_MASTER_AUTOASK) {
+                    ssh_set_error_invalid(session);
+                    return -1;
+                }
+                session->opts.control_master = *x;
+            }
+            break;
+        case SSH_OPTIONS_CONTROL_PATH:
+            v = value;
+            if (v == NULL || v[0] == '\0') {
+                ssh_set_error_invalid(session);
+                return -1;
+            } else {
+                SAFE_FREE(session->opts.control_path);
+                rc = strcasecmp(v, "none");
+                if (rc != 0) {
+                    session->opts.control_path = ssh_path_expand_tilde(v);
+                    if (session->opts.control_path == NULL) {
+                        ssh_set_error_oom(session);
+                        return -1;
+                    }
+                    session->opts.exp_flags &= ~SSH_OPT_EXP_FLAG_CONTROL_PATH;
+                }
+            }
+            break;
         default:
             ssh_set_error(session, SSH_REQUEST_DENIED, "Unknown ssh option %d", type);
             return -1;
@@ -1247,6 +1307,9 @@ int ssh_options_get_port(ssh_session session, unsigned int* port_target) {
  *              - SSH_OPTIONS_KNOWNHOSTS:
  *                Get the path to the known_hosts file being used.
  *
+ *              - SSH_OPTIONS_CONTROL_PATH:
+ *                Get the path to the control socket being used for connection multiplexing.
+ *
  * @param  value The value to get into. As a char**, space will be
  *               allocated by the function for the value, it is
  *               your responsibility to free the memory using
@@ -1299,6 +1362,10 @@ int ssh_options_get(ssh_session session, enum ssh_options_e type, char** value)
         }
         case SSH_OPTIONS_GLOBAL_KNOWNHOSTS: {
             src = session->opts.global_knownhosts;
+            break;
+        }
+        case SSH_OPTIONS_CONTROL_PATH: {
+            src = session->opts.control_path;
             break;
         }
         default:
@@ -1643,6 +1710,18 @@ int ssh_options_apply(ssh_session session)
             free(session->opts.ProxyCommand);
             session->opts.ProxyCommand = tmp;
             session->opts.exp_flags |= SSH_OPT_EXP_FLAG_PROXYCOMMAND;
+        }
+    }
+
+    if ((session->opts.exp_flags & SSH_OPT_EXP_FLAG_CONTROL_PATH) == 0) {
+        if (session->opts.control_path != NULL) {
+            tmp = ssh_path_expand_escape(session, session->opts.control_path);
+            if (tmp == NULL) {
+                return -1;
+            }
+            free(session->opts.control_path);
+            session->opts.control_path = tmp;
+            session->opts.exp_flags |= SSH_OPT_EXP_FLAG_CONTROL_PATH;
         }
     }
 

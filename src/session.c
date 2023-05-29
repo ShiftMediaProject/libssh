@@ -109,6 +109,7 @@ ssh_session ssh_new(void)
     session->opts.compressionlevel = 7;
     session->opts.nodelay = 0;
     session->opts.identities_only = false;
+    session->opts.control_master = SSH_CONTROL_MASTER_NO;
 
     session->opts.flags = SSH_OPT_FLAG_PASSWORD_AUTH |
                           SSH_OPT_FLAG_PUBKEY_AUTH |
@@ -320,6 +321,7 @@ void ssh_free(ssh_session session)
   SAFE_FREE(session->opts.gss_server_identity);
   SAFE_FREE(session->opts.gss_client_identity);
   SAFE_FREE(session->opts.pubkey_accepted_types);
+  SAFE_FREE(session->opts.control_path);
 
   for (i = 0; i < SSH_KEX_METHODS; i++) {
       if (session->opts.wanted_methods[i]) {

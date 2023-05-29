@@ -127,9 +127,9 @@ static struct ssh_config_keyword_table_s ssh_config_keyword_table[] = {
   { "verifyhostkeydns", SOC_UNSUPPORTED},
   { "visualhostkey", SOC_UNSUPPORTED},
   { "clearallforwardings", SOC_NA},
-  { "controlmaster", SOC_NA},
+  { "controlmaster", SOC_CONTROLMASTER},
   { "controlpersist", SOC_NA},
-  { "controlpath", SOC_NA},
+  { "controlpath", SOC_CONTROLPATH},
   { "dynamicforward", SOC_NA},
   { "escapechar", SOC_NA},
   { "exitonforwardfailure", SOC_NA},
@@ -1184,6 +1184,38 @@ ssh_config_parse_line(ssh_session session,
       if (i >= 0 && *parsing) {
         bool b = i;
         ssh_options_set(session, SSH_OPTIONS_IDENTITIES_ONLY, &b);
+      }
+      break;
+    case SOC_CONTROLMASTER:
+      p = ssh_config_get_str_tok(&s, NULL);
+      if (p && *parsing) {
+          int value = -1;
+
+          if (strcasecmp(p, "auto") == 0) {
+              value = SSH_CONTROL_MASTER_AUTO;
+          } else if (strcasecmp(p, "yes") == 0) {
+              value = SSH_CONTROL_MASTER_YES;
+          } else if (strcasecmp(p, "no") == 0) {
+              value = SSH_CONTROL_MASTER_NO;
+          } else if (strcasecmp(p, "autoask") == 0) {
+              value = SSH_CONTROL_MASTER_AUTOASK;
+          } else if (strcasecmp(p, "ask") == 0) {
+              value = SSH_CONTROL_MASTER_ASK;
+          }
+
+          if (value != -1) {
+              ssh_options_set(session, SSH_OPTIONS_CONTROL_MASTER, &value);
+          }
+      }
+      break;
+    case SOC_CONTROLPATH:
+      p = ssh_config_get_str_tok(&s, NULL);
+      if (p == NULL) {
+        SAFE_FREE(x);
+        return -1;
+      }
+      if (*parsing) {
+          ssh_options_set(session, SSH_OPTIONS_CONTROL_PATH, p);
       }
       break;
     default:
