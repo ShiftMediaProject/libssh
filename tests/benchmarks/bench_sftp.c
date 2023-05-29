@@ -388,3 +388,131 @@ error:
     sftp_free(sftp);
     return -1;
 }
+
+int benchmarks_async_sftp_aio_up(ssh_session session,
+                                 struct argument_s *args,
+                                 float *bps)
+{
+    sftp_session sftp = NULL;
+    sftp_file file = NULL;
+    sftp_aio aio = NULL;
+    struct ssh_list *aio_queue = NULL;
+
+    int concurrent_uploads = args->concurrent_requests;
+    struct timestamp_struct ts = {0};
+    float ms = 0.0f;
+
+    size_t total_bytes = args->datasize * 1024 * 1024;
+    size_t bytes_requested = 0;
+    size_t to_write;
+    ssize_t bytes_written;
+    int i, rc;
+
+    sftp = sftp_new(session);
+    if (sftp == NULL) {
+        return -1;
+    }
+
+    rc = sftp_init(sftp);
+    if (rc == SSH_ERROR) {
+        goto error;
+    }
+
+    file = sftp_open(sftp, SFTPDIR SFTPFILE,
+                     O_RDWR | O_CREAT | O_TRUNC, 0777);
+    if (file == NULL) {
+        goto error;
+    }
+
+    aio_queue = ssh_list_new();
+    if (aio_queue == NULL) {
+        goto error;
+    }
+
+    if (args->verbose > 0) {
+        fprintf(stdout,
+                "Starting upload of %zu bytes now, "
+                "using %d concurrent uploads.\n",
+                total_bytes, concurrent_uploads);
+    }
+
+    timestamp_init(&ts);
+
+    for (i = 0;
+         i < concurrent_uploads && bytes_requested < total_bytes;
+         ++i) {
+        to_write = total_bytes - bytes_requested;
+        if (to_write > args->chunksize) {
+            to_write = args->chunksize;
+        }
+
+        rc = sftp_aio_begin_write(file, buffer, to_write, &aio);
+        if (rc == SSH_ERROR) {
+            goto error;
+        }
+
+        bytes_requested += to_write;
+
+        /* enqueue */
+        rc = ssh_list_append(aio_queue, aio);
+        if (rc == SSH_ERROR) {
+            sftp_aio_free(aio);
+            goto error;
+        }
+    }
+
+    while ((aio = ssh_list_pop_head(sftp_aio, aio_queue)) != NULL) {
+        bytes_written = sftp_aio_wait_write(&aio);
+        if (bytes_written == SSH_ERROR) {
+            goto error;
+        }
+
+        if (bytes_requested == total_bytes) {
+            /* No need to issue more requests */
+            continue;
+        }
+
+        /* else issue a request */
+        to_write = total_bytes - bytes_requested;
+        if (to_write > args->chunksize) {
+            to_write = args->chunksize;
+        }
+
+        rc = sftp_aio_begin_write(file, buffer, to_write, &aio);
+        if (rc == SSH_ERROR) {
+            goto error;
+        }
+
+        bytes_requested += to_write;
+
+        /* enqueue */
+        rc = ssh_list_append(aio_queue, aio);
+        if (rc == SSH_ERROR) {
+            sftp_aio_free(aio);
+            goto error;
+        }
+    }
+
+    ssh_list_free(aio_queue);
+    sftp_close(file);
+    ms = elapsed_time(&ts);
+    *bps = (float)(8000 * total_bytes) / ms;
+    if (args->verbose > 0) {
+        fprintf(stdout, "Upload took %f ms for %zu bytes at %f bps.\n",
+                ms, total_bytes, *bps);
+    }
+
+    sftp_free(sftp);
+    return 0;
+
+error:
+    /* Release aio structures corresponding to outstanding requests */
+    while ((aio = ssh_list_pop_head(sftp_aio, aio_queue)) != NULL) {
+        sftp_aio_free(aio);
+    }
+
+    ssh_list_free(aio_queue);
+    sftp_close(file);
+    sftp_free(sftp);
+    return -1;
+}
