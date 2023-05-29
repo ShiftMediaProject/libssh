@@ -62,8 +62,13 @@ struct benchmark benchmarks[] = {
         .enabled = 0
     },
     {
-        .name = "benchmark_async_sftp_download",
-        .fct = benchmarks_async_sftp_down,
+        .name="benchmark_async_sftp_download",
+        .fct=benchmarks_async_sftp_down,
+        .enabled=0
+    },
+    {
+        .name = "benchmark_async_sftp_aio_download",
+        .fct = benchmarks_async_sftp_aio_down,
         .enabled = 0
     }
 #endif /* WITH_SFTP */
@@ -148,6 +153,14 @@ static struct argp_option options[] = {
         .group = 0
     },
     {
+        .name  = "async-sftp-aio-download",
+        .key   = '8',
+        .arg   = NULL,
+        .flags = 0,
+        .doc   = "Download data using asynchronous SFTP AIO api (fast)",
+        .group = 0
+    },
+    {
         .name  = "host",
         .key   = 'h',
         .arg   = "HOST",
@@ -210,6 +223,7 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
     case '5':
     case '6':
     case '7':
+    case '8':
         benchmarks[key - '1'].enabled = 1;
         arguments->ntests++;
         break;

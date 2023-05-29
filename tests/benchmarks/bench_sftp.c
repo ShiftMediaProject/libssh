@@ -23,6 +23,7 @@
 #include "benchmarks.h"
 #include <libssh/libssh.h>
 #include <libssh/sftp.h>
+#include <libssh/misc.h>
 #include <stdio.h>
 #include <fcntl.h>
 #include <stdlib.h>
@@ -239,4 +240,151 @@ error:
     sftp_free(sftp);
   free(ids);
   return -1;
+}
+
+int benchmarks_async_sftp_aio_down(ssh_session session,
+                                   struct argument_s *args,
+                                   float *bps)
+{
+    sftp_session sftp = NULL;
+    sftp_file file = NULL;
+    sftp_aio aio = NULL;
+    struct ssh_list *aio_queue = NULL;
+
+    int concurrent_downloads = args->concurrent_requests;
+    struct timestamp_struct ts = {0};
+    float ms = 0.0f;
+
+    size_t total_bytes = args->datasize * 1024 * 1024;
+    size_t bytes_requested = 0, total_bytes_read = 0;
+    size_t to_read;
+    ssize_t bytes_read;
+    int warned = 0, i, rc;
+
+    sftp = sftp_new(session);
+    if (sftp == NULL) {
+        return -1;
+    }
+
+    rc = sftp_init(sftp);
+    if (rc == SSH_ERROR) {
+        goto error;
+    }
+
+    file = sftp_open(sftp, SFTPDIR SFTPFILE, O_RDONLY, 0);
+    if (file == NULL) {
+        goto error;
+    }
+
+    aio_queue = ssh_list_new();
+    if (aio_queue == NULL) {
+        goto error;
+    }
+
+    if (args->verbose > 0) {
+        fprintf(stdout,
+                "Starting download of %zu bytes now, "
+                "using %d concurrent downloads.\n",
+                total_bytes, concurrent_downloads);
+    }
+
+    timestamp_init(&ts);
+
+    for (i = 0;
+         i < concurrent_downloads && bytes_requested < total_bytes;
+         ++i) {
+        to_read = total_bytes - bytes_requested;
+        if (to_read > args->chunksize) {
+            to_read = args->chunksize;
+        }
+
+        rc = sftp_aio_begin_read(file, to_read, &aio);
+        if (rc == SSH_ERROR) {
+            goto error;
+        }
+
+        bytes_requested += to_read;
+
+        /* enqueue */
+        rc = ssh_list_append(aio_queue, aio);
+        if (rc == SSH_ERROR) {
+            sftp_aio_free(aio);
+            goto error;
+        }
+    }
+
+    while ((aio = ssh_list_pop_head(sftp_aio, aio_queue)) != NULL) {
+        bytes_read = sftp_aio_wait_read(&aio, buffer, args->chunksize);
+        if (bytes_read == -1) {
+            goto error;
+        }
+
+        total_bytes_read += (size_t)bytes_read;
+        if (bytes_read == 0) {
+            fprintf(stdout ,
+                    "File smaller than expected : %zu bytes (expected %zu).\n",
+                    total_bytes_read, total_bytes);
+            break;
+        }
+
+        if (total_bytes_read != total_bytes &&
+            (size_t)bytes_read != args->chunksize &&
+            warned != 1) {
+            fprintf(stderr,
+                    "async_sftp_aio_download : Receiving short reads "
+                    "(%zu, expected %u) before encountering eof, "
+                    "the received file will be corrupted and shorted. "
+                    "Adapt chunksize to %zu.\n",
+                    bytes_read, args->chunksize, bytes_read);
+            warned = 1;
+        }
+
+        if (bytes_requested == total_bytes) {
+            /* No need to issue more requests */
+            continue;
+        }
+
+        /* else issue a request */
+        to_read = total_bytes - bytes_requested;
+        if (to_read > args->chunksize) {
+            to_read = args->chunksize;
+        }
+
+        rc = sftp_aio_begin_read(file, to_read, &aio);
+        if (rc == SSH_ERROR) {
+            goto error;
+        }
+
+        bytes_requested += to_read;
+
+        /* enqueue */
+        rc = ssh_list_append(aio_queue, aio);
+        if (rc == SSH_ERROR) {
+            sftp_aio_free(aio);
+            goto error;
+        }
+    }
+
+    ssh_list_free(aio_queue);
+    sftp_close(file);
+    ms = elapsed_time(&ts);
+    *bps = (float)(8000 * total_bytes_read) / ms;
+    if (args->verbose > 0) {
+        fprintf(stdout, "Download took %f ms for %zu bytes at %f bps.\n",
+                ms, total_bytes_read, *bps);
+    }
+
+    sftp_free(sftp);
+    return 0;
+
+error:
+    /* Release aio structures corresponding to outstanding requests */
+    while ((aio = ssh_list_pop_head(sftp_aio, aio_queue)) != NULL) {
+        sftp_aio_free(aio);
+    }
+
+    ssh_list_free(aio_queue);
+    sftp_close(file);
+    sftp_free(sftp);
+    return -1;
 }
