@@ -1455,11 +1455,6 @@ static void torture_options_apply (void **state) {
     id = ssh_path_expand_escape(session, "%d/id_rsa");
     rc = ssh_list_append(awaited_list, id);
     assert_int_equal(rc, SSH_OK);
-#ifdef HAVE_DSA
-    id = ssh_path_expand_escape(session, "%d/id_dsa");
-    rc = ssh_list_append(awaited_list, id);
-    assert_int_equal(rc, SSH_OK);
-#endif
 
     assert_int_equal(ssh_list_count(awaited_list),
                      ssh_list_count(session->opts.identity));

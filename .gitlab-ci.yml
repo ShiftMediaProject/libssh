@@ -69,8 +69,7 @@ stages:
 .fips:
   extends: .tests
   variables:
-    # DSA is turned off in fips mode
-    CMAKE_ADDITIONAL_OPTIONS: -DWITH_PKCS11_URI=ON -DWITH_DSA=OFF
+    CMAKE_ADDITIONAL_OPTIONS: -DWITH_PKCS11_URI=ON
   before_script:
     - *build
     - echo "# userspace fips" > /etc/system-fips
