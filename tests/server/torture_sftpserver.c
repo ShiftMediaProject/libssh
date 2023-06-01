@@ -400,6 +400,8 @@ static void torture_server_establish_sftp(void **state)
 
     rc = sftp_init(sftp);
     assert_int_equal(rc, SSH_OK);
+
+    tsftp->sftp = sftp;
 }
 
 static void torture_server_test_sftp_function(void **state)
@@ -450,9 +452,9 @@ static void torture_server_test_sftp_function(void **state)
 
     /* init sftp session */
     tsftp = s->ssh.tsftp;
-    sftp = tsftp->sftp;
     sftp = sftp_new(session);
     assert_non_null(sftp);
+    tsftp->sftp = sftp;
 
     rc = sftp_init(sftp);
     assert_int_equal(rc, SSH_OK);
