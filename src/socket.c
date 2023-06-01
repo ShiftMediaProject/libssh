@@ -869,8 +869,6 @@ int ssh_socket_set_blocking(socket_t fd)
  * @param bind_addr address to bind to, or NULL for default.
  * @returns SSH_OK socket is being connected.
  * @returns SSH_ERROR error while connecting to remote host.
- * @bug It only tries connecting to one of the available AI's
- * which is problematic for hosts having DNS fail-over.
  */
 int ssh_socket_connect(ssh_socket s,
                        const char *host,
