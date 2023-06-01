@@ -1037,7 +1037,7 @@ sftp_dir sftp_opendir(sftp_session sftp, const char *path)
     sftp_file file = NULL;
     sftp_dir dir = NULL;
     sftp_status_message status;
-    ssh_buffer payload;
+    ssh_buffer payload = NULL;
     uint32_t id;
     int rc;
 
@@ -1088,7 +1088,7 @@ sftp_dir sftp_opendir(sftp_session sftp, const char *path)
             }
             sftp_set_error(sftp, status->status);
             ssh_set_error(sftp->session, SSH_REQUEST_DENIED,
-                    "SFTP server: %s", status->errormsg);
+                          "SFTP server: %s", status->errormsg);
             status_msg_free(status);
             return NULL;
         case SSH_FXP_HANDLE:
@@ -1115,7 +1115,8 @@ sftp_dir sftp_opendir(sftp_session sftp, const char *path)
             return dir;
         default:
             ssh_set_error(sftp->session, SSH_FATAL,
-                    "Received message %d during opendir!", msg->packet_type);
+                          "Received message %d during opendir!",
+                          msg->packet_type);
             sftp_message_free(msg);
     }
 
@@ -1819,7 +1820,7 @@ sftp_file sftp_open(sftp_session sftp,
     sftp_status_message status;
     struct sftp_attributes_struct attr;
     sftp_file handle;
-    ssh_buffer buffer;
+    ssh_buffer buffer = NULL;
     sftp_attributes stat_data;
     uint32_t sftp_flags = 0;
     uint32_t id;
@@ -1851,7 +1852,8 @@ sftp_file sftp_open(sftp_session sftp,
     if ((flags & O_APPEND) == O_APPEND) {
         sftp_flags |= SSH_FXF_APPEND;
     }
-    SSH_LOG(SSH_LOG_PACKET, "Opening file %s with sftp flags %" PRIx32, file, sftp_flags);
+    SSH_LOG(SSH_LOG_PACKET, "Opening file %s with sftp flags %" PRIx32,
+            file, sftp_flags);
     id = sftp_get_new_id(sftp);
 
     rc = ssh_buffer_pack(buffer,
@@ -1889,59 +1891,61 @@ sftp_file sftp_open(sftp_session sftp,
     }
 
     switch (msg->packet_type) {
-        case SSH_FXP_STATUS:
-            status = parse_status_msg(msg);
-            sftp_message_free(msg);
-            if (status == NULL) {
-                return NULL;
-            }
-            sftp_set_error(sftp, status->status);
-            ssh_set_error(sftp->session, SSH_REQUEST_DENIED,
-                    "SFTP server: %s", status->errormsg);
-            status_msg_free(status);
-
+    case SSH_FXP_STATUS:
+        status = parse_status_msg(msg);
+        sftp_message_free(msg);
+        if (status == NULL) {
             return NULL;
-        case SSH_FXP_HANDLE:
-            handle = parse_handle_msg(msg);
-            if (handle == NULL) {
+        }
+        sftp_set_error(sftp, status->status);
+        ssh_set_error(sftp->session, SSH_REQUEST_DENIED,
+                      "SFTP server: %s", status->errormsg);
+        status_msg_free(status);
+
+        return NULL;
+    case SSH_FXP_HANDLE:
+        handle = parse_handle_msg(msg);
+        if (handle == NULL) {
+            return NULL;
+        }
+        sftp_message_free(msg);
+        if ((flags & O_APPEND) == O_APPEND) {
+            stat_data = sftp_stat(sftp, file);
+            if (stat_data == NULL) {
+                sftp_close(handle);
                 return NULL;
             }
-            sftp_message_free(msg);
-            if ((flags & O_APPEND) == O_APPEND) {
-                stat_data = sftp_stat(sftp, file);
-                if (stat_data == NULL) {
-                    sftp_close(handle);
-                    return NULL;
-                }
-                if ((stat_data->flags & SSH_FILEXFER_ATTR_SIZE) != SSH_FILEXFER_ATTR_SIZE) {
-                    ssh_set_error(sftp->session,
-                            SSH_FATAL,
-                            "Cannot open in append mode. Unknown file size.");
-                    sftp_attributes_free(stat_data);
-                    sftp_close(handle);
-                    sftp_set_error(sftp, SSH_FX_FAILURE);
-                    return NULL;
-                }
-
-                handle->offset = stat_data->size;
+            if ((stat_data->flags & SSH_FILEXFER_ATTR_SIZE) != SSH_FILEXFER_ATTR_SIZE) {
+                ssh_set_error(sftp->session,
+                              SSH_FATAL,
+                              "Cannot open in append mode. Unknown file size.");
                 sftp_attributes_free(stat_data);
+                sftp_close(handle);
+                sftp_set_error(sftp, SSH_FX_FAILURE);
+                return NULL;
             }
-            return handle;
-        default:
-            ssh_set_error(sftp->session, SSH_FATAL,
-                    "Received message %d during open!", msg->packet_type);
-            sftp_message_free(msg);
-            sftp_set_error(sftp, SSH_FX_BAD_MESSAGE);
+
+            handle->offset = stat_data->size;
+            sftp_attributes_free(stat_data);
+        }
+        return handle;
+    default:
+        ssh_set_error(sftp->session, SSH_FATAL,
+                      "Received message %d during open!", msg->packet_type);
+        sftp_message_free(msg);
+        sftp_set_error(sftp, SSH_FX_BAD_MESSAGE);
     }
 
     return NULL;
 }
 
-void sftp_file_set_nonblocking(sftp_file handle){
-    handle->nonblocking=1;
+void sftp_file_set_nonblocking(sftp_file handle)
+{
+    handle->nonblocking = 1;
 }
-void sftp_file_set_blocking(sftp_file handle){
-    handle->nonblocking=0;
+void sftp_file_set_blocking(sftp_file handle)
+{
+    handle->nonblocking = 0;
 }
 
 /* Read from a file using an opened sftp file handle. */
