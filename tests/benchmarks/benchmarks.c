@@ -19,6 +19,8 @@
  * MA 02111-1307, USA.
  */
 
+#define LIBSSH_STATIC
+
 #include "config.h"
 #include "benchmarks.h"
 #include <libssh/libssh.h>
@@ -390,7 +392,7 @@ int main(int argc, char **argv)
 {
     struct argument_s arguments;
     ssh_session session = NULL;
-    int i;
+    int i, r;
 
     arguments_init(&arguments);
     cmdline_parse(argc, argv, &arguments);
@@ -427,6 +429,12 @@ int main(int argc, char **argv)
         fprintf(stdout,"\n");
     }
 
+    r = ssh_init();
+    if (r == SSH_ERROR) {
+        fprintf(stderr, "Failed to initialize libssh\n");
+        return EXIT_FAILURE;
+    }
+
     for (i = 0; i < arguments.nhosts; ++i) {
         if (arguments.verbose > 0)
             fprintf(stdout, "Connecting to \"%s\"...\n", arguments.hosts[i]);
@@ -445,6 +453,12 @@ int main(int argc, char **argv)
         do_benchmarks(session, &arguments, arguments.hosts[i]);
         ssh_disconnect(session);
         ssh_free(session);
+    }
+
+    r = ssh_finalize();
+    if (r == SSH_ERROR) {
+        fprintf(stderr, "Failed to finalize libssh\n");
+        return EXIT_FAILURE;
     }
 
     return EXIT_SUCCESS;
