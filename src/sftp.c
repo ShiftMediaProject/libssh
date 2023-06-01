@@ -1917,12 +1917,14 @@ sftp_file sftp_open(sftp_session sftp,
                     ssh_set_error(sftp->session,
                             SSH_FATAL,
                             "Cannot open in append mode. Unknown file size.");
+                    sftp_attributes_free(stat_data);
                     sftp_close(handle);
                     sftp_set_error(sftp, SSH_FX_FAILURE);
                     return NULL;
                 }
 
                 handle->offset = stat_data->size;
+                sftp_attributes_free(stat_data);
             }
             return handle;
         default:
