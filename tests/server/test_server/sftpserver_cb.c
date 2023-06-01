@@ -190,7 +190,7 @@ static void cleanup_pcap(struct session_data_st *sdata)
 
 /* The caller is responsible to set the userdata to be provided to the callback
  * The caller is responsible to free the allocated structure
- * */
+ */
 struct ssh_server_callbacks_struct *get_sftp_server_cb(void)
 {
 
@@ -313,7 +313,7 @@ void sftp_handle_session_cb(ssh_event event,
 
     if (ssh_handle_key_exchange(session) != SSH_OK) {
         fprintf(stderr, "%s\n", ssh_get_error(session));
-        return;
+        goto end;
     }
 
     /* Set the supported authentication methods */
@@ -332,12 +332,12 @@ void sftp_handle_session_cb(ssh_event event,
         /* If the user has used up all attempts, or if he hasn't been able to
          * authenticate in 10 seconds (n * 100ms), disconnect. */
         if (sdata.auth_attempts >= state->max_tries || n >= 100) {
-            return;
+            goto end;
         }
 
         if (ssh_event_dopoll(event, 100) == SSH_ERROR) {
             fprintf(stderr, "do_poll error: %s\n", ssh_get_error(session));
-            return;
+            goto end;
         }
         n++;
     }
@@ -382,6 +382,7 @@ void sftp_handle_session_cb(ssh_event event,
 
     ssh_channel_send_eof(sdata.channel);
     ssh_channel_close(sdata.channel);
+    sftp_server_free(cdata.sftp);
 
     /* Wait up to 5 seconds for the client to terminate the session. */
     for (n = 0; n < 50 && (ssh_get_status(session) & SESSION_END) == 0; n++) {
