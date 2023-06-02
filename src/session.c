@@ -654,8 +654,12 @@ int ssh_handle_packets(ssh_session session, int timeout)
     ssh_poll_add_events(spoll, POLLIN);
     ctx = ssh_poll_get_ctx(spoll);
 
-    if (!ctx) {
+    if (ctx == NULL) {
         ctx = ssh_poll_get_default_ctx(session);
+        if (ctx == NULL) {
+            ssh_set_error_oom(session);
+            return SSH_ERROR;
+        }
         ssh_poll_ctx_add(ctx, spoll);
     }
 
