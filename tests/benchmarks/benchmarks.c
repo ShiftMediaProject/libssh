@@ -278,26 +278,43 @@ static void arguments_init(struct argument_s *arguments)
 
 static ssh_session connect_host(const char *host, int verbose, char *cipher)
 {
-    ssh_session session = ssh_new();
+    ssh_session session = NULL;
+    int rc;
+
+    session = ssh_new();
     if (session == NULL)
         goto error;
 
-    if (ssh_options_set(session, SSH_OPTIONS_HOST, host) < 0)
+    rc = ssh_options_set(session, SSH_OPTIONS_HOST, host);
+    if (rc < 0)
         goto error;
 
-    ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbose);
+    rc = ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbose);
+    if (rc < 0)
+        goto error;
+
     if (cipher != NULL) {
-        if (ssh_options_set(session, SSH_OPTIONS_CIPHERS_C_S, cipher) ||
-            ssh_options_set(session, SSH_OPTIONS_CIPHERS_S_C, cipher)) {
+        rc = ssh_options_set(session, SSH_OPTIONS_CIPHERS_C_S, cipher);
+        if (rc < 0)
             goto error;
-        }
+
+        rc = ssh_options_set(session, SSH_OPTIONS_CIPHERS_S_C, cipher);
+        if (rc < 0)
+            goto error;
     }
 
-    ssh_options_parse_config(session, NULL);
-    if (ssh_connect(session) == SSH_ERROR)
+    rc = ssh_options_parse_config(session, NULL);
+    if (rc < 0)
         goto error;
-    if (ssh_userauth_autopubkey(session, NULL) != SSH_AUTH_SUCCESS)
+
+    rc = ssh_connect(session);
+    if (rc == SSH_ERROR)
         goto error;
+
+    rc = ssh_userauth_autopubkey(session, NULL);
+    if (rc != SSH_AUTH_SUCCESS)
+        goto error;
+
     return session;
 
 error:
