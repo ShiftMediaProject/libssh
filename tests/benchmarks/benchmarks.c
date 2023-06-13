@@ -282,8 +282,11 @@ static ssh_session connect_host(const char *host, int verbose, char *cipher)
     int rc;
 
     session = ssh_new();
-    if (session == NULL)
-        goto error;
+    if (session == NULL) {
+        fprintf(stderr, "Error connecting to \"%s\": %s\n",
+                host, "Unable to create a new ssh session");
+        return NULL;
+    }
 
     rc = ssh_options_set(session, SSH_OPTIONS_HOST, host);
     if (rc < 0)
