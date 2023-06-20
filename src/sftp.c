@@ -372,7 +372,7 @@ sftp_decode_channel_data_to_packet(sftp_session sftp, void *data, uint32_t len)
     int nread;
     int payload_len;
     unsigned int data_offset;
-    int to_read;
+    int to_read, rc;
 
     if (packet->sftp == NULL) {
         packet->sftp = sftp;
@@ -393,9 +393,12 @@ sftp_decode_channel_data_to_packet(sftp_session sftp, void *data, uint32_t len)
     }
 
     to_read = payload_len - sizeof(uint8_t);
-    ssh_buffer_add_data(packet->payload,
-                        (void*)((uint8_t *)data + data_offset),
-                        to_read);
+    rc = ssh_buffer_add_data(packet->payload,
+                             (void*)((uint8_t *)data + data_offset),
+                             to_read);
+    if (rc != 0) {
+        return SSH_ERROR;
+    }
     nread = ssh_buffer_get_len(packet->payload);
 
     /* We should check if we copied the whole data */
