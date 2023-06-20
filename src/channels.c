@@ -563,15 +563,15 @@ SSH_PACKET_CALLBACK(channel_rcv_data)
     ssh_buffer buf = NULL;
     void *data = NULL;
     uint32_t len;
-    int is_stderr;
+    int extended, is_stderr = 0;
     int rest;
 
     (void)user;
 
     if (type == SSH2_MSG_CHANNEL_DATA) {
-        is_stderr = 0;
-    } else {
-        is_stderr = 1;
+        extended = 0;
+    } else { /* SSH_MSG_CHANNEL_EXTENDED_DATA */
+        extended = 1;
     }
 
     channel = channel_from_msg(session, packet);
@@ -581,10 +581,21 @@ SSH_PACKET_CALLBACK(channel_rcv_data)
         return SSH_PACKET_USED;
     }
 
-    if (is_stderr) {
-        uint32_t ignore;
-        /* uint32 data type code. we can ignore it */
-        ssh_buffer_get_u32(packet, &ignore);
+    if (extended) {
+        uint32_t data_type_code, rc;
+        rc = ssh_buffer_get_u32(packet, &data_type_code);
+        if (rc != sizeof(uint32_t)) {
+            SSH_LOG(SSH_LOG_PACKET,
+                    "Failed to read data type code: rc = %" PRIu32, rc);
+
+            return SSH_PACKET_USED;
+        }
+        if (data_type_code == 1) {
+            is_stderr = 1;
+        } else {
+            SSH_LOG(SSH_LOG_PACKET, "Invalid data type code %" PRIu32 "!",
+                    data_type_code);
+        }
     }
 
     str = ssh_buffer_get_ssh_string(packet);
@@ -596,10 +607,10 @@ SSH_PACKET_CALLBACK(channel_rcv_data)
     len = ssh_string_len(str);
 
     SSH_LOG(SSH_LOG_PACKET,
-            "Channel receiving %" PRIu32 " bytes data in %d (local win=%" PRIu32
+            "Channel receiving %" PRIu32 " bytes data%s (local win=%" PRIu32
             " remote win=%" PRIu32 ")",
             len,
-            is_stderr,
+            is_stderr ? " in stderr"  : "",
             channel->local_window,
             channel->remote_window);
 
