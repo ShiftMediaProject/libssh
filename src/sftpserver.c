@@ -905,6 +905,7 @@ process_open(sftp_client_message client_msg)
 
     h = calloc(1, sizeof (struct sftp_handle));
     if (h == NULL) {
+        close(fd);
         SSH_LOG(SSH_LOG_PROTOCOL, "failed to allocate a new handle");
         sftp_reply_status(client_msg, SSH_FX_FAILURE,
                           "Failed to allocate new handle");
@@ -1091,6 +1092,7 @@ process_opendir(sftp_client_message client_msg)
 
     h = calloc(1, sizeof (struct sftp_handle));
     if (h == NULL) {
+        closedir(dir);
         SSH_LOG(SSH_LOG_PROTOCOL, "failed to allocate a new handle");
         sftp_reply_status(client_msg, SSH_FX_FAILURE,
                           "Failed to allocate new handle");
