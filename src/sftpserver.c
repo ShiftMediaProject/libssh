@@ -717,8 +717,7 @@ void sftp_handle_remove(sftp_session sftp, void *handle)
 static const char *
 ssh_str_error(int u_errno)
 {
-    switch (u_errno)
-    {
+    switch (u_errno) {
     case SSH_FX_NO_SUCH_FILE:
         return "No such file";
     case SSH_FX_PERMISSION_DENIED:
@@ -730,7 +729,6 @@ ssh_str_error(int u_errno)
     default:
         return "Operation failed";
     }
-    return "Operation failed";
 }
 
 static int
