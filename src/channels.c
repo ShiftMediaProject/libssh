@@ -556,110 +556,114 @@ SSH_PACKET_CALLBACK(channel_rcv_change_window) {
 }
 
 /* is_stderr is set to 1 if the data are extended, ie stderr */
-SSH_PACKET_CALLBACK(channel_rcv_data){
-  ssh_channel channel;
-  ssh_string str;
-  ssh_buffer buf;
-  uint32_t len;
-  int is_stderr;
-  int rest;
-  (void)user;
+SSH_PACKET_CALLBACK(channel_rcv_data)
+{
+    ssh_channel channel = NULL;
+    ssh_string str = NULL;
+    ssh_buffer buf = NULL;
+    void *data = NULL;
+    uint32_t len;
+    int is_stderr;
+    int rest;
 
-  if(type==SSH2_MSG_CHANNEL_DATA)
-	  is_stderr=0;
-  else
-	  is_stderr=1;
+    (void)user;
 
-  channel = channel_from_msg(session,packet);
-  if (channel == NULL) {
-    SSH_LOG(SSH_LOG_FUNCTIONS,
-        "%s", ssh_get_error(session));
+    if (type == SSH2_MSG_CHANNEL_DATA) {
+        is_stderr = 0;
+    } else {
+        is_stderr = 1;
+    }
 
-    return SSH_PACKET_USED;
-  }
+    channel = channel_from_msg(session, packet);
+    if (channel == NULL) {
+        SSH_LOG(SSH_LOG_FUNCTIONS, "%s", ssh_get_error(session));
 
-  if (is_stderr) {
-    uint32_t ignore;
-    /* uint32 data type code. we can ignore it */
-    ssh_buffer_get_u32(packet, &ignore);
-  }
+        return SSH_PACKET_USED;
+    }
 
-  str = ssh_buffer_get_ssh_string(packet);
-  if (str == NULL) {
-    SSH_LOG(SSH_LOG_PACKET, "Invalid data packet!");
+    if (is_stderr) {
+        uint32_t ignore;
+        /* uint32 data type code. we can ignore it */
+        ssh_buffer_get_u32(packet, &ignore);
+    }
 
-    return SSH_PACKET_USED;
-  }
-  len = ssh_string_len(str);
+    str = ssh_buffer_get_ssh_string(packet);
+    if (str == NULL) {
+        SSH_LOG(SSH_LOG_PACKET, "Invalid data packet!");
 
-  SSH_LOG(SSH_LOG_PACKET,
-      "Channel receiving %" PRIu32 " bytes data in %d (local win=%" PRIu32 " remote win=%" PRIu32 ")",
-      len,
-      is_stderr,
-      channel->local_window,
-      channel->remote_window);
+        return SSH_PACKET_USED;
+    }
+    len = ssh_string_len(str);
 
-  /* What shall we do in this case? Let's accept it anyway */
-  if (len > channel->local_window) {
-    SSH_LOG(SSH_LOG_RARE,
-        "Data packet too big for our window(%" PRIu32 " vs %" PRIu32 ")",
-        len,
-        channel->local_window);
-  }
+    SSH_LOG(SSH_LOG_PACKET,
+            "Channel receiving %" PRIu32 " bytes data in %d (local win=%" PRIu32
+            " remote win=%" PRIu32 ")",
+            len,
+            is_stderr,
+            channel->local_window,
+            channel->remote_window);
 
-  if (channel_default_bufferize(channel, ssh_string_data(str), len,
-        is_stderr) < 0) {
+    /* What shall we do in this case? Let's accept it anyway */
+    if (len > channel->local_window) {
+        SSH_LOG(SSH_LOG_RARE,
+                "Data packet too big for our window(%" PRIu32 " vs %" PRIu32 ")",
+                len,
+                channel->local_window);
+    }
+
+    data = ssh_string_data(str);
+    if (channel_default_bufferize(channel, data, len, is_stderr) < 0) {
+        SSH_STRING_FREE(str);
+
+        return SSH_PACKET_USED;
+    }
+
+    if (len <= channel->local_window) {
+        channel->local_window -= len;
+    } else {
+        channel->local_window = 0; /* buggy remote */
+    }
+
+    SSH_LOG(SSH_LOG_PACKET,
+            "Channel windows are now (local win=%" PRIu32 " remote win=%" PRIu32 ")",
+            channel->local_window,
+            channel->remote_window);
+
     SSH_STRING_FREE(str);
 
+    if (is_stderr) {
+        buf = channel->stderr_buffer;
+    } else {
+        buf = channel->stdout_buffer;
+    }
+
+    ssh_callbacks_iterate(channel->callbacks,
+                          ssh_channel_callbacks,
+                          channel_data_function) {
+        if (ssh_buffer_get(buf) == NULL) {
+            break;
+        }
+        rest = ssh_callbacks_iterate_exec(channel_data_function,
+                                          channel->session,
+                                          channel,
+                                          ssh_buffer_get(buf),
+                                          ssh_buffer_get_len(buf),
+                                          is_stderr);
+        if (rest > 0) {
+            if (channel->counter != NULL) {
+                channel->counter->in_bytes += rest;
+            }
+            ssh_buffer_pass_bytes(buf, rest);
+        }
+    }
+    ssh_callbacks_iterate_end();
+
+    if (channel->local_window + ssh_buffer_get_len(buf) < WINDOWLIMIT) {
+        if (grow_window(session, channel, 0) < 0) {
+            return -1;
+        }
+    }
     return SSH_PACKET_USED;
-  }
-
-  if (len <= channel->local_window) {
-    channel->local_window -= len;
-  } else {
-    channel->local_window = 0; /* buggy remote */
-  }
-
-  SSH_LOG(SSH_LOG_PACKET,
-      "Channel windows are now (local win=%" PRIu32 " remote win=%" PRIu32 ")",
-      channel->local_window,
-      channel->remote_window);
-
-  SSH_STRING_FREE(str);
-
-  if (is_stderr) {
-      buf = channel->stderr_buffer;
-  } else {
-      buf = channel->stdout_buffer;
-  }
-
-  ssh_callbacks_iterate(channel->callbacks,
-                        ssh_channel_callbacks,
-                        channel_data_function) {
-      if (ssh_buffer_get(buf) == NULL) {
-          break;
-      }
-      rest = ssh_callbacks_iterate_exec(channel_data_function,
-                                        channel->session,
-                                        channel,
-                                        ssh_buffer_get(buf),
-                                        ssh_buffer_get_len(buf),
-                                        is_stderr);
-      if (rest > 0) {
-          if (channel->counter != NULL) {
-              channel->counter->in_bytes += rest;
-          }
-          ssh_buffer_pass_bytes(buf, rest);
-      }
-  }
-  ssh_callbacks_iterate_end();
-
-  if (channel->local_window + ssh_buffer_get_len(buf) < WINDOWLIMIT) {
-      if (grow_window(session, channel, 0) < 0) {
-          return -1;
-      }
-  }
-  return SSH_PACKET_USED;
 }
 
 SSH_PACKET_CALLBACK(channel_rcv_eof) {
