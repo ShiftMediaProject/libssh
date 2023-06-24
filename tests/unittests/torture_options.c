@@ -532,6 +532,74 @@ static void torture_options_proxycommand(void **state) {
     assert_null(session->opts.ProxyCommand);
 }
 
+static void torture_options_control_master (void **state) {
+    ssh_session session = *state;
+    int rc, val = SSH_CONTROL_MASTER_NO;
+
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_CONTROL_MASTER,
+                         &val);
+    assert_int_equal(rc, SSH_OK);
+    assert_int_equal(session->opts.control_master, SSH_CONTROL_MASTER_NO);
+
+    val = SSH_CONTROL_MASTER_AUTO;
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_CONTROL_MASTER,
+                         &val);
+    assert_int_equal(rc, SSH_OK);
+    assert_int_equal(session->opts.control_master, SSH_CONTROL_MASTER_AUTO);
+
+    val = SSH_CONTROL_MASTER_YES;
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_CONTROL_MASTER,
+                         &val);
+    assert_int_equal(rc, SSH_OK);
+    assert_int_equal(session->opts.control_master, SSH_CONTROL_MASTER_YES);
+
+    val = SSH_CONTROL_MASTER_ASK;
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_CONTROL_MASTER,
+                         &val);
+    assert_int_equal(rc, SSH_OK);
+    assert_int_equal(session->opts.control_master, SSH_CONTROL_MASTER_ASK);
+
+    val = SSH_CONTROL_MASTER_AUTOASK;
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_CONTROL_MASTER,
+                         &val);
+    assert_int_equal(rc, SSH_OK);
+    assert_int_equal(session->opts.control_master, SSH_CONTROL_MASTER_AUTOASK);
+
+    val = 255;
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_CONTROL_MASTER,
+                         &val);
+    assert_int_equal(rc, SSH_ERROR);
+}
+
+static void torture_options_control_path(void **state) {
+    ssh_session session = *state;
+    char *str = NULL;
+    int rc;
+
+    /* Set Control Path */
+    rc = ssh_options_set(session, SSH_OPTIONS_CONTROL_PATH, "/tmp/ssh-%r@%h:%p");
+    assert_int_equal(rc, 0);
+
+    assert_string_equal(session->opts.control_path, "/tmp/ssh-%r@%h:%p");
+
+    rc = ssh_options_get(session, SSH_OPTIONS_CONTROL_PATH, &str);
+    assert_int_equal(rc, 0);
+    assert_string_equal(str, "/tmp/ssh-%r@%h:%p");
+
+    /* Disable Multiplexing */
+    rc = ssh_options_set(session, SSH_OPTIONS_CONTROL_PATH, "none");
+    assert_int_equal(rc, 0);
+
+    assert_null(session->opts.control_path);
+    SSH_STRING_FREE_CHAR(str);
+}
+
 static void torture_options_config_host(void **state) {
     ssh_session session = *state;
     FILE *config = NULL;
@@ -844,6 +912,8 @@ static void torture_options_copy(void **state)
           "Compression yes\n"
           "PubkeyAcceptedAlgorithms ssh-ed25519,ecdsa-sha2-nistp521\n"
           "ProxyCommand nc 127.0.0.10 22\n"
+          "ControlMaster ask\n"
+          "ControlPath /tmp/ssh-%r@%h:%p\n"
           /* ops.custombanner */
           "ConnectTimeout 42\n"
           "Port 222\n"
@@ -895,10 +965,12 @@ static void torture_options_copy(void **state)
     assert_string_equal(session->opts.pubkey_accepted_types,
                         new->opts.pubkey_accepted_types);
     assert_string_equal(session->opts.ProxyCommand, new->opts.ProxyCommand);
+    assert_string_equal(session->opts.control_path, new->opts.control_path);
     /* TODO custombanner */
     assert_int_equal(session->opts.timeout, new->opts.timeout);
     assert_int_equal(session->opts.timeout_usec, new->opts.timeout_usec);
     assert_int_equal(session->opts.port, new->opts.port);
+    assert_int_equal(session->opts.control_master, new->opts.control_master);
     assert_int_equal(session->opts.StrictHostKeyChecking,
                      new->opts.StrictHostKeyChecking);
     assert_int_equal(session->opts.compressionlevel,
@@ -2241,6 +2313,8 @@ int torture_run_tests(void) {
         cmocka_unit_test_setup_teardown(torture_options_set_knownhosts, setup, teardown),
         cmocka_unit_test_setup_teardown(torture_options_get_knownhosts, setup, teardown),
         cmocka_unit_test_setup_teardown(torture_options_proxycommand, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_control_master, setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_options_control_path, setup, teardown),
         cmocka_unit_test_setup_teardown(torture_options_set_ciphers, setup, teardown),
         cmocka_unit_test_setup_teardown(torture_options_set_key_exchange, setup, teardown),
         cmocka_unit_test_setup_teardown(torture_options_set_hostkey, setup, teardown),
