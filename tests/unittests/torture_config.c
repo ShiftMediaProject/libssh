@@ -44,6 +44,7 @@ extern LIBSSH_THREAD int ssh_log_level;
 #define LIBSSH_TESTCONFIG14 "libssh_testconfig14.tmp"
 #define LIBSSH_TESTCONFIG15 "libssh_testconfig15.tmp"
 #define LIBSSH_TESTCONFIG16 "libssh_testconfig16.tmp"
+#define LIBSSH_TESTCONFIG17 "libssh_testconfig17.tmp"
 #define LIBSSH_TESTCONFIGGLOB "libssh_testc*[36].tmp"
 #define LIBSSH_TEST_PUBKEYTYPES "libssh_test_PubkeyAcceptedKeyTypes.tmp"
 #define LIBSSH_TEST_PUBKEYALGORITHMS "libssh_test_PubkeyAcceptedAlgorithms.tmp"
@@ -206,6 +207,15 @@ extern LIBSSH_THREAD int ssh_log_level;
     "KexAlgorithms ^diffie-hellman-group18-sha512,diffie-hellman-group16-sha512\n" \
     "MACs ^hmac-sha1\n"
 
+/* Connection Multiplexing */
+#define LIBSSH_TESTCONFIG_STRING17 \
+    "Host simple\n" \
+    "\tControlMaster auto\n" \
+    "\tControlPath /tmp/ssh-%r@%h:%p\n" \
+    "Host none\n" \
+    "\tControlMaster yes\n" \
+    "\tControlPath none\n"
+
 #define LIBSSH_TEST_PUBKEYTYPES_STRING \
     "PubkeyAcceptedKeyTypes "PUBKEYACCEPTEDTYPES"\n"
 
@@ -266,6 +276,7 @@ static int setup_config_files(void **state)
     unlink(LIBSSH_TESTCONFIG14);
     unlink(LIBSSH_TESTCONFIG15);
     unlink(LIBSSH_TESTCONFIG16);
+    unlink(LIBSSH_TESTCONFIG17);
     unlink(LIBSSH_TEST_PUBKEYTYPES);
     unlink(LIBSSH_TEST_PUBKEYALGORITHMS);
     unlink(LIBSSH_TEST_NONEWLINEEND);
@@ -320,6 +331,8 @@ static int setup_config_files(void **state)
                        LIBSSH_TESTCONFIG_STRING15);
     torture_write_file(LIBSSH_TESTCONFIG16,
                        LIBSSH_TESTCONFIG_STRING16);
+    torture_write_file(LIBSSH_TESTCONFIG17,
+                       LIBSSH_TESTCONFIG_STRING17);
 
     torture_write_file(LIBSSH_TEST_PUBKEYTYPES,
                        LIBSSH_TEST_PUBKEYTYPES_STRING);
@@ -355,6 +368,7 @@ static int teardown_config_files(void **state)
     unlink(LIBSSH_TESTCONFIG14);
     unlink(LIBSSH_TESTCONFIG15);
     unlink(LIBSSH_TESTCONFIG16);
+    unlink(LIBSSH_TESTCONFIG17);
     unlink(LIBSSH_TEST_PUBKEYTYPES);
     unlink(LIBSSH_TEST_PUBKEYALGORITHMS);
 
@@ -1219,6 +1233,76 @@ static void torture_config_proxyjump_file(void **state)
 static void torture_config_proxyjump_string(void **state)
 {
     torture_config_proxyjump(state, NULL, LIBSSH_TESTCONFIG_STRING11);
+}
+
+/**
+ * @brief Verify we can parse ControlPath configuration option
+ */
+static void torture_config_control_path(void **state,
+                                        const char *file, const char *string)
+{
+    ssh_session session = *state;
+
+    torture_reset_config(session);
+    ssh_options_set(session, SSH_OPTIONS_HOST, "simple");
+    _parse_config(session, file, string, SSH_OK);
+    assert_string_equal(session->opts.control_path, "/tmp/ssh-%r@%h:%p");
+
+    torture_reset_config(session);
+    ssh_options_set(session, SSH_OPTIONS_HOST, "none");
+    _parse_config(session, file, string, SSH_OK);
+    assert_null(session->opts.control_path);
+}
+
+/**
+ * @brief Verify we can parse ControlPath configuration option from string
+ */
+static void torture_config_control_path_string(void **state)
+{
+    torture_config_control_path(state, NULL, LIBSSH_TESTCONFIG_STRING17);
+}
+
+/**
+ * @brief Verify we can parse ControlPath configuration option from file
+ */
+static void torture_config_control_path_file(void **state)
+{
+    torture_config_control_path(state, LIBSSH_TESTCONFIG17, NULL);
+}
+
+/**
+ * @brief Verify we can parse ControlMaster configuration option
+ */
+static void torture_config_control_master(void **state,
+                                          const char *file, const char *string)
+{
+    ssh_session session = *state;
+
+    torture_reset_config(session);
+    ssh_options_set(session, SSH_OPTIONS_HOST, "simple");
+    _parse_config(session, file, string, SSH_OK);
+    assert_int_equal(session->opts.control_master, SSH_CONTROL_MASTER_AUTO);
+
+    torture_reset_config(session);
+    ssh_options_set(session, SSH_OPTIONS_HOST, "none");
+    _parse_config(session, file, string, SSH_OK);
+    assert_int_equal(session->opts.control_master, SSH_CONTROL_MASTER_YES);
+}
+
+/**
+ * @brief Verify we can parse ControlMaster configuration option from string
+ */
+static void torture_config_control_master_string(void **state)
+{
+    torture_config_control_master(state, NULL, LIBSSH_TESTCONFIG_STRING17);
+}
+
+/**
+ * @brief Verify we can parse ControlMaster configuration option from file
+ */
+static void torture_config_control_master_file(void **state)
+{
+    torture_config_control_master(state, LIBSSH_TESTCONFIG17, NULL);
 }
 
 /**
@@ -2266,6 +2350,14 @@ int torture_run_tests(void)
         cmocka_unit_test_setup_teardown(torture_config_proxyjump_file,
                                         setup, teardown),
         cmocka_unit_test_setup_teardown(torture_config_proxyjump_string,
+                                        setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_config_control_path_file,
+                                        setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_config_control_path_string,
+                                        setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_config_control_master_file,
+                                        setup, teardown),
+        cmocka_unit_test_setup_teardown(torture_config_control_master_string,
                                         setup, teardown),
         cmocka_unit_test_setup_teardown(torture_config_rekey_file,
                                         setup, teardown),
