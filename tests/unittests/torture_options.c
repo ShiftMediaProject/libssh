@@ -1802,7 +1802,7 @@ static void torture_bind_options_rsakey(void **state)
     bind = test_state->bind;
 
     rc = ssh_bind_options_set(bind,
-                              SSH_BIND_OPTIONS_RSAKEY,
+                              SSH_BIND_OPTIONS_HOSTKEY,
                               LIBSSH_RSA_TESTKEY);
     assert_int_equal(rc, 0);
     assert_non_null(bind->rsakey);
@@ -1823,7 +1823,7 @@ static void torture_bind_options_ecdsakey(void **state)
     bind = test_state->bind;
 
     rc = ssh_bind_options_set(bind,
-                              SSH_BIND_OPTIONS_ECDSAKEY,
+                              SSH_BIND_OPTIONS_HOSTKEY,
                               LIBSSH_ECDSA_521_TESTKEY);
     assert_int_equal(rc, 0);
     assert_non_null(bind->ecdsakey);

@@ -1773,18 +1773,18 @@ static int ssh_bind_set_algo(ssh_bind sshbind,
  *                        char *).
  *
  *                      - SSH_BIND_OPTIONS_RSAKEY:
- *                        Set the path to the ssh host rsa key, SSHv2
- *                        only (const char *).
+ *                        Deprecated alias to SSH_BIND_OPTIONS_HOSTKEY
+ *                        (const char *).
  *
  *                      - SSH_BIND_OPTIONS_ECDSAKEY:
- *                        Set the path to the ssh host ecdsa key,
- *                        SSHv2 only (const char *).
+ *                        Deprecated alias to SSH_BIND_OPTIONS_HOSTKEY
+ *                        (const char *).
  *
  *                      - SSH_BIND_OPTIONS_BANNER:
  *                        Set the server banner sent to clients (const char *).
  *
  *                      - SSH_BIND_OPTIONS_DSAKEY:
- *                        This is DEPRECATED, please do not use
+ *                        This is DEPRECATED, please do not use.
  *
  *                      - SSH_BIND_OPTIONS_IMPORT_KEY:
  *                        Set the Private Key for the server directly (ssh_key)
@@ -1871,6 +1871,9 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
   }
 
   switch (type) {
+    case SSH_BIND_OPTIONS_RSAKEY:
+    case SSH_BIND_OPTIONS_ECDSAKEY:
+        /* deprecated */
     case SSH_BIND_OPTIONS_HOSTKEY:
       if (value == NULL) {
         ssh_set_error_invalid(sshbind);
@@ -2060,18 +2063,6 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
         ssh_set_log_level(i & 0xffffU);
       }
       break;
-    case SSH_BIND_OPTIONS_RSAKEY:
-        rc = ssh_bind_set_key(sshbind, &sshbind->rsakey, value);
-        if (rc < 0) {
-            return -1;
-        }
-        break;
-    case SSH_BIND_OPTIONS_ECDSAKEY:
-        rc = ssh_bind_set_key(sshbind, &sshbind->ecdsakey, value);
-        if (rc < 0) {
-            return -1;
-        }
-        break;
     case SSH_BIND_OPTIONS_BANNER:
       if (value == NULL) {
         ssh_set_error_invalid(sshbind);

@@ -201,7 +201,7 @@ int run_server(struct server_state_st *state)
 
     if (state->rsa_key != NULL) {
         rc = ssh_bind_options_set(sshbind,
-                                  SSH_BIND_OPTIONS_RSAKEY,
+                                  SSH_BIND_OPTIONS_HOSTKEY,
                                   state->rsa_key);
         if (rc != 0) {
             fprintf(stderr,
@@ -213,7 +213,7 @@ int run_server(struct server_state_st *state)
 
     if (state->ecdsa_key != NULL) {
         rc = ssh_bind_options_set(sshbind,
-                                  SSH_BIND_OPTIONS_ECDSAKEY,
+                                  SSH_BIND_OPTIONS_HOSTKEY,
                                   state->ecdsa_key);
         if (rc != 0) {
             fprintf(stderr,

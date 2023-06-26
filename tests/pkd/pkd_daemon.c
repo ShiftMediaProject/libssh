@@ -263,12 +263,10 @@ static int pkd_exec_hello(int fd, struct pkd_daemon_args *args)
         goto outclose;
     }
 
-    if (type == PKD_RSA) {
-        opts = SSH_BIND_OPTIONS_RSAKEY;
-    } else if (type == PKD_ED25519) {
+    if (type == PKD_RSA ||
+        type == PKD_ED25519 ||
+        type == PKD_ECDSA) {
         opts = SSH_BIND_OPTIONS_HOSTKEY;
-    } else if (type == PKD_ECDSA) {
-        opts = SSH_BIND_OPTIONS_ECDSAKEY;
     } else {
         pkderr("unknown hostkey type: %d\n", type);
         rc = -1;

@@ -60,11 +60,11 @@ static void set_default_keys(ssh_bind sshbind,
                              int rsa_already_set,
                              int ecdsa_already_set) {
     if (!rsa_already_set) {
-        ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_RSAKEY,
+        ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY,
                              KEYS_FOLDER "ssh_host_rsa_key");
     }
     if (!ecdsa_already_set) {
-        ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_ECDSAKEY,
+        ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY,
                              KEYS_FOLDER "ssh_host_ecdsa_key");
     }
     ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY,
@@ -109,7 +109,7 @@ static struct argp_option options[] = {
         .key   = 'r',
         .arg   = "FILE",
         .flags = 0,
-        .doc   = "Set the rsa key.",
+        .doc   = "Set the rsa key (deprecated alias for 'k').",
         .group = 0
     },
     {
@@ -117,7 +117,7 @@ static struct argp_option options[] = {
         .key   = 'e',
         .arg   = "FILE",
         .flags = 0,
-        .doc   = "Set the ecdsa key.",
+        .doc   = "Set the ecdsa key (deprecated alias for 'k').",
         .group = 0
     },
     {
@@ -186,11 +186,11 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
             no_default_keys = 1;
             break;
         case 'r':
-            ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_RSAKEY, arg);
+            ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY, arg);
             rsa_already_set = 1;
             break;
         case 'e':
-            ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_ECDSAKEY, arg);
+            ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY, arg);
             ecdsa_already_set = 1;
             break;
         case 'a':
@@ -253,10 +253,10 @@ static int parse_opt(int argc, char **argv, ssh_bind sshbind) {
             by just not setting the default keys */
             no_default_keys = 1;
         } else if (key == 'r') {
-            ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_RSAKEY, optarg);
+            ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY, optarg);
             rsa_already_set = 1;
         } else if (key == 'e') {
-            ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_ECDSAKEY, optarg);
+            ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY, optarg);
             ecdsa_already_set = 1;
         } else if (key == 'a') {
             strncpy(authorizedkeys, optarg, DEF_STR_SIZE-1);
@@ -277,13 +277,13 @@ static int parse_opt(int argc, char **argv, ssh_bind sshbind) {
                "libssh %s -- a Secure Shell protocol implementation\n"
                "\n"
                "  -a, --authorizedkeys=FILE  Set the authorized keys file.\n"
-               "  -e, --ecdsakey=FILE        Set the ecdsa key.\n"
+               "  -e, --ecdsakey=FILE        Set the ecdsa key (deprecated alias for 'k').\n"
                "  -k, --hostkey=FILE         Set a host key.  Can be used multiple times.\n"
                "                             Implies no default keys.\n"
                "  -n, --no-default-keys      Do not set default key locations.\n"
                "  -p, --port=PORT            Set the port to bind.\n"
                "  -P, --pass=PASSWORD        Set expected password.\n"
-               "  -r, --rsakey=FILE          Set the rsa key.\n"
+               "  -r, --rsakey=FILE          Set the rsa key (deprecated alias for 'k').\n"
                "  -u, --user=USERNAME        Set expected username.\n"
                "  -v, --verbose              Get verbose output.\n"
                "  -?, --help                 Give this help list\n"

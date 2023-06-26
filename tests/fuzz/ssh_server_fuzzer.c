@@ -177,7 +177,7 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         assert(rc == 0);
     }
     rc = ssh_bind_options_set(sshbind,
-                              SSH_BIND_OPTIONS_RSAKEY,
+                              SSH_BIND_OPTIONS_HOSTKEY,
                               "/tmp/libssh_fuzzer_private_key");
     assert(rc == 0);
     rc = ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_CIPHERS_C_S, "none");

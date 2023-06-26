@@ -395,12 +395,11 @@ ssh_bind torture_ssh_bind(const char *addr,
 
     switch (key_type) {
         case SSH_KEYTYPE_RSA:
-            opts = SSH_BIND_OPTIONS_RSAKEY;
-            break;
         case SSH_KEYTYPE_ECDSA_P256:
         case SSH_KEYTYPE_ECDSA_P384:
         case SSH_KEYTYPE_ECDSA_P521:
-            opts = SSH_BIND_OPTIONS_ECDSAKEY;
+        case SSH_KEYTYPE_ED25519:
+            opts = SSH_BIND_OPTIONS_HOSTKEY;
             break;
         default:
             goto out_free;

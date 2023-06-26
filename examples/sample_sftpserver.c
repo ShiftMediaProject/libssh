@@ -70,12 +70,12 @@ static void set_default_keys(ssh_bind sshbind,
 {
     if (!rsa_already_set)
     {
-        ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_RSAKEY,
+        ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY,
                              KEYS_FOLDER "ssh_host_rsa_key");
     }
     if (!ecdsa_already_set)
     {
-        ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_ECDSAKEY,
+        ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY,
                              KEYS_FOLDER "ssh_host_ecdsa_key");
     }
     ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY,
@@ -165,11 +165,11 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         no_default_keys = 1;
         break;
     case 'r':
-        ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_RSAKEY, arg);
+        ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY, arg);
         rsa_already_set = 1;
         break;
     case 'e':
-        ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_ECDSAKEY, arg);
+        ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY, arg);
         ecdsa_already_set = 1;
         break;
     case 'a':
