@@ -49,6 +49,9 @@ static char *get_python_eater(unsigned long bytes){
   char *ptr;
   char buf[12];
 
+  if (eater == NULL) {
+    return NULL;
+  }
   memcpy(eater,python_eater,sizeof(python_eater));
   ptr=strstr(eater,"XXXXXXXXXX");
   if(!ptr){
@@ -116,7 +119,10 @@ int benchmarks_raw_up (ssh_session session, struct argument_s *args,
   unsigned long total=0;
 
   bytes = args->datasize * 1024 * 1024;
-  script =get_python_eater(bytes);
+  script = get_python_eater(bytes);
+  if (script == NULL) {
+    return -1;
+  }
   err=upload_script(session,"/tmp/eater.py",script);
   free(script);
   if(err<0)
@@ -205,6 +211,9 @@ static char *get_python_giver(unsigned long bytes){
   char *ptr;
   char buf[12];
 
+  if (giver == NULL) {
+    return NULL;
+  }
   memcpy(giver,python_giver,sizeof(python_giver));
   ptr=strstr(giver,"XXXXXXXXXX");
   if(!ptr){
@@ -236,7 +245,10 @@ int benchmarks_raw_down (ssh_session session, struct argument_s *args,
   unsigned long total=0;
 
   bytes = args->datasize * 1024 * 1024;
-  script =get_python_giver(bytes);
+  script = get_python_giver(bytes);
+  if (script == NULL) {
+    return -1;
+  }
   err=upload_script(session,"/tmp/giver.py",script);
   free(script);
   if(err<0)

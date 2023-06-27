@@ -180,6 +180,9 @@ int benchmarks_async_sftp_down (ssh_session session, struct argument_s *args,
   if(!file)
     goto error;
   ids = malloc(concurrent_downloads * sizeof(int));
+  if (ids == NULL) {
+    return -1;
+  }
   if(args->verbose>0)
     fprintf(stdout,"Starting download of %lu bytes now, using %d concurrent downloads\n",bytes,
         concurrent_downloads);
