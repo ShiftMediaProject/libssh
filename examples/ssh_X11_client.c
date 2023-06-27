@@ -119,7 +119,7 @@ pthread_mutex_t mutex;
 */
 
 /* Linked nodes to manage channel/fd tuples */
-static void insert_item(ssh_channel channel, int fd_in, int fd_out, int protected);
+static int insert_item(ssh_channel channel, int fd_in, int fd_out, int protected);
 static void delete_item(ssh_channel channel);
 static node_t * search_item(ssh_channel channel);
 
@@ -266,7 +266,7 @@ _leave_term_raw_mode(void)
  * Functions
 */
 
-static void
+static int
 insert_item(ssh_channel channel, int fd_in, int fd_out, int protected)
 {
 	node_t *node_iterator = NULL, *new = NULL;
@@ -276,6 +276,9 @@ insert_item(ssh_channel channel, int fd_in, int fd_out, int protected)
 	if (node == NULL) {
 		/* Calloc ensure that node is full of 0 */
 		node = (node_t *) calloc(1, sizeof(node_t));
+		if (node == NULL) {
+			return -1;
+		}
 		node->channel = channel;
 		node->fd_in = fd_in;
 		node->fd_out = fd_out;
@@ -287,6 +290,9 @@ insert_item(ssh_channel channel, int fd_in, int fd_out, int protected)
 			node_iterator = node_iterator->next;
 		/* Create the new node */
 		new = (node_t *) malloc(sizeof(node_t));
+		if (new == NULL) {
+			return -1;
+		}
 		new->channel = channel;
 		new->fd_in = fd_in;
 		new->fd_out = fd_out;
@@ -297,6 +303,7 @@ insert_item(ssh_channel channel, int fd_in, int fd_out, int protected)
 	}
 
 	pthread_mutex_unlock(&mutex);
+	return 0;
 }
 
 
@@ -646,7 +653,7 @@ static ssh_channel
 x11_open_request_callback(ssh_session session, const char *shost, int sport, void *userdata)
 {
 	ssh_channel channel = NULL;
-	int sock;
+	int sock, rv;
 
 	(void)shost;
 	(void)sport;
@@ -658,7 +665,11 @@ x11_open_request_callback(ssh_session session, const char *shost, int sport, voi
 
 	_ssh_log(SSH_LOG_FUNCTIONS, __func__, "sock: %d", sock);
 
-	insert_item(channel, sock, sock, 0);
+	rv = insert_item(channel, sock, sock, 0);
+	if (rv != 0) {
+		ssh_channel_free(channel);
+		return NULL;
+	}
 
 	ssh_event_add_fd(event, sock, events, copy_fd_to_channel_callback, channel);
 	ssh_event_add_session(event, session);
@@ -678,8 +689,12 @@ static int
 main_loop(ssh_channel channel)
 {
 	ssh_session session = ssh_channel_get_session(channel);
+	int rv;
 
-	insert_item(channel, fileno(stdin), fileno(stdout), 1);
+	rv = insert_item(channel, fileno(stdin), fileno(stdout), 1);
+	if (rv != 0) {
+		return -1;
+	}
 
 	ssh_callbacks_init(&channel_cb);
 	ssh_set_channel_callbacks(channel, &channel_cb);
