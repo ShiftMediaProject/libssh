@@ -72,12 +72,11 @@ static int ssh_gssapi_init(ssh_session session)
 {
     if (session->gssapi != NULL)
         return SSH_OK;
-    session->gssapi = malloc(sizeof(struct ssh_gssapi_struct));
-    if(!session->gssapi){
+    session->gssapi = calloc(1, sizeof(struct ssh_gssapi_struct));
+    if (session->gssapi == NULL) {
         ssh_set_error_oom(session);
         return SSH_ERROR;
     }
-    ZERO_STRUCTP(session->gssapi);
     session->gssapi->server_creds = GSS_C_NO_CREDENTIAL;
     session->gssapi->client_creds = GSS_C_NO_CREDENTIAL;
     session->gssapi->ctx = GSS_C_NO_CONTEXT;
