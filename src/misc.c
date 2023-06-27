@@ -182,7 +182,7 @@ char *ssh_get_local_username(void)
     /* get the size */
     GetUserName(NULL, &size);
 
-    user = (char *) malloc(size);
+    user = (char *)malloc(size);
     if (user == NULL) {
         return NULL;
     }
@@ -674,8 +674,9 @@ const char *ssh_version(int req_version)
 struct ssh_list *ssh_list_new(void)
 {
     struct ssh_list *ret = malloc(sizeof(struct ssh_list));
-    if (!ret)
+    if (ret == NULL) {
         return NULL;
+    }
     ret->root = ret->end = NULL;
     return ret;
 }
@@ -734,8 +735,9 @@ static struct ssh_iterator *ssh_iterator_new(const void *data)
 {
     struct ssh_iterator *iterator = malloc(sizeof(struct ssh_iterator));
 
-    if (!iterator)
+    if (iterator == NULL) {
         return NULL;
+    }
     iterator->next = NULL;
     iterator->data = data;
     return iterator;
