@@ -962,6 +962,12 @@ process_read(sftp_client_message client_msg)
     }
 
     buffer = malloc(client_msg->len);
+    if (buffer == NULL) {
+        ssh_set_error_oom(sftp->session);
+        sftp_reply_status(client_msg, SSH_FX_FAILURE, NULL);
+        SSH_LOG(SSH_LOG_PROTOCOL, "Failed to allocate memory for read data");
+        return SSH_ERROR;
+    }
     do {
         ssize_t readn = read(fd, buffer + allreadn, client_msg->len - allreadn);
         if (readn < 0) {
