@@ -66,7 +66,7 @@ ssh_scp ssh_scp_new(ssh_session session, int mode, const char *location)
 {
     ssh_scp scp = NULL;
 
-    if (session == NULL) {
+    if (session == NULL || location == NULL) {
         goto error;
     }
 
