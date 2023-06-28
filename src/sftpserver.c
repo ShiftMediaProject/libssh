@@ -180,7 +180,7 @@ sftp_make_client_message(sftp_session sftp, sftp_packet packet)
             if (rc != SSH_OK) {
                 goto error;
             }
-            if(sftp->version > 3) {
+            if (sftp->version > 3) {
                 ssh_buffer_unpack(payload, "d", &msg->flags);
             }
             break;
