@@ -85,7 +85,10 @@ sftp_make_client_message(sftp_session sftp, sftp_packet packet)
     }
 
     if (msg->type != SSH_FXP_INIT) {
-        ssh_buffer_get_u32(payload, &msg->id);
+        rc = ssh_buffer_get_u32(payload, &msg->id);
+        if (rc != sizeof(uint32_t)) {
+            goto error;
+        }
     }
 
     switch (msg->type) {
