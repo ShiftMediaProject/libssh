@@ -73,6 +73,7 @@ sftp_make_client_message(sftp_session sftp, sftp_packet packet)
     /* take a copy of the whole packet */
     msg->complete_message = ssh_buffer_new();
     if (msg->complete_message == NULL) {
+        ssh_set_error_oom(session);
         goto error;
     }
 
@@ -233,14 +234,12 @@ sftp_make_client_message(sftp_session sftp, sftp_packet packet)
         default:
             ssh_set_error(sftp->session, SSH_FATAL,
                           "Received unhandled sftp message %d", msg->type);
-            sftp_client_message_free(msg);
-            return NULL;
+            goto error;
     }
 
     return msg;
 
 error:
-    ssh_set_error_oom(session);
     sftp_client_message_free(msg);
     return NULL;
 }
