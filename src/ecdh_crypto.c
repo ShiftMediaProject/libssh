@@ -215,6 +215,7 @@ int ssh_client_ecdh_init(ssh_session session)
 
     rc = ssh_buffer_add_ssh_string(session->out_buffer, client_pubkey);
     if (rc < 0) {
+        ssh_string_free(client_pubkey);
         return SSH_ERROR;
     }
 
