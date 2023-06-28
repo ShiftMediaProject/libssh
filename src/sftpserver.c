@@ -55,8 +55,8 @@ static sftp_client_message
 sftp_make_client_message(sftp_session sftp, sftp_packet packet)
 {
     ssh_session session = sftp->session;
-    sftp_client_message msg;
-    ssh_buffer payload;
+    sftp_client_message msg = NULL;
+    ssh_buffer payload = NULL;
     int rc;
     int version;
 
