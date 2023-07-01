@@ -252,6 +252,7 @@ if (WITH_SFTP)
   set(libssh_SRCS
     ${libssh_SRCS}
     sftp.c
+    sftp_common.c
   )
 
   if (WITH_SERVER)

@@ -54,6 +54,28 @@ int sftp_reply_version(sftp_client_message client_msg);
  */
 int sftp_decode_channel_data_to_packet(sftp_session sftp, void *data, uint32_t len);
 
+void sftp_set_error(sftp_session sftp, int errnum);
+
+void sftp_message_free(sftp_message msg);
+
+int sftp_read_and_dispatch(sftp_session sftp);
+
+sftp_message sftp_dequeue(sftp_session sftp, uint32_t id);
+
+/*
+ * Assigns a new SFTP ID for new requests and assures there is no collision
+ * between them.
+ * Returns a new ID ready to use in a request
+ */
+static inline uint32_t sftp_get_new_id(sftp_session session)
+{
+    return ++session->id_counter;
+}
+
+sftp_status_message parse_status_msg(sftp_message msg);
+
+void status_msg_free(sftp_status_message status);
+
 #ifdef __cplusplus
 }
 #endif
