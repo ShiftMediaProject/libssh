@@ -37,17 +37,6 @@ struct sockaddr_un {
   char sun_path[UNIX_PATH_MAX];
 };
 #endif
-#if _MSC_VER >= 1400
-#include <io.h>
-#undef open
-#define open _open
-#undef close
-#define close _close
-#undef read
-#define read _read
-#undef write
-#define write _write
-#endif /* _MSC_VER */
 #else /* _WIN32 */
 #include <fcntl.h>
 #include <sys/types.h>

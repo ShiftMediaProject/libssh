@@ -40,11 +40,6 @@
 #include <unistd.h>
 #elif (defined _WIN32) || (defined _WIN64)
 #include <direct.h>
-#include <io.h>
-#define read _read
-#define open _open
-#define write _write
-#define close _close
 #define chdir _chdir
 #endif
 

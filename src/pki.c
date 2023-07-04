@@ -43,20 +43,6 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
-#ifdef _WIN32
-# ifdef HAVE_IO_H
-#  include <io.h>
-#  undef open
-#  define open _open
-#  undef close
-#  define close _close
-#  undef read
-#  define read _read
-#  undef unlink
-#  define unlink _unlink
-# endif /* HAVE_IO_H */
-#endif /* _WIN32 */
-
 #include "libssh/libssh.h"
 #include "libssh/session.h"
 #include "libssh/priv.h"

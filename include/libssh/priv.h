@@ -162,6 +162,20 @@ int ssh_gettimeofday(struct timeval *__p, void *__t);
 
 #define _XCLOSESOCKET closesocket
 
+# ifdef HAVE_IO_H
+#  include <io.h>
+#  undef open
+#  define open _open
+#  undef close
+#  define close _close
+#  undef read
+#  define read _read
+#  undef write
+#  define write _write
+#  undef unlink
+#  define unlink _unlink
+# endif /* HAVE_IO_H */
+
 #else /* _WIN32 */
 
 #include <unistd.h>
