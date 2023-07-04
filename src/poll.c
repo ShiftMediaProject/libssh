@@ -698,13 +698,13 @@ int ssh_poll_ctx_dopoll(ssh_poll_ctx ctx, int timeout)
         return SSH_ERROR;
     }
 
-    /* Ignore any pollin events on locked sockets as that means we are called
+    /* Allow only POLLOUT events on locked sockets as that means we are called
      * recursively and we only want process the POLLOUT events here to flush
      * output buffer */
     for (i = 0; i < ctx->polls_used; i++) {
-        /* The lock prevents invoking POLLIN events: drop them now */
+        /* The lock allows only POLLOUT events: drop the rest */
         if (ctx->pollptrs[i]->lock_cnt > 0) {
-            ctx->pollfds[i].events &= ~POLLIN;
+            ctx->pollfds[i].events &= POLLOUT;
         }
     }
     ssh_timestamp_init(&ts);
