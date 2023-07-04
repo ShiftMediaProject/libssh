@@ -33,6 +33,8 @@ int ssh_options_set_algo(ssh_session session,
                          char **place);
 int ssh_options_apply(ssh_session session);
 
+char *ssh_options_get_algo(ssh_session session, enum ssh_kex_types_e algo);
+
 #ifdef __cplusplus
 }
 #endif

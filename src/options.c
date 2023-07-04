@@ -1291,6 +1291,46 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
 }
 
 /**
+ * @brief This function returns the current algorithms used for algorithm
+ * negotiation. It is either libssh default, option manually set or option
+ * read from configuration file.
+ *
+ * This function will return NULL on error
+ *
+ * @param session An allocated SSH session structure.
+ * @param algo One of the ssh_kex_types_e values.
+ */
+char *ssh_options_get_algo(ssh_session session,
+                           enum ssh_kex_types_e algo)
+{
+    char *value = NULL;
+
+    /* Check session and algo values are valid */
+
+    if (session == NULL) {
+        return NULL;
+    }
+
+    if (algo >= SSH_LANG_C_S) {
+        ssh_set_error_invalid(session);
+        return NULL;
+    }
+
+    /* Get the option the user has set, if there is one */
+    value = session->opts.wanted_methods[algo];
+    if (value == NULL) {
+        /* The user has not set a value, return the appropriate default */
+        if (ssh_fips_mode())
+            value = (char *)ssh_kex_get_fips_methods(algo);
+        else
+            value = (char *)ssh_kex_get_default_methods(algo);
+    }
+
+    return value;
+}
+
+
+/**
  * @brief This function can get ssh the ssh port. It must only be used on
  *        a valid ssh session. This function is useful when the session
  *        options have been automatically inferred from the environment
@@ -1356,7 +1396,44 @@ int ssh_options_get_port(ssh_session session, unsigned int* port_target) {
  *                Get the path to the known_hosts file being used.
  *
  *              - SSH_OPTIONS_CONTROL_PATH:
- *                Get the path to the control socket being used for connection multiplexing.
+ *                Get the path to the control socket being used for connection
+ *                multiplexing.
+ *
+ *              - SSH_OPTIONS_KEY_EXCHANGE:
+ *                Get the key exchange methods to be used. If the option has
+ *                not been set, returns the defaults.
+ *
+ *              - SSH_OPTIONS_HOSTKEYS:
+ *                Get the preferred server host key types. If the option has
+ *                not been set, returns the defaults.
+ *
+ *              - SSH_OPTIONS_PUBLICKEY_ACCEPTED_TYPES:
+ *                Get the preferred public key algorithms to be used for
+ *                authentication.
+ *
+ *              - SSH_OPTIONS_CIPHERS_C_S:
+ *                Get the symmetric cipher client to server. If the option has
+ *                not been set, returns the defaults.
+ *
+ *              - SSH_OPTIONS_CIPHERS_S_C:
+ *                Get the symmetric cipher server to client. If the option has
+ *                not been set, returns the defaults.
+ *
+ *              - SSH_OPTIONS_HMAC_C_S:
+ *                Get the Message Authentication Code algorithm client to server
+ *                If the option has not been set, returns the defaults.
+ *
+ *              - SSH_OPTIONS_HMAC_S_C:
+ *                Get the Message Authentication Code algorithm server to client
+ *                If the option has not been set, returns the defaults.
+ *
+ *              - SSH_OPTIONS_COMPRESSION_C_S:
+ *                Get the compression to use for client to server communication
+ *                If the option has not been set, returns the defaults.
+ *
+ *              - SSH_OPTIONS_COMPRESSION_S_C:
+ *                Get the compression to use for server to client communication
+ *                If the option has not been set, returns the defaults.
  *
  * @param  value The value to get into. As a char**, space will be
  *               allocated by the function for the value, it is
@@ -1380,14 +1457,14 @@ int ssh_options_get(ssh_session session, enum ssh_options_e type, char** value)
 
     switch(type)
     {
-        case SSH_OPTIONS_HOST: {
+        case SSH_OPTIONS_HOST:
             src = session->opts.host;
             break;
-        }
-        case SSH_OPTIONS_USER: {
+
+        case SSH_OPTIONS_USER:
             src = session->opts.username;
             break;
-        }
+
         case SSH_OPTIONS_IDENTITY: {
             struct ssh_iterator *it;
             it = ssh_list_get_iterator(session->opts.identity);
@@ -1400,22 +1477,58 @@ int ssh_options_get(ssh_session session, enum ssh_options_e type, char** value)
             src = ssh_iterator_value(char *, it);
             break;
         }
-        case SSH_OPTIONS_PROXYCOMMAND: {
+
+        case SSH_OPTIONS_PROXYCOMMAND:
             src = session->opts.ProxyCommand;
             break;
-        }
-        case SSH_OPTIONS_KNOWNHOSTS: {
+
+        case SSH_OPTIONS_KNOWNHOSTS:
             src = session->opts.knownhosts;
             break;
-        }
-        case SSH_OPTIONS_GLOBAL_KNOWNHOSTS: {
+
+        case SSH_OPTIONS_GLOBAL_KNOWNHOSTS:
             src = session->opts.global_knownhosts;
             break;
-        }
-        case SSH_OPTIONS_CONTROL_PATH: {
+        case SSH_OPTIONS_CONTROL_PATH:
             src = session->opts.control_path;
             break;
-        }
+
+        case SSH_OPTIONS_CIPHERS_C_S:
+            src = ssh_options_get_algo(session, SSH_CRYPT_C_S);
+            break;
+
+        case SSH_OPTIONS_CIPHERS_S_C:
+            src = ssh_options_get_algo(session, SSH_CRYPT_S_C);
+            break;
+
+        case SSH_OPTIONS_KEY_EXCHANGE:
+            src = ssh_options_get_algo(session, SSH_KEX);
+            break;
+
+        case SSH_OPTIONS_HOSTKEYS:
+            src = ssh_options_get_algo(session, SSH_HOSTKEYS);
+            break;
+
+        case SSH_OPTIONS_PUBLICKEY_ACCEPTED_TYPES:
+            src = session->opts.pubkey_accepted_types;
+            break;
+
+        case SSH_OPTIONS_HMAC_C_S:
+            src = ssh_options_get_algo(session, SSH_MAC_C_S);
+            break;
+
+        case SSH_OPTIONS_HMAC_S_C:
+            src = ssh_options_get_algo(session, SSH_MAC_S_C);
+            break;
+
+        case SSH_OPTIONS_COMPRESSION_C_S:
+            src = ssh_options_get_algo(session, SSH_COMP_C_S);
+            break;
+
+        case SSH_OPTIONS_COMPRESSION_S_C:
+            src = ssh_options_get_algo(session, SSH_COMP_S_C);
+            break;
+
         default:
             ssh_set_error(session, SSH_REQUEST_DENIED, "Unknown ssh option %d", type);
             return SSH_ERROR;
