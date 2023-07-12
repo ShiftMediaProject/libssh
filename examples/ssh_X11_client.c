@@ -282,6 +282,7 @@ static int insert_item(ssh_channel channel, int fd_in, int fd_out,
         /* Calloc ensure that node is full of 0 */
         node = (node_t *) calloc(1, sizeof(node_t));
         if (node == NULL) {
+            pthread_mutex_unlock(&mutex);
             return -1;
         }
         node->channel = channel;
@@ -297,6 +298,7 @@ static int insert_item(ssh_channel channel, int fd_in, int fd_out,
         /* Create the new node */
         new = (node_t *) malloc(sizeof(node_t));
         if (new == NULL) {
+            pthread_mutex_unlock(&mutex);
             return -1;
         }
         new->channel = channel;
