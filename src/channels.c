@@ -590,10 +590,9 @@ SSH_PACKET_CALLBACK(channel_rcv_data)
 
             return SSH_PACKET_USED;
         }
+        is_stderr = 1;
         data_type_code = ntohl(data_type_code);
-        if (data_type_code == SSH2_EXTENDED_DATA_STDERR) {
-            is_stderr = 1;
-        } else {
+        if (data_type_code != SSH2_EXTENDED_DATA_STDERR) {
             SSH_LOG(SSH_LOG_PACKET, "Invalid data type code %" PRIu32 "!",
                     data_type_code);
         }
