@@ -1502,7 +1502,6 @@ static int channel_write_common(ssh_channel channel,
   ssh_session session;
   uint32_t origlen = len;
   size_t effectivelen;
-  size_t maxpacketlen;
   int rc;
 
   if(channel == NULL) {
@@ -1519,12 +1518,6 @@ static int channel_write_common(ssh_channel channel,
               "Length (%" PRIu32 ") is bigger than INT_MAX", len);
       return SSH_ERROR;
   }
-
-  /*
-   * Handle the max packet len from remote side, be nice
-   * 10 bytes for the headers
-   */
-  maxpacketlen = channel->remote_maxpacket - 10;
 
   if (channel->local_eof) {
     ssh_set_error(session, SSH_REQUEST_DENIED,
@@ -1576,7 +1569,11 @@ static int channel_write_common(ssh_channel channel,
       effectivelen = len;
     }
 
-    effectivelen = MIN(effectivelen, maxpacketlen);
+    /*
+     * Like OpenSSH, don't subtract bytes for the header fields
+     * and allow to send a payload of remote_maxpacket length.
+     */
+    effectivelen = MIN(effectivelen, channel->remote_maxpacket);
 
     rc = ssh_buffer_pack(session->out_buffer,
                          "bd",
