@@ -21,6 +21,21 @@
 #ifndef MISC_H_
 #define MISC_H_
 
+#ifdef _WIN32
+
+# ifdef _MSC_VER
+#  ifndef _SSIZE_T_DEFINED
+#   undef ssize_t
+#   include <BaseTsd.h>
+    typedef _W64 SSIZE_T ssize_t;
+#   define _SSIZE_T_DEFINED
+#  endif /* _SSIZE_T_DEFINED */
+# endif /* _MSC_VER */
+
+#else
+# include <sys/types.h>
+#endif /* _WIN32 */
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -103,6 +118,9 @@ int ssh_newline_vis(const char *string, char *buf, size_t buf_len);
 int ssh_tmpname(char *name);
 
 char *ssh_strreplace(const char *src, const char *pattern, const char *repl);
+
+ssize_t ssh_readn(int fd, void *buf, size_t nbytes);
+
 #ifdef __cplusplus
 }
 #endif
