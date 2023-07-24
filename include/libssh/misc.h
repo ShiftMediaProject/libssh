@@ -120,6 +120,7 @@ int ssh_tmpname(char *name);
 char *ssh_strreplace(const char *src, const char *pattern, const char *repl);
 
 ssize_t ssh_readn(int fd, void *buf, size_t nbytes);
+ssize_t ssh_writen(int fd, const void *buf, size_t nbytes);
 
 #ifdef __cplusplus
 }
