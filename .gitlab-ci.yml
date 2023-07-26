@@ -169,19 +169,6 @@ fedora/openssl_3.0.x/x86_64/pkcs11-provider:
   variables:
     CMAKE_ADDITIONAL_OPTIONS: -DWITH_PKCS11_URI=ON -DWITH_PKCS11_PROVIDER=ON
   extends: .fedora
-  before_script:
-    - dnf -y install automake libtool autoconf-archive rpm-build gnutls-utils
-      nss-devel nss-tools opensc openssl p11-kit-devel p11-kit-server expect
-    - git clone https://github.com/latchset/pkcs11-provider.git
-    - pushd pkcs11-provider &&
-      autoreconf -fiv &&
-      ./configure &&
-      make dist &&
-      mkdir -p rpmbuild/SOURCES &&
-      cp pkcs11-provider*tar.gz rpmbuild/SOURCES &&
-      rpmbuild --define "_topdir $PWD/rpmbuild" -ba packaging/pkcs11-provider.spec &&
-      dnf install -y rpmbuild/RPMS/x86_64/*.rpm
-    - popd && mkdir -p obj && cd obj
 
 fedora/openssl_3.0.x/x86_64/minimal:
   extends: .fedora
