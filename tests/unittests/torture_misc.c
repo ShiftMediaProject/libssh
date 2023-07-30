@@ -4,6 +4,7 @@
 #include <unistd.h>
 #endif
 #include <sys/types.h>
+#include <fcntl.h>
 
 #ifndef _WIN32
 #define _POSIX_PTHREAD_SEMANTICS
@@ -760,6 +761,130 @@ static void torture_ssh_strerror(void **state)
     assert_non_null(out);
 }
 
+static void torture_ssh_readn(void **state)
+{
+    char *write_buf = NULL, *read_buf = NULL, *file_path = NULL;
+    size_t data_len = 10 * 1024 * 1024;
+    size_t read_buf_size = data_len + 1024;
+    size_t i, total_bytes_written = 0;
+
+    const char *file_template = "libssh_torture_ssh_readn_test_XXXXXX";
+
+    off_t off;
+    ssize_t bytes_read, bytes_written;
+    int fd, rc, flags;
+
+    (void)state;
+
+    write_buf = malloc(data_len);
+    assert_non_null(write_buf);
+
+    /* Fill the write buffer with random data */
+    for (i = 0; i < data_len; ++i) {
+        rc = rand();
+        write_buf[i] = (char)(rc & 0xff);
+    }
+
+    /*
+     * The read buffer's size is intentionally kept larger than data_len.
+     *
+     * This is done so that we are able to test the scenario when the user
+     * requests ssh_readn() to read more bytes than the number of bytes present
+     * in the file.
+     *
+     * If the read buffer's size is kept same as data_len and if the test
+     * requests ssh_readn() to read more than data_len bytes starting from file
+     * offset 0, it will lead to a valgrind failure as in this case, ssh_readn()
+     * will pass an unallocated memory address in the last call it makes to
+     * read().
+     */
+    read_buf = malloc(read_buf_size);
+    assert_non_null(read_buf);
+
+    file_path = torture_create_temp_file(file_template);
+    assert_non_null(file_path);
+
+    /* Open a file for reading and writing */
+    flags = O_RDWR;
+#ifdef _WIN32
+    flags |= O_BINARY;
+#endif
+
+    fd = open(file_path, flags, 0);
+    assert_int_not_equal(fd, -1);
+
+    /* Write the data present in the write buffer to the file */
+    do {
+        bytes_written = write(fd,
+                              write_buf + total_bytes_written,
+                              data_len - total_bytes_written);
+
+        if (bytes_written == -1 && errno == EINTR) {
+            continue;
+        }
+
+        assert_int_not_equal(bytes_written, -1);
+        total_bytes_written += bytes_written;
+    } while (total_bytes_written < data_len);
+
+    /* Seek to the start of the file */
+    off = lseek(fd, 0, SEEK_SET);
+    assert_int_not_equal(off, -1);
+
+    bytes_read = ssh_readn(fd, read_buf, data_len);
+    assert_int_equal(bytes_read, data_len);
+
+    /*
+     * Ensure that the data stored in the read buffer is same as the data
+     * present in the file and not some garbage.
+     */
+    assert_memory_equal(read_buf, write_buf, data_len);
+
+    /*
+     * Ensure that the file offset is on EOF and requesting to read more leads
+     * to 0 bytes getting read.
+     */
+    off = lseek(fd, 0, SEEK_CUR);
+    assert_int_equal(off, data_len);
+
+    bytes_read = ssh_readn(fd, read_buf, data_len);
+    assert_int_equal(bytes_read, 0);
+
+    /* Try to read more bytes than what are present in the file */
+    off = lseek(fd, 0, SEEK_SET);
+    assert_int_not_equal(off, -1);
+
+    bytes_read = ssh_readn(fd, read_buf, read_buf_size);
+    assert_int_equal(bytes_read, data_len);
+
+    /*
+     * Ensure that the data stored in the read buffer is same as the data
+     * present in the file and not some garbage.
+     */
+    assert_memory_equal(read_buf, write_buf, data_len);
+
+    /* Negative tests start */
+    bytes_read = ssh_readn(-2, read_buf, data_len);
+    assert_int_equal(bytes_read, -1);
+
+    bytes_read = ssh_readn(fd, NULL, data_len);
+    assert_int_equal(bytes_read, -1);
+
+    bytes_read = ssh_readn(fd, read_buf, 0);
+    assert_int_equal(bytes_read, -1);
+
+    /* Clean up */
+    rc = close(fd);
+    assert_int_equal(rc, 0);
+
+    rc = unlink(file_path);
+    assert_int_equal(rc, 0);
+
+    free(file_path);
+    free(read_buf);
+    free(write_buf);
+}
+
 int torture_run_tests(void) {
     int rc;
     struct CMUnitTest tests[] = {
@@ -784,6 +909,7 @@ int torture_run_tests(void) {
         cmocka_unit_test(torture_ssh_quote_file_name),
         cmocka_unit_test(torture_ssh_strreplace),
         cmocka_unit_test(torture_ssh_strerror),
+        cmocka_unit_test(torture_ssh_readn)
     };
 
     ssh_init();
