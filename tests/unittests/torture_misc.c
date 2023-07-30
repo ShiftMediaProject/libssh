@@ -885,6 +885,100 @@ static void torture_ssh_readn(void **state)
     free(write_buf);
 }
 
+static void torture_ssh_writen(void **state)
+{
+    char *write_buf = NULL, *read_buf = NULL, *file_path = NULL;
+    const char *file_template = "libssh_torture_ssh_writen_test_XXXXXX";
+
+    size_t data_len = 10 * 1024 * 1024;
+    size_t i, total_bytes_read = 0;
+    ssize_t bytes_written, bytes_read;
+    off_t off;
+    int rc, fd, flags;
+
+    (void)state;
+
+    write_buf = malloc(data_len);
+    assert_non_null(write_buf);
+
+    /* Fill the write buffer with random data */
+    for (i = 0; i < data_len; ++i) {
+        rc = rand();
+        write_buf[i] = (char)(rc & 0xff);
+    }
+
+    read_buf = malloc(data_len);
+    assert_non_null(read_buf);
+
+    file_path = torture_create_temp_file(file_template);
+    assert_non_null(file_path);
+
+    /* Open a file for reading and writing */
+    flags = O_RDWR;
+#ifdef _WIN32
+    flags |= O_BINARY;
+#endif
+
+    fd = open(file_path, flags, 0);
+    assert_int_not_equal(fd, -1);
+
+    /* Write the data present in the write buffer to the file */
+    bytes_written = ssh_writen(fd, write_buf, data_len);
+    assert_int_equal(bytes_written, data_len);
+
+    /*
+     * Ensure that the file offset is incremented by the number of bytes
+     * written.
+     */
+    off = lseek(fd, 0, SEEK_CUR);
+    assert_int_equal(off, data_len);
+
+    /*
+     * Ensure that the data present in the write buffer has been written to the
+     * file and not some garbage.
+     */
+    off = lseek(fd, 0, SEEK_SET);
+    assert_int_not_equal(off, -1);
+
+    do {
+        bytes_read = read(fd,
+                          read_buf + total_bytes_read,
+                          data_len - total_bytes_read);
+
+        if (bytes_read == -1 && errno == EINTR) {
+            continue;
+        }
+
+        assert_int_not_equal(bytes_read, -1);
+        assert_int_not_equal(bytes_read, 0);
+
+        total_bytes_read += bytes_read;
+    } while (total_bytes_read < data_len);
+
+    assert_memory_equal(write_buf, read_buf, data_len);
+
+    /* Negative tests start */
+    bytes_written = ssh_writen(-3, write_buf, data_len);
+    assert_int_equal(bytes_written, -1);
+
+    bytes_written = ssh_writen(fd, NULL, data_len);
+    assert_int_equal(bytes_written, -1);
+
+    bytes_written = ssh_writen(fd, write_buf, 0);
+    assert_int_equal(bytes_written, -1);
+
+    /* Clean up */
+    rc = close(fd);
+    assert_int_equal(rc, 0);
+
+    rc = unlink(file_path);
+    assert_int_equal(rc, 0);
+
+    free(file_path);
+    free(read_buf);
+    free(write_buf);
+}
+
 int torture_run_tests(void) {
     int rc;
     struct CMUnitTest tests[] = {
@@ -909,7 +1003,8 @@ int torture_run_tests(void) {
         cmocka_unit_test(torture_ssh_quote_file_name),
         cmocka_unit_test(torture_ssh_strreplace),
         cmocka_unit_test(torture_ssh_strerror),
-        cmocka_unit_test(torture_ssh_readn)
+        cmocka_unit_test(torture_ssh_readn),
+        cmocka_unit_test(torture_ssh_writen)
     };
 
     ssh_init();
