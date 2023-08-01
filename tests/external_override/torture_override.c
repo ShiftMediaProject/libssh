@@ -195,8 +195,8 @@ static void torture_override_chacha20_poly1305(void **state)
     internal_poly1305_called = internal_poly1305_function_called();
 
 #if SHOULD_CALL_INTERNAL_CHACHAPOLY
-    assert_true(internal_chacha20_called ||
-                internal_poly1305_called);
+    assert_true(internal_chacha20_called);
+    assert_true(internal_poly1305_called);
 #else
     assert_false(internal_chacha20_called ||
                  internal_poly1305_called);
