@@ -45,43 +45,50 @@
  *
  * @brief Handle a SSH_DISCONNECT packet.
  */
-SSH_PACKET_CALLBACK(ssh_packet_disconnect_callback){
-  int rc;
-  uint32_t code = 0;
-  char *error = NULL;
-  ssh_string error_s;
-  (void)user;
-  (void)type;
+SSH_PACKET_CALLBACK(ssh_packet_disconnect_callback)
+{
+    int rc;
+    uint32_t code = 0;
+    char *error = NULL;
+    ssh_string error_s = NULL;
 
-  rc = ssh_buffer_get_u32(packet, &code);
-  if (rc != 0) {
-    code = ntohl(code);
-  }
+    (void)user;
+    (void)type;
 
-  error_s = ssh_buffer_get_ssh_string(packet);
-  if (error_s != NULL) {
-    error = ssh_string_to_char(error_s);
-    SSH_STRING_FREE(error_s);
-  }
+    rc = ssh_buffer_get_u32(packet, &code);
+    if (rc != 0) {
+        code = ntohl(code);
+    }
 
-  if (error != NULL) {
-    session->peer_discon_msg = strdup(error);
-  }
+    error_s = ssh_buffer_get_ssh_string(packet);
+    if (error_s != NULL) {
+        error = ssh_string_to_char(error_s);
+        SSH_STRING_FREE(error_s);
+    }
 
-  SSH_LOG(SSH_LOG_PACKET, "Received SSH_MSG_DISCONNECT %" PRIu32 ":%s",
-                          code, error != NULL ? error : "no error");
-  ssh_set_error(session, SSH_FATAL,
-      "Received SSH_MSG_DISCONNECT: %" PRIu32 ":%s",
-      code, error != NULL ? error : "no error");
-  SAFE_FREE(error);
+    if (error != NULL) {
+        session->peer_discon_msg = strdup(error);
+    }
 
-  ssh_socket_close(session->socket);
-  session->alive = 0;
-  session->session_state = SSH_SESSION_STATE_ERROR;
-  /* correctly handle disconnect during authorization */
-  session->auth.state = SSH_AUTH_STATE_FAILED;
-  /* TODO: handle a graceful disconnect */
-  return SSH_PACKET_USED;
+    SSH_LOG(SSH_LOG_PACKET,
+            "Received SSH_MSG_DISCONNECT %" PRIu32 ":%s",
+            code,
+            error != NULL ? error : "no error");
+    ssh_set_error(session,
+                  SSH_FATAL,
+                  "Received SSH_MSG_DISCONNECT: %" PRIu32 ":%s",
+                  code,
+                  error != NULL ? error : "no error");
+    SAFE_FREE(error);
+
+    ssh_socket_close(session->socket);
+    session->alive = 0;
+    session->session_state = SSH_SESSION_STATE_ERROR;
+    /* correctly handle disconnect during authorization */
+    session->auth.state = SSH_AUTH_STATE_FAILED;
+
+    /* TODO: handle a graceful disconnect */
+    return SSH_PACKET_USED;
 }
 
 /**
@@ -89,102 +96,113 @@ SSH_PACKET_CALLBACK(ssh_packet_disconnect_callback){
  *
  * @brief Handle a SSH_IGNORE and SSH_DEBUG packet.
  */
-SSH_PACKET_CALLBACK(ssh_packet_ignore_callback){
+SSH_PACKET_CALLBACK(ssh_packet_ignore_callback)
+{
     (void)session; /* unused */
-	(void)user;
-	(void)type;
-	(void)packet;
-	SSH_LOG(SSH_LOG_DEBUG,"Received %s packet",type==SSH2_MSG_IGNORE ? "SSH_MSG_IGNORE" : "SSH_MSG_DEBUG");
-	/* TODO: handle a graceful disconnect */
-	return SSH_PACKET_USED;
+    (void)user;
+    (void)type;
+    (void)packet;
+
+    SSH_LOG(SSH_LOG_DEBUG,
+            "Received %s packet",
+            type == SSH2_MSG_IGNORE ? "SSH_MSG_IGNORE" : "SSH_MSG_DEBUG");
+
+    /* TODO: handle a graceful disconnect */
+    return SSH_PACKET_USED;
 }
 
-SSH_PACKET_CALLBACK(ssh_packet_newkeys){
-  ssh_string sig_blob = NULL;
-  ssh_signature sig = NULL;
-  int rc;
-  (void)packet;
-  (void)user;
-  (void)type;
-  SSH_LOG(SSH_LOG_DEBUG, "Received SSH_MSG_NEWKEYS");
+SSH_PACKET_CALLBACK(ssh_packet_newkeys)
+{
+    ssh_string sig_blob = NULL;
+    ssh_signature sig = NULL;
+    int rc;
 
-  if (session->session_state != SSH_SESSION_STATE_DH ||
-      session->dh_handshake_state != DH_STATE_NEWKEYS_SENT) {
-      ssh_set_error(session,
-                    SSH_FATAL,
-                    "ssh_packet_newkeys called in wrong state : %d:%d",
-                    session->session_state,session->dh_handshake_state);
-      goto error;
-  }
+    (void)packet;
+    (void)user;
+    (void)type;
 
-  if(session->server){
-    /* server things are done in server.c */
-    session->dh_handshake_state=DH_STATE_FINISHED;
-  } else {
-    ssh_key server_key;
+    SSH_LOG(SSH_LOG_DEBUG, "Received SSH_MSG_NEWKEYS");
 
-    /* client */
-
-    /* Verify the host's signature. FIXME do it sooner */
-    sig_blob = session->next_crypto->dh_server_signature;
-    session->next_crypto->dh_server_signature = NULL;
-
-    /* get the server public key */
-    server_key = ssh_dh_get_next_server_publickey(session);
-    if (server_key == NULL) {
+    if (session->session_state != SSH_SESSION_STATE_DH ||
+        session->dh_handshake_state != DH_STATE_NEWKEYS_SENT) {
+        ssh_set_error(session,
+                      SSH_FATAL,
+                      "ssh_packet_newkeys called in wrong state : %d:%d",
+                      session->session_state,
+                      session->dh_handshake_state);
         goto error;
     }
 
-    rc = ssh_pki_import_signature_blob(sig_blob, server_key, &sig);
-    ssh_string_burn(sig_blob);
-    SSH_STRING_FREE(sig_blob);
-    if (rc != SSH_OK) {
-        goto error;
-    }
+    if (session->server) {
+        /* server things are done in server.c */
+        session->dh_handshake_state=DH_STATE_FINISHED;
+    } else {
+        ssh_key server_key = NULL;
 
-    /* Check if signature from server matches user preferences */
-    if (session->opts.wanted_methods[SSH_HOSTKEYS]) {
-        if (!ssh_match_group(session->opts.wanted_methods[SSH_HOSTKEYS],
-                             sig->type_c)) {
+        /* client */
+
+        /* Verify the host's signature. FIXME do it sooner */
+        sig_blob = session->next_crypto->dh_server_signature;
+        session->next_crypto->dh_server_signature = NULL;
+
+        /* get the server public key */
+        server_key = ssh_dh_get_next_server_publickey(session);
+        if (server_key == NULL) {
+            goto error;
+        }
+
+        rc = ssh_pki_import_signature_blob(sig_blob, server_key, &sig);
+        ssh_string_burn(sig_blob);
+        SSH_STRING_FREE(sig_blob);
+        if (rc != SSH_OK) {
+            goto error;
+        }
+
+        /* Check if signature from server matches user preferences */
+        if (session->opts.wanted_methods[SSH_HOSTKEYS]) {
+            rc = ssh_match_group(session->opts.wanted_methods[SSH_HOSTKEYS],
+                                 sig->type_c);
+            if (rc == 0) {
+                ssh_set_error(session,
+                              SSH_FATAL,
+                              "Public key from server (%s) doesn't match user "
+                              "preference (%s)",
+                              sig->type_c,
+                              session->opts.wanted_methods[SSH_HOSTKEYS]);
+                goto error;
+            }
+        }
+
+        rc = ssh_pki_signature_verify(session,
+                                      sig,
+                                      server_key,
+                                      session->next_crypto->secret_hash,
+                                      session->next_crypto->digest_len);
+        SSH_SIGNATURE_FREE(sig);
+        if (rc == SSH_ERROR) {
             ssh_set_error(session,
                           SSH_FATAL,
-                          "Public key from server (%s) doesn't match user "
-                          "preference (%s)",
-                          sig->type_c,
-                          session->opts.wanted_methods[SSH_HOSTKEYS]);
+                          "Failed to verify server hostkey signature");
+            goto error;
+        }
+        SSH_LOG(SSH_LOG_DEBUG, "Signature verified and valid");
+
+        /* When receiving this packet, we switch on the incoming crypto. */
+        rc = ssh_packet_set_newkeys(session, SSH_DIRECTION_IN);
+        if (rc != SSH_OK) {
             goto error;
         }
     }
+    session->dh_handshake_state = DH_STATE_FINISHED;
+    session->ssh_connection_callback(session);
+    return SSH_PACKET_USED;
 
-    rc = ssh_pki_signature_verify(session,
-                                  sig,
-                                  server_key,
-                                  session->next_crypto->secret_hash,
-                                  session->next_crypto->digest_len);
-    SSH_SIGNATURE_FREE(sig);
-    if (rc == SSH_ERROR) {
-      ssh_set_error(session,
-                    SSH_FATAL,
-                    "Failed to verify server hostkey signature");
-      goto error;
-    }
-    SSH_LOG(SSH_LOG_DEBUG,"Signature verified and valid");
-
-    /* When receiving this packet, we switch on the incoming crypto. */
-    rc = ssh_packet_set_newkeys(session, SSH_DIRECTION_IN);
-    if (rc != SSH_OK) {
-        goto error;
-    }
-  }
-  session->dh_handshake_state = DH_STATE_FINISHED;
-  session->ssh_connection_callback(session);
-  return SSH_PACKET_USED;
 error:
-  SSH_SIGNATURE_FREE(sig);
-  ssh_string_burn(sig_blob);
-  SSH_STRING_FREE(sig_blob);
-  session->session_state = SSH_SESSION_STATE_ERROR;
-  return SSH_PACKET_USED;
+    SSH_SIGNATURE_FREE(sig);
+    ssh_string_burn(sig_blob);
+    SSH_STRING_FREE(sig_blob);
+    session->session_state = SSH_SESSION_STATE_ERROR;
+    return SSH_PACKET_USED;
 }
 
 /**
@@ -192,16 +210,16 @@ error:
  * @brief handles a SSH_SERVICE_ACCEPT packet
  *
  */
-SSH_PACKET_CALLBACK(ssh_packet_service_accept){
-	(void)packet;
-	(void)type;
-	(void)user;
+SSH_PACKET_CALLBACK(ssh_packet_service_accept)
+{
+    (void)packet;
+    (void)type;
+    (void)user;
 
     session->auth.service_state = SSH_AUTH_SERVICE_ACCEPTED;
-	SSH_LOG(SSH_LOG_PACKET,
-	      "Received SSH_MSG_SERVICE_ACCEPT");
+    SSH_LOG(SSH_LOG_PACKET, "Received SSH_MSG_SERVICE_ACCEPT");
 
-	return SSH_PACKET_USED;
+    return SSH_PACKET_USED;
 }
 
 /**
@@ -214,6 +232,7 @@ SSH_PACKET_CALLBACK(ssh_packet_ext_info)
     int rc;
     uint32_t nr_extensions = 0;
     uint32_t i;
+
     (void)type;
     (void)user;
 
