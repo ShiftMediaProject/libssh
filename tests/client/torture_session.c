@@ -442,6 +442,40 @@ static void torture_freed_channel_get_exit_status(void **state)
     }
 }
 
+static void
+torture_channel_read_stderr(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    ssh_channel channel;
+    int rc;
+
+    channel = ssh_channel_new(session);
+    assert_non_null(channel);
+
+    rc = ssh_channel_open_session(channel);
+    assert_ssh_return_code(session, rc);
+
+    /* This writes to standard error "pipe" */
+    rc = ssh_channel_request_exec(channel, "echo -n ABCD >&2");
+    assert_ssh_return_code(session, rc);
+
+    /* No data in stdout */
+    rc = ssh_channel_read(channel, buffer, sizeof(buffer), 0);
+    assert_int_equal(rc, 0);
+
+    /* poll should say how much we can read */
+    rc = ssh_channel_poll(channel, 1);
+    assert_int_equal(rc, strlen("ABCD"));
+
+    /* Everything in stderr */
+    rc = ssh_channel_read(channel, buffer, sizeof(buffer), 1);
+    assert_int_equal(rc, strlen("ABCD"));
+    assert_string_equal("ABCD", buffer);
+
+    ssh_channel_free(channel);
+}
+
 int torture_run_tests(void) {
     int rc;
     struct CMUnitTest tests[] = {
@@ -473,6 +507,9 @@ int torture_run_tests(void) {
                                         session_setup,
                                         session_teardown),
         cmocka_unit_test_setup_teardown(torture_freed_channel_get_exit_status,
+                                        session_setup,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_channel_read_stderr,
                                         session_setup,
                                         session_teardown),
     };
