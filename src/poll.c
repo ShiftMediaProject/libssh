@@ -722,14 +722,21 @@ int ssh_poll_ctx_dopoll(ssh_poll_ctx ctx, int timeout)
 
     used = ctx->polls_used;
     for (i = 0; i < used && rc > 0; ) {
-        if (ctx->pollfds[i].revents == 0) {
+        revents = ctx->pollfds[i].revents;
+        /* Do not pass any other events except for POLLOUT to callback when
+         * called recursively more than 2 times. On s390x the poll will be
+         * spammed with POLLHUP events causing infinite recursion when the user
+         * callback issues some write/flush/poll calls. */
+        if (ctx->pollptrs[i]->lock_cnt > 2) {
+            revents &= POLLOUT;
+        }
+        if (revents == 0) {
             i++;
         } else {
             int ret;
 
             p = ctx->pollptrs[i];
             fd = ctx->pollfds[i].fd;
-            revents = ctx->pollfds[i].revents;
             /* avoid having any event caught during callback */
             ctx->pollfds[i].events = 0;
             p->lock_cnt++;
