@@ -142,7 +142,7 @@ fedora/ninja:
   extends: .fedora
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
   script:
-    - cmake -G Ninja $CMAKE_OPTIONS ../ && ninja && ninja test
+    - cmake -G Ninja $CMAKE_OPTIONS ../ && ninja && CTEST_OUTPUT_ON_FAILURE=1 ninja test
 
 fedora/coverage:
   extends: .fedora
