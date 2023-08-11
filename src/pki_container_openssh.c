@@ -395,37 +395,6 @@ ssh_key ssh_pki_openssh_pubkey_import(const char *text_key)
 
 
 /** @internal
- * @brief exports a private key to a string blob.
- * @param[in] privkey private key to convert
- * @param[out] buffer buffer to write the blob in.
- * @returns SSH_OK on success
- * @warning only supports ed25519 key type at the moment.
- */
-static int pki_openssh_export_privkey_blob(const ssh_key privkey,
-                                           ssh_buffer buffer)
-{
-    int rc;
-
-    if (privkey->type != SSH_KEYTYPE_ED25519) {
-        SSH_LOG(SSH_LOG_TRACE, "Type %s not supported", privkey->type_c);
-        return SSH_ERROR;
-    }
-    if (privkey->ed25519_privkey == NULL ||
-        privkey->ed25519_pubkey == NULL) {
-        return SSH_ERROR;
-    }
-    rc = ssh_buffer_pack(buffer,
-                         "sdPdPP",
-                         privkey->type_c,
-                         (uint32_t)ED25519_KEY_LEN,
-                         (size_t)ED25519_KEY_LEN, privkey->ed25519_pubkey,
-                         (uint32_t)(2 * ED25519_KEY_LEN),
-                         (size_t)ED25519_KEY_LEN, privkey->ed25519_privkey,
-                         (size_t)ED25519_KEY_LEN, privkey->ed25519_pubkey);
-    return rc;
-}
-
-/** @internal
  * @brief encrypts an ed25519 private key blob
  *
  */
@@ -536,8 +505,8 @@ ssh_string ssh_pki_openssh_privkey_export(const ssh_key privkey,
                                           ssh_auth_callback auth_fn,
                                           void *auth_data)
 {
-    ssh_buffer buffer;
-    ssh_string str = NULL;
+    ssh_buffer buffer = NULL;
+    ssh_string str = NULL, blob = NULL;
     ssh_string pubkey_s=NULL;
     ssh_buffer privkey_buffer = NULL;
     uint32_t rnd;
@@ -554,17 +523,13 @@ ssh_string ssh_pki_openssh_privkey_export(const ssh_key privkey,
     if (privkey == NULL) {
         return NULL;
     }
-    if (privkey->type != SSH_KEYTYPE_ED25519){
-        SSH_LOG(SSH_LOG_TRACE, "Unsupported key type %s", privkey->type_c);
-        return NULL;
-    }
     if (passphrase != NULL || auth_fn != NULL){
         SSH_LOG(SSH_LOG_DEBUG, "Enabling encryption for private key export");
         to_encrypt = 1;
     }
     buffer = ssh_buffer_new();
-    pubkey_s = pki_publickey_to_blob(privkey);
-    if(buffer == NULL || pubkey_s == NULL){
+    rc = ssh_pki_export_pubkey_blob(privkey, &pubkey_s);
+    if (buffer == NULL || rc != SSH_OK) {
         goto error;
     }
 
@@ -578,22 +543,17 @@ ssh_string ssh_pki_openssh_privkey_export(const ssh_key privkey,
         goto error;
     }
 
-    /* checkint1 & 2 */
+    rc = ssh_pki_export_privkey_blob(privkey, &blob);
+    if (rc != SSH_OK) {
+        goto error;
+    }
+
     rc = ssh_buffer_pack(privkey_buffer,
-                         "dd",
+                         "ddPs",
+                         rnd, /* checkint 1 & 2 */
                          rnd,
-                         rnd);
-    if (rc == SSH_ERROR){
-        goto error;
-    }
-
-    rc = pki_openssh_export_privkey_blob(privkey, privkey_buffer);
-    if (rc == SSH_ERROR){
-        goto error;
-    }
-
-    /* comment */
-    rc = ssh_buffer_pack(privkey_buffer, "s", "" /* comment */);
+                         ssh_string_len(blob), ssh_string_data(blob),
+                         "" /* comment */);
     if (rc == SSH_ERROR){
         goto error;
     }
@@ -710,6 +670,8 @@ ssh_string ssh_pki_openssh_privkey_export(const ssh_key privkey,
     }
 
 error:
+    ssh_string_burn(blob);
+    ssh_string_free(blob);
     if (privkey_buffer != NULL) {
         void *bufptr = ssh_buffer_get(privkey_buffer);
         explicit_bzero(bufptr, ssh_buffer_get_len(privkey_buffer));

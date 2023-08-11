@@ -206,6 +206,34 @@ int pki_ed25519_public_key_to_blob(ssh_buffer buffer, ssh_key key)
     return rc;
 }
 
+/** @internal
+ * @brief exports a ed25519 private key to a string blob.
+ * @param[in] privkey private key to convert
+ * @param[out] buffer buffer to write the blob in.
+ * @returns SSH_OK on success
+ */
+int pki_ed25519_private_key_to_blob(ssh_buffer buffer, const ssh_key privkey)
+{
+    int rc;
+
+    if (privkey->type != SSH_KEYTYPE_ED25519) {
+        SSH_LOG(SSH_LOG_TRACE, "Type %s not supported", privkey->type_c);
+        return SSH_ERROR;
+    }
+    if (privkey->ed25519_privkey == NULL ||
+        privkey->ed25519_pubkey == NULL) {
+        return SSH_ERROR;
+    }
+    rc = ssh_buffer_pack(buffer,
+                         "dPdPP",
+                         (uint32_t)ED25519_KEY_LEN,
+                         (size_t)ED25519_KEY_LEN, privkey->ed25519_pubkey,
+                         (uint32_t)(2 * ED25519_KEY_LEN),
+                         (size_t)ED25519_KEY_LEN, privkey->ed25519_privkey,
+                         (size_t)ED25519_KEY_LEN, privkey->ed25519_pubkey);
+    return rc;
+}
+
 /**
  * @internal
  *

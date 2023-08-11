@@ -469,5 +469,7 @@ LIBSSH_AFTER_4_9_0
         sftp_aio_free;
         sftp_aio_wait_read;
         sftp_aio_wait_write;
+        ssh_pki_export_privkey_base64_format;
+        ssh_pki_export_privkey_file_format;
 } LIBSSH_4_9_0;
 

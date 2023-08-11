@@ -686,6 +686,12 @@ typedef int (*ssh_auth_callback) (const char *prompt, char *buf, size_t len,
 
 /** @} */
 
+enum ssh_file_format_e {
+    SSH_FILE_FORMAT_DEFAULT = 0,
+    SSH_FILE_FORMAT_OPENSSH,
+    SSH_FILE_FORMAT_PEM,
+};
+
 LIBSSH_API ssh_key ssh_key_new(void);
 #define SSH_KEY_FREE(x) \
     do { if ((x) != NULL) { ssh_key_free(x); x = NULL; } } while(0)
@@ -712,6 +718,13 @@ LIBSSH_API int ssh_pki_export_privkey_base64(const ssh_key privkey,
                                              ssh_auth_callback auth_fn,
                                              void *auth_data,
                                              char **b64_key);
+LIBSSH_API int
+ssh_pki_export_privkey_base64_format(const ssh_key privkey,
+                                     const char *passphrase,
+                                     ssh_auth_callback auth_fn,
+                                     void *auth_data,
+                                     char **b64_key,
+                                     enum ssh_file_format_e format);
 LIBSSH_API int ssh_pki_import_privkey_file(const char *filename,
                                            const char *passphrase,
                                            ssh_auth_callback auth_fn,
@@ -722,6 +735,13 @@ LIBSSH_API int ssh_pki_export_privkey_file(const ssh_key privkey,
                                            ssh_auth_callback auth_fn,
                                            void *auth_data,
                                            const char *filename);
+LIBSSH_API int
+ssh_pki_export_privkey_file_format(const ssh_key privkey,
+                                   const char *passphrase,
+                                   ssh_auth_callback auth_fn,
+                                   void *auth_data,
+                                   const char *filename,
+                                   enum ssh_file_format_e format);
 
 LIBSSH_API int ssh_pki_copy_cert_to_privkey(const ssh_key cert_key,
                                             ssh_key privkey);

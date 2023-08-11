@@ -1366,16 +1366,18 @@ int pki_key_compare(const ssh_key k1,
     return 0;
 }
 
-ssh_string pki_publickey_to_blob(const ssh_key key)
+ssh_string pki_key_to_blob(const ssh_key key, enum ssh_key_e type)
 {
     ssh_buffer buffer;
     ssh_string type_s;
     ssh_string str = NULL;
     ssh_string e = NULL;
     ssh_string n = NULL;
+    ssh_string d = NULL;
     ssh_string p = NULL;
     ssh_string g = NULL;
     ssh_string q = NULL;
+    ssh_string u = NULL;
     int rc;
 
     buffer = ssh_buffer_new();
@@ -1423,30 +1425,108 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
                 goto fail;
             }
 
-            rc = ssh_buffer_add_ssh_string(buffer, e);
-            if (rc < 0) {
-                goto fail;
-            }
-            rc = ssh_buffer_add_ssh_string(buffer, n);
-            if (rc < 0) {
-                goto fail;
-            }
+            if (type == SSH_KEY_PUBLIC) {
+                /* The N and E parts are swapped in the public key export ! */
+                rc = ssh_buffer_add_ssh_string(buffer, e);
+                if (rc < 0) {
+                    goto fail;
+                }
+                rc = ssh_buffer_add_ssh_string(buffer, n);
+                if (rc < 0) {
+                    goto fail;
+                }
+            } else if (type == SSH_KEY_PRIVATE) {
+                rc = ssh_buffer_add_ssh_string(buffer, n);
+                if (rc < 0) {
+                    goto fail;
+                }
+                rc = ssh_buffer_add_ssh_string(buffer, e);
+                if (rc < 0) {
+                    goto fail;
+                }
 
+                d = ssh_sexp_extract_mpi(key->rsa,
+                                        "d",
+                                        GCRYMPI_FMT_USG,
+                                        GCRYMPI_FMT_STD);
+                if (d == NULL) {
+                    goto fail;
+                }
+
+                p = ssh_sexp_extract_mpi(key->rsa,
+                                        "p",
+                                        GCRYMPI_FMT_USG,
+                                        GCRYMPI_FMT_STD);
+                if (p == NULL) {
+                    goto fail;
+                }
+
+                q = ssh_sexp_extract_mpi(key->rsa,
+                                        "q",
+                                        GCRYMPI_FMT_USG,
+                                        GCRYMPI_FMT_STD);
+                if (q == NULL) {
+                    goto fail;
+                }
+
+                u = ssh_sexp_extract_mpi(key->rsa,
+                                         "u",
+                                         GCRYMPI_FMT_USG,
+                                         GCRYMPI_FMT_STD);
+                if (u == NULL) {
+                    goto fail;
+                }
+
+                rc = ssh_buffer_add_ssh_string(buffer, d);
+                if (rc < 0) {
+                    goto fail;
+                }
+                rc = ssh_buffer_add_ssh_string(buffer, u);
+                if (rc < 0) {
+                    goto fail;
+                }
+                /* Swap the P and Q as the iqmp in gcrypt is ipmq ... */
+                rc = ssh_buffer_add_ssh_string(buffer, q);
+                if (rc < 0) {
+                    goto fail;
+                }
+                rc = ssh_buffer_add_ssh_string(buffer, p);
+                if (rc < 0) {
+                    goto fail;
+                }
+                ssh_string_burn(d);
+                SSH_STRING_FREE(d);
+                ssh_string_burn(p);
+                SSH_STRING_FREE(p);
+                ssh_string_burn(q);
+                SSH_STRING_FREE(q);
+                ssh_string_burn(u);
+                SSH_STRING_FREE(u);
+            }
             ssh_string_burn(e);
             SSH_STRING_FREE(e);
             ssh_string_burn(n);
             SSH_STRING_FREE(n);
-
             break;
         case SSH_KEYTYPE_ED25519:
         case SSH_KEYTYPE_SK_ED25519:
-            rc = pki_ed25519_public_key_to_blob(buffer, key);
-            if (rc != SSH_OK){
-                goto fail;
-            }
-            if (key->type == SSH_KEYTYPE_SK_ED25519 &&
-                ssh_buffer_add_ssh_string(buffer, key->sk_application) < 0) {
-                goto fail;
+            if (type == SSH_KEY_PUBLIC) {
+                rc = pki_ed25519_public_key_to_blob(buffer, key);
+                if (rc == SSH_ERROR) {
+                    goto fail;
+                }
+                /* public key can contain certificate sk information */
+                if (key->type == SSH_KEYTYPE_SK_ED25519) {
+                    rc = ssh_buffer_add_ssh_string(buffer, key->sk_application);
+                    if (rc < 0) {
+                        goto fail;
+                    }
+                }
+            } else {
+                rc = pki_ed25519_private_key_to_blob(buffer, key);
+                if (rc == SSH_ERROR) {
+                    goto fail;
+                }
             }
             break;
         case SSH_KEYTYPE_ECDSA_P256:
@@ -1457,22 +1537,19 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
             type_s = ssh_string_from_char(
                        pki_key_ecdsa_nid_to_char(key->ecdsa_nid));
             if (type_s == NULL) {
-                SSH_BUFFER_FREE(buffer);
-                return NULL;
+                goto fail;
             }
 
             rc = ssh_buffer_add_ssh_string(buffer, type_s);
             SSH_STRING_FREE(type_s);
             if (rc < 0) {
-                SSH_BUFFER_FREE(buffer);
-                return NULL;
+                goto fail;
             }
 
             e = ssh_sexp_extract_mpi(key->ecdsa, "q", GCRYMPI_FMT_STD,
                                      GCRYMPI_FMT_STD);
             if (e == NULL) {
-                SSH_BUFFER_FREE(buffer);
-                return NULL;
+                goto fail;
             }
 
             rc = ssh_buffer_add_ssh_string(buffer, e);
@@ -1484,9 +1561,27 @@ ssh_string pki_publickey_to_blob(const ssh_key key)
             SSH_STRING_FREE(e);
             e = NULL;
 
-            if (key->type == SSH_KEYTYPE_SK_ECDSA &&
-                ssh_buffer_add_ssh_string(buffer, key->sk_application) < 0) {
-                goto fail;
+            if (type == SSH_KEY_PRIVATE) {
+                d = ssh_sexp_extract_mpi(key->ecdsa, "d", GCRYMPI_FMT_STD,
+                                         GCRYMPI_FMT_STD);
+                if (d == NULL) {
+                    goto fail;
+                }
+
+                rc = ssh_buffer_add_ssh_string(buffer, d);
+                if (rc < 0) {
+                    goto fail;
+                }
+
+                ssh_string_burn(d);
+                SSH_STRING_FREE(d);
+                d = NULL;
+            } else if (key->type == SSH_KEYTYPE_SK_ECDSA) {
+                /* public key can contain certificate sk information */
+                rc = ssh_buffer_add_ssh_string(buffer, key->sk_application);
+                if (rc < 0) {
+                    goto fail;
+                }
             }
 
             break;

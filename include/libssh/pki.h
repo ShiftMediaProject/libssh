@@ -153,6 +153,10 @@ int ssh_pki_import_pubkey_blob(const ssh_string key_blob,
 int ssh_pki_import_cert_blob(const ssh_string cert_blob,
                              ssh_key *pkey);
 
+/* SSH Private Key Functions */
+int ssh_pki_export_privkey_blob(const ssh_key key,
+                                ssh_string *pblob);
+
 
 /* SSH Signing Functions */
 ssh_string ssh_pki_do_sign(ssh_session session, ssh_buffer sigbuf,

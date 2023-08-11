@@ -836,6 +836,88 @@ int ssh_pki_import_privkey_base64(const char *b64_key,
 
     return SSH_OK;
 }
+
+
+ /**
+ * @brief Convert a private key to a base64 encoded key in given format
+ *
+ * @param[in]  privkey  The private key to export.
+ *
+ * @param[in]  passphrase The passphrase to use to encrypt the key with or
+ *             NULL. An empty string means no passphrase.
+ *
+ * @param[in]  auth_fn  An auth function you may want to use or NULL.
+ *
+ * @param[in]  auth_data Private data passed to the auth function.
+ *
+ * @param[out] b64_key  A pointer to store the allocated base64 encoded key. You
+ *                      need to free the buffer using ssh_string_from_char().
+ *
+ * @param[in]  format   The file format (OpenSSH, PEM, or default)
+ *
+ * @return     SSH_OK on success, SSH_ERROR on error.
+ *
+ * @see ssh_string_free_char()
+ */
+int
+ssh_pki_export_privkey_base64_format(const ssh_key privkey,
+                                     const char *passphrase,
+                                     ssh_auth_callback auth_fn,
+                                     void *auth_data,
+                                     char **b64_key,
+                                     enum ssh_file_format_e format)
+{
+    ssh_string blob = NULL;
+    char *b64 = NULL;
+
+    if (privkey == NULL || !ssh_key_is_private(privkey)) {
+        return SSH_ERROR;
+    }
+
+    /* The PEM export is supported only with OpenSSL. We fall back to
+     * OpenSSH key format elsewhere */
+    if (format == SSH_FILE_FORMAT_DEFAULT) {
+#ifdef HAVE_LIBCRYPTO
+        if (privkey->type != SSH_KEYTYPE_ED25519) {
+            format = SSH_FILE_FORMAT_PEM;
+        } else {
+#else
+        if (1) {
+#endif /* HAVE_LIBCRYPTO */
+            format = SSH_FILE_FORMAT_OPENSSH;
+        }
+    }
+
+    switch (format) {
+    case SSH_FILE_FORMAT_DEFAULT:
+    case SSH_FILE_FORMAT_PEM:
+        blob = pki_private_key_to_pem(privkey,
+                                      passphrase,
+                                      auth_fn,
+                                      auth_data);
+        break;
+    case SSH_FILE_FORMAT_OPENSSH:
+        blob = ssh_pki_openssh_privkey_export(privkey,
+                                              passphrase,
+                                              auth_fn,
+                                              auth_data);
+        break;
+    }
+    if (blob == NULL) {
+        return SSH_ERROR;
+    }
+
+    b64 = strndup(ssh_string_data(blob), ssh_string_len(blob));
+    SSH_STRING_FREE(blob);
+    if (b64 == NULL) {
+        return SSH_ERROR;
+    }
+
+    *b64_key = b64;
+
+    return SSH_OK;
+}
+
  /**
  * @brief Convert a private key to a pem base64 encoded key, or OpenSSH format for
  *        keytype ssh-ed25519
@@ -862,38 +944,15 @@ int ssh_pki_export_privkey_base64(const ssh_key privkey,
                                   void *auth_data,
                                   char **b64_key)
 {
-    ssh_string blob = NULL;
-    char *b64 = NULL;
-
-    if (privkey == NULL || !ssh_key_is_private(privkey)) {
-        return SSH_ERROR;
-    }
-
-    if (privkey->type == SSH_KEYTYPE_ED25519){
-        blob = ssh_pki_openssh_privkey_export(privkey,
-                                              passphrase,
-                                              auth_fn,
-                                              auth_data);
-    } else {
-        blob = pki_private_key_to_pem(privkey,
-                                      passphrase,
-                                      auth_fn,
-                                      auth_data);
-    }
-    if (blob == NULL) {
-        return SSH_ERROR;
-    }
-
-    b64 = strndup(ssh_string_data(blob), ssh_string_len(blob));
-    SSH_STRING_FREE(blob);
-    if (b64 == NULL) {
-        return SSH_ERROR;
-    }
-
-    *b64_key = b64;
-
-    return SSH_OK;
+    return ssh_pki_export_privkey_base64_format(privkey,
+                                                passphrase,
+                                                auth_fn,
+                                                auth_data,
+                                                b64_key,
+                                                SSH_FILE_FORMAT_DEFAULT);
 }
+
+
 
 /**
  * @brief Import a private key from a file or a PKCS #11 device.
@@ -1002,8 +1061,7 @@ int ssh_pki_import_privkey_file(const char *filename,
 }
 
 /**
- * @brief Export a private key to a pem file on disk, or OpenSSH format for
- *        keytype ssh-ed25519
+ * @brief Export a private key to a file in format specified in the argument
  *
  * @param[in]  privkey  The private key to export.
  *
@@ -1016,16 +1074,21 @@ int ssh_pki_import_privkey_file(const char *filename,
  *
  * @param[in]  filename  The path where to store the pem file.
  *
+ * @param[in]  format    The file format (OpenSSH, PEM, or default)
+ *
  * @return     SSH_OK on success, SSH_ERROR on error.
  */
-int ssh_pki_export_privkey_file(const ssh_key privkey,
-                                const char *passphrase,
-                                ssh_auth_callback auth_fn,
-                                void *auth_data,
-                                const char *filename)
+
+int
+ssh_pki_export_privkey_file_format(const ssh_key privkey,
+                                   const char *passphrase,
+                                   ssh_auth_callback auth_fn,
+                                   void *auth_data,
+                                   const char *filename,
+                                   enum ssh_file_format_e format)
 {
-    ssh_string blob;
-    FILE *fp;
+    ssh_string blob = NULL;
+    FILE *fp = NULL;
     int rc;
 
     if (privkey == NULL || !ssh_key_is_private(privkey)) {
@@ -1040,16 +1103,34 @@ int ssh_pki_export_privkey_file(const ssh_key privkey,
         return SSH_EOF;
     }
 
-    if (privkey->type == SSH_KEYTYPE_ED25519){
-        blob = ssh_pki_openssh_privkey_export(privkey,
-                                              passphrase,
-                                              auth_fn,
-                                              auth_data);
-    } else {
+    /* The PEM export is supported only with OpenSSL. We fall back to
+     * OpenSSH key format elsewhere */
+    if (format == SSH_FILE_FORMAT_DEFAULT) {
+#ifdef HAVE_LIBCRYPTO
+        if (privkey->type != SSH_KEYTYPE_ED25519) {
+            format = SSH_FILE_FORMAT_PEM;
+        } else {
+#else
+        if (1) {
+#endif /* HAVE_LIBCRYPTO */
+            format = SSH_FILE_FORMAT_OPENSSH;
+        }
+    }
+
+    switch (format) {
+    case SSH_FILE_FORMAT_DEFAULT:
+    case SSH_FILE_FORMAT_PEM:
         blob = pki_private_key_to_pem(privkey,
                                       passphrase,
                                       auth_fn,
                                       auth_data);
+        break;
+    case SSH_FILE_FORMAT_OPENSSH:
+        blob = ssh_pki_openssh_privkey_export(privkey,
+                                              passphrase,
+                                              auth_fn,
+                                              auth_data);
+        break;
     }
     if (blob == NULL) {
         fclose(fp);
@@ -1066,6 +1147,38 @@ int ssh_pki_export_privkey_file(const ssh_key privkey,
     fclose(fp);
 
     return SSH_OK;
+}
+
+/**
+ * @brief Export a private key to a pem file on disk, or OpenSSH format for
+ *        keytype ssh-ed25519
+ *
+ * @param[in]  privkey  The private key to export.
+ *
+ * @param[in]  passphrase The passphrase to use to encrypt the key with or
+ *             NULL. An empty string means no passphrase.
+ *
+ * @param[in]  auth_fn  An auth function you may want to use or NULL.
+ *
+ * @param[in]  auth_data Private data passed to the auth function.
+ *
+ * @param[in]  filename  The path where to store the pem file.
+ *
+ * @return     SSH_OK on success, SSH_ERROR on error.
+ */
+int
+ssh_pki_export_privkey_file(const ssh_key privkey,
+                            const char *passphrase,
+                            ssh_auth_callback auth_fn,
+                            void *auth_data,
+                            const char *filename)
+{
+    return ssh_pki_export_privkey_file_format(privkey,
+                                              passphrase,
+                                              auth_fn,
+                                              auth_data,
+                                              filename,
+                                              SSH_FILE_FORMAT_DEFAULT);
 }
 
 /* temporary function to migrate seamlessly to ssh_key */
@@ -2035,7 +2148,42 @@ int ssh_pki_export_pubkey_blob(const ssh_key key,
         return SSH_OK;
     }
 
-    blob = pki_publickey_to_blob(key);
+    blob = pki_key_to_blob(key, SSH_KEY_PUBLIC);
+    if (blob == NULL) {
+        return SSH_ERROR;
+    }
+
+    *pblob = blob;
+    return SSH_OK;
+}
+
+/**
+ * @internal
+ *
+ * @brief Create a key_blob from a private key.
+ *
+ * The "key_blob" is encoded as per draft-miller-ssh-agent-08 section 4.2
+ * "Adding keys to the agent" for any of the supported key types.
+ *
+ * @param[in]  key      A private key to create the private ssh_string from.
+ *
+ * @param[out] pblob    A pointer to store the newly allocated key blob. You
+ *                      need to free it using ssh_string_free().
+ *
+ * @return              SSH_OK on success, SSH_ERROR otherwise.
+ *
+ * @see ssh_string_free()
+ */
+int ssh_pki_export_privkey_blob(const ssh_key key,
+                                ssh_string *pblob)
+{
+    ssh_string blob;
+
+    if (key == NULL) {
+        return SSH_OK;
+    }
+
+    blob = pki_key_to_blob(key, SSH_KEY_PRIVATE);
     if (blob == NULL) {
         return SSH_ERROR;
     }
@@ -2066,7 +2214,7 @@ int ssh_pki_export_pubkey_base64(const ssh_key key,
         return SSH_ERROR;
     }
 
-    key_blob = pki_publickey_to_blob(key);
+    key_blob = pki_key_to_blob(key, SSH_KEY_PUBLIC);
     if (key_blob == NULL) {
         return SSH_ERROR;
     }
