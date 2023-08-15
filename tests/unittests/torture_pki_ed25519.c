@@ -247,10 +247,10 @@ static void torture_pki_ed25519_import_export_privkey_base64(void **state)
     assert_non_null(key);
 
     type = ssh_key_type(key);
-    assert_true(type == SSH_KEYTYPE_ED25519);
+    assert_int_equal(type, SSH_KEYTYPE_ED25519);
 
     rc = ssh_key_is_private(key);
-    assert_true(rc == 1);
+    assert_int_equal(rc, 1);
 
     rc = ssh_pki_export_privkey_base64(key,
                                        passphrase,
@@ -270,10 +270,10 @@ static void torture_pki_ed25519_import_export_privkey_base64(void **state)
     assert_non_null(key);
 
     type = ssh_key_type(key);
-    assert_true(type == SSH_KEYTYPE_ED25519);
+    assert_int_equal(type, SSH_KEYTYPE_ED25519);
 
     rc = ssh_key_is_private(key);
-    assert_true(rc == 1);
+    assert_int_equal(rc, 1);
 
     SSH_STRING_FREE_CHAR(b64_key);
     SSH_KEY_FREE(key);
@@ -521,7 +521,7 @@ static void torture_pki_ed25519_write_privkey(void **state)
             NULL,
             NULL,
             &origkey);
-    assert_true(rc == 0);
+    assert_int_equal(rc, 0);
     assert_non_null(origkey);
 
     unlink(LIBSSH_ED25519_TESTKEY);
@@ -531,18 +531,18 @@ static void torture_pki_ed25519_write_privkey(void **state)
             NULL,
             NULL,
             LIBSSH_ED25519_TESTKEY);
-    assert_true(rc == 0);
+    assert_int_equal(rc, 0);
 
     rc = ssh_pki_import_privkey_file(LIBSSH_ED25519_TESTKEY,
             NULL,
             NULL,
             NULL,
             &privkey);
-    assert_true(rc == 0);
+    assert_int_equal(rc, 0);
     assert_non_null(privkey);
 
     rc = ssh_key_cmp(origkey, privkey, SSH_KEY_CMP_PRIVATE);
-    assert_true(rc == 0);
+    assert_int_equal(rc, 0);
 
     unlink(LIBSSH_ED25519_TESTKEY);
     SSH_KEY_FREE(privkey);
@@ -552,7 +552,7 @@ static void torture_pki_ed25519_write_privkey(void **state)
             NULL,
             NULL,
             LIBSSH_ED25519_TESTKEY);
-    assert_true(rc == 0);
+    assert_int_equal(rc, 0);
 
     rc = ssh_pki_import_privkey_file(LIBSSH_ED25519_TESTKEY,
             NULL,
@@ -560,18 +560,18 @@ static void torture_pki_ed25519_write_privkey(void **state)
             NULL,
             &privkey);
     /* opening without passphrase should fail */
-    assert_true(rc == SSH_ERROR);
+    assert_int_equal(rc, SSH_ERROR);
 
     rc = ssh_pki_import_privkey_file(LIBSSH_ED25519_TESTKEY,
             torture_get_testkey_passphrase(),
             NULL,
             NULL,
             &privkey);
-    assert_true(rc == 0);
+    assert_int_equal(rc, 0);
     assert_non_null(privkey);
 
     rc = ssh_key_cmp(origkey, privkey, SSH_KEY_CMP_PRIVATE);
-    assert_true(rc == 0);
+    assert_int_equal(rc, 0);
     unlink(LIBSSH_ED25519_TESTKEY);
 
     SSH_KEY_FREE(origkey);
@@ -583,7 +583,7 @@ static void torture_pki_ed25519_write_privkey(void **state)
                                      NULL,
                                      NULL,
                                      &origkey);
-    assert_true(rc == 0);
+    assert_int_equal(rc, 0);
     assert_non_null(origkey);
 
     unlink(LIBSSH_ED25519_TESTKEY_PASSPHRASE);
@@ -592,7 +592,7 @@ static void torture_pki_ed25519_write_privkey(void **state)
                                      NULL,
                                      NULL,
                                      LIBSSH_ED25519_TESTKEY_PASSPHRASE);
-    assert_true(rc == 0);
+    assert_int_equal(rc, 0);
 
     /* Test with invalid passphrase */
     rc = ssh_pki_import_privkey_file(LIBSSH_ED25519_TESTKEY_PASSPHRASE,
@@ -600,18 +600,18 @@ static void torture_pki_ed25519_write_privkey(void **state)
                                      NULL,
                                      NULL,
                                      &privkey);
-    assert_true(rc == SSH_ERROR);
+    assert_int_equal(rc, SSH_ERROR);
 
     rc = ssh_pki_import_privkey_file(LIBSSH_ED25519_TESTKEY_PASSPHRASE,
                                      torture_get_testkey_passphrase(),
                                      NULL,
                                      NULL,
                                      &privkey);
-    assert_true(rc == 0);
+    assert_int_equal(rc, 0);
     assert_non_null(privkey);
 
     rc = ssh_key_cmp(origkey, privkey, SSH_KEY_CMP_PRIVATE);
-    assert_true(rc == 0);
+    assert_int_equal(rc, 0);
 
     SSH_KEY_FREE(origkey);
     SSH_KEY_FREE(privkey);
