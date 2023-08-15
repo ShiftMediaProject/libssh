@@ -1,5 +1,6 @@
 
 #include "config.h"
+#include "libssh/libssh.h"
 
 #define LIBSSH_STATIC
 
@@ -183,11 +184,13 @@ static void torture_pki_rsa_import_privkey_base64_NULL_str(void **state)
     SSH_KEY_FREE(key);
 }
 
-static void torture_pki_rsa_import_privkey_base64(void **state)
+static void
+torture_pki_rsa_import_export_privkey_base64_format(void **state,
+                                                    enum ssh_file_format_e format)
 {
     int rc;
-    char *key_str = NULL;
-    ssh_key key = NULL;
+    char *key_str = NULL, *new_key_str = NULL;
+    ssh_key key = NULL, new_key = NULL;
     const char *passphrase = torture_get_testkey_passphrase();
     enum ssh_keytypes_e type;
 
@@ -196,6 +199,7 @@ static void torture_pki_rsa_import_privkey_base64(void **state)
     key_str = torture_pki_read_file(LIBSSH_RSA_TESTKEY);
     assert_non_null(key_str);
 
+    /* Import test key */
     rc = ssh_pki_import_privkey_base64(key_str, passphrase, NULL, NULL, &key);
     assert_return_code(rc, errno);
     assert_non_null(key);
@@ -209,8 +213,48 @@ static void torture_pki_rsa_import_privkey_base64(void **state)
     rc = ssh_key_is_public(key);
     assert_int_equal(rc, 1);
 
+    /* Export */
+    rc = ssh_pki_export_privkey_base64_format(key,
+                                              passphrase,
+                                              NULL,
+                                              NULL,
+                                              &new_key_str,
+                                              format);
+    assert_int_equal(rc, SSH_OK);
+    assert_non_null(new_key_str);
+
+    /* and import again */
+    rc = ssh_pki_import_privkey_base64(new_key_str,
+                                       passphrase,
+                                       NULL,
+                                       NULL,
+                                       &new_key);
+    assert_int_equal(rc, 0);
+    assert_non_null(new_key);
+
+    type = ssh_key_type(new_key);
+    assert_int_equal(type, SSH_KEYTYPE_RSA);
+
+    rc = ssh_key_is_private(new_key);
+    assert_int_equal(rc, 1);
+
+    rc = ssh_key_is_public(new_key);
+    assert_int_equal(rc, 1);
+
+    rc = ssh_key_cmp(key, new_key, SSH_KEY_CMP_PRIVATE|SSH_KEY_CMP_PUBLIC);
+    assert_int_equal(rc, 0);
+
     free(key_str);
+    free(new_key_str);
     SSH_KEY_FREE(key);
+    SSH_KEY_FREE(new_key);
+}
+
+static void
+torture_pki_rsa_import_export_privkey_base64(void **state)
+{
+    torture_pki_rsa_import_export_privkey_base64_format(state,
+                                                        SSH_FILE_FORMAT_DEFAULT);
 }
 
 static void torture_pki_rsa_import_privkey_base64_comment(void **state)
@@ -828,8 +872,9 @@ static void torture_pki_fail_sign_with_incompatible_hash(void **state)
     SSH_KEY_FREE(key);
 }
 
-#ifdef HAVE_LIBCRYPTO
-static void torture_pki_rsa_write_privkey(void **state)
+static void
+torture_pki_rsa_write_privkey_format(void **state,
+                                     enum ssh_file_format_e format)
 {
     ssh_key origkey = NULL;
     ssh_key privkey = NULL;
@@ -847,11 +892,12 @@ static void torture_pki_rsa_write_privkey(void **state)
 
     unlink(LIBSSH_RSA_TESTKEY);
 
-    rc = ssh_pki_export_privkey_file(origkey,
-                                     NULL,
-                                     NULL,
-                                     NULL,
-                                     LIBSSH_RSA_TESTKEY);
+    rc = ssh_pki_export_privkey_file_format(origkey,
+                                            NULL,
+                                            NULL,
+                                            NULL,
+                                            LIBSSH_RSA_TESTKEY,
+                                            format);
     assert_return_code(rc, errno);
 
     rc = ssh_pki_import_privkey_file(LIBSSH_RSA_TESTKEY,
@@ -878,11 +924,12 @@ static void torture_pki_rsa_write_privkey(void **state)
     assert_non_null(origkey);
 
     unlink(LIBSSH_RSA_TESTKEY_PASSPHRASE);
-    rc = ssh_pki_export_privkey_file(origkey,
-                                     torture_get_testkey_passphrase(),
-                                     NULL,
-                                     NULL,
-                                     LIBSSH_RSA_TESTKEY_PASSPHRASE);
+    rc = ssh_pki_export_privkey_file_format(origkey,
+                                            torture_get_testkey_passphrase(),
+                                            NULL,
+                                            NULL,
+                                            LIBSSH_RSA_TESTKEY_PASSPHRASE,
+                                            format);
     assert_return_code(rc, errno);
 
     /* Test with invalid passphrase */
@@ -907,6 +954,38 @@ static void torture_pki_rsa_write_privkey(void **state)
 
     SSH_KEY_FREE(origkey);
     SSH_KEY_FREE(privkey);
+}
+
+static void
+torture_pki_rsa_write_privkey(void **state)
+{
+    torture_pki_rsa_write_privkey_format(state, SSH_FILE_FORMAT_DEFAULT);
+}
+
+#if defined(HAVE_LIBCRYPTO)
+static void
+torture_pki_rsa_write_privkey_pem(void **state)
+{
+    torture_pki_rsa_write_privkey_format(state, SSH_FILE_FORMAT_PEM);
+}
+
+static void
+torture_pki_rsa_write_privkey_openssh(void **state)
+{
+    torture_pki_rsa_write_privkey_format(state, SSH_FILE_FORMAT_OPENSSH);
+}
+
+static void
+torture_pki_rsa_import_export_privkey_base64_pem(void **state)
+{
+    torture_pki_rsa_import_export_privkey_base64_format(state,
+                                                        SSH_FILE_FORMAT_PEM);
+}
+static void
+torture_pki_rsa_import_export_privkey_base64_openssh(void **state)
+{
+    torture_pki_rsa_import_export_privkey_base64_format(state,
+                                                        SSH_FILE_FORMAT_OPENSSH);
 }
 #endif /* HAVE_LIBCRYPTO */
 
@@ -1015,7 +1094,7 @@ int torture_run_tests(void) {
         cmocka_unit_test_setup_teardown(torture_pki_rsa_import_privkey_base64_NULL_str,
                                         setup_rsa_key,
                                         teardown),
-        cmocka_unit_test_setup_teardown(torture_pki_rsa_import_privkey_base64,
+        cmocka_unit_test_setup_teardown(torture_pki_rsa_import_export_privkey_base64,
                                         setup_rsa_key,
                                         teardown),
         cmocka_unit_test_setup_teardown(torture_pki_rsa_import_privkey_base64_comment,
@@ -1024,9 +1103,10 @@ int torture_run_tests(void) {
         cmocka_unit_test_setup_teardown(torture_pki_rsa_import_privkey_base64_whitespace,
                                         setup_rsa_key,
                                         teardown),
-        cmocka_unit_test_setup_teardown(torture_pki_rsa_import_privkey_base64,
-                                        setup_openssh_rsa_key,
-                                        teardown),
+        cmocka_unit_test_setup_teardown(
+            torture_pki_rsa_import_export_privkey_base64,
+            setup_openssh_rsa_key,
+            teardown),
         cmocka_unit_test_setup_teardown(torture_pki_rsa_publickey_from_privatekey,
                                         setup_rsa_key,
                                         teardown),
@@ -1049,10 +1129,24 @@ int torture_run_tests(void) {
                                         teardown),
         cmocka_unit_test(torture_pki_rsa_generate_key),
         cmocka_unit_test(torture_pki_rsa_key_size),
-#if defined(HAVE_LIBCRYPTO)
         cmocka_unit_test_setup_teardown(torture_pki_rsa_write_privkey,
                                         setup_rsa_key,
                                         teardown),
+#if defined(HAVE_LIBCRYPTO)
+        cmocka_unit_test_setup_teardown(torture_pki_rsa_write_privkey_pem,
+                                        setup_rsa_key,
+                                        teardown),
+        cmocka_unit_test_setup_teardown(torture_pki_rsa_write_privkey_openssh,
+                                        setup_rsa_key,
+                                        teardown),
+        cmocka_unit_test_setup_teardown(
+            torture_pki_rsa_import_export_privkey_base64_pem,
+            setup_openssh_rsa_key,
+            teardown),
+        cmocka_unit_test_setup_teardown(
+            torture_pki_rsa_import_export_privkey_base64_openssh,
+            setup_openssh_rsa_key,
+            teardown),
 #endif /* HAVE_LIBCRYPTO */
         cmocka_unit_test(torture_pki_sign_data_rsa),
         cmocka_unit_test(torture_pki_fail_sign_with_incompatible_hash),
