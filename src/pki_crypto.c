@@ -1003,6 +1003,7 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
     EC_KEY *ecdsa = NULL;
 #endif /* OPENSSL_VERSION_NUMBER */
     uint8_t *ed25519 = NULL;
+    uint8_t *ed25519_pubkey = NULL;
     ssh_key key = NULL;
     enum ssh_keytypes_e type = SSH_KEYTYPE_UNKNOWN;
     EVP_PKEY *pkey = NULL;
@@ -1092,6 +1093,22 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
                     ERR_error_string(ERR_get_error(), NULL));
             goto fail;
         }
+
+        /* length matches the private key length */
+        ed25519_pubkey = malloc(ED25519_KEY_LEN);
+        if (ed25519_pubkey == NULL) {
+            SSH_LOG(SSH_LOG_TRACE, "Out of memory");
+            goto fail;
+        }
+
+        evp_rc = EVP_PKEY_get_raw_public_key(pkey, (uint8_t *)ed25519_pubkey,
+                                             &key_len);
+        if (evp_rc != 1) {
+            SSH_LOG(SSH_LOG_TRACE,
+                    "Failed to get ed25519 raw public key:  %s",
+                    ERR_error_string(ERR_get_error(), NULL));
+            goto fail;
+        }
         type = SSH_KEYTYPE_ED25519;
 
     }
@@ -1113,6 +1130,7 @@ ssh_key pki_private_key_from_base64(const char *b64_key,
     key->flags = SSH_KEY_FLAG_PRIVATE | SSH_KEY_FLAG_PUBLIC;
     key->key = pkey;
     key->ed25519_privkey = ed25519;
+    key->ed25519_pubkey = ed25519_pubkey;
 #ifdef HAVE_OPENSSL_ECC
     if (is_ecdsa_key_type(key->type)) {
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
@@ -1128,6 +1146,7 @@ fail:
     EVP_PKEY_free(pkey);
     ssh_key_free(key);
     SAFE_FREE(ed25519);
+    SAFE_FREE(ed25519_pubkey);
     return NULL;
 }
 
