@@ -3,6 +3,7 @@ project(unittests C)
 include_directories(${OPENSSL_INCLUDE_DIR})
 
 set(LIBSSH_UNIT_TESTS
+    torture_bignum
     torture_buffer
     torture_bytearray
     torture_callbacks
