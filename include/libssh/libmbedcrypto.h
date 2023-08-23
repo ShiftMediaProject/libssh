@@ -34,6 +34,7 @@
 #include <mbedtls/cipher.h>
 #include <mbedtls/entropy.h>
 #include <mbedtls/ctr_drbg.h>
+#include <mbedtls/platform.h>
 
 typedef mbedtls_md_context_t *SHACTX;
 typedef mbedtls_md_context_t *SHA256CTX;
@@ -58,6 +59,8 @@ typedef mbedtls_md_context_t *EVPCTX;
 #endif
 
 #define EVP_DIGEST_LEN EVP_MAX_MD_SIZE
+
+#define ssh_crypto_free(x) mbedtls_free(x)
 
 typedef mbedtls_mpi *bignum;
 typedef const mbedtls_mpi *const_bignum;

@@ -59,8 +59,15 @@ typedef void *EVPCTX;
 #define EVP_DIGEST_LEN EVP_MAX_MD_SIZE
 #endif
 
+/* Use ssh_crypto_free() to release memory allocated by bignum_bn2dec(),
+   bignum_bn2hex() and other functions that use crypto-library functions that
+   are documented to allocate memory that needs to be de-allocate with
+   OPENSSL_free. */
+#define ssh_crypto_free(x) OPENSSL_free(x)
+
 #include <openssl/bn.h>
 #include <openssl/opensslv.h>
+
 typedef BIGNUM*  bignum;
 typedef const BIGNUM* const_bignum;
 typedef BN_CTX* bignum_CTX;

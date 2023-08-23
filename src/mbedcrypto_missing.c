@@ -56,7 +56,7 @@ char *ssh_mbedcry_bn2num(const_bignum num, int radix)
         return NULL;
     }
 
-    buf = malloc(olen);
+    buf = mbedtls_calloc(1, olen);
     if (buf == NULL) {
         return NULL;
     }
