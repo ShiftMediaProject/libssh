@@ -967,6 +967,9 @@ ssh_string pki_private_key_to_pem(const ssh_key key,
     pkey = NULL;
 
     if (rc != 1) {
+        SSH_LOG(SSH_LOG_WARNING,
+                "Failed to write private key: %s\n",
+                ERR_error_string(ERR_get_error(), NULL));
         goto err;
     }
 

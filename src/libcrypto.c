@@ -1481,6 +1481,9 @@ int evp_build_pkey(const char* name, OSSL_PARAM_BLD *param_bld,
 
     rc = EVP_PKEY_fromdata(ctx, pkey, selection, params);
     if (rc != 1) {
+        SSH_LOG(SSH_LOG_WARNING,
+                "Failed to import private key: %s\n",
+                ERR_error_string(ERR_get_error(), NULL));
         OSSL_PARAM_free(params);
         EVP_PKEY_CTX_free(ctx);
         return -1;
