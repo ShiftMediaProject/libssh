@@ -1157,12 +1157,17 @@ int pki_privkey_build_rsa(ssh_key key,
                           ssh_string n,
                           ssh_string e,
                           ssh_string d,
-                          UNUSED_PARAM(ssh_string iqmp),
+                          ssh_string iqmp,
                           ssh_string p,
                           ssh_string q)
 {
     int rc;
-    BIGNUM *be, *bn, *bd/*, *biqmp*/, *bp, *bq;
+    BIGNUM *be = NULL, *bn = NULL, *bd = NULL;
+    BIGNUM *biqmp = NULL, *bp = NULL, *bq = NULL;
+    BIGNUM *aux = NULL, *d_consttime = NULL;
+    BIGNUM *bdmq1 = NULL, *bdmp1 = NULL;
+    BN_CTX *ctx = NULL;
+
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
     OSSL_PARAM_BLD *param_bld = OSSL_PARAM_BLD_new();
     if (param_bld == NULL) {
@@ -1178,11 +1183,38 @@ int pki_privkey_build_rsa(ssh_key key,
     bn = ssh_make_string_bn(n);
     be = ssh_make_string_bn(e);
     bd = ssh_make_string_bn(d);
-    /*biqmp = ssh_make_string_bn(iqmp);*/
+    biqmp = ssh_make_string_bn(iqmp);
     bp = ssh_make_string_bn(p);
     bq = ssh_make_string_bn(q);
     if (be == NULL || bn == NULL || bd == NULL ||
         /*biqmp == NULL ||*/ bp == NULL || bq == NULL) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+
+    /* Calculate remaining CRT parameters for OpenSSL to be happy
+     * taken from OpenSSH */
+    if ((ctx = BN_CTX_new()) == NULL) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+    if ((aux = BN_new()) == NULL ||
+        (bdmq1 = BN_new()) == NULL ||
+        (bdmp1 = BN_new()) == NULL) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+    if ((d_consttime = BN_dup(bd)) == NULL) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+    BN_set_flags(aux, BN_FLG_CONSTTIME);
+    BN_set_flags(d_consttime, BN_FLG_CONSTTIME);
+
+    if ((BN_sub(aux, bq, BN_value_one()) == 0) ||
+        (BN_mod(bdmq1, d_consttime, aux, ctx) == 0) ||
+        (BN_sub(aux, bp, BN_value_one()) == 0) ||
+        (BN_mod(bdmp1, d_consttime, aux, ctx) == 0)) {
         rc = SSH_ERROR;
         goto fail;
     }
@@ -1203,9 +1235,15 @@ int pki_privkey_build_rsa(ssh_key key,
     /* p, q, dmp1, dmq1 and iqmp may be NULL in private keys, but the RSA
      * operations are much faster when these values are available.
      * https://www.openssl.org/docs/man1.0.2/crypto/rsa.html
+     * And OpenSSL fails to export these keys to PEM if these are missing:
+     * https://github.com/openssl/openssl/issues/21826
      */
-    /* RSA_set0_crt_params(key->rsa, biqmp, NULL, NULL);
-    TODO calculate missing crt_params */
+    rc = RSA_set0_crt_params(key_rsa, bdmp1, bdmq1, biqmp);
+    if (rc == 0) {
+        goto fail;
+    }
+    bignum_safe_free(aux);
+    bignum_safe_free(d_consttime);
 
     key->key = EVP_PKEY_new();
     if (key->key == NULL) {
@@ -1239,6 +1277,36 @@ fail:
         goto fail;
     }
 
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_RSA_FACTOR1, bp);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_RSA_FACTOR2, bq);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_RSA_EXPONENT1, bdmp1);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_RSA_EXPONENT2, bdmq1);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+
+    rc = OSSL_PARAM_BLD_push_BN(param_bld, OSSL_PKEY_PARAM_RSA_COEFFICIENT1, biqmp);
+    if (rc != 1) {
+        rc = SSH_ERROR;
+        goto fail;
+    }
+
     rc = evp_build_pkey("RSA", param_bld, &(key->key), EVP_PKEY_KEYPAIR);
     if (rc != SSH_OK) {
         rc = SSH_ERROR;
@@ -1264,7 +1332,13 @@ fail:
     bignum_safe_free(bd);
     bignum_safe_free(bp);
     bignum_safe_free(bq);
+    bignum_safe_free(biqmp);
 
+    bignum_safe_free(aux);
+    bignum_safe_free(d_consttime);
+    bignum_safe_free(bdmp1);
+    bignum_safe_free(bdmq1);
+    BN_CTX_free(ctx);
     return rc;
 #endif /* OPENSSL_VERSION_NUMBER */
 }
