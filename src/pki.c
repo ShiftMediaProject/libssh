@@ -1163,8 +1163,9 @@ int pki_import_privkey_buffer(enum ssh_keytypes_e type,
                 ssh_log_hexdump("n", ssh_string_data(n), ssh_string_len(n));
                 ssh_log_hexdump("e", ssh_string_data(e), ssh_string_len(e));
                 ssh_log_hexdump("d", ssh_string_data(d), ssh_string_len(d));
-                ssh_log_hexdump("iqmp", ssh_string_data(iqmp),
-                               ssh_string_len(iqmp));
+                ssh_log_hexdump("iqmp",
+                                ssh_string_data(iqmp),
+                                ssh_string_len(iqmp));
                 ssh_log_hexdump("p", ssh_string_data(p), ssh_string_len(p));
                 ssh_log_hexdump("q", ssh_string_data(q), ssh_string_len(q));
 #endif /* DEBUG_CRYPTO */
