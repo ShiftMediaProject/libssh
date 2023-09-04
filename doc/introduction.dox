@@ -46,6 +46,8 @@ Table of contents:
 
 @subpage libssh_tutor_pkcs11
 
+@subpage libssh_tutor_sftp_aio
+
 @subpage libssh_tutor_todo
 
 */
