@@ -44,6 +44,8 @@ Table of contents:
 
 @subpage libssh_tutor_threads
 
+@subpage libssh_tutor_pkcs11
+
 @subpage libssh_tutor_todo
 
 */
