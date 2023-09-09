@@ -532,7 +532,8 @@ LIBSSH_API ssize_t sftp_read(sftp_file file, void *buf, size_t count);
  * @see                 sftp_async_read()
  * @see                 sftp_open()
  */
-LIBSSH_API int sftp_async_read_begin(sftp_file file, uint32_t len);
+SSH_DEPRECATED LIBSSH_API int sftp_async_read_begin(sftp_file file,
+                                                    uint32_t len);
 
 /**
  * @brief Wait for an asynchronous read to complete and save the data.
@@ -557,7 +558,10 @@ LIBSSH_API int sftp_async_read_begin(sftp_file file, uint32_t len);
  *
  * @see sftp_async_read_begin()
  */
-LIBSSH_API int sftp_async_read(sftp_file file, void *data, uint32_t len, uint32_t id);
+SSH_DEPRECATED LIBSSH_API int sftp_async_read(sftp_file file,
+                                              void *data,
+                                              uint32_t len,
+                                              uint32_t id);
 
 /**
  * @brief Write to a file using an opened sftp file handle.
