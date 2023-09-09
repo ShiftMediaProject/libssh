@@ -2211,6 +2211,17 @@ ssize_t sftp_write(sftp_file file, const void *buf, size_t count) {
 
   id = sftp_get_new_id(file->sftp);
 
+
+  /* limit the writes to the maximum specified in Section 3 of
+   * https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-02
+   *
+   * FIXME: This value should be adjusted to the value from the
+   * limits@openssh.com extension if supported
+   * TODO: We should iterate over the blocks rather than writing less than
+   * requested to provide less surprises to the calling applications.
+   */
+  count = count > 32768 ? 32768 : count;
+
   rc = ssh_buffer_pack(buffer,
                        "dSqdP",
                        id,

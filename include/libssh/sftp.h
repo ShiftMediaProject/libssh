@@ -550,6 +550,10 @@ LIBSSH_API int sftp_async_read(sftp_file file, void *data, uint32_t len, uint32_
 /**
  * @brief Write to a file using an opened sftp file handle.
  *
+ * The maximum size of the SFTP packet payload is 32768 bytes so the count
+ * parameter is capped at this value. This is low-level function so it does not
+ * try to send more than this amount of data.
+ *
  * @param file          Open sftp file handle to write to.
  *
  * @param buf           Pointer to buffer to write data.
