@@ -77,6 +77,7 @@ typedef struct sftp_request_queue_struct* sftp_request_queue;
 typedef struct sftp_session_struct* sftp_session;
 typedef struct sftp_status_message_struct* sftp_status_message;
 typedef struct sftp_statvfs_struct* sftp_statvfs_t;
+typedef struct sftp_limits_struct* sftp_limits_t;
 
 struct sftp_session_struct {
     ssh_session session;
@@ -198,6 +199,16 @@ struct sftp_statvfs_struct {
   uint64_t f_fsid;    /** file system id */
   uint64_t f_flag;    /** bit mask of f_flag values */
   uint64_t f_namemax; /** maximum filename length */
+};
+
+/**
+ * @brief SFTP limits structure.
+ */
+struct sftp_limits_struct {
+    uint64_t max_packet_length;   /** maximum number of bytes in a single sftp packet */
+    uint64_t max_read_length;     /** maximum length in a SSH_FXP_READ packet */
+    uint64_t max_write_length;    /** maximum length in a SSH_FXP_WRITE packet */
+    uint64_t max_open_handles;    /** maximum number of active handles allowed by server */
 };
 
 /**
@@ -845,6 +856,24 @@ LIBSSH_API void sftp_statvfs_free(sftp_statvfs_t statvfs_o);
  * @return              0 on success, < 0 on error with ssh and sftp error set.
  */
 LIBSSH_API int sftp_fsync(sftp_file file);
+
+/**
+ * @brief Get information about the various limits the server might impose.
+ *
+ * @param  sftp         The sftp session handle.
+ *
+ * @return A limits structure or NULL on error.
+ *
+ * @see sftp_get_error()
+ */
+LIBSSH_API sftp_limits_t sftp_limits(sftp_session sftp);
+
+/**
+ * @brief Free the memory of an allocated limits.
+ *
+ * @param  limits      The limits to free.
+ */
+LIBSSH_API void sftp_limits_free(sftp_limits_t limits);
 
 /**
  * @brief Canonicalize a sftp path.

@@ -3383,6 +3383,122 @@ void sftp_statvfs_free(sftp_statvfs_t statvfs) {
     SAFE_FREE(statvfs);
 }
 
+static sftp_limits_t
+sftp_parse_limits(sftp_session sftp, ssh_buffer buf)
+{
+    sftp_limits_t limits = NULL;
+    int rc;
+
+    limits = calloc(1, sizeof(struct sftp_limits_struct));
+    if (limits == NULL) {
+        ssh_set_error_oom(sftp->session);
+        sftp_set_error(sftp, SSH_FX_FAILURE);
+        return NULL;
+    }
+
+    rc = ssh_buffer_unpack(buf, "qqqq",
+            &limits->max_packet_length,  /** maximum number of bytes in a single sftp packet */
+            &limits->max_read_length,    /** maximum length in a SSH_FXP_READ packet */
+            &limits->max_write_length,   /** maximum length in a SSH_FXP_WRITE packet */
+            &limits->max_open_handles    /** maximum number of active handles allowed by server */
+            );
+    if (rc != SSH_OK) {
+        SAFE_FREE(limits);
+        ssh_set_error(sftp->session, SSH_FATAL, "Invalid limits structure");
+        sftp_set_error(sftp, SSH_FX_FAILURE);
+        return NULL;
+    }
+
+    return limits;
+}
+
+sftp_limits_t
+sftp_limits(sftp_session sftp)
+{
+    sftp_status_message status = NULL;
+    sftp_message msg = NULL;
+    ssh_buffer buffer;
+    uint32_t id;
+    int rc;
+
+    if (sftp == NULL)
+        return NULL;
+
+    buffer = ssh_buffer_new();
+    if (buffer == NULL) {
+        ssh_set_error_oom(sftp->session);
+        sftp_set_error(sftp, SSH_FX_FAILURE);
+        return NULL;
+    }
+
+    id = sftp_get_new_id(sftp);
+
+    rc = ssh_buffer_pack(buffer,
+                         "ds",
+                         id,
+                         "limits@openssh.com");
+    if (rc != SSH_OK) {
+        ssh_set_error_oom(sftp->session);
+        SSH_BUFFER_FREE(buffer);
+        sftp_set_error(sftp, SSH_FX_FAILURE);
+        return NULL;
+    }
+
+    rc = sftp_packet_write(sftp, SSH_FXP_EXTENDED, buffer);
+    SSH_BUFFER_FREE(buffer);
+    if (rc < 0) {
+        return NULL;
+    }
+
+    while (msg == NULL) {
+        if (sftp_read_and_dispatch(sftp) < 0) {
+            return NULL;
+        }
+        msg = sftp_dequeue(sftp, id);
+    }
+
+    if (msg->packet_type == SSH_FXP_EXTENDED_REPLY) {
+        sftp_limits_t limits = sftp_parse_limits(sftp, msg->payload);
+        sftp_message_free(msg);
+        if (limits == NULL) {
+            return NULL;
+        }
+
+        return limits;
+    } else if (msg->packet_type == SSH_FXP_STATUS) { /* bad response (error) */
+        status = parse_status_msg(msg);
+        sftp_message_free(msg);
+        if (status == NULL) {
+            return NULL;
+        }
+        sftp_set_error(sftp, status->status);
+        ssh_set_error(sftp->session,
+                      SSH_REQUEST_DENIED,
+                      "SFTP server: %s",
+                      status->errormsg);
+        status_msg_free(status);
+    } else { /* this shouldn't happen */
+        ssh_set_error(sftp->session,
+                      SSH_FATAL,
+                      "Received message %d when attempting to get limits",
+                      msg->packet_type);
+        sftp_message_free(msg);
+        sftp_set_error(sftp, SSH_FX_BAD_MESSAGE);
+    }
+
+    return NULL;
+}
+
+void
+sftp_limits_free(sftp_limits_t limits)
+{
+    if (limits == NULL) {
+        return;
+    }
+
+    SAFE_FREE(limits);
+}
+
 /* another code written by Nick */
 char *sftp_canonicalize_path(sftp_session sftp, const char *path)
 {
