@@ -139,7 +139,7 @@ Unlike its equivalent in the SCP subsystem, this function does NOT change the
 current directory to the newly created subdirectory.
 
 
-@subsection sftp_write Copying a file to the remote computer
+@subsection sftp_write Writing to a file on the remote computer
 
 You handle the contents of a remote file just like you would do with a
 local file: you open the file in a given mode, move the file pointer in it,
