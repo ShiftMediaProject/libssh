@@ -775,10 +775,8 @@ LIBSSH_API int ssh_userauth_try_publickey(ssh_session session,
 LIBSSH_API int ssh_userauth_publickey(ssh_session session,
                                       const char *username,
                                       const ssh_key privkey);
-#ifndef _WIN32
 LIBSSH_API int ssh_userauth_agent(ssh_session session,
                                   const char *username);
-#endif
 LIBSSH_API int ssh_userauth_publickey_auto_get_current_identity(ssh_session session,
                                                                 char** value);
 LIBSSH_API int ssh_userauth_publickey_auto(ssh_session session,
