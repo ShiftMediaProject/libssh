@@ -1868,7 +1868,18 @@ int ssh_pki_import_cert_blob(const ssh_string cert_blob,
  */
 int ssh_pki_import_cert_file(const char *filename, ssh_key *pkey)
 {
-    return ssh_pki_import_pubkey_file(filename, pkey);
+    int rc;
+
+    rc = ssh_pki_import_pubkey_file(filename, pkey);
+    if (rc == SSH_OK) {
+        /* check the key is a cert type. */
+        if (!is_cert_type((*pkey)->type)) {
+            SSH_KEY_FREE(*pkey);
+            return SSH_ERROR;
+        }
+    }
+
+    return rc;
 }
 
 /**
