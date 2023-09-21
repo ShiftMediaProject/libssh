@@ -92,7 +92,7 @@ static struct ssh_config_keyword_table_s ssh_config_keyword_table[] = {
   { "canonicalizehostname", SOC_UNSUPPORTED},
   { "canonicalizemaxdots", SOC_UNSUPPORTED},
   { "canonicalizepermittedcnames", SOC_UNSUPPORTED},
-  { "certificatefile", SOC_UNSUPPORTED},
+  { "certificatefile", SOC_CERTIFICATE},
   { "kbdinteractiveauthentication", SOC_UNSUPPORTED},
   { "checkhostip", SOC_UNSUPPORTED},
   { "connectionattempts", SOC_UNSUPPORTED},
@@ -623,6 +623,7 @@ ssh_config_parse_line(ssh_session session,
       opcode != SOC_MATCH &&
       opcode != SOC_INCLUDE &&
       opcode != SOC_IDENTITY &&
+      opcode != SOC_CERTIFICATE &&
       opcode > SOC_UNSUPPORTED &&
       opcode < SOC_MAX) { /* Ignore all unknown types here */
       /* Skip all the options that were already applied */
@@ -1218,6 +1219,12 @@ ssh_config_parse_line(ssh_session session,
           ssh_options_set(session, SSH_OPTIONS_CONTROL_PATH, p);
       }
       break;
+    case SOC_CERTIFICATE:
+        p = ssh_config_get_str_tok(&s, NULL);
+        if (p && *parsing) {
+            ssh_options_set(session, SSH_OPTIONS_CERTIFICATE, p);
+        }
+        break;
     default:
       ssh_set_error(session, SSH_FATAL, "ERROR - unimplemented opcode: %d",
               opcode);

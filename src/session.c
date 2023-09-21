@@ -127,6 +127,17 @@ ssh_session ssh_new(void)
         goto err;
     }
 
+    session->opts.certificate = ssh_list_new();
+    if (session->opts.certificate == NULL) {
+        goto err;
+    }
+    session->opts.certificate_non_exp = ssh_list_new();
+    if (session->opts.certificate_non_exp == NULL) {
+        goto err;
+    }
+    /* the default certificates are loaded automatically from the default
+     * identities later */
+
     id = strdup("%d/id_ed25519");
     if (id == NULL) {
         goto err;
@@ -287,6 +298,28 @@ void ssh_free(ssh_session session)
       }
       ssh_list_free(session->opts.identity_non_exp);
   }
+
+    if (session->opts.certificate) {
+        char *cert = NULL;
+
+        for (cert = ssh_list_pop_head(char *, session->opts.certificate);
+             cert != NULL;
+             cert = ssh_list_pop_head(char *, session->opts.certificate)) {
+            SAFE_FREE(cert);
+        }
+        ssh_list_free(session->opts.certificate);
+    }
+
+    if (session->opts.certificate_non_exp) {
+        char *cert = NULL;
+
+        for (cert = ssh_list_pop_head(char *, session->opts.certificate_non_exp);
+             cert != NULL;
+             cert = ssh_list_pop_head(char *, session->opts.certificate_non_exp)) {
+            SAFE_FREE(cert);
+        }
+        ssh_list_free(session->opts.certificate_non_exp);
+    }
 
     while ((b = ssh_list_pop_head(struct ssh_buffer_struct *,
                                   session->out_queue)) != NULL) {

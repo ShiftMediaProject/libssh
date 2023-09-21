@@ -118,7 +118,7 @@ int ssh_options_copy(ssh_session src, ssh_session *dest)
         while (it) {
             int rc;
 
-            id = strdup((char *) it->data);
+            id = strdup((char *)it->data);
             if (id == NULL) {
                 ssh_free(new);
                 return -1;
@@ -136,6 +136,32 @@ int ssh_options_copy(ssh_session src, ssh_session *dest)
         /* copy the identity list if there is any already */
         list = new->opts.identity;
         it = ssh_list_get_iterator(src->opts.identity);
+    }
+
+    list = new->opts.certificate_non_exp;
+    it = ssh_list_get_iterator(src->opts.certificate_non_exp);
+    for (i = 0; i < 2; i++) {
+        while (it) {
+            int rc;
+
+            id = strdup((char *)it->data);
+            if (id == NULL) {
+                ssh_free(new);
+                return -1;
+            }
+
+            rc = ssh_list_append(list, id);
+            if (rc < 0) {
+                free(id);
+                ssh_free(new);
+                return -1;
+            }
+            it = it->next;
+        }
+
+        /* copy the certificate list if there is any already */
+        list = new->opts.certificate;
+        it = ssh_list_get_iterator(src->opts.certificate);
     }
 
     if (src->opts.sshdir != NULL) {
@@ -350,6 +376,21 @@ int ssh_options_set_algo(ssh_session session,
  *                \n
  *                The identity used to authenticate with public key will be
  *                prepended to the list.
+ *                It may include "%s" which will be replaced by the
+ *                user home directory.
+ *
+ *              - SSH_OPTIONS_CERTIFICATE:
+ *                Add a new certificate file (const char *, format string) to
+ *                the certificate list.\n
+ *                \n
+ *                By default id_rsa-cert.pub, id_ecdsa-cert.pub and
+ *                id_ed25519-cert.pub files are used, when the underlying
+ *                private key is present.\n
+ *                \n
+ *                The certificate itself can not be used to authenticate to
+ *                remote server so it needs to be paired with private key
+ *                (aka identity file) provided with separate option, from agent
+ *                or from PKCS#11 token.
  *                It may include "%s" which will be replaced by the
  *                user home directory.
  *
@@ -748,6 +789,22 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
             } else {
                 rc = ssh_list_prepend(session->opts.identity_non_exp, q);
             }
+            if (rc < 0) {
+                free(q);
+                return -1;
+            }
+            break;
+        case SSH_OPTIONS_CERTIFICATE:
+            v = value;
+            if (v == NULL || v[0] == '\0') {
+                ssh_set_error_invalid(session);
+                return -1;
+            }
+            q = strdup(v);
+            if (q == NULL) {
+                return -1;
+            }
+            rc = ssh_list_append(session->opts.certificate_non_exp, q);
             if (rc < 0) {
                 free(q);
                 return -1;
@@ -1752,6 +1809,23 @@ int ssh_options_apply(ssh_session session)
         }
     }
     session->opts.exp_flags |= SSH_OPT_EXP_FLAG_IDENTITY;
+
+    for (tmp = ssh_list_pop_head(char *, session->opts.certificate_non_exp);
+         tmp != NULL;
+         tmp = ssh_list_pop_head(char *, session->opts.certificate_non_exp)) {
+        char *id = tmp;
+
+        tmp = ssh_path_expand_escape(session, id);
+        if (tmp == NULL) {
+            return -1;
+        }
+        free(id);
+
+        rc = ssh_list_append(session->opts.certificate, tmp);
+        if (rc != SSH_OK) {
+            return -1;
+        }
+    }
 
     return 0;
 }
