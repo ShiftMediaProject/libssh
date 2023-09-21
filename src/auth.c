@@ -1255,35 +1255,36 @@ int ssh_userauth_publickey_auto(ssh_session session,
             rc = ssh_pki_import_pubkey_file(pubkey_file, &state->pubkey);
             if (rc == SSH_ERROR) {
                 ssh_set_error(session,
-                        SSH_FATAL,
-                        "Failed to import public key: %s",
-                        pubkey_file);
+                              SSH_FATAL,
+                              "Failed to import public key: %s",
+                              pubkey_file);
                 SAFE_FREE(session->auth.auto_state);
                 return SSH_AUTH_ERROR;
             } else if (rc == SSH_EOF) {
                 /* Read the private key and save the public key to file */
                 rc = ssh_pki_import_privkey_file(privkey_file,
-                        passphrase,
-                        auth_fn,
-                        auth_data,
-                        &state->privkey);
+                                                 passphrase,
+                                                 auth_fn,
+                                                 auth_data,
+                                                 &state->privkey);
                 if (rc == SSH_ERROR) {
                     ssh_set_error(session,
-                            SSH_FATAL,
-                            "Failed to read private key: %s",
-                            privkey_file);
-                    state->it=state->it->next;
+                                  SSH_FATAL,
+                                  "Failed to read private key: %s",
+                                  privkey_file);
+                    state->it = state->it->next;
                     continue;
                 } else if (rc == SSH_EOF) {
                     /* If the file doesn't exist, continue */
                     SSH_LOG(SSH_LOG_DEBUG,
                             "Private key %s doesn't exist.",
                             privkey_file);
-                    state->it=state->it->next;
+                    state->it = state->it->next;
                     continue;
                 }
 
-                rc = ssh_pki_export_privkey_to_pubkey(state->privkey, &state->pubkey);
+                rc = ssh_pki_export_privkey_to_pubkey(state->privkey,
+                                                      &state->pubkey);
                 if (rc == SSH_ERROR) {
                     ssh_key_free(state->privkey);
                     SAFE_FREE(session->auth.auto_state);
