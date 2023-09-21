@@ -2162,7 +2162,7 @@ int ssh_pki_export_pubkey_file(const ssh_key key,
  **/
 int ssh_pki_copy_cert_to_privkey(const ssh_key certkey, ssh_key privkey) {
   ssh_buffer cert_buffer;
-  int rc;
+  int rc, cmp;
 
   if (certkey == NULL || privkey == NULL) {
       return SSH_ERROR;
@@ -2174,6 +2174,12 @@ int ssh_pki_copy_cert_to_privkey(const ssh_key certkey, ssh_key privkey) {
 
   if (certkey->cert == NULL) {
       return SSH_ERROR;
+  }
+
+  /* make sure the public keys match */
+  cmp = ssh_key_cmp(certkey, privkey, SSH_KEY_CMP_PUBLIC);
+  if (cmp != 0) {
+    return SSH_ERROR;
   }
 
   cert_buffer = ssh_buffer_new();
