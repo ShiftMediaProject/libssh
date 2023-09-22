@@ -74,7 +74,7 @@ struct ssh_key_struct {
     ed25519_privkey *ed25519_privkey;
 #endif /* HAVE_LIBCRYPTO */
     ssh_string sk_application;
-    void *cert;
+    ssh_buffer cert;
     enum ssh_keytypes_e cert_type;
 };
 

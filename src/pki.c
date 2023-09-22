@@ -1476,7 +1476,7 @@ static int pki_import_cert_buffer(ssh_buffer buffer,
 
     key->type = type;
     key->type_c = type_c;
-    key->cert = (void*) cert;
+    key->cert = cert;
 
     *pkey = key;
     return SSH_OK;
