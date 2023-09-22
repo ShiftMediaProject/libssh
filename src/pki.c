@@ -664,7 +664,7 @@ int ssh_key_cmp(const ssh_key k1,
         return 1;
     }
 
-    if (k1->type != k2->type) {
+    if (ssh_key_type_plain(k1->type) != ssh_key_type_plain(k2->type)) {
         SSH_LOG(SSH_LOG_DEBUG, "key types don't match!");
         return 1;
     }

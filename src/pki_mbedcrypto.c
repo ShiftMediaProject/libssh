@@ -638,7 +638,7 @@ int pki_key_compare(const ssh_key k1, const ssh_key k2, enum ssh_keycmp_e what)
     mbedtls_mpi_init(&E2);
 #endif
 
-    switch (k1->type) {
+    switch (ssh_key_type_plain(k1->type)) {
         case SSH_KEYTYPE_RSA: {
             mbedtls_rsa_context *rsa1, *rsa2;
             if (!mbedtls_pk_can_do(k1->rsa, MBEDTLS_PK_RSA) ||

@@ -1298,6 +1298,7 @@ int pki_key_compare(const ssh_key k1,
 {
     switch (k1->type) {
         case SSH_KEYTYPE_RSA:
+        case SSH_KEYTYPE_RSA_CERT01:
             if (_bignum_cmp(k1->rsa, k2->rsa, "e") != 0) {
                 return 1;
             }
@@ -1325,13 +1326,19 @@ int pki_key_compare(const ssh_key k1,
             }
             break;
         case SSH_KEYTYPE_ED25519:
+        case SSH_KEYTYPE_ED25519_CERT01:
         case SSH_KEYTYPE_SK_ED25519:
+        case SSH_KEYTYPE_SK_ED25519_CERT01:
             /* ed25519 keys handled globally */
             return 0;
         case SSH_KEYTYPE_ECDSA_P256:
+        case SSH_KEYTYPE_ECDSA_P256_CERT01:
         case SSH_KEYTYPE_ECDSA_P384:
+        case SSH_KEYTYPE_ECDSA_P384_CERT01:
         case SSH_KEYTYPE_ECDSA_P521:
+        case SSH_KEYTYPE_ECDSA_P521_CERT01:
         case SSH_KEYTYPE_SK_ECDSA:
+        case SSH_KEYTYPE_SK_ECDSA_CERT01:
 #ifdef HAVE_GCRYPT_ECC
             if (k1->ecdsa_nid != k2->ecdsa_nid) {
                 return 1;
@@ -1348,16 +1355,9 @@ int pki_key_compare(const ssh_key k1,
             }
             break;
 #endif
-        case SSH_KEYTYPE_DSS:   /* deprecated */
+        case SSH_KEYTYPE_DSS:        /* deprecated */
         case SSH_KEYTYPE_DSS_CERT01: /* deprecated */
-        case SSH_KEYTYPE_RSA_CERT01:
-        case SSH_KEYTYPE_ECDSA:
-        case SSH_KEYTYPE_ECDSA_P256_CERT01:
-        case SSH_KEYTYPE_ECDSA_P384_CERT01:
-        case SSH_KEYTYPE_ECDSA_P521_CERT01:
-        case SSH_KEYTYPE_SK_ECDSA_CERT01:
-        case SSH_KEYTYPE_ED25519_CERT01:
-        case SSH_KEYTYPE_SK_ED25519_CERT01:
+        case SSH_KEYTYPE_ECDSA:      /* deprecated */
         case SSH_KEYTYPE_RSA1:
         case SSH_KEYTYPE_UNKNOWN:
             return 1;

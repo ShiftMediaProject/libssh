@@ -814,9 +814,10 @@ int pki_key_compare(const ssh_key k1,
                     enum ssh_keycmp_e what)
 {
     int rc;
-    (void) what;
 
-    switch (k1->type) {
+    (void)what;
+
+    switch (ssh_key_type_plain(k1->type)) {
         case SSH_KEYTYPE_ECDSA_P256:
         case SSH_KEYTYPE_ECDSA_P384:
         case SSH_KEYTYPE_ECDSA_P521:
