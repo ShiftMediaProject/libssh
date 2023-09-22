@@ -685,6 +685,22 @@ int ssh_key_cmp(const ssh_key k1,
         }
     }
 
+    if (what == SSH_KEY_CMP_CERTIFICATE) {
+        if (!is_cert_type(k1->type) ||
+            !is_cert_type(k2->type)) {
+            return 1;
+        }
+        if (k1->cert == NULL || k2->cert == NULL) {
+            return 1;
+        }
+        if (ssh_buffer_get_len(k1->cert) != ssh_buffer_get_len(k2->cert)) {
+            return 1;
+        }
+        return memcmp(ssh_buffer_get(k1->cert),
+                      ssh_buffer_get(k2->cert),
+                      ssh_buffer_get_len(k1->cert));
+    }
+
     if (k1->type == SSH_KEYTYPE_ED25519 ||
         k1->type == SSH_KEYTYPE_SK_ED25519) {
         return pki_ed25519_key_cmp(k1, k2, what);

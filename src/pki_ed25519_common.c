@@ -121,6 +121,10 @@ int pki_ed25519_key_cmp(const ssh_key k1,
         if (cmp != 0) {
             return 1;
         }
+        break;
+    case SSH_KEY_CMP_CERTIFICATE:
+        /* handled globally */
+        return 1;
     }
 
     return 0;
