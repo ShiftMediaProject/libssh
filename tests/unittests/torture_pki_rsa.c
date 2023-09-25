@@ -330,7 +330,12 @@ static void torture_pki_rsa_copy_cert_to_privkey(void **state)
     ssh_key privkey = NULL;
     ssh_key cert = NULL;
 
-    (void) state; /* unused */
+    (void)state; /* unused */
+
+    /* Importing public key as cert should fail */
+    rc = ssh_pki_import_cert_file(LIBSSH_RSA_TESTKEY ".pub", &cert);
+    assert_int_equal(rc, SSH_ERROR);
+    assert_null(cert);
 
     rc = ssh_pki_import_cert_file(LIBSSH_RSA_TESTKEY "-cert.pub", &cert);
     assert_return_code(rc, errno);
@@ -370,6 +375,22 @@ static void torture_pki_rsa_copy_cert_to_privkey(void **state)
 
     /* The private key's cert is already set, another copy should fail. */
     rc = ssh_pki_copy_cert_to_privkey(cert, privkey);
+    assert_int_equal(rc, SSH_ERROR);
+
+    SSH_KEY_FREE(privkey);
+    SSH_KEY_FREE(pubkey);
+
+    /* Generate different key and try to assign it this certificate */
+    rc = ssh_pki_generate(SSH_KEYTYPE_RSA, 2048, &privkey);
+    assert_return_code(rc, errno);
+    assert_non_null(privkey);
+    rc = ssh_pki_export_privkey_to_pubkey(privkey, &pubkey);
+    assert_return_code(rc, errno);
+    assert_non_null(pubkey);
+
+    rc = ssh_pki_copy_cert_to_privkey(cert, privkey);
+    assert_int_equal(rc, SSH_ERROR);
+    rc = ssh_pki_copy_cert_to_privkey(cert, pubkey);
     assert_int_equal(rc, SSH_ERROR);
 
     SSH_KEY_FREE(cert);

@@ -317,6 +317,11 @@ static void torture_pki_ed25519_import_cert_file(void **state)
 
     (void) state; /* unused */
 
+    /* Importing public key as cert should fail */
+    rc = ssh_pki_import_cert_file(LIBSSH_ED25519_TESTKEY ".pub", &cert);
+    assert_int_equal(rc, SSH_ERROR);
+    assert_null(cert);
+
     rc = ssh_pki_import_cert_file(LIBSSH_ED25519_TESTKEY "-cert.pub", &cert);
     assert_true(rc == 0);
     assert_non_null(cert);
