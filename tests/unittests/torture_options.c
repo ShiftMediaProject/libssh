@@ -900,6 +900,9 @@ static void torture_options_copy(void **state)
     config = fopen("test_config", "w");
     assert_non_null(config);
     fputs("IdentityFile ~/.ssh/id_ecdsa\n"
+          "IdentityFile ~/.ssh/my_rsa\n"
+          "CertificateFile ~/.ssh/my_rsa-cert.pub\n"
+          "CertificateFile ~/.ssh/id_ecdsa-cert.pub\n"
           "User tester\n"
           "Hostname example.com\n"
           "BindAddress 127.0.0.2\n"
@@ -938,6 +941,19 @@ static void torture_options_copy(void **state)
     it = ssh_list_get_iterator(session->opts.identity_non_exp);
     assert_non_null(it);
     it2 = ssh_list_get_iterator(new->opts.identity_non_exp);
+    assert_non_null(it2);
+    while (it != NULL && it2 != NULL) {
+        assert_string_equal(it->data, it2->data);
+        it = it->next;
+        it2 = it2->next;
+    }
+    assert_null(it);
+    assert_null(it2);
+
+    /* Check the certificates match */
+    it = ssh_list_get_iterator(session->opts.certificate_non_exp);
+    assert_non_null(it);
+    it2 = ssh_list_get_iterator(new->opts.certificate_non_exp);
     assert_non_null(it2);
     while (it != NULL && it2 != NULL) {
         assert_string_equal(it->data, it2->data);

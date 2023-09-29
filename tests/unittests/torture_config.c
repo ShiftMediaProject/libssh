@@ -184,7 +184,9 @@ extern LIBSSH_THREAD int ssh_log_level;
 /* Multiple IdentityFile settings all are applied */
 #define LIBSSH_TESTCONFIG_STRING13 \
    "IdentityFile id_rsa_one\n" \
-   "IdentityFile id_ecdsa_two\n"
+   "CertificateFile id_rsa_one-cert.pub\n" \
+   "IdentityFile id_ecdsa_two\n" \
+   "CertificateFile id_ecdsa_two-cert.pub\n" \
 
 /* +,-,^ features for all supported list */
 /* kex won't work in fips */
@@ -1913,10 +1915,10 @@ static void torture_config_parser_get_cmd(void **state)
     } else if (pid == 0) {
         ssh_execute_command(tok, fileno(outfile), fileno(outfile));
         /* Does not return */
-    } else {        
-        /* parent 
+    } else {
+        /* parent
          * wait child process */
-        wait(NULL); 
+        wait(NULL);
         infile = fopen("output.log", "r");
         assert_non_null(infile);
         p = fgets(buffer, sizeof(buffer), infile);
@@ -2198,6 +2200,7 @@ static void torture_config_match_pattern(void **state)
 static void torture_config_identity(void **state)
 {
     const char *id = NULL;
+    const char *cert = NULL;
     struct ssh_iterator *it = NULL;
     ssh_session session = *state;
 
@@ -2214,6 +2217,20 @@ static void torture_config_identity(void **state)
     assert_non_null(it);
     id = it->data;
     assert_string_equal(id, "id_rsa_one");
+
+    /* The certs are first added to this temporary list before expanding */
+    it = ssh_list_get_iterator(session->opts.certificate_non_exp);
+    assert_non_null(it);
+    cert = it->data;
+    /* The certs are coming as listed in the configuration file */
+    assert_string_equal(cert, "id_rsa_one-cert.pub");
+
+    it = it->next;
+    assert_non_null(it);
+    cert = it->data;
+    assert_string_equal(cert, "id_ecdsa_two-cert.pub");
+    /* and that is all */
+    assert_null(it->next);
 }
 
 /* Make absolute path for config include
