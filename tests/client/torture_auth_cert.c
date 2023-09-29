@@ -53,7 +53,7 @@ static int session_setup(void **state)
     struct torture_state *s = *state;
     int verbosity = torture_libssh_verbosity();
     const char *all_keytypes = NULL;
-    struct passwd *pwd;
+    struct passwd *pwd = NULL;
     bool b = false;
     int rc;
 
@@ -77,6 +77,31 @@ static int session_setup(void **state)
     rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_PUBLICKEY_ACCEPTED_TYPES, all_keytypes);
     assert_ssh_return_code(s->ssh.session, rc);
 
+    /* certs have been signed for login as alice */
+    rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_USER, TORTURE_SSH_USER_ALICE);
+    assert_int_equal(rc, SSH_OK);
+
+    /* Make sure we do not interfere with another ssh-agent */
+    unsetenv("SSH_AUTH_SOCK");
+    unsetenv("SSH_AGENT_PID");
+
+    return 0;
+}
+
+/* This sets up the ssh session in the directory without the default
+ * certificates that are used for authentication, requiring them to be provided
+ * as configuration options or from agent explicitly. */
+static int session_setup_ssh_dir(void **state)
+{
+    struct torture_state *s = *state;
+    const char *no_home = "~/.no_ssh";
+    int rc;
+
+    session_setup(state);
+
+    rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_SSH_DIR, &no_home);
+    assert_ssh_return_code(s->ssh.session, rc);
+
     return 0;
 }
 
@@ -86,22 +111,6 @@ static int session_teardown(void **state)
 
     ssh_disconnect(s->ssh.session);
     ssh_free(s->ssh.session);
-
-    return 0;
-}
-
-static int cert_setup(void **state)
-{
-    int rc;
-
-    rc = session_setup(state);
-    if (rc != 0) {
-        return rc;
-    }
-
-    /* Make sure we do not interfere with another ssh-agent */
-    unsetenv("SSH_AUTH_SOCK");
-    unsetenv("SSH_AGENT_PID");
 
     return 0;
 }
@@ -116,7 +125,7 @@ static int agent_setup(void **state)
     struct passwd *pwd;
     int rc;
 
-    rc = cert_setup(state);
+    rc = session_setup(state);
     if (rc != 0) {
         return rc;
     }
@@ -234,10 +243,6 @@ static void torture_auth_cert(void **state)
              "%s-cert.pub",
              doe_ssh_key);
 
-    /* cert has been signed for login as alice */
-    rc = ssh_options_set(session, SSH_OPTIONS_USER, TORTURE_SSH_USER_ALICE);
-    assert_int_equal(rc, SSH_OK);
-
     rc = ssh_connect(session);
     assert_int_equal(rc, SSH_OK);
 
@@ -258,6 +263,278 @@ static void torture_auth_cert(void **state)
 
     SSH_KEY_FREE(privkey);
     SSH_KEY_FREE(cert);
+}
+
+static void torture_auth_cert_nonblocking(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    ssh_key privkey = NULL;
+    ssh_key cert = NULL;
+    char doe_ssh_key[1024];
+    char doe_ssh_cert[2048];
+    struct passwd *pwd;
+    int rc;
+
+    pwd = getpwnam("doe");
+    assert_non_null(pwd);
+
+    snprintf(doe_ssh_key,
+             sizeof(doe_ssh_key),
+             "%s/.ssh/id_rsa",
+             pwd->pw_dir);
+    snprintf(doe_ssh_cert,
+             sizeof(doe_ssh_cert),
+             "%s-cert.pub",
+             doe_ssh_key);
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    ssh_set_blocking(session, 0);
+
+    rc = ssh_pki_import_privkey_file(doe_ssh_key, NULL, NULL, NULL, &privkey);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_pki_import_cert_file(doe_ssh_cert, &cert);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_pki_copy_cert_to_privkey(cert, privkey);
+    assert_int_equal(rc, SSH_OK);
+
+    do {
+        rc = ssh_userauth_try_publickey(session, NULL, cert);
+    } while (rc == SSH_AUTH_AGAIN);
+    assert_ssh_return_code(session, rc);
+
+    do {
+        rc = ssh_userauth_publickey(session, NULL, privkey);
+    } while (rc == SSH_AUTH_AGAIN);
+
+    assert_int_equal(rc, SSH_AUTH_SUCCESS);
+
+    SSH_KEY_FREE(privkey);
+    SSH_KEY_FREE(cert);
+}
+
+/* Same as torture_auth_cert, but without explicitly loading certificate to the
+ * private key file, keeping libssh to use default cert path when done with
+ * _auto(). */
+static void torture_auth_cert_default_non_explicit(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    int rc;
+
+    /* the cert is in the default location (~/.ssh/id_rsa-cert.pub) */
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_userauth_publickey_auto(session, NULL, NULL);
+    assert_int_equal(rc, SSH_AUTH_SUCCESS);
+}
+
+/* Same as torture_auth_cert_nonblocking, but without explicitly loading
+ * certificate to the private key file, keeping libssh to use default cert path
+ * when done with  _auto().
+ * Non-blocking version */
+static void torture_auth_cert_default_non_explicit_nonblocking(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    int rc;
+
+    /* the cert is in the default location (~/.ssh/id_rsa-cert.pub) */
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    ssh_set_blocking(session, 0);
+
+    do {
+        rc = ssh_userauth_publickey_auto(session, NULL, NULL);
+    } while (rc == SSH_AUTH_AGAIN);
+    assert_int_equal(rc, SSH_AUTH_SUCCESS);
+}
+
+/* Sanity test that there are no default identities available and the automatic
+ * pubkey authentication fails without any explicit identities */
+static void torture_auth_auto_fail(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    int rc;
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_userauth_publickey_auto(session, NULL, NULL);
+    assert_int_equal(rc, SSH_AUTH_DENIED);
+}
+
+/* Sanity test that there are no default identities available and the automatic
+ * pubkey authentication fails without any explicit identities
+ * Non-blocking version */
+static void torture_auth_auto_fail_nonblocking(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    int rc;
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    ssh_set_blocking(session, 0);
+
+    do {
+        rc = ssh_userauth_publickey_auto(session, NULL, NULL);
+    } while (rc == SSH_AUTH_AGAIN);
+    assert_int_equal(rc, SSH_AUTH_DENIED);
+}
+
+/* Same as torture_auth_cert, but the home SSH dir does not have any default
+ * identities and they are loaded through the options, only through the private
+ * key path. */
+static void torture_auth_cert_options_private(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    char doe_ssh_key[1024];
+    struct passwd *pwd;
+    int rc;
+
+    pwd = getpwnam("doe");
+    assert_non_null(pwd);
+
+    snprintf(doe_ssh_key,
+             sizeof(doe_ssh_key),
+             "%s/.ssh/id_rsa",
+             pwd->pw_dir);
+
+    /* the cert has default naming relative to the private key (*-cert.pub) */
+    rc = ssh_options_set(session, SSH_OPTIONS_IDENTITY, doe_ssh_key);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_userauth_publickey_auto(session, NULL, NULL);
+    assert_int_equal(rc, SSH_AUTH_SUCCESS);
+}
+
+/* Same as torture_auth_cert, but the home SSH dir does not have any default
+ * identities and they are loaded through the options, only through the private
+ * key path.
+ * Non-blocking version */
+static void torture_auth_cert_options_private_nonblocking(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    char doe_ssh_key[1024];
+    struct passwd *pwd;
+    int rc;
+
+    pwd = getpwnam("doe");
+    assert_non_null(pwd);
+
+    snprintf(doe_ssh_key,
+             sizeof(doe_ssh_key),
+             "%s/.ssh/id_rsa",
+             pwd->pw_dir);
+
+    /* the cert has default naming relative to the private key (*-cert.pub) */
+    rc = ssh_options_set(session, SSH_OPTIONS_IDENTITY, doe_ssh_key);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    ssh_set_blocking(session, 0);
+
+    do {
+        rc = ssh_userauth_publickey_auto(session, NULL, NULL);
+    } while (rc == SSH_AUTH_AGAIN);
+    assert_int_equal(rc, SSH_AUTH_SUCCESS);
+}
+
+/* Same as torture_auth_cert, but the home SSH dir does not have any default
+ * identities and they are loaded through the options, also the certificate file
+ */
+static void torture_auth_cert_options_cert(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    char doe_ssh_key[1024];
+    char doe_ssh_cert[2048];
+    struct passwd *pwd;
+    int rc;
+
+    pwd = getpwnam("doe");
+    assert_non_null(pwd);
+
+    snprintf(doe_ssh_key,
+             sizeof(doe_ssh_key),
+             "%s/.ssh/id_rsa",
+             pwd->pw_dir);
+    snprintf(doe_ssh_cert,
+             sizeof(doe_ssh_cert),
+             "%s-cert.pub",
+             doe_ssh_key);
+
+    /* Explicit private key and cert */
+    rc = ssh_options_set(session, SSH_OPTIONS_IDENTITY, doe_ssh_key);
+    assert_int_equal(rc, SSH_OK);
+    rc = ssh_options_set(session, SSH_OPTIONS_CERTIFICATE, doe_ssh_cert);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_userauth_publickey_auto(session, NULL, NULL);
+    assert_int_equal(rc, SSH_AUTH_SUCCESS);
+}
+
+/* Same as torture_auth_cert, but the home SSH dir does not have any default
+ * identities and they are loaded through the options, only through the private
+ * key path.
+ * Non-blocking version */
+static void torture_auth_cert_options_cert_nonblocking(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    char doe_ssh_key[1024];
+    char doe_ssh_cert[2048];
+    struct passwd *pwd;
+    int rc;
+
+    pwd = getpwnam("doe");
+    assert_non_null(pwd);
+
+    snprintf(doe_ssh_key,
+             sizeof(doe_ssh_key),
+             "%s/.ssh/id_rsa",
+             pwd->pw_dir);
+    snprintf(doe_ssh_cert,
+             sizeof(doe_ssh_cert),
+             "%s-cert.pub",
+             doe_ssh_key);
+
+    /* Explicit private key and cert */
+    rc = ssh_options_set(session, SSH_OPTIONS_IDENTITY, doe_ssh_key);
+    assert_int_equal(rc, SSH_OK);
+    rc = ssh_options_set(session, SSH_OPTIONS_CERTIFICATE, doe_ssh_cert);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    ssh_set_blocking(session, 0);
+
+    do {
+        rc = ssh_userauth_publickey_auto(session, NULL, NULL);
+    } while (rc == SSH_AUTH_AGAIN);
+    assert_int_equal(rc, SSH_AUTH_SUCCESS);
 }
 
 static void torture_auth_agent_cert(void **state)
@@ -319,7 +596,34 @@ int torture_run_tests(void) {
     int rc;
     struct CMUnitTest tests[] = {
         cmocka_unit_test_setup_teardown(torture_auth_cert,
-                                        cert_setup,
+                                        session_setup,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_cert_nonblocking,
+                                        session_setup,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_cert_default_non_explicit,
+                                        session_setup,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_cert_default_non_explicit_nonblocking,
+                                        session_setup,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_auto_fail,
+                                        session_setup_ssh_dir,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_auto_fail_nonblocking,
+                                        session_setup_ssh_dir,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_cert_options_private,
+                                        session_setup_ssh_dir,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_cert_options_private_nonblocking,
+                                        session_setup_ssh_dir,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_cert_options_cert,
+                                        session_setup_ssh_dir,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_cert_options_cert_nonblocking,
+                                        session_setup_ssh_dir,
                                         session_teardown),
         cmocka_unit_test_setup_teardown(torture_auth_agent_cert,
                                         agent_cert_setup,
