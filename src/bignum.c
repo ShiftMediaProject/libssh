@@ -70,7 +70,7 @@ bignum ssh_make_string_bn(ssh_string string)
 
 #ifdef DEBUG_CRYPTO
     SSH_LOG(SSH_LOG_TRACE,
-            "Importing a %zu bits, %zu bytes object ...\n",
+            "Importing a %zu bits, %zu bytes object ...",
             len * 8, len);
 #endif /* DEBUG_CRYPTO */
 
