@@ -303,10 +303,13 @@ if (CLIENT_TESTING OR SERVER_TESTING)
     file(READ keys/pkcs11/id_pkcs11_ecdsa_521_openssh.pub CONTENTS)
     file(APPEND ${CMAKE_CURRENT_BINARY_DIR}/home/charlie/.ssh/authorized_keys "${CONTENTS}")
 
-    # Copy the signed key to an alternative directory in bob's homedir.
-    file(COPY keys/certauth/id_rsa DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/home/bob/.ssh_cert/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
-    file(COPY keys/certauth/id_rsa.pub DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/home/bob/.ssh_cert/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
-    file(COPY keys/certauth/id_rsa-cert.pub DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/home/bob/.ssh_cert/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
+    # Copy the signed key to an doe's homedir.
+    file(COPY keys/certauth/id_rsa DESTINATION
+        ${CMAKE_CURRENT_BINARY_DIR}/home/doe/.ssh/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
+    file(COPY keys/certauth/id_rsa.pub DESTINATION
+        ${CMAKE_CURRENT_BINARY_DIR}/home/doe/.ssh/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
+    file(COPY keys/certauth/id_rsa-cert.pub DESTINATION
+        ${CMAKE_CURRENT_BINARY_DIR}/home/doe/.ssh/ FILE_PERMISSIONS OWNER_READ OWNER_WRITE)
 endif ()
 
 if (WITH_PKCS11_URI)

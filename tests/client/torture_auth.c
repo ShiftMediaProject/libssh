@@ -32,8 +32,7 @@
 #include <sys/types.h>
 #include <pwd.h>
 
-/* agent_is_running */
-#include "agent.c"
+#include "torture_auth_common.c"
 
 static int sshd_setup(void **state)
 {
@@ -112,7 +111,7 @@ static int agent_setup(void **state)
     char ssh_agent_cmd[4096];
     char ssh_agent_sock[1024];
     char ssh_agent_pidfile[1024];
-    char bob_ssh_key[1024];
+    char ssh_key_add[1024];
     struct passwd *pwd;
     int rc;
 
@@ -149,38 +148,12 @@ static int agent_setup(void **state)
     setenv("SSH_AUTH_SOCK", ssh_agent_sock, 1);
     setenv("TORTURE_SSH_AGENT_PIDFILE", ssh_agent_pidfile, 1);
 
-    snprintf(bob_ssh_key,
-             sizeof(bob_ssh_key),
+    snprintf(ssh_key_add,
+             sizeof(ssh_key_add),
              "ssh-add %s/.ssh/id_rsa",
              pwd->pw_dir);
 
-    rc = system(bob_ssh_key);
-    assert_return_code(rc, errno);
-
-    return 0;
-}
-
-static int agent_cert_setup(void **state)
-{
-    char bob_alt_ssh_key[1024];
-    struct passwd *pwd;
-    int rc;
-
-    rc = agent_setup(state);
-    if (rc != 0) {
-        return rc;
-    }
-
-    pwd = getpwnam("bob");
-    assert_non_null(pwd);
-
-    /* remove all keys, load alternative key + cert */
-    snprintf(bob_alt_ssh_key,
-             sizeof(bob_alt_ssh_key),
-             "ssh-add -D && ssh-add %s/.ssh_cert/id_rsa",
-             pwd->pw_dir);
-
-    rc = system(bob_alt_ssh_key);
+    rc = system(ssh_key_add);
     assert_return_code(rc, errno);
 
     return 0;
@@ -659,73 +632,15 @@ static void torture_auth_password_nonblocking(void **state) {
     assert_int_equal(rc, SSH_AUTH_SUCCESS);
 }
 
-static void torture_auth_agent(void **state) {
-    struct torture_state *s = *state;
-    ssh_session session = s->ssh.session;
-    int rc;
-
-    if (!ssh_agent_is_running(session)){
-        print_message("*** Agent not running. Test ignored\n");
-        return;
-    }
-    rc = ssh_options_set(session, SSH_OPTIONS_USER, TORTURE_SSH_USER_ALICE);
-    assert_int_equal(rc, SSH_OK);
-
-    rc = ssh_connect(session);
-    assert_int_equal(rc, SSH_OK);
-
-    rc = ssh_userauth_none(session,NULL);
-    /* This request should return a SSH_REQUEST_DENIED error */
-    if (rc == SSH_ERROR) {
-        assert_int_equal(ssh_get_error_code(session), SSH_REQUEST_DENIED);
-    }
-    rc = ssh_userauth_list(session, NULL);
-    assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
-
-    rc = ssh_userauth_agent(session, NULL);
-    assert_ssh_return_code(session, rc);
-}
-
-static void torture_auth_agent_nonblocking(void **state) {
-    struct torture_state *s = *state;
-    ssh_session session = s->ssh.session;
-    int rc;
-
-    if (!ssh_agent_is_running(session)){
-        print_message("*** Agent not running. Test ignored\n");
-        return;
-    }
-    rc = ssh_options_set(session, SSH_OPTIONS_USER, TORTURE_SSH_USER_ALICE);
-    assert_int_equal(rc, SSH_OK);
-
-    rc = ssh_connect(session);
-    assert_int_equal(rc, SSH_OK);
-
-    rc = ssh_userauth_none(session,NULL);
-    /* This request should return a SSH_REQUEST_DENIED error */
-    if (rc == SSH_ERROR) {
-        assert_int_equal(ssh_get_error_code(session), SSH_REQUEST_DENIED);
-    }
-    rc = ssh_userauth_list(session, NULL);
-    assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
-
-    ssh_set_blocking(session,0);
-
-    do {
-      rc = ssh_userauth_agent(session, NULL);
-    } while (rc == SSH_AUTH_AGAIN);
-    assert_ssh_return_code(session, rc);
-}
-
 static void torture_auth_agent_identities_only(void **state)
 {
     struct torture_state *s = *state;
     ssh_session session = s->ssh.session;
     char bob_ssh_key[1024];
-    struct passwd *pwd;
+    struct passwd *pwd = NULL;
     int rc;
     int identities_only = 1;
-    char *id;
+    char *id = NULL;
 
     pwd = getpwnam("bob");
     assert_non_null(pwd);
@@ -829,109 +744,6 @@ static void torture_auth_agent_identities_only_protected(void **state)
     /* Should succeed as key now in config */
     rc = ssh_userauth_agent(session, NULL);
     assert_ssh_return_code(session, rc);
-}
-
-static void torture_auth_cert(void **state) {
-    struct torture_state *s = *state;
-    ssh_session session = s->ssh.session;
-    ssh_key privkey = NULL;
-    ssh_key cert = NULL;
-    char bob_ssh_key[1024];
-    char bob_ssh_cert[2048];
-    struct passwd *pwd;
-    int rc;
-
-    pwd = getpwnam("bob");
-    assert_non_null(pwd);
-
-    snprintf(bob_ssh_key,
-             sizeof(bob_ssh_key),
-             "%s/.ssh_cert/id_rsa",
-             pwd->pw_dir);
-    snprintf(bob_ssh_cert,
-             sizeof(bob_ssh_cert),
-             "%s-cert.pub",
-             bob_ssh_key);
-
-    /* cert has been signed for login as alice */
-    rc = ssh_options_set(session, SSH_OPTIONS_USER, TORTURE_SSH_USER_ALICE);
-    assert_int_equal(rc, SSH_OK);
-
-    rc = ssh_connect(session);
-    assert_int_equal(rc, SSH_OK);
-
-    rc = ssh_pki_import_privkey_file(bob_ssh_key, NULL, NULL, NULL, &privkey);
-    assert_int_equal(rc, SSH_OK);
-
-    rc = ssh_pki_import_cert_file(bob_ssh_cert, &cert);
-    assert_int_equal(rc, SSH_OK);
-
-    rc = ssh_pki_copy_cert_to_privkey(cert, privkey);
-    assert_int_equal(rc, SSH_OK);
-
-    rc = ssh_userauth_try_publickey(session, NULL, cert);
-    assert_ssh_return_code(session, rc);
-
-    rc = ssh_userauth_publickey(session, NULL, privkey);
-    assert_int_equal(rc, SSH_AUTH_SUCCESS);
-
-    SSH_KEY_FREE(privkey);
-    SSH_KEY_FREE(cert);
-}
-
-static void torture_auth_agent_cert(void **state)
-{
-#if OPENSSH_VERSION_MAJOR < 8 || (OPENSSH_VERSION_MAJOR == 8 && OPENSSH_VERSION_MINOR == 0)
-    struct torture_state *s = *state;
-    ssh_session session = s->ssh.session;
-    int rc;
-
-    /* Skip this test if in FIPS mode.
-     *
-     * OpenSSH agent has a bug which makes it to not use SHA2 in signatures when
-     * using certificates. It always uses SHA1.
-     *
-     * This should be removed as soon as OpenSSH agent bug is fixed.
-     * (see https://gitlab.com/libssh/libssh-mirror/merge_requests/34) */
-    if (ssh_fips_mode()) {
-        skip();
-    } else {
-        /* After the bug is solved, this also should be removed */
-        rc = ssh_options_set(session, SSH_OPTIONS_PUBLICKEY_ACCEPTED_TYPES,
-                             "ssh-rsa-cert-v01@openssh.com");
-        assert_int_equal(rc, SSH_OK);
-    }
-#endif /* OPENSSH_VERSION_MAJOR < 8.1 */
-
-    /* Setup loads a different key, tests are exactly the same. */
-    torture_auth_agent(state);
-}
-
-static void torture_auth_agent_cert_nonblocking(void **state)
-{
-#if OPENSSH_VERSION_MAJOR < 8 || (OPENSSH_VERSION_MAJOR == 8 && OPENSSH_VERSION_MINOR == 0)
-    struct torture_state *s = *state;
-    ssh_session session = s->ssh.session;
-    int rc;
-
-    /* Skip this test if in FIPS mode.
-     *
-     * OpenSSH agent has a bug which makes it to not use SHA2 in signatures when
-     * using certificates. It always uses SHA1.
-     *
-     * This should be removed as soon as OpenSSH agent bug is fixed.
-     * (see https://gitlab.com/libssh/libssh-mirror/merge_requests/34) */
-    if (ssh_fips_mode()) {
-        skip();
-    } else {
-        /* After the bug is solved, this also should be removed */
-        rc = ssh_options_set(session, SSH_OPTIONS_PUBLICKEY_ACCEPTED_TYPES,
-                             "ssh-rsa-cert-v01@openssh.com");
-        assert_int_equal(rc, SSH_OK);
-    }
-#endif /* OPENSSH_VERSION_MAJOR < 8.1 */
-
-    torture_auth_agent_nonblocking(state);
 }
 
 static void torture_auth_pubkey_types(void **state)
@@ -1395,15 +1207,6 @@ int torture_run_tests(void) {
                                         agent_teardown),
         cmocka_unit_test_setup_teardown(torture_auth_agent_identities_only_protected,
                                         agent_setup,
-                                        agent_teardown),
-        cmocka_unit_test_setup_teardown(torture_auth_cert,
-                                        pubkey_setup,
-                                        session_teardown),
-        cmocka_unit_test_setup_teardown(torture_auth_agent_cert,
-                                        agent_cert_setup,
-                                        agent_teardown),
-        cmocka_unit_test_setup_teardown(torture_auth_agent_cert_nonblocking,
-                                        agent_cert_setup,
                                         agent_teardown),
         cmocka_unit_test_setup_teardown(torture_auth_pubkey_types,
                                         pubkey_setup,
