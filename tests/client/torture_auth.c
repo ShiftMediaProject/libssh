@@ -716,6 +716,12 @@ torture_auth_password_nonblocking_bad(void **state)
                                       SSH_AUTH_DENIED);
 }
 
+/* TODO cover the case:
+ *  * when there is accompanying certificate (identities only + agent)
+ *  * export private key to public key during _auto() authentication.
+ *    this needs to be a encrypted private key in PEM format without
+ *    accompanying public key.
+ */
 static void torture_auth_agent_identities_only(void **state)
 {
     struct torture_state *s = *state;

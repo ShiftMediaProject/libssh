@@ -76,6 +76,7 @@ static const char *pattern = NULL;
 
 #ifndef _WIN32
 
+/* TODO missing code coverage */
 static int _torture_auth_kbdint(ssh_session session,
                                const char *password) {
     const char *prompt;
