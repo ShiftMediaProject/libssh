@@ -499,7 +499,11 @@ static void torture_auth_autopubkey_nonblocking(void **state) {
     assert_int_equal(rc, SSH_AUTH_SUCCESS);
 }
 
-static void torture_auth_kbdint(void **state) {
+static void
+torture_auth_kbdint(void **state,
+                    const char *password,
+                    enum ssh_auth_e res)
+{
     struct torture_state *s = *state;
     ssh_session session = s->ssh.session;
     int rc;
@@ -522,19 +526,35 @@ static void torture_auth_kbdint(void **state) {
     assert_int_equal(rc, SSH_AUTH_INFO);
     assert_int_equal(ssh_userauth_kbdint_getnprompts(session), 1);
 
-    rc = ssh_userauth_kbdint_setanswer(session, 0, TORTURE_SSH_USER_BOB_PASSWORD);
+    rc = ssh_userauth_kbdint_setanswer(session, 0, password);
     assert_false(rc < 0);
 
     rc = ssh_userauth_kbdint(session, NULL, NULL);
     /* Sometimes, SSH server send an empty query at the end of exchange */
-    if(rc == SSH_AUTH_INFO) {
+    if (rc == SSH_AUTH_INFO) {
         assert_int_equal(ssh_userauth_kbdint_getnprompts(session), 0);
         rc = ssh_userauth_kbdint(session, NULL, NULL);
     }
-    assert_int_equal(rc, SSH_AUTH_SUCCESS);
+    assert_int_equal(rc, res);
 }
 
-static void torture_auth_kbdint_nonblocking(void **state) {
+static void
+torture_auth_kbdint_good(void **state)
+{
+    torture_auth_kbdint(state, TORTURE_SSH_USER_BOB_PASSWORD, SSH_AUTH_SUCCESS);
+}
+
+static void
+torture_auth_kbdint_bad(void **state)
+{
+    torture_auth_kbdint(state, "bad password stample", SSH_AUTH_DENIED);
+}
+
+static void
+torture_auth_kbdint_nonblocking(void **state,
+                                const char *password,
+                                enum ssh_auth_e res)
+{
     struct torture_state *s = *state;
     ssh_session session = s->ssh.session;
     int rc;
@@ -545,9 +565,9 @@ static void torture_auth_kbdint_nonblocking(void **state) {
     rc = ssh_connect(session);
     assert_int_equal(rc, SSH_OK);
 
-    ssh_set_blocking(session,0);
+    ssh_set_blocking(session, 0);
     do {
-      rc = ssh_userauth_none(session, NULL);
+        rc = ssh_userauth_none(session, NULL);
     } while (rc == SSH_AUTH_AGAIN);
 
     /* This request should return a SSH_REQUEST_DENIED error */
@@ -562,23 +582,41 @@ static void torture_auth_kbdint_nonblocking(void **state) {
     } while (rc == SSH_AUTH_AGAIN);
     assert_int_equal(rc, SSH_AUTH_INFO);
     assert_int_equal(ssh_userauth_kbdint_getnprompts(session), 1);
-    rc = ssh_userauth_kbdint_setanswer(session, 0, TORTURE_SSH_USER_BOB_PASSWORD);
+    rc = ssh_userauth_kbdint_setanswer(session, 0, password);
     assert_false(rc < 0);
 
     do {
         rc = ssh_userauth_kbdint(session, NULL, NULL);
     } while (rc == SSH_AUTH_AGAIN);
     /* Sometimes, SSH server send an empty query at the end of exchange */
-    if(rc == SSH_AUTH_INFO) {
+    if (rc == SSH_AUTH_INFO) {
         assert_int_equal(ssh_userauth_kbdint_getnprompts(session), 0);
         do {
             rc = ssh_userauth_kbdint(session, NULL, NULL);
         } while (rc == SSH_AUTH_AGAIN);
     }
-    assert_int_equal(rc, SSH_AUTH_SUCCESS);
+    assert_int_equal(rc, res);
 }
 
-static void torture_auth_password(void **state) {
+static void
+torture_auth_kbdint_nonblocking_good(void **state)
+{
+    torture_auth_kbdint_nonblocking(state,
+                                    TORTURE_SSH_USER_BOB_PASSWORD,
+                                    SSH_AUTH_SUCCESS);
+}
+
+static void
+torture_auth_kbdint_nonblocking_bad(void **state)
+{
+    torture_auth_kbdint_nonblocking(state,
+                                    "bad password stample",
+                                    SSH_AUTH_DENIED);
+}
+
+static void
+torture_auth_password(void **state, const char *password, enum ssh_auth_e res)
+{
     struct torture_state *s = *state;
     ssh_session session = s->ssh.session;
     int rc;
@@ -597,11 +635,29 @@ static void torture_auth_password(void **state) {
     rc = ssh_userauth_list(session, NULL);
     assert_true(rc & SSH_AUTH_METHOD_PASSWORD);
 
-    rc = ssh_userauth_password(session, NULL, TORTURE_SSH_USER_BOB_PASSWORD);
-    assert_int_equal(rc, SSH_AUTH_SUCCESS);
+    rc = ssh_userauth_password(session, NULL, password);
+    assert_int_equal(rc, res);
 }
 
-static void torture_auth_password_nonblocking(void **state) {
+static void
+torture_auth_password_good(void **state)
+{
+    torture_auth_password(state,
+                          TORTURE_SSH_USER_BOB_PASSWORD,
+                          SSH_AUTH_SUCCESS);
+}
+
+static void
+torture_auth_password_bad(void **state)
+{
+    torture_auth_password(state, "bad password stample", SSH_AUTH_DENIED);
+}
+
+static void
+torture_auth_password_nonblocking(void **state,
+                                  const char *password,
+                                  enum ssh_auth_e res)
+{
     struct torture_state *s = *state;
     ssh_session session = s->ssh.session;
     int rc;
@@ -614,7 +670,7 @@ static void torture_auth_password_nonblocking(void **state) {
 
     ssh_set_blocking(session,0);
     do {
-      rc = ssh_userauth_none(session, NULL);
+        rc = ssh_userauth_none(session, NULL);
     } while (rc == SSH_AUTH_AGAIN);
 
     /* This request should return a SSH_REQUEST_DENIED error */
@@ -626,10 +682,26 @@ static void torture_auth_password_nonblocking(void **state) {
     assert_true(rc & SSH_AUTH_METHOD_PASSWORD);
 
     do {
-      rc = ssh_userauth_password(session, NULL, TORTURE_SSH_USER_BOB_PASSWORD);
-    } while(rc==SSH_AUTH_AGAIN);
+        rc = ssh_userauth_password(session, NULL, password);
+    } while (rc == SSH_AUTH_AGAIN);
 
-    assert_int_equal(rc, SSH_AUTH_SUCCESS);
+    assert_int_equal(rc, res);
+}
+
+static void
+torture_auth_password_nonblocking_good(void **state)
+{
+    torture_auth_password_nonblocking(state,
+                                      TORTURE_SSH_USER_BOB_PASSWORD,
+                                      SSH_AUTH_SUCCESS);
+}
+
+static void
+torture_auth_password_nonblocking_bad(void **state)
+{
+    torture_auth_password_nonblocking(state,
+                                      "bad password stample",
+                                      SSH_AUTH_DENIED);
 }
 
 static void torture_auth_agent_identities_only(void **state)
@@ -1169,16 +1241,28 @@ int torture_run_tests(void) {
         cmocka_unit_test_setup_teardown(torture_auth_none_max_tries,
                                         session_setup,
                                         session_teardown),
-        cmocka_unit_test_setup_teardown(torture_auth_password,
+        cmocka_unit_test_setup_teardown(torture_auth_password_good,
                                         session_setup,
                                         session_teardown),
-        cmocka_unit_test_setup_teardown(torture_auth_password_nonblocking,
+        cmocka_unit_test_setup_teardown(torture_auth_password_nonblocking_good,
                                         session_setup,
                                         session_teardown),
-        cmocka_unit_test_setup_teardown(torture_auth_kbdint,
+        cmocka_unit_test_setup_teardown(torture_auth_password_bad,
                                         session_setup,
                                         session_teardown),
-        cmocka_unit_test_setup_teardown(torture_auth_kbdint_nonblocking,
+        cmocka_unit_test_setup_teardown(torture_auth_password_nonblocking_bad,
+                                        session_setup,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_kbdint_good,
+                                        session_setup,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_kbdint_nonblocking_good,
+                                        session_setup,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_kbdint_bad,
+                                        session_setup,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_kbdint_nonblocking_bad,
                                         session_setup,
                                         session_teardown),
         cmocka_unit_test_setup_teardown(torture_auth_pubkey,
