@@ -52,6 +52,10 @@ void torture_auth_agent(void **state)
     rc = ssh_userauth_list(session, NULL);
     assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
 
+    /* negative test case */
+    rc = ssh_userauth_agent(NULL, NULL);
+    assert_int_equal(rc, SSH_AUTH_ERROR);
+
     rc = ssh_userauth_agent(session, NULL);
     assert_ssh_return_code(session, rc);
 }

@@ -296,8 +296,20 @@ static void torture_auth_pubkey(void **state) {
     rc = ssh_pki_import_privkey_file(bob_ssh_key, NULL, NULL, NULL, &privkey);
     assert_int_equal(rc, SSH_OK);
 
+    /* negative tests */
+    rc = ssh_userauth_try_publickey(NULL, NULL, privkey);
+    assert_int_equal(rc, SSH_AUTH_ERROR);
+    rc = ssh_userauth_try_publickey(session, NULL, NULL);
+    assert_int_equal(rc, SSH_AUTH_ERROR);
+
     rc = ssh_userauth_try_publickey(session, NULL, privkey);
     assert_int_equal(rc, SSH_AUTH_SUCCESS);
+
+    /* negative tests */
+    rc = ssh_userauth_publickey(NULL, NULL, privkey);
+    assert_int_equal(rc, SSH_AUTH_ERROR);
+    rc = ssh_userauth_publickey(session, NULL, NULL);
+    assert_int_equal(rc, SSH_AUTH_ERROR);
 
     rc = ssh_userauth_publickey(session, NULL, privkey);
     assert_int_equal(rc, SSH_AUTH_SUCCESS);
