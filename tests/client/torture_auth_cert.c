@@ -30,6 +30,7 @@
 #include "libssh/session.h"
 
 #include <errno.h>
+#include <fcntl.h>
 #include <sys/types.h>
 #include <pwd.h>
 
@@ -592,6 +593,418 @@ static void torture_auth_agent_cert_nonblocking(void **state)
     torture_auth_agent_nonblocking(state);
 }
 
+static void
+torture_auth_agent_cert_identities_only(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    char doe_ssh_key[1024];
+    struct passwd *pwd = NULL;
+    int identities_only = 1;
+    char *id = NULL;
+    int rc;
+
+    pwd = getpwnam("doe");
+    assert_non_null(pwd);
+
+    snprintf(doe_ssh_key,
+             sizeof(doe_ssh_key),
+             "%s/.ssh/id_rsa",
+             pwd->pw_dir);
+
+    if (!ssh_agent_is_running(session)){
+        print_message("*** Agent not running. Test ignored\n");
+        return;
+    }
+
+    rc = ssh_options_set(session, SSH_OPTIONS_IDENTITIES_ONLY, &identities_only);
+    assert_int_equal(rc, SSH_OK);
+
+    /* Remove the default identities */
+    while ((id = ssh_list_pop_head(char *, session->opts.identity_non_exp)) != NULL) {
+        SAFE_FREE(id);
+    }
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_userauth_none(session, NULL);
+    /* This request should return a SSH_REQUEST_DENIED error */
+    if (rc == SSH_ERROR) {
+        assert_int_equal(ssh_get_error_code(session), SSH_REQUEST_DENIED);
+    }
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
+
+    /* Should fail as key is not in config */
+    rc = ssh_userauth_agent(session, NULL);
+    assert_ssh_return_code_equal(session, rc, SSH_AUTH_DENIED);
+
+    /* Re-add a key -- the cert in default location should be loaded
+     * automatically */
+    rc = ssh_list_append(session->opts.identity, strdup(doe_ssh_key));
+    assert_int_equal(rc, SSH_OK);
+
+    /* Should succeed as key now in config/options */
+    rc = ssh_userauth_agent(session, NULL);
+    assert_ssh_return_code(session, rc);
+}
+
+static void
+torture_auth_agent_cert_identities_only_nonblocking(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    char doe_ssh_key[1024];
+    struct passwd *pwd = NULL;
+    int identities_only = 1;
+    char *id = NULL;
+    int rc;
+
+    pwd = getpwnam("doe");
+    assert_non_null(pwd);
+
+    snprintf(doe_ssh_key,
+             sizeof(doe_ssh_key),
+             "%s/.ssh/id_rsa",
+             pwd->pw_dir);
+
+    if (!ssh_agent_is_running(session)){
+        print_message("*** Agent not running. Test ignored\n");
+        return;
+    }
+
+    rc = ssh_options_set(session, SSH_OPTIONS_IDENTITIES_ONLY, &identities_only);
+    assert_int_equal(rc, SSH_OK);
+
+    /* Remove the default identities */
+    while ((id = ssh_list_pop_head(char *, session->opts.identity_non_exp)) != NULL) {
+        SAFE_FREE(id);
+    }
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    ssh_set_blocking(session, 0);
+    do {
+        rc = ssh_userauth_none(session, NULL);
+    } while (rc == SSH_AUTH_AGAIN);
+    /* This request should return a SSH_REQUEST_DENIED error */
+    if (rc == SSH_ERROR) {
+        assert_int_equal(ssh_get_error_code(session), SSH_REQUEST_DENIED);
+    }
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
+
+    /* Should fail as key is not in config */
+    do {
+        rc = ssh_userauth_agent(session, NULL);
+    } while (rc == SSH_AUTH_AGAIN);
+    assert_ssh_return_code_equal(session, rc, SSH_AUTH_DENIED);
+
+    /* Re-add a key -- the cert in default location should be loaded
+     * automatically */
+    rc = ssh_list_append(session->opts.identity, strdup(doe_ssh_key));
+    assert_int_equal(rc, SSH_OK);
+
+    /* Should succeed as key now in config/options */
+    do {
+        rc = ssh_userauth_agent(session, NULL);
+    } while (rc == SSH_AUTH_AGAIN);
+    assert_ssh_return_code(session, rc);
+}
+
+static int agent_cert_setup_explicit(void **state)
+{
+    char orig_doe_ssh_key[1024];
+    char doe_ssh_key[1024];
+    char keydata[2048];
+    struct passwd *pwd = NULL;
+    int fd ;
+    int rc;
+
+    agent_cert_setup(state);
+
+    pwd = getpwnam("doe");
+    assert_non_null(pwd);
+
+    snprintf(orig_doe_ssh_key,
+             sizeof(orig_doe_ssh_key),
+             "%s/.ssh/id_rsa",
+             pwd->pw_dir);
+
+    snprintf(doe_ssh_key,
+             sizeof(doe_ssh_key),
+             "%s/.ssh/my_rsa",
+             pwd->pw_dir);
+
+    /* move the private key away from the default location the certificate can
+     * not be loaded automatically */
+    fd = open(orig_doe_ssh_key, O_RDONLY);
+    assert_true(fd > 0);
+    rc = read(fd, keydata, sizeof(keydata));
+    assert_true(rc > 0);
+    keydata[rc] = '\0';
+    close(fd);
+    torture_write_file(doe_ssh_key, keydata);
+
+    return 0;
+}
+
+static void
+torture_auth_agent_cert_identities_only_explicit(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    char doe_ssh_key[1024];
+    char doe_ssh_cert[1024];
+    struct passwd *pwd = NULL;
+    int identities_only = 1;
+    char *id = NULL;
+    int rc;
+
+    pwd = getpwnam("doe");
+    assert_non_null(pwd);
+
+    snprintf(doe_ssh_key,
+             sizeof(doe_ssh_key),
+             "%s/.ssh/my_rsa",
+             pwd->pw_dir);
+    snprintf(doe_ssh_cert,
+             sizeof(doe_ssh_cert),
+             "%s/.ssh/id_rsa-cert.pub",
+             pwd->pw_dir);
+
+    if (!ssh_agent_is_running(session)){
+        print_message("*** Agent not running. Test ignored\n");
+        skip();
+    }
+
+    rc = ssh_options_set(session, SSH_OPTIONS_IDENTITIES_ONLY, &identities_only);
+    assert_int_equal(rc, SSH_OK);
+
+    /* Remove the default identities */
+    while ((id = ssh_list_pop_head(char *, session->opts.identity_non_exp)) != NULL) {
+        SAFE_FREE(id);
+    }
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_userauth_none(session, NULL);
+    /* This request should return a SSH_REQUEST_DENIED error */
+    if (rc == SSH_ERROR) {
+        assert_int_equal(ssh_get_error_code(session), SSH_REQUEST_DENIED);
+    }
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
+
+    /* Should fail as key is not in config */
+    rc = ssh_userauth_agent(session, NULL);
+    assert_ssh_return_code_equal(session, rc, SSH_AUTH_DENIED);
+
+    /* Re-add a key and cert  */
+    rc = ssh_list_append(session->opts.identity, strdup(doe_ssh_key));
+    assert_int_equal(rc, SSH_OK);
+    rc = ssh_list_append(session->opts.certificate, strdup(doe_ssh_cert));
+    assert_int_equal(rc, SSH_OK);
+
+    /* Should succeed as key now in config/options */
+    rc = ssh_userauth_agent(session, NULL);
+    assert_ssh_return_code(session, rc);
+}
+
+static void
+torture_auth_agent_cert_identities_only_nonblocking_explicit(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    char doe_ssh_key[1024];
+    char doe_ssh_cert[1024];
+    struct passwd *pwd = NULL;
+    int identities_only = 1;
+    char *id = NULL;
+    int rc;
+
+    pwd = getpwnam("doe");
+    assert_non_null(pwd);
+
+    snprintf(doe_ssh_key,
+             sizeof(doe_ssh_key),
+             "%s/.ssh/my_rsa",
+             pwd->pw_dir);
+    snprintf(doe_ssh_cert,
+             sizeof(doe_ssh_cert),
+             "%s/.ssh/id_rsa-cert.pub",
+             pwd->pw_dir);
+
+    if (!ssh_agent_is_running(session)){
+        print_message("*** Agent not running. Test ignored\n");
+        skip();
+    }
+
+    rc = ssh_options_set(session, SSH_OPTIONS_IDENTITIES_ONLY, &identities_only);
+    assert_int_equal(rc, SSH_OK);
+
+    /* Remove the default identities */
+    while ((id = ssh_list_pop_head(char *, session->opts.identity_non_exp)) != NULL) {
+        SAFE_FREE(id);
+    }
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    ssh_set_blocking(session, 0);
+
+    do {
+        rc = ssh_userauth_none(session, NULL);
+    } while (rc == SSH_AUTH_AGAIN);
+    /* This request should return a SSH_REQUEST_DENIED error */
+    if (rc == SSH_ERROR) {
+        assert_int_equal(ssh_get_error_code(session), SSH_REQUEST_DENIED);
+    }
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
+
+    /* Should fail as key is not in config */
+    do {
+        rc = ssh_userauth_agent(session, NULL);
+    } while (rc == SSH_AUTH_AGAIN);
+    assert_ssh_return_code_equal(session, rc, SSH_AUTH_DENIED);
+
+    /* Re-add a key and cert  */
+    rc = ssh_list_append(session->opts.identity, strdup(doe_ssh_key));
+    assert_int_equal(rc, SSH_OK);
+    rc = ssh_list_append(session->opts.certificate, strdup(doe_ssh_cert));
+    assert_int_equal(rc, SSH_OK);
+
+    /* Should succeed as key now in config/options */
+    do {
+        rc = ssh_userauth_agent(session, NULL);
+    } while (rc == SSH_AUTH_AGAIN);
+    assert_ssh_return_code(session, rc);
+}
+
+static void
+torture_auth_agent_cert_only_identities_only(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    char doe_ssh_cert[1024];
+    struct passwd *pwd = NULL;
+    int identities_only = 1;
+    char *id = NULL;
+    int rc;
+
+    pwd = getpwnam("doe");
+    assert_non_null(pwd);
+
+    snprintf(doe_ssh_cert,
+             sizeof(doe_ssh_cert),
+             "%s/.ssh/id_rsa-cert.pub",
+             pwd->pw_dir);
+
+    if (!ssh_agent_is_running(session)){
+        print_message("*** Agent not running. Test ignored\n");
+        skip();
+    }
+
+    rc = ssh_options_set(session, SSH_OPTIONS_IDENTITIES_ONLY, &identities_only);
+    assert_int_equal(rc, SSH_OK);
+
+    /* Remove the default identities */
+    while ((id = ssh_list_pop_head(char *, session->opts.identity_non_exp)) != NULL) {
+        SAFE_FREE(id);
+    }
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_userauth_none(session, NULL);
+    /* This request should return a SSH_REQUEST_DENIED error */
+    if (rc == SSH_ERROR) {
+        assert_int_equal(ssh_get_error_code(session), SSH_REQUEST_DENIED);
+    }
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
+
+    /* Should fail as key is not in config */
+    rc = ssh_userauth_agent(session, NULL);
+    assert_ssh_return_code_equal(session, rc, SSH_AUTH_DENIED);
+
+    /* Re-add a cert: key is in the agent  */
+    rc = ssh_list_append(session->opts.certificate, strdup(doe_ssh_cert));
+    assert_int_equal(rc, SSH_OK);
+
+    /* Should succeed as key now in config/options */
+    rc = ssh_userauth_agent(session, NULL);
+    assert_ssh_return_code(session, rc);
+}
+
+static void
+torture_auth_agent_cert_only_identities_only_nonblocking(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    char doe_ssh_cert[1024];
+    struct passwd *pwd = NULL;
+    int identities_only = 1;
+    char *id = NULL;
+    int rc;
+
+    pwd = getpwnam("doe");
+    assert_non_null(pwd);
+
+    snprintf(doe_ssh_cert,
+             sizeof(doe_ssh_cert),
+             "%s/.ssh/id_rsa-cert.pub",
+             pwd->pw_dir);
+
+    if (!ssh_agent_is_running(session)){
+        print_message("*** Agent not running. Test ignored\n");
+        skip();
+    }
+
+    rc = ssh_options_set(session, SSH_OPTIONS_IDENTITIES_ONLY, &identities_only);
+    assert_int_equal(rc, SSH_OK);
+
+    /* Remove the default identities */
+    while ((id = ssh_list_pop_head(char *, session->opts.identity_non_exp)) != NULL) {
+        SAFE_FREE(id);
+    }
+
+    rc = ssh_connect(session);
+    assert_int_equal(rc, SSH_OK);
+
+    ssh_set_blocking(session, 0);
+
+    do {
+        rc = ssh_userauth_none(session, NULL);
+    } while (rc == SSH_AUTH_AGAIN);
+    /* This request should return a SSH_REQUEST_DENIED error */
+    if (rc == SSH_ERROR) {
+        assert_int_equal(ssh_get_error_code(session), SSH_REQUEST_DENIED);
+    }
+    rc = ssh_userauth_list(session, NULL);
+    assert_true(rc & SSH_AUTH_METHOD_PUBLICKEY);
+
+    /* Should fail as key is not in config */
+    do {
+        rc = ssh_userauth_agent(session, NULL);
+    } while (rc == SSH_AUTH_AGAIN);
+    assert_ssh_return_code_equal(session, rc, SSH_AUTH_DENIED);
+
+    /* Re-add a cert: key is in the agent  */
+    rc = ssh_list_append(session->opts.certificate, strdup(doe_ssh_cert));
+    assert_int_equal(rc, SSH_OK);
+
+    /* Should succeed as key now in config/options */
+    do {
+        rc = ssh_userauth_agent(session, NULL);
+    } while (rc == SSH_AUTH_AGAIN);
+    assert_ssh_return_code(session, rc);
+}
+
 int torture_run_tests(void) {
     int rc;
     struct CMUnitTest tests[] = {
@@ -629,6 +1042,24 @@ int torture_run_tests(void) {
                                         agent_cert_setup,
                                         agent_teardown),
         cmocka_unit_test_setup_teardown(torture_auth_agent_cert_nonblocking,
+                                        agent_cert_setup,
+                                        agent_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_agent_cert_identities_only,
+                                        agent_cert_setup,
+                                        agent_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_agent_cert_identities_only_nonblocking,
+                                        agent_cert_setup,
+                                        agent_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_agent_cert_identities_only_explicit,
+                                        agent_cert_setup_explicit,
+                                        agent_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_agent_cert_identities_only_nonblocking_explicit,
+                                        agent_cert_setup_explicit,
+                                        agent_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_agent_cert_only_identities_only,
+                                        agent_cert_setup,
+                                        agent_teardown),
+        cmocka_unit_test_setup_teardown(torture_auth_agent_cert_only_identities_only_nonblocking,
                                         agent_cert_setup,
                                         agent_teardown),
     };

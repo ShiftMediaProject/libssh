@@ -768,7 +768,7 @@ static void torture_auth_agent_identities_only(void **state)
     rc = ssh_list_append(session->opts.identity, strdup(bob_ssh_key));
     assert_int_equal(rc, SSH_OK);
 
-    /* Should succeed as key now in config */
+    /* Should succeed as key now in config/options */
     rc = ssh_userauth_agent(session, NULL);
     assert_ssh_return_code(session, rc);
 }
@@ -781,7 +781,7 @@ static void torture_auth_agent_identities_only_protected(void **state)
     struct passwd *pwd;
     int rc;
     int identities_only = 1;
-    char *id;
+    char *id = NULL;
 
     pwd = getpwnam("bob");
     assert_non_null(pwd);
@@ -1024,7 +1024,7 @@ static void torture_auth_pubkey_types_ecdsa_nonblocking(void **state)
 
     ssh_set_blocking(session, 0);
     do {
-      rc = ssh_userauth_none(session, NULL);
+        rc = ssh_userauth_none(session, NULL);
     } while (rc == SSH_AUTH_AGAIN);
 
     /* This request should return a SSH_REQUEST_DENIED error */
