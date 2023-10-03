@@ -538,7 +538,7 @@ static void torture_auth_cert_options_cert_nonblocking(void **state)
     assert_int_equal(rc, SSH_AUTH_SUCCESS);
 }
 
-static void torture_auth_agent_cert(void **state)
+static void workaround_old_openssh_bug(void **state)
 {
 #if OPENSSH_VERSION_MAJOR < 8 || (OPENSSH_VERSION_MAJOR == 8 && OPENSSH_VERSION_MINOR == 0)
     struct torture_state *s = *state;
@@ -560,7 +560,14 @@ static void torture_auth_agent_cert(void **state)
                              "ssh-rsa-cert-v01@openssh.com");
         assert_int_equal(rc, SSH_OK);
     }
+#else
+    (void)state;
 #endif /* OPENSSH_VERSION_MAJOR < 8.1 */
+}
+
+static void torture_auth_agent_cert(void **state)
+{
+    workaround_old_openssh_bug(state);
 
     /* Setup loads a different key, tests are exactly the same. */
     torture_auth_agent(state);
@@ -568,27 +575,7 @@ static void torture_auth_agent_cert(void **state)
 
 static void torture_auth_agent_cert_nonblocking(void **state)
 {
-#if OPENSSH_VERSION_MAJOR < 8 || (OPENSSH_VERSION_MAJOR == 8 && OPENSSH_VERSION_MINOR == 0)
-    struct torture_state *s = *state;
-    ssh_session session = s->ssh.session;
-    int rc;
-
-    /* Skip this test if in FIPS mode.
-     *
-     * OpenSSH agent has a bug which makes it to not use SHA2 in signatures when
-     * using certificates. It always uses SHA1.
-     *
-     * This should be removed as soon as OpenSSH agent bug is fixed.
-     * (see https://gitlab.com/libssh/libssh-mirror/merge_requests/34) */
-    if (ssh_fips_mode()) {
-        skip();
-    } else {
-        /* After the bug is solved, this also should be removed */
-        rc = ssh_options_set(session, SSH_OPTIONS_PUBLICKEY_ACCEPTED_TYPES,
-                             "ssh-rsa-cert-v01@openssh.com");
-        assert_int_equal(rc, SSH_OK);
-    }
-#endif /* OPENSSH_VERSION_MAJOR < 8.1 */
+    workaround_old_openssh_bug(state);
 
     torture_auth_agent_nonblocking(state);
 }
@@ -603,6 +590,8 @@ torture_auth_agent_cert_identities_only(void **state)
     int identities_only = 1;
     char *id = NULL;
     int rc;
+
+    workaround_old_openssh_bug(state);
 
     pwd = getpwnam("doe");
     assert_non_null(pwd);
@@ -660,6 +649,8 @@ torture_auth_agent_cert_identities_only_nonblocking(void **state)
     int identities_only = 1;
     char *id = NULL;
     int rc;
+
+    workaround_old_openssh_bug(state);
 
     pwd = getpwnam("doe");
     assert_non_null(pwd);
@@ -763,6 +754,8 @@ torture_auth_agent_cert_identities_only_explicit(void **state)
     char *id = NULL;
     int rc;
 
+    workaround_old_openssh_bug(state);
+
     pwd = getpwnam("doe");
     assert_non_null(pwd);
 
@@ -825,6 +818,8 @@ torture_auth_agent_cert_identities_only_nonblocking_explicit(void **state)
     int identities_only = 1;
     char *id = NULL;
     int rc;
+
+    workaround_old_openssh_bug(state);
 
     pwd = getpwnam("doe");
     assert_non_null(pwd);
@@ -896,6 +891,8 @@ torture_auth_agent_cert_only_identities_only(void **state)
     char *id = NULL;
     int rc;
 
+    workaround_old_openssh_bug(state);
+
     pwd = getpwnam("doe");
     assert_non_null(pwd);
 
@@ -951,6 +948,8 @@ torture_auth_agent_cert_only_identities_only_nonblocking(void **state)
     int identities_only = 1;
     char *id = NULL;
     int rc;
+
+    workaround_old_openssh_bug(state);
 
     pwd = getpwnam("doe");
     assert_non_null(pwd);
