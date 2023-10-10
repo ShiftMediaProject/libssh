@@ -122,6 +122,8 @@ char *ssh_strreplace(const char *src, const char *pattern, const char *repl);
 ssize_t ssh_readn(int fd, void *buf, size_t nbytes);
 ssize_t ssh_writen(int fd, const void *buf, size_t nbytes);
 
+int ssh_check_hostname_syntax(const char *hostname);
+
 #ifdef __cplusplus
 }
 #endif
