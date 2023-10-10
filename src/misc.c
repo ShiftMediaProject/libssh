@@ -94,6 +94,8 @@
 #define ZLIB_STRING ""
 #endif
 
+#define ARPA_DOMAIN_MAX_LEN 63
+
 /**
  * @defgroup libssh_misc The SSH helper functions
  * @ingroup libssh
@@ -1972,6 +1974,72 @@ char *ssh_strerror(int err_num, char *buf, size_t buflen)
     }
     return buf;
 #endif /* defined(__linux__) && defined(__GLIBC__) && defined(_GNU_SOURCE) */
+}
+
+/**
+ * @brief Checks syntax of a domain name
+ *
+ * The check is made based on the RFC1035 section 2.3.1
+ * Allowed characters are: hyphen, period, digits (0-9) and letters (a-zA-Z)
+ *
+ * The label should be no longer than 63 characters
+ * The label should start with a letter and end with a letter or number
+ * The label in this implementation can start with a number to allow virtual
+ * URLs to pass. Note that this will make IPv4 addresses to pass
+ * this check too.
+ *
+ * @param hostname The domain name to be checked, has to be null terminated
+ *
+ * @return SSH_OK if the hostname passes syntax check
+ *         SSH_ERROR otherwise or if hostname is NULL or empty string
+ */
+int ssh_check_hostname_syntax(const char *hostname)
+{
+    char *it = NULL, *s = NULL, *buf = NULL;
+    size_t it_len;
+    char c;
+
+    if (hostname == NULL || strlen(hostname) == 0) {
+        return SSH_ERROR;
+    }
+
+    /* strtok_r writes into the string, keep the input clean */
+    s = strdup(hostname);
+    if (s == NULL) {
+        return SSH_ERROR;
+    }
+
+    it = strtok_r(s, ".", &buf);
+    /* if the token has 0 length */
+    if (it == NULL) {
+        free(s);
+        return SSH_ERROR;
+    }
+    do {
+        it_len = strlen(it);
+        if (it_len > ARPA_DOMAIN_MAX_LEN ||
+            /* the first char must be a letter, but some virtual urls start
+             * with a number */
+            isalnum(it[0]) == 0 ||
+            isalnum(it[it_len - 1]) == 0) {
+            free(s);
+            return SSH_ERROR;
+        }
+        while (*it != '\0') {
+            c = *it;
+            /* the "." is allowed too, but tokenization removes it from the
+             * string */
+            if (isalnum(c) == 0 && c != '-') {
+                free(s);
+                return SSH_ERROR;
+            }
+            it++;
+        }
+    } while ((it = strtok_r(NULL, ".", &buf)) != NULL);
+
+    free(s);
+
+    return SSH_OK;
 }
 
 /** @} */
