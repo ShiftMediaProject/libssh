@@ -1927,13 +1927,17 @@ error:
  *
  * @param[in]  row      The number of rows.
  *
+ * @param[in]  modes    Encoded SSH terminal modes for the PTY
+ *
+ * @param[in]  modes_len Number of bytes in 'modes'
+ *
  * @return              SSH_OK on success,
  *                      SSH_ERROR if an error occurred,
  *                      SSH_AGAIN if in nonblocking mode and call has
  *                      to be done again.
  */
-int ssh_channel_request_pty_size(ssh_channel channel, const char *terminal,
-    int col, int row)
+int ssh_channel_request_pty_size_modes(ssh_channel channel, const char *terminal,
+    int col, int row, const unsigned char* modes, size_t modes_len)
 {
   ssh_session session;
   ssh_buffer buffer = NULL;
@@ -1963,14 +1967,14 @@ int ssh_channel_request_pty_size(ssh_channel channel, const char *terminal,
   }
 
   rc = ssh_buffer_pack(buffer,
-                       "sdddddb",
+                       "sdddddP",
                        terminal,
                        col,
                        row,
                        0, /* pix */
                        0, /* pix */
-                       1, /* add a 0byte string */
-                       0);
+                       (uint32_t)modes_len,
+                       modes_len, modes);
 
   if (rc != SSH_OK) {
     ssh_set_error_oom(session);
@@ -1982,6 +1986,14 @@ error:
   SSH_BUFFER_FREE(buffer);
 
   return rc;
+}
+
+int ssh_channel_request_pty_size(ssh_channel channel, const char *terminal,
+    int col, int row)
+{
+  /* default modes/options: none */
+  const unsigned char modes[1] = {0};
+  return ssh_channel_request_pty_size_modes(channel, terminal, col, row, modes, sizeof(modes));
 }
 
 /**

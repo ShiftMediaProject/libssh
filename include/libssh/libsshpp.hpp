@@ -587,9 +587,12 @@ public:
     ssh_throw(err);
     return_throwable;
   }
-  void_throwable requestPty(const char *term=NULL, int cols=0, int rows=0){
+  void_throwable requestPty(const char *term=NULL, int cols=0, int rows=0,
+      const unsigned char* modes=NULL, size_t modes_len=0){
     int err;
-    if(term != NULL && cols != 0 && rows != 0)
+    if(term != NULL && cols != 0 && rows != 0 && modes != NULL)
+      err=ssh_channel_request_pty_size_modes(channel,term,cols,rows,modes,modes_len);
+    else if(term != NULL && cols != 0 && rows != 0)
       err=ssh_channel_request_pty_size(channel,term,cols,rows);
     else
       err=ssh_channel_request_pty(channel);

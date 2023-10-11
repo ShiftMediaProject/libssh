@@ -479,6 +479,8 @@ LIBSSH_API int ssh_channel_request_exec(ssh_channel channel, const char *cmd);
 LIBSSH_API int ssh_channel_request_pty(ssh_channel channel);
 LIBSSH_API int ssh_channel_request_pty_size(ssh_channel channel, const char *term,
     int cols, int rows);
+LIBSSH_API int ssh_channel_request_pty_size_modes(ssh_channel channel, const char *term,
+    int cols, int rows, const unsigned char* modes, size_t modes_len);
 LIBSSH_API int ssh_channel_request_shell(ssh_channel channel);
 LIBSSH_API int ssh_channel_request_send_signal(ssh_channel channel, const char *signum);
 LIBSSH_API int ssh_channel_request_send_break(ssh_channel channel, uint32_t length);
