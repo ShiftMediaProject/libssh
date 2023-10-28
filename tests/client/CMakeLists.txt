@@ -67,7 +67,7 @@ foreach(_CLI_TEST ${LIBSSH_CLIENT_TESTS})
     add_cmocka_test(${_CLI_TEST}
                     SOURCES ${_CLI_TEST}.c
                     COMPILE_OPTIONS ${DEFAULT_C_COMPILE_FLAGS}
-                    LINK_LIBRARIES ${TORTURE_LIBRARY}
+                    LINK_LIBRARIES ${TORTURE_LIBRARY} util
     )
 
     if (OSX)

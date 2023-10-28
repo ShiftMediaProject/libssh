@@ -1991,9 +1991,18 @@ error:
 int ssh_channel_request_pty_size(ssh_channel channel, const char *terminal,
     int col, int row)
 {
-  /* default modes/options: none */
-  const unsigned char modes[1] = {0};
-  return ssh_channel_request_pty_size_modes(channel, terminal, col, row, modes, sizeof(modes));
+    /* use modes from the current TTY */
+    unsigned char modes_buf[SSH_TTY_MODES_MAX_BUFSIZE];
+    int rc = encode_current_tty_opts(modes_buf, sizeof(modes_buf));
+    if (rc < 0) {
+        return rc;
+    }
+    return ssh_channel_request_pty_size_modes(channel,
+                                              terminal,
+                                              col,
+                                              row,
+                                              modes_buf,
+                                              (size_t)rc);
 }
 
 /**

@@ -27,8 +27,13 @@
 #include <libssh/libssh.h>
 
 #include <sys/types.h>
+#include <sys/stat.h>
 #include <pwd.h>
 #include <errno.h>
+#include <termios.h>
+#include <unistd.h>
+#include <fcntl.h>
+#include <pty.h>
 
 static int sshd_setup(void **state)
 {
@@ -75,6 +80,26 @@ static int session_teardown(void **state)
     return 0;
 }
 
+/* reads from the channel, expecting the given output */
+static int check_channel_output(ssh_channel c, const char *expected)
+{
+    char buffer[4096] = {0};
+    int nbytes;
+
+    nbytes = ssh_channel_read(c, buffer, sizeof(buffer) - 1, 0);
+    while (nbytes > 0) {
+        buffer[nbytes]='\0';
+        if (strstr(buffer, expected) != NULL)
+        {
+            return 1;
+        }
+
+        nbytes = ssh_channel_read(c, buffer, sizeof(buffer), 0);
+    }
+    return 0;
+}
+
+/* set explicit TTY modes and validate that the server uses them */
 static void torture_request_pty_modes_translate_ocrnl(void **state)
 {
     const unsigned char modes[] = {
@@ -92,8 +117,6 @@ static void torture_request_pty_modes_translate_ocrnl(void **state)
     struct torture_state *s = *state;
     ssh_session session = s->ssh.session;
     ssh_channel c;
-    char buffer[4096] = {0};
-    int nbytes;
     int rc;
     int string_found = 0;
 
@@ -106,20 +129,103 @@ static void torture_request_pty_modes_translate_ocrnl(void **state)
     rc = ssh_channel_request_pty_size_modes(c, "xterm", 80, 25, modes, sizeof(modes));
     assert_ssh_return_code(session, rc);
 
-    rc = ssh_channel_request_exec(c, "echo -e '>TEST\\r\\n<'");
+    rc = ssh_channel_request_exec(c, "/bin/echo -e '>TEST\\r\\n<'");
     assert_ssh_return_code(session, rc);
 
-    nbytes = ssh_channel_read(c, buffer, sizeof(buffer) - 1, 0);
-    while (nbytes > 0) {
-        buffer[nbytes]='\0';
-        /* expect 2 newline characters */
-        if (strstr(buffer, ">TEST\n\n<") != NULL) {
-            string_found = 1;
-            break;
-        }
+    /* expect 2 newline characters */
+    string_found = check_channel_output(c, ">TEST\n\n<");
+    assert_int_equal(string_found, 1);
 
-        nbytes = ssh_channel_read(c, buffer, sizeof(buffer), 0);
-    }
+    ssh_channel_close(c);
+}
+
+/* if stdin is a TTY, its modes are passed to the server */
+static void torture_request_pty_modes_use_stdin_modes(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    ssh_channel c;
+    int rc;
+    int string_found = 0;
+    struct termios modes;
+    int stdin_backup_fd = -1;
+    int master_fd, slave_fd;
+
+    c = ssh_channel_new(session);
+    assert_non_null(c);
+
+    rc = ssh_channel_open_session(c);
+    assert_ssh_return_code(session, rc);
+
+    /* stdin must be a TTY, so open one and replace the FD */
+    stdin_backup_fd = dup(STDIN_FILENO);
+    rc = openpty(&master_fd, &slave_fd, NULL, NULL, NULL);
+    assert_int_equal(rc, 0);
+    dup2(master_fd, STDIN_FILENO);
+    assert_true(isatty(STDIN_FILENO));
+    /* translate NL to CRNL on output to see a noticeable effect */
+    memset(&modes, 0, sizeof(modes));
+    tcgetattr(STDIN_FILENO, &modes);
+    modes.c_oflag |= ONLCR;
+    modes.c_iflag &= ~(ICRNL | INLCR | IGNCR);
+    tcsetattr(STDIN_FILENO, TCSANOW, &modes);
+
+    rc = ssh_channel_request_pty_size(c, "xterm", 80, 25);
+
+    /* revert the changes to STDIN first! */
+    dup2(stdin_backup_fd, STDIN_FILENO);
+    close(stdin_backup_fd);
+    close(master_fd);
+    close(slave_fd);
+
+    assert_ssh_return_code(session, rc);
+
+    rc = ssh_channel_request_exec(c, "/bin/echo -e '>TEST\\r\\n<'");
+    assert_ssh_return_code(session, rc);
+
+    /* expect 2 carriage return characters + newline */
+    string_found = check_channel_output(c, ">TEST\r\r\n<");
+    assert_int_equal(string_found, 1);
+
+    ssh_channel_close(c);
+}
+
+/* if stdin is NOT a TTY, default modes are passed to the server */
+static void torture_request_pty_modes_use_default_modes(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    ssh_channel c;
+    int rc;
+    int string_found = 0;
+    int stdin_backup_fd = -1;
+
+    c = ssh_channel_new(session);
+    assert_non_null(c);
+
+    rc = ssh_channel_open_session(c);
+    assert_ssh_return_code(session, rc);
+
+    /* stdin must not a TTY - change the FD to something else */
+    stdin_backup_fd = dup(STDIN_FILENO);
+    close(STDIN_FILENO);
+    rc = open("/dev/null", O_RDONLY); // reuses FD 0 now
+    assert_int_equal(rc, STDIN_FILENO);
+    assert_false(isatty(STDIN_FILENO));
+
+    rc = ssh_channel_request_pty_size(c, "xterm", 80, 25);
+
+    /* revert the changes to STDIN first! */
+    dup2(stdin_backup_fd, STDIN_FILENO);
+    close(stdin_backup_fd);
+
+    assert_ssh_return_code(session, rc);
+
+    rc = ssh_channel_request_exec(c, "/bin/echo -e '>TEST\\r\\n<'");
+    assert_ssh_return_code(session, rc);
+
+    /* expect the input unmodified */
+    string_found = check_channel_output(c, ">TEST\r\n<");
     assert_int_equal(string_found, 1);
 
     ssh_channel_close(c);
@@ -130,6 +236,12 @@ int torture_run_tests(void) {
 
     struct CMUnitTest tests[] = {
         cmocka_unit_test_setup_teardown(torture_request_pty_modes_translate_ocrnl,
+                                        session_setup,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_request_pty_modes_use_stdin_modes,
+                                        session_setup,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_request_pty_modes_use_default_modes,
                                         session_setup,
                                         session_teardown),
     };

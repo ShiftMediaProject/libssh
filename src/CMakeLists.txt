@@ -127,6 +127,7 @@ set(libssh_SRCS
   socket.c
   string.c
   threads.c
+  ttyopts.c
   wrapper.c
   external/bcrypt_pbkdf.c
   external/blowfish.c

@@ -47,6 +47,10 @@
 # endif
 #endif /* !defined(HAVE_STRTOULL) */
 
+#ifdef HAVE_TERMIOS_H
+#include <termios.h>
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -451,6 +455,10 @@ bool is_ssh_initialized(void);
 
 #define SSH_ERRNO_MSG_MAX   1024
 char *ssh_strerror(int err_num, char *buf, size_t buflen);
+
+/** 55 defined options (5 bytes each) + terminator */
+#define SSH_TTY_MODES_MAX_BUFSIZE   (55 * 5 + 1)
+int encode_current_tty_opts(unsigned char *buf, size_t buflen);
 
 #ifdef __cplusplus
 }
