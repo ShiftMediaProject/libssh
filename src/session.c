@@ -237,9 +237,7 @@ void ssh_free(ssh_session session)
   crypto_free(session->current_crypto);
   crypto_free(session->next_crypto);
 
-#ifndef _WIN32
   ssh_agent_free(session->agent);
-#endif /* _WIN32 */
 
   ssh_key_free(session->srv.rsa_key);
   session->srv.rsa_key = NULL;
@@ -296,9 +294,7 @@ void ssh_free(ssh_session session)
     }
     ssh_list_free(session->out_queue);
 
-#ifndef _WIN32
-  ssh_agent_state_free (session->agent_state);
-#endif
+  ssh_agent_state_free(session->agent_state);
   session->agent_state = NULL;
 
   SAFE_FREE(session->auth.auto_state);
