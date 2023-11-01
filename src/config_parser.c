@@ -180,7 +180,7 @@ int ssh_config_parse_uri(const char *tok,
     }
 
     /* Username part (optional) */
-    endp = strchr(tok, '@');
+    endp = strrchr(tok, '@');
     if (endp != NULL) {
         /* Zero-length username is not valid */
         if (tok == endp) {
