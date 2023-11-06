@@ -832,6 +832,31 @@ static void torture_ssh_check_hostname_syntax(void **state)
     assert_int_equal(rc, SSH_ERROR);
 }
 
+static void torture_ssh_is_ipaddr(void **state) {
+    int rc;
+    (void)state;
+
+    rc = ssh_is_ipaddr("201.255.3.69");
+    assert_int_equal(rc, 1);
+    rc = ssh_is_ipaddr("::1");
+    assert_int_equal(rc, 1);
+    rc = ssh_is_ipaddr("2001:0db8:85a3:0000:0000:8a2e:0370:7334");
+    assert_int_equal(rc, 1);
+
+    rc = ssh_is_ipaddr("..");
+    assert_int_equal(rc, 0);
+    rc = ssh_is_ipaddr(":::");
+    assert_int_equal(rc, 0);
+    rc = ssh_is_ipaddr("1.1.1.1.1");
+    assert_int_equal(rc, 0);
+    rc = ssh_is_ipaddr("1.1");
+    assert_int_equal(rc, 0);
+    rc = ssh_is_ipaddr("caesar");
+    assert_int_equal(rc, 0);
+    rc = ssh_is_ipaddr("::xa:1");
+    assert_int_equal(rc, 0);
+}
+
 int torture_run_tests(void) {
     int rc;
     struct CMUnitTest tests[] = {
@@ -857,6 +882,7 @@ int torture_run_tests(void) {
         cmocka_unit_test(torture_ssh_strreplace),
         cmocka_unit_test(torture_ssh_strerror),
         cmocka_unit_test(torture_ssh_check_hostname_syntax),
+        cmocka_unit_test(torture_ssh_is_ipaddr),
     };
 
     ssh_init();
