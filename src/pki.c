@@ -1668,10 +1668,10 @@ int ssh_pki_import_pubkey_file(const char *filename, ssh_key *pkey)
 {
     enum ssh_keytypes_e type;
     struct stat sb;
-    char *key_buf, *p;
+    char *key_buf = NULL, *p = NULL;
     size_t buflen, i;
-    const char *q;
-    FILE *file;
+    const char *q = NULL;
+    FILE *file = NULL;
     off_t size;
     int rc, cmp;
     char err_msg[SSH_ERRNO_MSG_MAX] = {0};
@@ -1777,6 +1777,10 @@ int ssh_pki_import_pubkey_file(const char *filename, ssh_key *pkey)
         return SSH_ERROR;
     }
 
+    if (i >= buflen) {
+        SAFE_FREE(key_buf);
+        return SSH_ERROR;
+    }
     q = &p[i + 1];
     for (; i < buflen; i++) {
         if (isspace((int)p[i])) {
