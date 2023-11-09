@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#include "config.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -20,18 +21,19 @@
 
 #define LIBSSH_STATIC 1
 #include "libssh/libssh.h"
+#include "libssh/misc.h"
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
     ssh_key pkey = NULL;
-    const char *template = "/tmp/libssh_pubkey_XXXXXX";
-    char *filename = strdup(template);
+    char *filename = NULL;
     int fd;
     int rc;
     ssize_t sz;
 
     ssh_init();
 
+    filename = strdup("/tmp/libssh_pubkey_XXXXXX");
     if (filename == NULL) {
         return -1;
     }
@@ -41,9 +43,9 @@ int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
         close(fd);
         return -1;
     }
-    sz = write(fd, data, size);
+    sz = ssh_writen(fd, data, size);
     close(fd);
-    if ((size_t)sz != size) {
+    if (sz == SSH_ERROR) {
         unlink(filename);
         free(filename);
         return -1;
