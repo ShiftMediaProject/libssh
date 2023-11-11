@@ -53,6 +53,7 @@ if (WITH_SFTP)
         torture_sftp_hardlink
         torture_sftp_limits
         torture_sftp_rename
+        torture_sftp_expand_path
         ${SFTP_BENCHMARK_TESTS})
 endif (WITH_SFTP)
 

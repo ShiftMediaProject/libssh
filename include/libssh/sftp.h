@@ -897,6 +897,19 @@ LIBSSH_API char *sftp_canonicalize_path(sftp_session sftp, const char *path);
  */
 LIBSSH_API int sftp_server_version(sftp_session sftp);
 
+/**
+ * @brief Canonicalize path using expand-path@openssh.com extension
+ *
+ * @param sftp          The sftp session handle.
+ *
+ * @param path          The path to be canonicalized.
+ *
+ * @return              A pointer to the newly allocated canonicalized path,
+ *                      NULL on error. The caller needs to free the memory
+ *                      using ssh_string_free_char().
+ */
+LIBSSH_API char *sftp_expand_path(sftp_session sftp, const char *path);
+
 #ifdef WITH_SERVER
 /**
  * @brief Create a new sftp server session.
