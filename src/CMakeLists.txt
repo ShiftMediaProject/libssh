@@ -346,6 +346,7 @@ endif ()
 target_include_directories(ssh
                            PUBLIC
                                $<BUILD_INTERFACE:${libssh_SOURCE_DIR}/include>
+                               $<BUILD_INTERFACE:${libssh_BINARY_DIR}/include>
                                $<INSTALL_INTERFACE:include>
                            PRIVATE ${LIBSSH_PRIVATE_INCLUDE_DIRS})
 
@@ -409,6 +410,7 @@ if (BUILD_STATIC_LIB)
   target_include_directories(ssh-static
                              PUBLIC
                                  $<BUILD_INTERFACE:${libssh_SOURCE_DIR}/include>
+                                 $<BUILD_INTERFACE:${libssh_BINARY_DIR}/include>
                                  $<INSTALL_INTERFACE:include>
                              PRIVATE ${LIBSSH_PRIVATE_INCLUDE_DIRS})
   target_link_libraries(ssh-static
