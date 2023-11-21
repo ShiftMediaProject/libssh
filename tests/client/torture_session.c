@@ -471,6 +471,8 @@ torture_channel_read_stderr(void **state)
     /* Everything in stderr */
     rc = ssh_channel_read(channel, buffer, sizeof(buffer), 1);
     assert_int_equal(rc, strlen("ABCD"));
+
+    buffer[rc] = '\0';
     assert_string_equal("ABCD", buffer);
 
     ssh_channel_free(channel);
