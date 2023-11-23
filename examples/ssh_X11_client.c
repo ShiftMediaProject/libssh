@@ -343,10 +343,11 @@ static void delete_item(ssh_channel channel)
 
 static node_t *search_item(ssh_channel channel)
 {
-    node_t *current = node;
+    node_t *current = NULL;
 
     pthread_mutex_lock(&mutex);
 
+    current = node;
     while (current != NULL) {
         if (current->channel == channel) {
             pthread_mutex_unlock(&mutex);
