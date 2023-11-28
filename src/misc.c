@@ -32,6 +32,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <net/if.h>
 
 #endif /* _WIN32 */
 
@@ -59,6 +60,7 @@
 #include <ws2tcpip.h>
 #include <shlobj.h>
 #include <direct.h>
+#include <netioapi.h>
 
 #ifdef HAVE_IO_H
 #include <io.h>
@@ -222,22 +224,37 @@ int ssh_is_ipaddr_v4(const char *str)
 int ssh_is_ipaddr(const char *str)
 {
     int rc = SOCKET_ERROR;
+    char *s = strdup(str);
 
-    if (strchr(str, ':')) {
+    if (s == NULL) {
+        return -1;
+    }
+    if (strchr(s, ':')) {
         struct sockaddr_storage ss;
         int sslen = sizeof(ss);
+        char *network_interface = strchr(s, '%');
 
-        /* TODO link-local (IP:v6:addr%ifname). */
-        rc = WSAStringToAddressA((LPSTR) str,
+        /* link-local (IP:v6:addr%ifname). */
+        if (network_interface != NULL) {
+            rc = if_nametoindex(network_interface + 1);
+            if (rc == 0) {
+                free(s);
+                return 0;
+            }
+            *network_interface = '\0';
+        }
+        rc = WSAStringToAddressA((LPSTR) s,
                                  AF_INET6,
                                  NULL,
                                  (struct sockaddr*)&ss,
                                  &sslen);
         if (rc == 0) {
+            free(s);
             return 1;
         }
     }
 
+    free(s);
     return ssh_is_ipaddr_v4(str);
 }
 #else /* _WIN32 */
@@ -343,17 +360,32 @@ int ssh_is_ipaddr_v4(const char *str)
 int ssh_is_ipaddr(const char *str)
 {
     int rc = -1;
+    char *s = strdup(str);
 
-    if (strchr(str, ':')) {
+    if (s == NULL) {
+        return -1;
+    }
+    if (strchr(s, ':')) {
         struct in6_addr dest6;
+        char *network_interface = strchr(s, '%');
 
-        /* TODO link-local (IP:v6:addr%ifname). */
-        rc = inet_pton(AF_INET6, str, &dest6);
+        /* link-local (IP:v6:addr%ifname). */
+        if (network_interface != NULL) {
+            rc = if_nametoindex(network_interface + 1);
+            if (rc == 0) {
+                free(s);
+                return 0;
+            }
+            *network_interface = '\0';
+        }
+        rc = inet_pton(AF_INET6, s, &dest6);
         if (rc > 0) {
+            free(s);
             return 1;
         }
     }
 
+    free(s);
     return ssh_is_ipaddr_v4(str);
 }
 
