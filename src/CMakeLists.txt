@@ -85,11 +85,12 @@ if (MINGW AND Threads_FOUND)
   )
 endif()
 
-# This needs to be last for mingw to build
+# The ws2_32 needs to be last for mingw to build
 # https://gitlab.com/libssh/libssh-mirror/-/issues/84
 if (WIN32)
   set(LIBSSH_LINK_LIBRARIES
     ${LIBSSH_LINK_LIBRARIES}
+    iphlpapi
     ws2_32
   )
 endif (WIN32)
