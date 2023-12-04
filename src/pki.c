@@ -586,7 +586,7 @@ enum ssh_keytypes_e ssh_key_type_from_name(const char *name)
 }
 
 /**
- * @brief Get the pubic key type corresponding to a certificate type.
+ * @brief Get the public key type corresponding to a certificate type.
  *
  * @param[in] type   The certificate or public key type.
  *
