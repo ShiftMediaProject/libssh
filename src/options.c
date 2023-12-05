@@ -1926,7 +1926,8 @@ static int ssh_bind_set_algo(ssh_bind sshbind,
  *                        This is DEPRECATED, please do not use.
  *
  *                      - SSH_BIND_OPTIONS_IMPORT_KEY:
- *                        Set the Private Key for the server directly (ssh_key)
+ *                        Set the Private Key for the server directly
+ *                        (ssh_key). It will be free'd by ssh_bind_free().
  *
  *                      - SSH_BIND_OPTIONS_CIPHERS_C_S:
  *                        Set the symmetric cipher client to server (const char *,

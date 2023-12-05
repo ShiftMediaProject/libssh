@@ -222,6 +222,9 @@ LIBSSH_API int ssh_server_init_kex(ssh_session session);
 /**
  * @brief Free a ssh servers bind.
  *
+ * Note that this will also free options that have been set on the bind,
+ * including keys set with SSH_BIND_OPTIONS_IMPORT_KEY.
+ *
  * @param  ssh_bind_o     The ssh server bind to free.
  */
 LIBSSH_API void ssh_bind_free(ssh_bind ssh_bind_o);
