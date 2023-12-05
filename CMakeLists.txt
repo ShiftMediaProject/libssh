@@ -225,10 +225,13 @@ endif (CMAKE_BUILD_TYPE STREQUAL "Coverage")
 
 add_custom_target(dist COMMAND ${CMAKE_MAKE_PROGRAM} package_source DEPENDS ${_SYMBOL_TARGET} VERBATIM)
 
-# Link compile database for clangd
-execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
-                "${CMAKE_BINARY_DIR}/compile_commands.json"
-                "${CMAKE_SOURCE_DIR}/compile_commands.json")
+get_directory_property(hasParent PARENT_DIRECTORY)
+if(NOT(hasParent))
+  # Link compile database for clangd if we are the master project
+  execute_process(COMMAND ${CMAKE_COMMAND} -E create_symlink
+    "${CMAKE_BINARY_DIR}/compile_commands.json"
+    "${CMAKE_SOURCE_DIR}/compile_commands.json")
+endif()
 
 message(STATUS "********************************************")
 message(STATUS "********** ${PROJECT_NAME} build options : **********")
