@@ -414,100 +414,107 @@ int sftp_get_error(sftp_session sftp) {
 }
 
 /* Initialize the sftp session with the server. */
-int sftp_init(sftp_session sftp) {
-  sftp_packet packet = NULL;
-  ssh_buffer buffer = NULL;
-  char *ext_name = NULL;
-  char *ext_data = NULL;
-  uint32_t version;
-  int rc;
+int sftp_init(sftp_session sftp)
+{
+    sftp_packet packet = NULL;
+    ssh_buffer buffer = NULL;
+    char *ext_name = NULL;
+    char *ext_data = NULL;
+    uint32_t version;
+    int rc;
 
-  buffer = ssh_buffer_new();
-  if (buffer == NULL) {
-    ssh_set_error_oom(sftp->session);
-    sftp_set_error(sftp, SSH_FX_FAILURE);
-    return -1;
-  }
+    buffer = ssh_buffer_new();
+    if (buffer == NULL) {
+        ssh_set_error_oom(sftp->session);
+        sftp_set_error(sftp, SSH_FX_FAILURE);
+        return -1;
+    }
 
-  rc = ssh_buffer_pack(buffer, "d", LIBSFTP_VERSION);
-  if (rc != SSH_OK) {
-    ssh_set_error_oom(sftp->session);
-    SSH_BUFFER_FREE(buffer);
-    sftp_set_error(sftp, SSH_FX_FAILURE);
-    return -1;
-  }
-  if (sftp_packet_write(sftp, SSH_FXP_INIT, buffer) < 0) {
-    SSH_BUFFER_FREE(buffer);
-    return -1;
-  }
-  SSH_BUFFER_FREE(buffer);
+    rc = ssh_buffer_pack(buffer, "d", LIBSFTP_VERSION);
+    if (rc != SSH_OK) {
+        ssh_set_error_oom(sftp->session);
+        SSH_BUFFER_FREE(buffer);
+        sftp_set_error(sftp, SSH_FX_FAILURE);
+        return -1;
+    }
 
-  packet = sftp_packet_read(sftp);
-  if (packet == NULL) {
-    return -1;
-  }
-
-  if (packet->type != SSH_FXP_VERSION) {
-    ssh_set_error(sftp->session, SSH_FATAL,
-        "Received a %d messages instead of SSH_FXP_VERSION", packet->type);
-    return -1;
-  }
-
-  /* TODO: are we sure there are 4 bytes ready? */
-  rc = ssh_buffer_unpack(packet->payload, "d", &version);
-  if (rc != SSH_OK){
-      sftp_set_error(sftp, SSH_FX_FAILURE);
-      return -1;
-  }
-  SSH_LOG(SSH_LOG_DEBUG,
-      "SFTP server version %" PRIu32,
-      version);
-  rc = ssh_buffer_unpack(packet->payload, "s", &ext_name);
-  while (rc == SSH_OK) {
-    uint32_t count = sftp->ext->count;
-    char **tmp;
-
-    rc = ssh_buffer_unpack(packet->payload, "s", &ext_data);
+    rc = sftp_packet_write(sftp, SSH_FXP_INIT, buffer);
     if (rc == SSH_ERROR) {
-      break;
+        SSH_BUFFER_FREE(buffer);
+        return -1;
+    }
+
+    SSH_BUFFER_FREE(buffer);
+
+    packet = sftp_packet_read(sftp);
+    if (packet == NULL) {
+        return -1;
+    }
+
+    if (packet->type != SSH_FXP_VERSION) {
+        ssh_set_error(sftp->session, SSH_FATAL,
+                      "Received a %d messages instead of SSH_FXP_VERSION",
+                      packet->type);
+        return -1;
+    }
+
+    /* TODO: are we sure there are 4 bytes ready? */
+    rc = ssh_buffer_unpack(packet->payload, "d", &version);
+    if (rc != SSH_OK){
+        sftp_set_error(sftp, SSH_FX_FAILURE);
+        return -1;
     }
 
     SSH_LOG(SSH_LOG_DEBUG,
-        "SFTP server extension: %s, version: %s",
-        ext_name, ext_data);
-
-    count++;
-    tmp = realloc(sftp->ext->name, count * sizeof(char *));
-    if (tmp == NULL) {
-      ssh_set_error_oom(sftp->session);
-      SAFE_FREE(ext_name);
-      SAFE_FREE(ext_data);
-      sftp_set_error(sftp, SSH_FX_FAILURE);
-      return -1;
-    }
-    tmp[count - 1] = ext_name;
-    sftp->ext->name = tmp;
-
-    tmp = realloc(sftp->ext->data, count * sizeof(char *));
-    if (tmp == NULL) {
-      ssh_set_error_oom(sftp->session);
-      SAFE_FREE(ext_name);
-      SAFE_FREE(ext_data);
-      sftp_set_error(sftp, SSH_FX_FAILURE);
-      return -1;
-    }
-    tmp[count - 1] = ext_data;
-    sftp->ext->data = tmp;
-
-    sftp->ext->count = count;
-
+            "SFTP server version %" PRIu32,
+            version);
     rc = ssh_buffer_unpack(packet->payload, "s", &ext_name);
-  }
+    while (rc == SSH_OK) {
+        uint32_t count = sftp->ext->count;
+        char **tmp;
 
-  sftp->version = sftp->server_version = (int)version;
+        rc = ssh_buffer_unpack(packet->payload, "s", &ext_data);
+        if (rc == SSH_ERROR) {
+            break;
+        }
 
+        SSH_LOG(SSH_LOG_DEBUG,
+                "SFTP server extension: %s, version: %s",
+                ext_name, ext_data);
 
-  return 0;
+        count++;
+        tmp = realloc(sftp->ext->name, count * sizeof(char *));
+        if (tmp == NULL) {
+            ssh_set_error_oom(sftp->session);
+            SAFE_FREE(ext_name);
+            SAFE_FREE(ext_data);
+            sftp_set_error(sftp, SSH_FX_FAILURE);
+            return -1;
+        }
+
+        tmp[count - 1] = ext_name;
+        sftp->ext->name = tmp;
+
+        tmp = realloc(sftp->ext->data, count * sizeof(char *));
+        if (tmp == NULL) {
+            ssh_set_error_oom(sftp->session);
+            SAFE_FREE(ext_name);
+            SAFE_FREE(ext_data);
+            sftp_set_error(sftp, SSH_FX_FAILURE);
+            return -1;
+        }
+
+        tmp[count - 1] = ext_data;
+        sftp->ext->data = tmp;
+
+        sftp->ext->count = count;
+
+        rc = ssh_buffer_unpack(packet->payload, "s", &ext_name);
+    }
+
+    sftp->version = sftp->server_version = (int)version;
+
+    return 0;
 }
 
 unsigned int sftp_extensions_get_count(sftp_session sftp) {
