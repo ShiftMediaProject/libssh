@@ -307,10 +307,10 @@ ssize_t sftp_aio_wait_read(sftp_aio *aio,
     return SSH_ERROR; /* not reached */
 }
 
-int sftp_aio_begin_write(sftp_file file,
-                         const void *buf,
-                         size_t len,
-                         sftp_aio *aio)
+ssize_t sftp_aio_begin_write(sftp_file file,
+                             const void *buf,
+                             size_t len,
+                             sftp_aio *aio)
 {
     sftp_session sftp = NULL;
     ssh_buffer buffer = NULL;
@@ -339,6 +339,11 @@ int sftp_aio_begin_write(sftp_file file,
                       "of bytes to write");
         sftp_set_error(sftp, SSH_FX_FAILURE);
         return SSH_ERROR;
+    }
+
+    /* Apply a cap on the length a user is allowed to write */
+    if (len > sftp->limits->max_write_length) {
+        len = sftp->limits->max_write_length;
     }
 
     if (aio == NULL) {
@@ -394,7 +399,7 @@ int sftp_aio_begin_write(sftp_file file,
     /* Assume we wrote len bytes to the file */
     file->offset += len;
     *aio = aio_handle;
-    return SSH_OK;
+    return len;
 }
 
 ssize_t sftp_aio_wait_write(sftp_aio *aio)
