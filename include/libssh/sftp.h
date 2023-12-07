@@ -92,6 +92,7 @@ struct sftp_session_struct {
     void **handles;
     sftp_ext ext;
     sftp_packet read_packet;
+    sftp_limits_t limits;
 };
 
 struct sftp_packet_struct {

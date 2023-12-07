@@ -347,6 +347,7 @@ void sftp_free(sftp_session sftp)
     SAFE_FREE(sftp->read_packet);
 
     sftp_ext_free(sftp->ext);
+    sftp_limits_free(sftp->limits);
 
     SAFE_FREE(sftp);
 }
@@ -412,6 +413,9 @@ int sftp_get_error(sftp_session sftp) {
 
   return sftp->errnum;
 }
+
+static sftp_limits_t sftp_limits_use_extension(sftp_session sftp);
+static sftp_limits_t sftp_limits_use_default(sftp_session sftp);
 
 /* Initialize the sftp session with the server. */
 int sftp_init(sftp_session sftp)
@@ -513,6 +517,47 @@ int sftp_init(sftp_session sftp)
     }
 
     sftp->version = sftp->server_version = (int)version;
+
+    /* Set the limits */
+    rc = sftp_extension_supported(sftp, "limits@openssh.com", "1");
+    if (rc == 1) {
+        /* Get the ssh and sftp errors */
+        const char *static_ssh_err_msg = ssh_get_error(sftp->session);
+        int ssh_err_code = ssh_get_error_code(sftp->session);
+        int sftp_err_code = sftp_get_error(sftp);
+        char *ssh_err_msg = strdup(static_ssh_err_msg);
+        if (ssh_err_msg == NULL) {
+            ssh_set_error_oom(sftp->session);
+            sftp_set_error(sftp, SSH_FX_FAILURE);
+            return -1;
+        }
+
+        sftp->limits = sftp_limits_use_extension(sftp);
+        if (sftp->limits == NULL) {
+            /* fallback and use the default limits on failure */
+            SSH_LOG(SSH_LOG_TRACE,
+                    "Failed to get the limits from a server claiming to "
+                    "support the limits@openssh.com extension, falling back "
+                    "and using the default limits");
+
+            /* Restore the sftp and ssh errors to their previous state */
+            ssh_set_error(sftp->session, ssh_err_code, "%s", ssh_err_msg);
+            sftp_set_error(sftp, sftp_err_code);
+            SAFE_FREE(ssh_err_msg);
+
+            sftp->limits = sftp_limits_use_default(sftp);
+            if (sftp->limits == NULL) {
+                return -1;
+            }
+        } else {
+            SAFE_FREE(ssh_err_msg);
+        }
+    } else {
+        sftp->limits = sftp_limits_use_default(sftp);
+        if (sftp->limits == NULL) {
+            return -1;
+        }
+    }
 
     return 0;
 }
@@ -2523,12 +2568,17 @@ void sftp_statvfs_free(sftp_statvfs_t statvfs) {
     SAFE_FREE(statvfs);
 }
 
+static sftp_limits_t sftp_limits_new(void)
+{
+    return calloc(1, sizeof(struct sftp_limits_struct));
+}
+
 static sftp_limits_t sftp_parse_limits(sftp_session sftp, ssh_buffer buf)
 {
     sftp_limits_t limits = NULL;
     int rc;
 
-    limits = calloc(1, sizeof(struct sftp_limits_struct));
+    limits = sftp_limits_new();
     if (limits == NULL) {
         ssh_set_error_oom(sftp->session);
         sftp_set_error(sftp, SSH_FX_FAILURE);
@@ -2551,7 +2601,7 @@ static sftp_limits_t sftp_parse_limits(sftp_session sftp, ssh_buffer buf)
     return limits;
 }
 
-sftp_limits_t sftp_limits(sftp_session sftp)
+static sftp_limits_t sftp_limits_use_extension(sftp_session sftp)
 {
     sftp_status_message status = NULL;
     sftp_message msg = NULL;
@@ -2625,6 +2675,65 @@ sftp_limits_t sftp_limits(sftp_session sftp)
     }
 
     return NULL;
+}
+
+static sftp_limits_t sftp_limits_use_default(sftp_session sftp)
+{
+    sftp_limits_t limits = NULL;
+
+    if (sftp == NULL) {
+        return NULL;
+    }
+
+    limits = sftp_limits_new();
+    if (limits == NULL) {
+        ssh_set_error_oom(sftp->session);
+        sftp_set_error(sftp, SSH_FX_FAILURE);
+        return NULL;
+    }
+
+    limits->max_packet_length = 34000;
+    limits->max_read_length = 32768;
+    limits->max_write_length = 32768;
+
+    /*
+     * For max-open-handles field openssh says :
+     * If the server doesn't enforce a specific limit, then the field may
+     * be set to 0.  This implies the server relies on the OS to enforce
+     * limits (e.g. available memory or file handles), and such limits
+     * might be dynamic.  The client SHOULD take care to not try to exceed
+     * reasonable limits.
+     */
+    limits->max_open_handles = 0;
+
+    return limits;
+}
+
+sftp_limits_t sftp_limits(sftp_session sftp)
+{
+    sftp_limits_t limits = NULL;
+
+    if (sftp == NULL) {
+        return NULL;
+    }
+
+    if (sftp->limits == NULL) {
+        ssh_set_error(sftp, SSH_FATAL,
+                      "Uninitialized sftp session, "
+                      "sftp_init() was not called or failed");
+        sftp_set_error(sftp, SSH_FX_FAILURE);
+        return NULL;
+    }
+
+    limits = sftp_limits_new();
+    if (limits == NULL) {
+        ssh_set_error_oom(sftp);
+        sftp_set_error(sftp, SSH_FX_FAILURE);
+        return NULL;
+    }
+
+    memcpy(limits, sftp->limits, sizeof(struct sftp_limits_struct));
+    return limits;
 }
 
 void sftp_limits_free(sftp_limits_t limits)
