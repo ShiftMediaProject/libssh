@@ -50,7 +50,7 @@ void sftp_aio_free(sftp_aio aio)
     SAFE_FREE(aio);
 }
 
-int sftp_aio_begin_read(sftp_file file, size_t len, sftp_aio *aio)
+ssize_t sftp_aio_begin_read(sftp_file file, size_t len, sftp_aio *aio)
 {
     sftp_session sftp = NULL;
     ssh_buffer buffer = NULL;
@@ -71,6 +71,11 @@ int sftp_aio_begin_read(sftp_file file, size_t len, sftp_aio *aio)
                       "bytes to read");
         sftp_set_error(sftp, SSH_FX_FAILURE);
         return SSH_ERROR;
+    }
+
+    /* Apply a cap on the length a user is allowed to read */
+    if (len > sftp->limits->max_read_length) {
+        len = sftp->limits->max_read_length;
     }
 
     if (aio == NULL) {
@@ -126,7 +131,7 @@ int sftp_aio_begin_read(sftp_file file, size_t len, sftp_aio *aio)
     /* Assume we read len bytes from the file */
     file->offset += len;
     *aio = aio_handle;
-    return SSH_OK;
+    return len;
 }
 
 ssize_t sftp_aio_wait_read(sftp_aio *aio,
