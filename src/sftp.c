@@ -2523,8 +2523,7 @@ void sftp_statvfs_free(sftp_statvfs_t statvfs) {
     SAFE_FREE(statvfs);
 }
 
-static sftp_limits_t
-sftp_parse_limits(sftp_session sftp, ssh_buffer buf)
+static sftp_limits_t sftp_parse_limits(sftp_session sftp, ssh_buffer buf)
 {
     sftp_limits_t limits = NULL;
     int rc;
@@ -2552,8 +2551,7 @@ sftp_parse_limits(sftp_session sftp, ssh_buffer buf)
     return limits;
 }
 
-sftp_limits_t
-sftp_limits(sftp_session sftp)
+sftp_limits_t sftp_limits(sftp_session sftp)
 {
     sftp_status_message status = NULL;
     sftp_message msg = NULL;
@@ -2629,8 +2627,7 @@ sftp_limits(sftp_session sftp)
     return NULL;
 }
 
-void
-sftp_limits_free(sftp_limits_t limits)
+void sftp_limits_free(sftp_limits_t limits)
 {
     if (limits == NULL) {
         return;
