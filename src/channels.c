@@ -3150,10 +3150,8 @@ int ssh_channel_read_timeout(ssh_channel channel,
  *
  * @param[in]  is_stderr A boolean to select the stderr stream.
  *
- * @return              The number of bytes read, 0 if nothing is available or
- *                      SSH_ERROR on error.
- *
- * @warning Don't forget to check for EOF as it would return 0 here.
+ * @return              The number of bytes read (0 if nothing is available),
+ *                      SSH_ERROR on error, and SSH_EOF if the channel is EOF.
  *
  * @see ssh_channel_is_eof()
  */
