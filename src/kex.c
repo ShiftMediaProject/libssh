@@ -759,11 +759,8 @@ int ssh_set_client_kex(ssh_session session)
 {
     struct ssh_kex_struct *client = &session->next_crypto->client_kex;
     const char *wanted;
-    char *kex = NULL;
-    char *kex_tmp = NULL;
     int ok;
     int i;
-    size_t kex_len, len;
 
     /* Skip if already set, for example for the rekey or when we do the guessing
      * it could have been already used to make some protocol decisions. */
@@ -812,11 +809,33 @@ int ssh_set_client_kex(ssh_session session)
         return SSH_OK;
     }
 
-    /* Here we append ext-info-c and kex-strict-c-v00@openssh.com to the list of kex algorithms */
-    kex = client->methods[SSH_KEX];
+    ok = ssh_kex_append_extensions(session, client);
+    if (ok != SSH_OK){
+        return ok;
+    }
+
+    return SSH_OK;
+}
+
+int ssh_kex_append_extensions(ssh_session session, struct ssh_kex_struct *pkex)
+{
+    char *kex = NULL;
+    char *kex_tmp = NULL;
+    size_t kex_len, len;
+
+    /* Here we append ext-info-c and kex-strict-c-v00@openssh.com for client
+     * and kex-strict-s-v00@openssh.com for server to the list of kex algorithms
+     */
+    kex = pkex->methods[SSH_KEX];
     len = strlen(kex);
-    /* Comma, comma, nul byte */
-    kex_len = len + 1 + strlen(KEX_EXTENSION_CLIENT) + 1 + strlen(KEX_STRICT_CLIENT ) + 1;
+    if (session->server) {
+        /* Comma, nul byte */
+        kex_len = len + 1 + strlen(KEX_STRICT_SERVER) + 1;
+    } else {
+        /* Comma, comma, nul byte */
+        kex_len = len + 1 + strlen(KEX_EXTENSION_CLIENT) + 1 +
+                  strlen(KEX_STRICT_CLIENT) + 1;
+    }
     if (kex_len >= MAX_PACKET_LEN) {
         /* Overflow */
         return SSH_ERROR;
@@ -826,9 +845,16 @@ int ssh_set_client_kex(ssh_session session)
         ssh_set_error_oom(session);
         return SSH_ERROR;
     }
-    snprintf(kex_tmp + len, kex_len - len, ",%s,%s", KEX_EXTENSION_CLIENT, KEX_STRICT_CLIENT);
-    client->methods[SSH_KEX] = kex_tmp;
-
+    if (session->server){
+        snprintf(kex_tmp + len, kex_len - len, ",%s", KEX_STRICT_SERVER);
+    } else {
+        snprintf(kex_tmp + len,
+                 kex_len - len,
+                 ",%s,%s",
+                 KEX_EXTENSION_CLIENT,
+                 KEX_STRICT_CLIENT);
+    }
+    pkex->methods[SSH_KEX] = kex_tmp;
     return SSH_OK;
 }
 
