@@ -195,7 +195,13 @@ int server_set_kex(ssh_session session)
         }
     }
 
-    return 0;
+    /* Do not append the extensions during rekey */
+    if (session->flags & SSH_SESSION_FLAG_AUTHENTICATED) {
+        return SSH_OK;
+    }
+
+    rc = ssh_kex_append_extensions(session, server);
+    return rc;
 }
 
 int ssh_server_init_kex(ssh_session session) {
