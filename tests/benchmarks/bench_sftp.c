@@ -247,28 +247,57 @@ int benchmarks_async_sftp_aio_down(ssh_session session,
                                    float *bps)
 {
     sftp_session sftp = NULL;
+    sftp_limits_t li = NULL;
     sftp_file file = NULL;
     sftp_aio aio = NULL;
+
     struct ssh_list *aio_queue = NULL;
 
     int concurrent_downloads = args->concurrent_requests;
+    size_t chunksize;
     struct timestamp_struct ts = {0};
     float ms = 0.0f;
 
     size_t total_bytes = args->datasize * 1024 * 1024;
-    size_t bytes_requested = 0, total_bytes_read = 0;
+    size_t total_bytes_requested = 0, total_bytes_read = 0;
+    size_t bufsize = args->chunksize;
     size_t to_read;
-    ssize_t bytes_read;
+    ssize_t bytes_read, bytes_requested;
     int warned = 0, i, rc;
 
     sftp = sftp_new(session);
     if (sftp == NULL) {
+        fprintf(stderr, "Error during sftp aio download: %s\n",
+                ssh_get_error(session));
         return -1;
     }
+
+    /*
+     * Errors which are logged in the ssh session are reported after
+     * jumping to the goto label, errors which aren't logged inside the
+     * ssh session are reported before jumping to that label
+     */
 
     rc = sftp_init(sftp);
     if (rc == SSH_ERROR) {
         goto error;
+    }
+
+    li = sftp_limits(sftp);
+    if (li == NULL) {
+        goto error;
+    }
+
+    if (args->chunksize > li->max_read_length) {
+       chunksize = li->max_read_length;
+       if (args->verbose > 0) {
+           fprintf(stdout,
+                   "Using the chunk size %zu (not the set size %u), "
+                   "to respect the max data limit for read packet\n",
+                   chunksize, args->chunksize);
+       }
+    } else {
+        chunksize = args->chunksize;
     }
 
     file = sftp_open(sftp, SFTPDIR SFTPFILE, O_RDONLY, 0);
@@ -278,6 +307,8 @@ int benchmarks_async_sftp_aio_down(ssh_session session,
 
     aio_queue = ssh_list_new();
     if (aio_queue == NULL) {
+        fprintf(stderr,
+                "Error during sftp aio download: Insufficient memory\n");
         goto error;
     }
 
@@ -291,30 +322,41 @@ int benchmarks_async_sftp_aio_down(ssh_session session,
     timestamp_init(&ts);
 
     for (i = 0;
-         i < concurrent_downloads && bytes_requested < total_bytes;
+         i < concurrent_downloads && total_bytes_requested < total_bytes;
          ++i) {
-        to_read = total_bytes - bytes_requested;
-        if (to_read > args->chunksize) {
-            to_read = args->chunksize;
+        to_read = total_bytes - total_bytes_requested;
+        if (to_read > chunksize) {
+            to_read = chunksize;
         }
 
-        rc = sftp_aio_begin_read(file, to_read, &aio);
-        if (rc == SSH_ERROR) {
+        bytes_requested = sftp_aio_begin_read(file, to_read, &aio);
+        if (bytes_requested == SSH_ERROR) {
             goto error;
         }
 
-        bytes_requested += to_read;
+        if ((size_t)bytes_requested != to_read) {
+            fprintf(stderr,
+                    "Error during sftp aio download: sftp_aio_begin_read() "
+                    "requesting less bytes even when the number of bytes "
+                    "asked to read are within the max limit");
+            sftp_aio_free(aio);
+            goto error;
+        }
+
+        total_bytes_requested += (size_t)bytes_requested;
 
         /* enqueue */
         rc = ssh_list_append(aio_queue, aio);
         if (rc == SSH_ERROR) {
+            fprintf(stderr,
+                    "Error during sftp aio download: Insufficient memory");
             sftp_aio_free(aio);
             goto error;
         }
     }
 
     while ((aio = ssh_list_pop_head(sftp_aio, aio_queue)) != NULL) {
-        bytes_read = sftp_aio_wait_read(&aio, buffer, args->chunksize);
+        bytes_read = sftp_aio_wait_read(&aio, buffer, bufsize);
         if (bytes_read == -1) {
             goto error;
         }
@@ -322,50 +364,60 @@ int benchmarks_async_sftp_aio_down(ssh_session session,
         total_bytes_read += (size_t)bytes_read;
         if (bytes_read == 0) {
             fprintf(stdout ,
-                    "File smaller than expected : %zu bytes (expected %zu).\n",
+                    "File smaller than expected: %zu bytes (expected %zu).\n",
                     total_bytes_read, total_bytes);
             break;
         }
 
         if (total_bytes_read != total_bytes &&
-            (size_t)bytes_read != args->chunksize &&
+            (size_t)bytes_read != chunksize &&
             warned != 1) {
             fprintf(stderr,
-                    "async_sftp_aio_download : Receiving short reads "
-                    "(%zu, expected %u) before encountering eof, "
+                    "async_sftp_aio_download: Receiving short reads "
+                    "(%zu, expected %zu) before encountering eof, "
                     "the received file will be corrupted and shorted. "
                     "Adapt chunksize to %zu.\n",
-                    bytes_read, args->chunksize, bytes_read);
+                    bytes_read, chunksize, bytes_read);
             warned = 1;
         }
 
-        if (bytes_requested == total_bytes) {
+        if (total_bytes_requested == total_bytes) {
             /* No need to issue more requests */
             continue;
         }
 
         /* else issue a request */
-        to_read = total_bytes - bytes_requested;
-        if (to_read > args->chunksize) {
-            to_read = args->chunksize;
+        to_read = total_bytes - total_bytes_requested;
+        if (to_read > chunksize) {
+            to_read = chunksize;
         }
 
-        rc = sftp_aio_begin_read(file, to_read, &aio);
-        if (rc == SSH_ERROR) {
+        bytes_requested = sftp_aio_begin_read(file, to_read, &aio);
+        if (bytes_requested == SSH_ERROR) {
             goto error;
         }
 
-        bytes_requested += to_read;
+        if ((size_t)bytes_requested != to_read) {
+            fprintf(stderr,
+                    "Error during sftp aio download: sftp_aio_begin_read() "
+                    "requesting less bytes even when the number of bytes "
+                    "asked to read are within the max limit");
+            sftp_aio_free(aio);
+            goto error;
+        }
+
+        total_bytes_requested += (size_t)bytes_requested;
 
         /* enqueue */
         rc = ssh_list_append(aio_queue, aio);
         if (rc == SSH_ERROR) {
+            fprintf(stderr,
+                    "Error during sftp aio download: Insufficient memory\n");
             sftp_aio_free(aio);
             goto error;
         }
     }
 
-    ssh_list_free(aio_queue);
     sftp_close(file);
     ms = elapsed_time(&ts);
     *bps = (float)(8000 * total_bytes_read) / ms;
@@ -374,10 +426,18 @@ int benchmarks_async_sftp_aio_down(ssh_session session,
                 ms, total_bytes_read, *bps);
     }
 
+    ssh_list_free(aio_queue);
+    sftp_limits_free(li);
     sftp_free(sftp);
     return 0;
 
 error:
+    rc = ssh_get_error_code(session);
+    if (rc != SSH_NO_ERROR) {
+        fprintf(stderr, "Error during sftp aio download: %s\n",
+                ssh_get_error(session));
+    }
+
     /* Release aio structures corresponding to outstanding requests */
     while ((aio = ssh_list_pop_head(sftp_aio, aio_queue)) != NULL) {
         sftp_aio_free(aio);
@@ -385,6 +445,7 @@ error:
 
     ssh_list_free(aio_queue);
     sftp_close(file);
+    sftp_limits_free(li);
     sftp_free(sftp);
     return -1;
 }
