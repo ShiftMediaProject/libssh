@@ -957,11 +957,19 @@ int ssh_kex_select_methods (ssh_session session)
     enum ssh_key_exchange_e kex_type;
     int i;
 
-    /* Here we should drop the  ext-info-c  from the list so we avoid matching.
+    /* Here we should drop the extensions from the list so we avoid matching.
      * it. We added it to the end, so we can just truncate the string here */
-    ext_start = strstr(client->methods[SSH_KEX], ","KEX_EXTENSION_CLIENT);
-    if (ext_start != NULL) {
-        ext_start[0] = '\0';
+    if (session->client) {
+        ext_start = strstr(client->methods[SSH_KEX], "," KEX_EXTENSION_CLIENT);
+        if (ext_start != NULL) {
+            ext_start[0] = '\0';
+        }
+    }
+    if (session->server) {
+        ext_start = strstr(server->methods[SSH_KEX], "," KEX_STRICT_SERVER);
+        if (ext_start != NULL) {
+            ext_start[0] = '\0';
+        }
     }
 
     for (i = 0; i < SSH_KEX_METHODS; i++) {
