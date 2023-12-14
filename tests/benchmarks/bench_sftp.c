@@ -455,38 +455,65 @@ int benchmarks_async_sftp_aio_up(ssh_session session,
                                  float *bps)
 {
     sftp_session sftp = NULL;
+    sftp_limits_t li = NULL;
     sftp_file file = NULL;
     sftp_aio aio = NULL;
     struct ssh_list *aio_queue = NULL;
 
     int concurrent_uploads = args->concurrent_requests;
+    size_t chunksize;
     struct timestamp_struct ts = {0};
     float ms = 0.0f;
 
     size_t total_bytes = args->datasize * 1024 * 1024;
-    size_t bytes_requested = 0;
-    size_t to_write;
-    ssize_t bytes_written;
+    size_t to_write, total_bytes_requested = 0;
+    ssize_t bytes_written, bytes_requested;
     int i, rc;
 
     sftp = sftp_new(session);
     if (sftp == NULL) {
+        fprintf(stderr, "Error during sftp aio upload: %s\n",
+                ssh_get_error(session));
         return -1;
     }
+
+    /*
+     * Errors which are logged in the ssh session are reported after
+     * jumping to the goto label, errors which aren't logged inside the
+     * ssh session are reported before jumping to that label
+     */
 
     rc = sftp_init(sftp);
     if (rc == SSH_ERROR) {
         goto error;
     }
 
+    li = sftp_limits(sftp);
+    if (li == NULL) {
+        goto error;
+    }
+
+    if (args->chunksize > li->max_write_length) {
+       chunksize = li->max_write_length;
+       if (args->verbose > 0) {
+           fprintf(stdout,
+                   "Using the chunk size %zu (not the set size %u), "
+                   "to respect the max data limit for write packet\n",
+                   chunksize, args->chunksize);
+       }
+    } else {
+        chunksize = args->chunksize;
+    }
+
     file = sftp_open(sftp, SFTPDIR SFTPFILE,
-                     O_RDWR | O_CREAT | O_TRUNC, 0777);
+                     O_WRONLY | O_CREAT | O_TRUNC, 0777);
     if (file == NULL) {
         goto error;
     }
 
     aio_queue = ssh_list_new();
     if (aio_queue == NULL) {
+        fprintf(stderr, "Error during sftp aio upload: Insufficient memory\n");
         goto error;
     }
 
@@ -500,23 +527,34 @@ int benchmarks_async_sftp_aio_up(ssh_session session,
     timestamp_init(&ts);
 
     for (i = 0;
-         i < concurrent_uploads && bytes_requested < total_bytes;
+         i < concurrent_uploads && total_bytes_requested < total_bytes;
          ++i) {
-        to_write = total_bytes - bytes_requested;
-        if (to_write > args->chunksize) {
-            to_write = args->chunksize;
+        to_write = total_bytes - total_bytes_requested;
+        if (to_write > chunksize) {
+            to_write = chunksize;
         }
 
-        rc = sftp_aio_begin_write(file, buffer, to_write, &aio);
-        if (rc == SSH_ERROR) {
+        bytes_requested = sftp_aio_begin_write(file, buffer, to_write, &aio);
+        if (bytes_requested == SSH_ERROR) {
             goto error;
         }
 
-        bytes_requested += to_write;
+        if ((size_t)bytes_requested != to_write) {
+            fprintf(stderr,
+                    "Error during sftp aio upload: sftp_aio_begin_write() "
+                    "requesting less bytes even when the number of bytes "
+                    "asked to write are within the max write limit");
+            sftp_aio_free(aio);
+            goto error;
+        }
+
+        total_bytes_requested += (size_t)bytes_requested;
 
         /* enqueue */
         rc = ssh_list_append(aio_queue, aio);
         if (rc == SSH_ERROR) {
+            fprintf(stderr,
+                    "Error during sftp aio upload: Insufficient memory\n");
             sftp_aio_free(aio);
             goto error;
         }
@@ -528,33 +566,43 @@ int benchmarks_async_sftp_aio_up(ssh_session session,
             goto error;
         }
 
-        if (bytes_requested == total_bytes) {
+        if (total_bytes_requested == total_bytes) {
             /* No need to issue more requests */
             continue;
         }
 
         /* else issue a request */
-        to_write = total_bytes - bytes_requested;
-        if (to_write > args->chunksize) {
-            to_write = args->chunksize;
+        to_write = total_bytes - total_bytes_requested;
+        if (to_write > chunksize) {
+            to_write = chunksize;
         }
 
-        rc = sftp_aio_begin_write(file, buffer, to_write, &aio);
-        if (rc == SSH_ERROR) {
+        bytes_requested = sftp_aio_begin_write(file, buffer, to_write, &aio);
+        if (bytes_requested == SSH_ERROR) {
             goto error;
         }
 
-        bytes_requested += to_write;
+        if ((size_t)bytes_requested != to_write) {
+            fprintf(stderr,
+                    "Error during sftp aio upload: sftp_aio_begin_write() "
+                    "requesting less bytes even when the number of bytes "
+                    "asked to write are within the max write limit");
+            sftp_aio_free(aio);
+            goto error;
+        }
+
+        total_bytes_requested += bytes_requested;
 
         /* enqueue */
         rc = ssh_list_append(aio_queue, aio);
         if (rc == SSH_ERROR) {
+            fprintf(stderr,
+                    "Error during sftp aio upload: Insufficient memory\n");
             sftp_aio_free(aio);
             goto error;
         }
     }
 
-    ssh_list_free(aio_queue);
     sftp_close(file);
     ms = elapsed_time(&ts);
     *bps = (float)(8000 * total_bytes) / ms;
@@ -563,10 +611,18 @@ int benchmarks_async_sftp_aio_up(ssh_session session,
                 ms, total_bytes, *bps);
     }
 
+    ssh_list_free(aio_queue);
+    sftp_limits_free(li);
     sftp_free(sftp);
     return 0;
 
 error:
+    rc = ssh_get_error_code(session);
+    if (rc != SSH_NO_ERROR) {
+        fprintf(stderr, "Error during sftp aio upload: %s\n",
+                ssh_get_error(session));
+    }
+
     /* Release aio structures corresponding to outstanding requests */
     while ((aio = ssh_list_pop_head(sftp_aio, aio_queue)) != NULL) {
         sftp_aio_free(aio);
@@ -574,6 +630,7 @@ error:
 
     ssh_list_free(aio_queue);
     sftp_close(file);
+    sftp_limits_free(li);
     sftp_free(sftp);
     return -1;
 }
