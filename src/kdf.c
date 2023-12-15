@@ -61,20 +61,32 @@ static ssh_mac_ctx ssh_mac_ctx_init(enum ssh_kdf_digest type)
     switch (type) {
     case SSH_KDF_SHA1:
         ctx->ctx.sha1_ctx = sha1_init();
+        if (ctx->ctx.sha1_ctx == NULL) {
+            goto err;
+        }
         return ctx;
     case SSH_KDF_SHA256:
         ctx->ctx.sha256_ctx = sha256_init();
+        if (ctx->ctx.sha256_ctx == NULL) {
+            goto err;
+        }
         return ctx;
     case SSH_KDF_SHA384:
         ctx->ctx.sha384_ctx = sha384_init();
+        if (ctx->ctx.sha384_ctx == NULL) {
+            goto err;
+        }
         return ctx;
     case SSH_KDF_SHA512:
         ctx->ctx.sha512_ctx = sha512_init();
+        if (ctx->ctx.sha512_ctx == NULL) {
+            goto err;
+        }
         return ctx;
-    default:
-        SAFE_FREE(ctx);
-        return NULL;
     }
+err:
+    SAFE_FREE(ctx);
+    return NULL;
 }
 
 static void ssh_mac_ctx_free(ssh_mac_ctx ctx)
