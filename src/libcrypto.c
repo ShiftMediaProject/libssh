@@ -127,60 +127,6 @@ ENGINE *pki_get_engine(void)
 }
 #endif /* WITH_PKCS11_PROVIDER */
 
-#ifdef HAVE_OPENSSL_ECC
-static const EVP_MD *nid_to_evpmd(int nid)
-{
-    switch (nid) {
-        case NID_X9_62_prime256v1:
-            return EVP_sha256();
-        case NID_secp384r1:
-            return EVP_sha384();
-        case NID_secp521r1:
-            return EVP_sha512();
-        default:
-            return NULL;
-    }
-
-    return NULL;
-}
-
-void evp(int nid, unsigned char *digest, size_t len, unsigned char *hash, unsigned int *hlen)
-{
-    const EVP_MD *evp_md = nid_to_evpmd(nid);
-    EVP_MD_CTX *md = EVP_MD_CTX_new();
-
-    EVP_DigestInit(md, evp_md);
-    EVP_DigestUpdate(md, digest, len);
-    EVP_DigestFinal(md, hash, hlen);
-    EVP_MD_CTX_free(md);
-}
-
-EVPCTX evp_init(int nid)
-{
-    const EVP_MD *evp_md = nid_to_evpmd(nid);
-
-    EVPCTX ctx = EVP_MD_CTX_new();
-    if (ctx == NULL) {
-        return NULL;
-    }
-
-    EVP_DigestInit(ctx, evp_md);
-
-    return ctx;
-}
-
-void evp_update(EVPCTX ctx, const void *data, size_t len)
-{
-    EVP_DigestUpdate(ctx, data, len);
-}
-
-void evp_final(EVPCTX ctx, unsigned char *md, unsigned int *mdlen)
-{
-    EVP_DigestFinal(ctx, md, mdlen);
-    EVP_MD_CTX_free(ctx);
-}
-#endif /* HAVE_OPENSSL_ECC */
-
 #ifdef HAVE_OPENSSL_EVP_KDF_CTX
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
 static const EVP_MD *sshkdf_digest_to_md(enum ssh_kdf_digest digest_type)

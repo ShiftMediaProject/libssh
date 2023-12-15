@@ -95,10 +95,6 @@ void sha512_update(SHA512CTX c, const void *data, size_t len);
 void sha512_final(unsigned char *md,SHA512CTX c);
 void sha512(const unsigned char *digest, size_t len, unsigned char *hash);
 
-void evp(int nid, unsigned char *digest, size_t len, unsigned char *hash, unsigned int *hlen);
-EVPCTX evp_init(int nid);
-void evp_update(EVPCTX ctx, const void *data, size_t len);
-void evp_final(EVPCTX ctx, unsigned char *md, unsigned int *mdlen);
 
 HMACCTX hmac_init(const void *key,size_t len, enum ssh_hmac_e type);
 int hmac_update(HMACCTX c, const void *data, size_t len);
