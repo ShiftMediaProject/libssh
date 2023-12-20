@@ -1026,8 +1026,8 @@ int ssh_get_pubkey_hash(ssh_session session, unsigned char **hash)
 {
     ssh_key pubkey = NULL;
     ssh_string pubkey_blob = NULL;
-    MD5CTX ctx;
-    unsigned char *h;
+    MD5CTX ctx = NULL;
+    unsigned char *h = NULL;
     int rc;
 
     if (session == NULL || hash == NULL) {
@@ -1064,11 +1064,13 @@ int ssh_get_pubkey_hash(ssh_session session, unsigned char **hash)
 
     h = calloc(MD5_DIGEST_LEN, sizeof(unsigned char));
     if (h == NULL) {
+        SSH_STRING_FREE(pubkey_blob);
         return SSH_ERROR;
     }
 
     ctx = md5_init();
     if (ctx == NULL) {
+        SSH_STRING_FREE(pubkey_blob);
         SAFE_FREE(h);
         return SSH_ERROR;
     }
@@ -1077,6 +1079,7 @@ int ssh_get_pubkey_hash(ssh_session session, unsigned char **hash)
                     ssh_string_data(pubkey_blob),
                     ssh_string_len(pubkey_blob));
     if (rc != SSH_OK) {
+        SSH_STRING_FREE(pubkey_blob);
         md5_ctx_free(ctx);
         SAFE_FREE(h);
         return rc;
