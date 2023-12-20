@@ -874,28 +874,26 @@ ssh_pki_export_privkey_base64_format(const ssh_key privkey,
         return SSH_ERROR;
     }
 
-    /* The PEM export is supported only with OpenSSL. We fall back to
-     * OpenSSH key format elsewhere */
-    if (format == SSH_FILE_FORMAT_DEFAULT) {
+    /*
+     * For historic reasons, the Ed25519 keys are exported in OpenSSH file
+     * format by default also when built with OpenSSL.
+     */
 #ifdef HAVE_LIBCRYPTO
-        if (privkey->type != SSH_KEYTYPE_ED25519) {
-            format = SSH_FILE_FORMAT_PEM;
-        } else {
-#else
-        if (1) {
-#endif /* HAVE_LIBCRYPTO */
-            format = SSH_FILE_FORMAT_OPENSSH;
-        }
+    if (format == SSH_FILE_FORMAT_DEFAULT &&
+        privkey->type != SSH_KEYTYPE_ED25519) {
+        format = SSH_FILE_FORMAT_PEM;
     }
+#endif /* HAVE_LIBCRYPTO */
 
     switch (format) {
-    case SSH_FILE_FORMAT_DEFAULT:
     case SSH_FILE_FORMAT_PEM:
         blob = pki_private_key_to_pem(privkey,
                                       passphrase,
                                       auth_fn,
                                       auth_data);
         break;
+    case SSH_FILE_FORMAT_DEFAULT:
+        /* default except (OpenSSL && !ED25519) handled above */
     case SSH_FILE_FORMAT_OPENSSH:
         blob = ssh_pki_openssh_privkey_export(privkey,
                                               passphrase,
@@ -1103,28 +1101,26 @@ ssh_pki_export_privkey_file_format(const ssh_key privkey,
         return SSH_EOF;
     }
 
-    /* The PEM export is supported only with OpenSSL. We fall back to
-     * OpenSSH key format elsewhere */
-    if (format == SSH_FILE_FORMAT_DEFAULT) {
+    /*
+     * For historic reasons, the Ed25519 keys are exported in OpenSSH file
+     * format by default also when built with OpenSSL.
+     */
 #ifdef HAVE_LIBCRYPTO
-        if (privkey->type != SSH_KEYTYPE_ED25519) {
-            format = SSH_FILE_FORMAT_PEM;
-        } else {
-#else
-        if (1) {
-#endif /* HAVE_LIBCRYPTO */
-            format = SSH_FILE_FORMAT_OPENSSH;
-        }
+    if (format == SSH_FILE_FORMAT_DEFAULT &&
+        privkey->type != SSH_KEYTYPE_ED25519) {
+        format = SSH_FILE_FORMAT_PEM;
     }
+#endif /* HAVE_LIBCRYPTO */
 
     switch (format) {
-    case SSH_FILE_FORMAT_DEFAULT:
     case SSH_FILE_FORMAT_PEM:
         blob = pki_private_key_to_pem(privkey,
                                       passphrase,
                                       auth_fn,
                                       auth_data);
         break;
+    case SSH_FILE_FORMAT_DEFAULT:
+        /* default except (OpenSSL && !ED25519) handled above */
     case SSH_FILE_FORMAT_OPENSSH:
         blob = ssh_pki_openssh_privkey_export(privkey,
                                               passphrase,
