@@ -1058,6 +1058,39 @@ static void torture_ssh_check_hostname_syntax(void **state)
     assert_int_equal(rc, SSH_ERROR);
 }
 
+static void torture_ssh_check_username_syntax(void **state) {
+    int rc;
+    (void)state;
+
+    rc = ssh_check_username_syntax("username");
+    assert_int_equal(rc, SSH_OK);
+    rc = ssh_check_username_syntax("Alice");
+    assert_int_equal(rc, SSH_OK);
+    rc = ssh_check_username_syntax("Alice and Bob");
+    assert_int_equal(rc, SSH_OK);
+    rc = ssh_check_username_syntax("n4me?");
+    assert_int_equal(rc, SSH_OK);
+
+    rc = ssh_check_username_syntax("alice&bob");
+    assert_int_equal(rc, SSH_ERROR);
+    rc = ssh_check_username_syntax("backslash\\");
+    assert_int_equal(rc, SSH_ERROR);
+    rc = ssh_check_username_syntax("&var|()us\"<ha`r{}'");
+    assert_int_equal(rc, SSH_ERROR);
+    rc = ssh_check_username_syntax(" -");
+    assert_int_equal(rc, SSH_ERROR);
+    rc = ssh_check_username_syntax("me and -");
+    assert_int_equal(rc, SSH_ERROR);
+    rc = ssh_check_username_syntax("los -santos");
+    assert_int_equal(rc, SSH_ERROR);
+    rc = ssh_check_username_syntax("- who?");
+    assert_int_equal(rc, SSH_ERROR);
+    rc = ssh_check_username_syntax(NULL);
+    assert_int_equal(rc, SSH_ERROR);
+    rc = ssh_check_username_syntax("");
+    assert_int_equal(rc, SSH_ERROR);
+}
+
 static void torture_ssh_is_ipaddr(void **state) {
     int rc;
     char *interf = malloc(64);
@@ -1123,6 +1156,7 @@ int torture_run_tests(void) {
         cmocka_unit_test(torture_ssh_readn),
         cmocka_unit_test(torture_ssh_writen),
         cmocka_unit_test(torture_ssh_check_hostname_syntax),
+        cmocka_unit_test(torture_ssh_check_username_syntax),
         cmocka_unit_test(torture_ssh_is_ipaddr),
     };
 

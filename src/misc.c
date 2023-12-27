@@ -2187,4 +2187,36 @@ int ssh_check_hostname_syntax(const char *hostname)
     return SSH_OK;
 }
 
+/**
+ * @brief Checks syntax of a username
+ *
+ * This check disallows metacharacters in the username
+ *
+ * @param username The username to be checked, has to be null terminated
+ *
+ * @return SSH_OK if the username passes syntax check
+ *         SSH_ERROR otherwise or if username is NULL or empty string
+ */
+int ssh_check_username_syntax(const char *username)
+{
+    size_t username_len;
+
+    if (username == NULL || *username == '-') {
+        return SSH_ERROR;
+    }
+
+    username_len = strlen(username);
+    if (username_len == 0 || username[username_len - 1] == '\\' ||
+        strpbrk(username, "'`\";&<>|(){}") != NULL) {
+        return SSH_ERROR;
+    }
+    for (size_t i = 0; i < username_len; i++) {
+        if (isspace(username[i]) != 0 && username[i + 1] == '-') {
+            return SSH_ERROR;
+        }
+    }
+
+    return SSH_OK;
+}
+
 /** @} */
