@@ -738,6 +738,11 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                     ssh_set_error_oom(session);
                     return -1;
                 }
+                rc = ssh_check_username_syntax(session->opts.username);
+                if (rc != SSH_OK) {
+                    ssh_set_error_invalid(session);
+                    return -1;
+                }
             }
             break;
         case SSH_OPTIONS_SSH_DIR:

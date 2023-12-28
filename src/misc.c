@@ -182,6 +182,7 @@ char *ssh_get_local_username(void)
 {
     DWORD size = 0;
     char *user;
+    int rc;
 
     /* get the size */
     GetUserName(NULL, &size);
@@ -192,7 +193,10 @@ char *ssh_get_local_username(void)
     }
 
     if (GetUserName(user, &size)) {
-        return user;
+        rc = ssh_check_username_syntax(user);
+        if (rc == SSH_OK) {
+            return user;
+        }
     }
 
     return NULL;
@@ -336,8 +340,10 @@ char *ssh_get_local_username(void)
     }
 
     name = strdup(pwd.pw_name);
+    rc = ssh_check_username_syntax(name);
 
-    if (name == NULL) {
+    if (rc != SSH_OK) {
+        free(name);
         return NULL;
     }
 

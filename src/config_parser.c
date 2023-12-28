@@ -194,6 +194,10 @@ int ssh_config_parse_uri(const char *tok,
             if (*username == NULL) {
                 goto error;
             }
+            rc = ssh_check_username_syntax(*username);
+            if (rc != SSH_OK) {
+                goto error;
+            }
         }
         tok = endp + 1;
         /* If there is second @ character, this does not look like our URI */
