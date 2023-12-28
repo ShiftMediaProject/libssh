@@ -2377,6 +2377,9 @@ static void torture_config_parse_uri(void **state)
     assert_null(username);
     assert_string_equal(hostname, "1:2:3::4");
     SAFE_FREE(hostname);
+
+    rc = ssh_config_parse_uri("user -name@", &username, NULL, NULL, true);
+    assert_int_equal(rc, SSH_ERROR);
 }
 
 int torture_run_tests(void)

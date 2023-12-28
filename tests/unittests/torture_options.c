@@ -86,6 +86,9 @@ static void torture_options_set_host(void **state) {
     assert_non_null(session->opts.username);
     assert_string_equal(session->opts.username, "at@login");
 
+    /* disallow metacharacters in the username */
+    rc = ssh_options_set(session, SSH_OPTIONS_HOST, "shallN()tP4ss -@hostname");
+    assert_ssh_return_code_equal(session, rc, SSH_ERROR);
 }
 
 static void torture_options_set_ciphers(void **state) {
@@ -392,6 +395,9 @@ static void torture_options_set_user(void **state) {
     rc = getpwuid_r(getuid(), &pwd, buf, NSS_BUFLEN_PASSWD, &pwdbuf);
     assert_true(rc == 0);
 #endif /* _WIN32 */
+
+    rc = ssh_options_set(session, SSH_OPTIONS_USER, "&shallN()tP4ss");
+    assert_ssh_return_code_equal(session, rc, SSH_ERROR);
 
     rc = ssh_options_set(session, SSH_OPTIONS_USER, "guru");
     assert_true(rc == 0);
