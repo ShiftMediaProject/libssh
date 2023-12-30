@@ -397,6 +397,7 @@ int ecdh_build_k(ssh_session session)
                     "Could not derive shared key: %s",
                     ERR_error_string(ERR_get_error(), NULL));
       EVP_PKEY_CTX_free(dh_ctx);
+      free(secret);
       return -1;
   }
 
