@@ -512,7 +512,7 @@ static int shell_request(ssh_session session, ssh_channel channel,
 
 static int subsystem_request(ssh_session session, ssh_channel channel,
                              const char *subsystem, void *userdata) {
-    /* subsystem requests behave simillarly to exec requests. */
+    /* subsystem requests behave similarly to exec requests. */
     if (strcmp(subsystem, "sftp") == 0) {
         return exec_request(session, channel, SFTP_SERVER_PATH, userdata);
     }

@@ -91,7 +91,7 @@
 /* Define to 1 if you have elliptic curve cryptography */
 #cmakedefine HAVE_ECC 1
 
-/* Define to 1 if you have gl_flags as a glob_t sturct member */
+/* Define to 1 if you have gl_flags as a glob_t struct member */
 #cmakedefine HAVE_GLOB_GL_FLAGS_MEMBER 1
 
 /* Define to 1 if you have gcrypt with ChaCha20/Poly1305 support */

@@ -213,7 +213,7 @@ cipher_set_encrypt_key_cbc(struct ssh_cipher_struct *cipher,
         goto error;
     }
 
-    /* libssh only encypts and decrypts packets that are multiples of a block
+    /* libssh only encrypts and decrypts packets that are multiples of a block
      * size, and no padding is used */
     rc = mbedtls_cipher_set_padding_mode(&cipher->encrypt_ctx,
             MBEDTLS_PADDING_NONE);
