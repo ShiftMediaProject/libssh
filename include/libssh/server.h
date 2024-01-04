@@ -295,7 +295,7 @@ LIBSSH_API const char *ssh_message_auth_user(ssh_message msg);
  *
  * @param[in] msg       The message to get the password from.
  *
- * @return              The username or NULL if an error occurred.
+ * @return              The password or NULL if an error occurred.
  *
  * @see ssh_message_get()
  * @see ssh_message_type()
