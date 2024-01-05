@@ -2210,7 +2210,8 @@ int ssh_userauth_kbdint_getnanswers(ssh_session session)
  *
  * @param[in]  i index  The number of the ith answer.
  *
- * @return              0 on success, < 0 on error.
+ * @return              The answer string, or NULL if the answer is not
+ *                      available. Do not free the string.
  */
 const char *ssh_userauth_kbdint_getanswer(ssh_session session, unsigned int i)
 {
