@@ -873,7 +873,7 @@ error:
  */
 const char *ssh_copyright(void)
 {
-    return SSH_STRINGIFY(LIBSSH_VERSION) " (c) 2003-2023 "
+    return SSH_STRINGIFY(LIBSSH_VERSION) " (c) 2003-2024 "
            "Aris Adamantiadis, Andreas Schneider "
            "and libssh contributors. "
            "Distributed under the LGPL, please refer to COPYING "
