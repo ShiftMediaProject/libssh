@@ -181,7 +181,7 @@ int ssh_gettimeofday(struct timeval *__p, void *__t)
 char *ssh_get_local_username(void)
 {
     DWORD size = 0;
-    char *user;
+    char *user = NULL;
     int rc;
 
     /* get the size */
@@ -198,6 +198,8 @@ char *ssh_get_local_username(void)
             return user;
         }
     }
+
+    free(user);
 
     return NULL;
 }
@@ -331,7 +333,7 @@ char *ssh_get_local_username(void)
     struct passwd pwd;
     struct passwd *pwdbuf = NULL;
     char buf[NSS_BUFLEN_PASSWD];
-    char *name;
+    char *name = NULL;
     int rc;
 
     rc = getpwuid_r(getuid(), &pwd, buf, NSS_BUFLEN_PASSWD, &pwdbuf);
