@@ -91,12 +91,14 @@ static void torture_options_set_host(void **state) {
     assert_ssh_return_code_equal(session, rc, SSH_ERROR);
 }
 
-static void torture_options_set_ciphers(void **state) {
+static void torture_options_set_ciphers(void **state)
+{
     ssh_session session = *state;
     int rc;
 
     /* Test known ciphers */
-    rc = ssh_options_set(session, SSH_OPTIONS_CIPHERS_C_S,
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_CIPHERS_C_S,
                          "aes128-ctr,aes192-ctr,aes256-ctr");
     assert_ssh_return_code(session, rc);
     assert_non_null(session->opts.wanted_methods[SSH_CRYPT_C_S]);
@@ -277,7 +279,8 @@ static void torture_options_get_key_exchange(void **state)
     ssh_string_free_char(value);
 }
 
-static void torture_options_set_hostkey(void **state) {
+static void torture_options_set_hostkey(void **state)
+{
     ssh_session session = *state;
     int rc;
 
@@ -289,10 +292,10 @@ static void torture_options_set_hostkey(void **state) {
     assert_non_null(session->opts.wanted_methods[SSH_HOSTKEYS]);
     if (ssh_fips_mode()) {
         assert_string_equal(session->opts.wanted_methods[SSH_HOSTKEYS],
-                "ecdsa-sha2-nistp384");
+                            "ecdsa-sha2-nistp384");
     } else {
         assert_string_equal(session->opts.wanted_methods[SSH_HOSTKEYS],
-                "ssh-ed25519,ecdsa-sha2-nistp384,ssh-rsa");
+                            "ssh-ed25519,ecdsa-sha2-nistp384,ssh-rsa");
     }
 
     /* Test one unknown host key */
@@ -369,7 +372,8 @@ static void torture_options_get_hostkey(void **state)
     ssh_string_free_char(value);
 }
 
-static void torture_options_set_pubkey_accepted_types(void **state) {
+static void torture_options_set_pubkey_accepted_types(void **state)
+{
     ssh_session session = *state;
     int rc;
     enum ssh_digest_e type;
@@ -461,7 +465,8 @@ static void torture_options_get_pubkey_accepted_types(void **state)
 }
 
 
-static void torture_options_set_macs(void **state) {
+static void torture_options_set_macs(void **state)
+{
     ssh_session session = *state;
     int rc;
 
@@ -474,20 +479,30 @@ static void torture_options_set_macs(void **state) {
     /* Test multiple known MACs */
     rc = ssh_options_set(session,
                          SSH_OPTIONS_HMAC_S_C,
-                         "hmac-sha1-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha1,hmac-sha2-256");
+                         "hmac-sha1-etm@openssh.com,"
+                         "hmac-sha2-256-etm@openssh.com,"
+                         "hmac-sha1,hmac-sha2-256");
     assert_ssh_return_code(session, rc);
     assert_non_null(session->opts.wanted_methods[SSH_MAC_S_C]);
     assert_string_equal(session->opts.wanted_methods[SSH_MAC_S_C],
-                        "hmac-sha1-etm@openssh.com,hmac-sha2-256-etm@openssh.com,hmac-sha1,hmac-sha2-256");
+                        "hmac-sha1-etm@openssh.com,"
+                        "hmac-sha2-256-etm@openssh.com,"
+                        "hmac-sha1,hmac-sha2-256");
 
     /* Test unknown MACs */
-    rc = ssh_options_set(session, SSH_OPTIONS_HMAC_S_C, "unknown-crap@example.com,hmac-sha1-etm@openssh.com,unknown@example.com");
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_HMAC_S_C,
+                         "unknown-crap@example.com,hmac-sha1-etm@openssh.com,"
+                         "unknown@example.com");
     assert_ssh_return_code(session, rc);
     assert_non_null(session->opts.wanted_methods[SSH_MAC_S_C]);
-    assert_string_equal(session->opts.wanted_methods[SSH_MAC_S_C], "hmac-sha1-etm@openssh.com");
+    assert_string_equal(session->opts.wanted_methods[SSH_MAC_S_C],
+                        "hmac-sha1-etm@openssh.com");
 
     /* Test all unknown MACs */
-    rc = ssh_options_set(session, SSH_OPTIONS_HMAC_S_C, "unknown-crap@example.com");
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_HMAC_S_C,
+                         "unknown-crap@example.com");
     assert_false(rc == 0);
 }
 
@@ -640,7 +655,8 @@ static void torture_options_get_host(void **state)
     ssh_string_free_char(host);
 }
 
-static void torture_options_set_port(void **state) {
+static void torture_options_set_port(void **state)
+{
     ssh_session session = *state;
     int rc;
     unsigned int port = 42;
@@ -661,32 +677,37 @@ static void torture_options_set_port(void **state) {
     assert_true(rc == -1);
 }
 
-static void torture_options_get_port(void **state) {
-  ssh_session session = *state;
-  unsigned int given_port = 1234;
-  unsigned int port_container;
-  int rc;
-  rc = ssh_options_set(session, SSH_OPTIONS_PORT, &given_port);
-  assert_true(rc == 0);
-  rc = ssh_options_get_port(session, &port_container);
-  assert_true(rc == 0);
-  assert_int_equal(port_container, 1234);
+static void torture_options_get_port(void **state)
+{
+    ssh_session session = *state;
+    unsigned int given_port = 1234;
+    unsigned int port_container;
+    int rc;
+
+    rc = ssh_options_set(session, SSH_OPTIONS_PORT, &given_port);
+    assert_true(rc == 0);
+    rc = ssh_options_get_port(session, &port_container);
+    assert_true(rc == 0);
+    assert_int_equal(port_container, 1234);
 }
 
-static void torture_options_get_user(void **state) {
-  ssh_session session = *state;
-  char* user = NULL;
-  int rc;
-  rc = ssh_options_set(session, SSH_OPTIONS_USER, "magicaltrevor");
-  assert_int_equal(rc, SSH_OK);
-  rc = ssh_options_get(session, SSH_OPTIONS_USER, &user);
-  assert_int_equal(rc, SSH_OK);
-  assert_non_null(user);
-  assert_string_equal(user, "magicaltrevor");
-  ssh_string_free_char(user);
+static void torture_options_get_user(void **state)
+{
+    ssh_session session = *state;
+    char *user = NULL;
+    int rc;
+
+    rc = ssh_options_set(session, SSH_OPTIONS_USER, "magicaltrevor");
+    assert_int_equal(rc, SSH_OK);
+    rc = ssh_options_get(session, SSH_OPTIONS_USER, &user);
+    assert_int_equal(rc, SSH_OK);
+    assert_non_null(user);
+    assert_string_equal(user, "magicaltrevor");
+    ssh_string_free_char(user);
 }
 
-static void torture_options_set_fd(void **state) {
+static void torture_options_set_fd(void **state)
+{
     ssh_session session = *state;
     socket_t fd = 42;
     int rc;
@@ -700,7 +721,8 @@ static void torture_options_set_fd(void **state) {
     assert_true(session->opts.fd == SSH_INVALID_SOCKET);
 }
 
-static void torture_options_set_user(void **state) {
+static void torture_options_set_user(void **state)
+{
     ssh_session session = *state;
     int rc;
 #ifndef _WIN32
@@ -732,29 +754,26 @@ static void torture_options_set_user(void **state) {
 #endif
 }
 
-/* TODO */
-#if 0
-static voidtorture_options_set_sshdir)
+static void torture_options_set_identity(void **state)
 {
-}
-END_TEST
-#endif
-
-static void torture_options_set_identity(void **state) {
     ssh_session session = *state;
     int rc;
 
     rc = ssh_options_set(session, SSH_OPTIONS_ADD_IDENTITY, "identity1");
     assert_true(rc == 0);
-    assert_string_equal(session->opts.identity_non_exp->root->data, "identity1");
+    assert_string_equal(session->opts.identity_non_exp->root->data,
+                        "identity1");
 
     rc = ssh_options_set(session, SSH_OPTIONS_IDENTITY, "identity2");
     assert_true(rc == 0);
-    assert_string_equal(session->opts.identity_non_exp->root->data, "identity2");
-    assert_string_equal(session->opts.identity_non_exp->root->next->data, "identity1");
+    assert_string_equal(session->opts.identity_non_exp->root->data,
+                        "identity2");
+    assert_string_equal(session->opts.identity_non_exp->root->next->data,
+                        "identity1");
 }
 
-static void torture_options_get_identity(void **state) {
+static void torture_options_get_identity(void **state)
+{
     ssh_session session = *state;
     char *identity = NULL;
     int rc;
@@ -769,7 +788,8 @@ static void torture_options_get_identity(void **state) {
 
     rc = ssh_options_set(session, SSH_OPTIONS_IDENTITY, "identity2");
     assert_int_equal(rc, SSH_OK);
-    assert_string_equal(session->opts.identity_non_exp->root->data, "identity2");
+    assert_string_equal(session->opts.identity_non_exp->root->data,
+                        "identity2");
     rc = ssh_options_get(session, SSH_OPTIONS_IDENTITY, &identity);
     assert_int_equal(rc, SSH_OK);
     assert_non_null(identity);
@@ -874,7 +894,8 @@ static void torture_options_proxycommand(void **state) {
     assert_null(session->opts.ProxyCommand);
 }
 
-static void torture_options_control_master (void **state) {
+static void torture_options_control_master (void **state)
+{
     ssh_session session = *state;
     int rc, val = SSH_CONTROL_MASTER_NO;
 
@@ -919,13 +940,16 @@ static void torture_options_control_master (void **state) {
     assert_int_equal(rc, SSH_ERROR);
 }
 
-static void torture_options_control_path(void **state) {
+static void torture_options_control_path(void **state)
+{
     ssh_session session = *state;
     char *str = NULL;
     int rc;
 
     /* Set Control Path */
-    rc = ssh_options_set(session, SSH_OPTIONS_CONTROL_PATH, "/tmp/ssh-%r@%h:%p");
+    rc = ssh_options_set(session,
+                         SSH_OPTIONS_CONTROL_PATH,
+                         "/tmp/ssh-%r@%h:%p");
     assert_int_equal(rc, 0);
 
     assert_string_equal(session->opts.control_path, "/tmp/ssh-%r@%h:%p");
@@ -942,7 +966,8 @@ static void torture_options_control_path(void **state) {
     SSH_STRING_FREE_CHAR(str);
 }
 
-static void torture_options_config_host(void **state) {
+static void torture_options_config_host(void **state)
+{
     ssh_session session = *state;
     FILE *config = NULL;
 
@@ -1747,7 +1772,8 @@ static void torture_options_caret_sign(void **state)
     free(awaited);
 }
 
-static void torture_options_apply (void **state) {
+static void torture_options_apply (void **state)
+{
     ssh_session session = *state;
     struct ssh_list *awaited_list = NULL;
     struct ssh_iterator *it1 = NULL, *it2 = NULL;
@@ -2435,13 +2461,16 @@ static void torture_bind_options_set_macs(void **state)
     /* Test unknown MACs */
     rc = ssh_bind_options_set(bind,
                               SSH_BIND_OPTIONS_HMAC_S_C,
-                              "unknown-crap@example.com,hmac-sha1,unknown@example.com");
+                              "unknown-crap@example.com,"
+                              "hmac-sha1,unknown@example.com");
     assert_int_equal(rc, 0);
     assert_non_null(bind->wanted_methods[SSH_MAC_S_C]);
     assert_string_equal(bind->wanted_methods[SSH_MAC_S_C], "hmac-sha1");
 
     /* Test all unknown MACs */
-    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_HMAC_S_C, "unknown-crap@example.com");
+    rc = ssh_bind_options_set(bind,
+                              SSH_BIND_OPTIONS_HMAC_S_C,
+                              "unknown-crap@example.com");
     assert_int_not_equal(rc, 0);
 
     /* Test known MACs */
@@ -2462,13 +2491,16 @@ static void torture_bind_options_set_macs(void **state)
     /* Test unknown MACs */
     rc = ssh_bind_options_set(bind,
                               SSH_BIND_OPTIONS_HMAC_C_S,
-                              "unknown-crap@example.com,hmac-sha1,unknown@example.com");
+                              "unknown-crap@example.com,"
+                              "hmac-sha1,unknown@example.com");
     assert_int_equal(rc, 0);
     assert_non_null(bind->wanted_methods[SSH_MAC_C_S]);
     assert_string_equal(bind->wanted_methods[SSH_MAC_C_S], "hmac-sha1");
 
     /* Test all unknown MACs */
-    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_HMAC_C_S, "unknown-crap@example.com");
+    rc = ssh_bind_options_set(bind,
+                              SSH_BIND_OPTIONS_HMAC_C_S,
+                              "unknown-crap@example.com");
     assert_int_not_equal(rc, 0);
 }
 
@@ -2495,7 +2527,8 @@ static void torture_bind_options_parse_config(void **state)
     assert_non_null(bind->config_dir);
     assert_string_equal(bind->config_dir, cwd);
 
-    rc = ssh_bind_options_parse_config(bind, "%d/"LIBSSH_CUSTOM_BIND_CONFIG_FILE);
+    rc = ssh_bind_options_parse_config(bind,
+                                       "%d/" LIBSSH_CUSTOM_BIND_CONFIG_FILE);
     assert_int_equal(rc, 0);
     assert_int_equal(bind->bindport, 42);
 
@@ -2544,8 +2577,9 @@ static void torture_bind_options_set_pubkey_accepted_key_types(void **state)
     bind = test_state->bind;
 
     /* Test known Pubkey Types */
-    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_PUBKEY_ACCEPTED_KEY_TYPES,
-        "ssh-ed25519,ecdsa-sha2-nistp384,ssh-rsa");
+    rc = ssh_bind_options_set(bind,
+                              SSH_BIND_OPTIONS_PUBKEY_ACCEPTED_KEY_TYPES,
+                              "ssh-ed25519,ecdsa-sha2-nistp384,ssh-rsa");
     assert_int_equal(rc, 0);
     assert_non_null(bind->pubkey_accepted_key_types);
     if (ssh_fips_mode()) {
@@ -2559,8 +2593,9 @@ static void torture_bind_options_set_pubkey_accepted_key_types(void **state)
     SAFE_FREE(bind->pubkey_accepted_key_types);
 
     /* Test with some unknown type */
-    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_PUBKEY_ACCEPTED_KEY_TYPES,
-        "ecdsa-sha2-nistp384,unknown-type,rsa-sha2-256");
+    rc = ssh_bind_options_set(bind,
+                              SSH_BIND_OPTIONS_PUBKEY_ACCEPTED_KEY_TYPES,
+                              "ecdsa-sha2-nistp384,unknown-type,rsa-sha2-256");
     assert_int_equal(rc, 0);
     assert_non_null(bind->pubkey_accepted_key_types);
     assert_string_equal(bind->pubkey_accepted_key_types,
@@ -2569,26 +2604,27 @@ static void torture_bind_options_set_pubkey_accepted_key_types(void **state)
     SAFE_FREE(bind->pubkey_accepted_key_types);
 
     /* Test with only unknown type */
-    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_PUBKEY_ACCEPTED_KEY_TYPES,
-        "unknown-type");
+    rc = ssh_bind_options_set(bind,
+                              SSH_BIND_OPTIONS_PUBKEY_ACCEPTED_KEY_TYPES,
+                              "unknown-type");
     assert_int_equal(rc, -1);
     assert_null(bind->pubkey_accepted_key_types);
 
     /* Test with something set and then try unknown type */
-    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_PUBKEY_ACCEPTED_KEY_TYPES,
-        "ecdsa-sha2-nistp384");
+    rc = ssh_bind_options_set(bind,
+                              SSH_BIND_OPTIONS_PUBKEY_ACCEPTED_KEY_TYPES,
+                              "ecdsa-sha2-nistp384");
     assert_int_equal(rc, 0);
     assert_non_null(bind->pubkey_accepted_key_types);
-    assert_string_equal(bind->pubkey_accepted_key_types,
-        "ecdsa-sha2-nistp384");
-    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_PUBKEY_ACCEPTED_KEY_TYPES,
-        "unknown-type");
+    assert_string_equal(bind->pubkey_accepted_key_types, "ecdsa-sha2-nistp384");
+    rc = ssh_bind_options_set(bind,
+                              SSH_BIND_OPTIONS_PUBKEY_ACCEPTED_KEY_TYPES,
+                              "unknown-type");
     assert_int_equal(rc, -1);
 
     /* Check that nothing changed */
     assert_non_null(bind->pubkey_accepted_key_types);
-    assert_string_equal(bind->pubkey_accepted_key_types,
-        "ecdsa-sha2-nistp384");
+    assert_string_equal(bind->pubkey_accepted_key_types, "ecdsa-sha2-nistp384");
 }
 
 static void torture_bind_options_set_hostkey_algorithms(void **state)
@@ -2604,57 +2640,63 @@ static void torture_bind_options_set_hostkey_algorithms(void **state)
     bind = test_state->bind;
 
     /* Test known Pubkey Types */
-    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_HOSTKEY_ALGORITHMS,
+    rc = ssh_bind_options_set(bind,
+                              SSH_BIND_OPTIONS_HOSTKEY_ALGORITHMS,
                               "ssh-ed25519,ecdsa-sha2-nistp384,ssh-rsa");
     assert_int_equal(rc, 0);
     assert_non_null(bind->wanted_methods[SSH_HOSTKEYS]);
     if (ssh_fips_mode()) {
         assert_string_equal(bind->wanted_methods[SSH_HOSTKEYS],
-                "ecdsa-sha2-nistp384");
+                            "ecdsa-sha2-nistp384");
     } else {
         assert_string_equal(bind->wanted_methods[SSH_HOSTKEYS],
-                "ssh-ed25519,ecdsa-sha2-nistp384,ssh-rsa");
+                            "ssh-ed25519,ecdsa-sha2-nistp384,ssh-rsa");
     }
 
     SAFE_FREE(bind->wanted_methods[SSH_HOSTKEYS]);
 
     /* Test with some unknown type */
-    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_HOSTKEY_ALGORITHMS,
-        "ecdsa-sha2-nistp384,unknown-type");
+    rc = ssh_bind_options_set(bind,
+                              SSH_BIND_OPTIONS_HOSTKEY_ALGORITHMS,
+                              "ecdsa-sha2-nistp384,unknown-type");
     assert_int_equal(rc, 0);
     assert_non_null(bind->wanted_methods[SSH_HOSTKEYS]);
     assert_string_equal(bind->wanted_methods[SSH_HOSTKEYS],
-        "ecdsa-sha2-nistp384");
+                        "ecdsa-sha2-nistp384");
 
     SAFE_FREE(bind->wanted_methods[SSH_HOSTKEYS]);
 
     /* Test with only unknown type */
-    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_HOSTKEY_ALGORITHMS,
-        "unknown-type");
+    rc = ssh_bind_options_set(bind,
+                              SSH_BIND_OPTIONS_HOSTKEY_ALGORITHMS,
+                              "unknown-type");
     assert_int_equal(rc, -1);
     assert_null(bind->wanted_methods[SSH_HOSTKEYS]);
 
     /* Test with something set and then try unknown type */
-    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_HOSTKEY_ALGORITHMS,
-        "ecdsa-sha2-nistp384");
+    rc = ssh_bind_options_set(bind,
+                              SSH_BIND_OPTIONS_HOSTKEY_ALGORITHMS,
+                              "ecdsa-sha2-nistp384");
     assert_int_equal(rc, 0);
     assert_non_null(bind->wanted_methods[SSH_HOSTKEYS]);
     assert_string_equal(bind->wanted_methods[SSH_HOSTKEYS],
-        "ecdsa-sha2-nistp384");
-    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_HOSTKEY_ALGORITHMS,
-        "unknown-type");
+                        "ecdsa-sha2-nistp384");
+    rc = ssh_bind_options_set(bind,
+                              SSH_BIND_OPTIONS_HOSTKEY_ALGORITHMS,
+                              "unknown-type");
     assert_int_equal(rc, -1);
 
     /* Check that nothing changed */
     assert_non_null(bind->wanted_methods[SSH_HOSTKEYS]);
     assert_string_equal(bind->wanted_methods[SSH_HOSTKEYS],
-        "ecdsa-sha2-nistp384");
+                        "ecdsa-sha2-nistp384");
 }
 
 #endif /* WITH_SERVER */
 
 
-int torture_run_tests(void) {
+int torture_run_tests(void)
+{
     int rc;
     struct CMUnitTest tests[] = {
         cmocka_unit_test_setup_teardown(torture_options_set_host, setup, teardown),
