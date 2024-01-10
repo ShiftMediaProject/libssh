@@ -1431,7 +1431,7 @@ static void torture_config_plus(void **state,
     const char *def_mac = ssh_kex_get_default_methods(SSH_MAC_C_S);
     const char *fips_mac = ssh_kex_get_fips_methods(SSH_MAC_C_S);
     const char *hostkeys_added = ",ssh-rsa";
-    const char *ciphers_added = "aes128-cbc,aes256-cbc";
+    const char *ciphers_added = ",aes128-cbc,aes256-cbc";
     const char *kex_added = ",diffie-hellman-group14-sha1,diffie-hellman-group1-sha1";
     const char *mac_added = ",hmac-sha1,hmac-sha1-etm@openssh.com";
     char *awaited = NULL;
@@ -1558,8 +1558,6 @@ static void torture_config_minus(void **state,
         awaited = calloc(strlen(def_ciphers) + 1, 1);
         rc = snprintf(awaited, strlen(def_ciphers) + 1, "%s", def_ciphers);
         assert_int_equal(rc, strlen(def_ciphers));
-        /* remove the comma at the end of the list */
-        awaited[strlen(awaited) - 1] = '\0';
     }
     /* remove the substring from the defaults */
     helper_remove_substring(awaited, ciphers_removed, 0);
@@ -1676,8 +1674,6 @@ static void torture_config_caret(void **state,
         rc = snprintf(awaited, strlen(ciphers_prio) + strlen(def_ciphers) + 1,
                       "%s%s", ciphers_prio, def_ciphers);
         assert_int_equal(rc, strlen(ciphers_prio) + strlen(def_ciphers));
-        /* remove the comma at the end of the list */
-        awaited[strlen(awaited) - 1] = '\0';
     }
 
     assert_string_equal(session->opts.wanted_methods[SSH_CRYPT_C_S], awaited);

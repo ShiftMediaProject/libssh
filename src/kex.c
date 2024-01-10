@@ -48,7 +48,7 @@
 
 #ifdef WITH_BLOWFISH_CIPHER
 # if defined(HAVE_OPENSSL_BLOWFISH_H) || defined(HAVE_LIBGCRYPT) || defined(HAVE_LIBMBEDCRYPTO)
-#  define BLOWFISH "blowfish-cbc,"
+#  define BLOWFISH ",blowfish-cbc"
 # else
 #  define BLOWFISH ""
 # endif
@@ -58,10 +58,9 @@
 
 #ifdef HAVE_LIBGCRYPT
 # define AES "aes256-gcm@openssh.com,aes128-gcm@openssh.com," \
-             "aes256-ctr,aes192-ctr,aes128-ctr,"
-# define AES_CBC "aes256-cbc,aes192-cbc,aes128-cbc,"
-# define DES "3des-cbc"
-# define DES_SUPPORTED "3des-cbc"
+             "aes256-ctr,aes192-ctr,aes128-ctr"
+# define AES_CBC ",aes256-cbc,aes192-cbc,aes128-cbc"
+# define DES_SUPPORTED ",3des-cbc"
 
 #elif defined(HAVE_LIBMBEDCRYPTO)
 # ifdef MBEDTLS_GCM_C
@@ -69,23 +68,21 @@
 # else
 #  define GCM ""
 # endif /* MBEDTLS_GCM_C */
-# define AES GCM "aes256-ctr,aes192-ctr,aes128-ctr,"
-# define AES_CBC "aes256-cbc,aes192-cbc,aes128-cbc,"
-# define DES "3des-cbc"
-# define DES_SUPPORTED "3des-cbc"
+# define AES GCM "aes256-ctr,aes192-ctr,aes128-ctr"
+# define AES_CBC ",aes256-cbc,aes192-cbc,aes128-cbc"
+# define DES_SUPPORTED ",3des-cbc"
 
 #elif defined(HAVE_LIBCRYPTO)
 # ifdef HAVE_OPENSSL_AES_H
 #  define GCM "aes256-gcm@openssh.com,aes128-gcm@openssh.com,"
-#  define AES GCM "aes256-ctr,aes192-ctr,aes128-ctr,"
-#  define AES_CBC "aes256-cbc,aes192-cbc,aes128-cbc,"
+#  define AES GCM "aes256-ctr,aes192-ctr,aes128-ctr"
+#  define AES_CBC ",aes256-cbc,aes192-cbc,aes128-cbc"
 # else /* HAVE_OPENSSL_AES_H */
 #  define AES ""
 #  define AES_CBC ""
 # endif /* HAVE_OPENSSL_AES_H */
 
-# define DES "3des-cbc"
-# define DES_SUPPORTED "3des-cbc"
+# define DES_SUPPORTED ",3des-cbc"
 #endif /* HAVE_LIBCRYPTO */
 
 #ifdef WITH_ZLIB
