@@ -55,6 +55,7 @@ The goal is to show the API in action.
 
 #define SESSION_END (SSH_CLOSED | SSH_CLOSED_ERROR)
 #define SFTP_SERVER_PATH "/usr/lib/sftp-server"
+#define AUTH_KEYS_MAX_LINE_SIZE 2048
 
 static void set_default_keys(ssh_bind sshbind,
                              int rsa_already_set,
@@ -541,6 +542,15 @@ static int auth_publickey(ssh_session session,
                           void *userdata)
 {
     struct session_data_struct *sdata = (struct session_data_struct *) userdata;
+    ssh_key key = NULL;
+    FILE *fp = NULL;
+    char line[AUTH_KEYS_MAX_LINE_SIZE] = {0};
+    char *p = NULL;
+    const char *q = NULL;
+    unsigned int lineno = 0;
+    int result;
+    int i;
+    enum ssh_keytypes_e type;
 
     (void) user;
     (void) session;
@@ -553,31 +563,72 @@ static int auth_publickey(ssh_session session,
         return SSH_AUTH_DENIED;
     }
 
-    // valid so far.  Now look through authorized keys for a match
-    if (authorizedkeys[0]) {
-        ssh_key key = NULL;
-        int result;
-        struct stat buf;
-
-        if (stat(authorizedkeys, &buf) == 0) {
-            result = ssh_pki_import_pubkey_file( authorizedkeys, &key );
-            if ((result != SSH_OK) || (key==NULL)) {
-                fprintf(stderr,
-                        "Unable to import public key file %s\n",
-                        authorizedkeys);
-            } else {
-                result = ssh_key_cmp( key, pubkey, SSH_KEY_CMP_PUBLIC );
-                ssh_key_free(key);
-                if (result == 0) {
-                    sdata->authenticated = 1;
-                    return SSH_AUTH_SUCCESS;
-                }
-            }
-        }
+    fp = fopen(authorizedkeys, "r");
+    if (fp == NULL) {
+        fprintf(stderr, "Error: opening authorized keys file %s failed, reason: %s\n",
+                authorizedkeys, strerror(errno));
+        return SSH_AUTH_DENIED;
     }
 
-    // no matches
-    sdata->authenticated = 0;
+    while (fgets(line, sizeof(line), fp)) {
+        lineno++;
+
+        /* Skip leading whitespace and ignore comments */
+        p = line;
+
+        for (i = 0; i < AUTH_KEYS_MAX_LINE_SIZE; i++) {
+            if (!isspace((int)p[i])) {
+                break;
+            }
+        }
+
+        if (p[i] == '#' || p[i] == '\0' || p[i] == '\n') {
+            continue;
+        }
+
+        q = &p[i];
+        for (; i < AUTH_KEYS_MAX_LINE_SIZE; i++) {
+            if (isspace((int)p[i])) {
+                p[i] = '\0';
+                break;
+            }
+        }
+
+        type = ssh_key_type_from_name(q);
+
+        q = &p[i + 1];
+        for (; i < AUTH_KEYS_MAX_LINE_SIZE; i++) {
+            if (isspace((int)p[i])) {
+                p[i] = '\0';
+                break;
+            }
+        }
+
+        result = ssh_pki_import_pubkey_base64(q, type, &key);
+        if (result != SSH_OK) {
+            fprintf(stderr,
+                    "Warning: Cannot import key on line no. %d in authorized keys file: %s\n",
+                    lineno,
+                    authorizedkeys);
+            continue;
+        }
+
+        result = ssh_key_cmp(key, pubkey, SSH_KEY_CMP_PUBLIC);
+        ssh_key_free(key);
+        if (result == 0) {
+            sdata->authenticated = 1;
+            fclose(fp);
+            return SSH_AUTH_SUCCESS;
+        }
+    }
+    if (ferror(fp) != 0) {
+        fprintf(stderr,
+                "Error: Reading from authorized keys file %s failed, reason: %s\n",
+                authorizedkeys, strerror(errno));
+    }
+    fclose(fp);
+
+    /* no matches */
     return SSH_AUTH_DENIED;
 }
 
