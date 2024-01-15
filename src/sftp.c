@@ -1156,6 +1156,18 @@ ssize_t sftp_read(sftp_file handle, void *buf, size_t count) {
     return 0;
   }
 
+  /*
+   * limit the reads to the maximum specified in Section 3 of
+   * https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-02
+   * or to the values provided by the limits@openssh.com extension.
+   *
+   * TODO: We should iterate over the blocks rather than writing less than
+   * requested to provide less surprises to the calling applications.
+   */
+  if (count > sftp->limits->max_read_length) {
+      count = sftp->limits->max_read_length;
+  }
+
   buffer = ssh_buffer_new();
   if (buffer == NULL) {
     ssh_set_error_oom(sftp->session);
@@ -1396,16 +1408,17 @@ ssize_t sftp_write(sftp_file file, const void *buf, size_t count) {
 
   id = sftp_get_new_id(file->sftp);
 
-
-  /* limit the writes to the maximum specified in Section 3 of
+  /*
+   * limit the writes to the maximum specified in Section 3 of
    * https://datatracker.ietf.org/doc/html/draft-ietf-secsh-filexfer-02
+   * or to the values provided by the limits@openssh.com extension.
    *
-   * FIXME: This value should be adjusted to the value from the
-   * limits@openssh.com extension if supported
    * TODO: We should iterate over the blocks rather than writing less than
    * requested to provide less surprises to the calling applications.
    */
-  count = count > 32768 ? 32768 : count;
+  if (count > sftp->limits->max_write_length) {
+      count = sftp->limits->max_write_length;
+  }
 
   rc = ssh_buffer_pack(buffer,
                        "dSqdP",

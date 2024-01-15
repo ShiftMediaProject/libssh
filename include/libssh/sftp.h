@@ -489,6 +489,11 @@ LIBSSH_API void sftp_file_set_blocking(sftp_file handle);
 /**
  * @brief Read from a file using an opened sftp file handle.
  *
+ * This function caps the length a user is allowed to read from an sftp file.
+ *
+ * The value used for the cap is same as the value of the max_read_length
+ * field of the sftp_limits_t returned by sftp_limits().
+ *
  * @param file          The opened sftp file handle to be read from.
  *
  * @param buf           Pointer to buffer to receive read data.
@@ -567,9 +572,10 @@ SSH_DEPRECATED LIBSSH_API int sftp_async_read(sftp_file file,
 /**
  * @brief Write to a file using an opened sftp file handle.
  *
- * The maximum size of the SFTP packet payload is 32768 bytes so the count
- * parameter is capped at this value. This is low-level function so it does not
- * try to send more than this amount of data.
+ * This function caps the length a user is allowed to write to an sftp file.
+ *
+ * The value used for the cap is same as the value of the max_write_length
+ * field of the sftp_limits_t returned by sftp_limits().
  *
  * @param file          Open sftp file handle to write to.
  *
