@@ -500,7 +500,7 @@ LIBSSH_API void sftp_file_set_blocking(sftp_file handle);
  *
  * @param count         Size of the buffer in bytes.
  *
- * @return              Number of bytes written, < 0 on error with ssh and sftp
+ * @return              Number of bytes read, < 0 on error with ssh and sftp
  *                      error set.
  *
  * @see sftp_get_error()
