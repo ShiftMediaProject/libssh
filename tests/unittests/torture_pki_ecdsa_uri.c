@@ -27,7 +27,7 @@
 #define PUB_URI_FMT_384_INVALID_TOKEN "pkcs11:token=ecdsa521;object=ecdsa384;type=public"
 #define PUB_URI_FMT_521_INVALID_OBJECT "pkcs11:token=ecdsa521;object=ecdsa384;type=public"
 
-const char template[] = "temp_dir_XXXXXX";
+const char template[] = "/tmp/temp_dir_XXXXXX";
 const unsigned char INPUT[] = "1234567890123456789012345678901234567890"
                               "123456789012345678901234";
 struct pki_st {

@@ -16,7 +16,7 @@
 #define PUB_URI_FMT  "pkcs11:token=%s;object=%s;type=public"
 #define PRIV_URI_FMT "pkcs11:token=%s;object=%s;type=private?pin-value=%s"
 
-const char template[] = "temp_dir_XXXXXX";
+const char template[] = "/tmp/temp_dir_XXXXXX";
 const unsigned char INPUT[] = "1234567890123456789012345678901234567890"
                               "123456789012345678901234";
 struct pki_st {

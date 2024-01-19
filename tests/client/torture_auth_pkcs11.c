@@ -40,7 +40,7 @@
 #define LIBSSH_ECDSA_384_TESTKEY  "id_pkcs11_ecdsa_384"
 #define LIBSSH_ECDSA_521_TESTKEY  "id_pkcs11_ecdsa_521"
 
-const char template[] = "temp_dir_XXXXXX";
+const char template[] = "/tmp/temp_dir_XXXXXX";
 
 struct pki_st {
     char *temp_dir;
