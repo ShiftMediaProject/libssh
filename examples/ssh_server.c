@@ -531,6 +531,14 @@ static int auth_publickey(ssh_session session,
             }
         }
 
+        if (i >= AUTH_KEYS_MAX_LINE_SIZE) {
+            fprintf(stderr,
+                    "warning: The line %d in %s too long! Skipping.\n",
+                    lineno,
+                    authorizedkeys);
+            continue;
+        }
+
         if (p[i] == '#' || p[i] == '\0' || p[i] == '\n') {
             continue;
         }
@@ -545,7 +553,16 @@ static int auth_publickey(ssh_session session,
 
         type = ssh_key_type_from_name(q);
 
-        q = &p[i + 1];
+        i++;
+        if (i >= AUTH_KEYS_MAX_LINE_SIZE) {
+            fprintf(stderr,
+                    "warning: The line %d in %s too long! Skipping.\n",
+                    lineno,
+                    authorizedkeys);
+            continue;
+        }
+
+        q = &p[i];
         for (; i < AUTH_KEYS_MAX_LINE_SIZE; i++) {
             if (isspace((int)p[i])) {
                 p[i] = '\0';
