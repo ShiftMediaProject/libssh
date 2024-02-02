@@ -397,6 +397,33 @@ static void torture_freed_channel_read_nonblocking(void **state)
     assert_ssh_return_code_equal(session, rc, SSH_ERROR);
 }
 
+static void torture_channel_exit_status(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    ssh_channel channel = NULL;
+    char request[256];
+    int exit_status = -1;
+    int rc;
+
+    rc = snprintf(request, sizeof(request), "true");
+    assert_return_code(rc, errno);
+
+    channel = ssh_channel_new(session);
+    assert_non_null(channel);
+
+    rc = ssh_channel_open_session(channel);
+    assert_ssh_return_code(session, rc);
+
+    /* Make the request, read parts with close */
+    rc = ssh_channel_request_exec(channel, request);
+    assert_ssh_return_code(session, rc);
+
+    exit_status = ssh_channel_get_exit_status(channel);
+    assert_int_equal(exit_status, 0);
+}
+
+
 /* Ensure that calling 'ssh_channel_get_exit_status' on a freed channel does not
  * lead to segmentation faults. */
 static void torture_freed_channel_get_exit_status(void **state)
@@ -538,6 +565,9 @@ int torture_run_tests(void) {
                                         session_setup,
                                         session_teardown),
         cmocka_unit_test_setup_teardown(torture_freed_channel_read_nonblocking,
+                                        session_setup,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_channel_exit_status,
                                         session_setup,
                                         session_teardown),
         cmocka_unit_test_setup_teardown(torture_freed_channel_get_exit_status,
