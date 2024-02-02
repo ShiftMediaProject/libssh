@@ -890,9 +890,15 @@ SSH_PACKET_CALLBACK(channel_rcv_request)
                                    errmsg,
                                    lang);
 
+        channel->exit.core_dumped = core_dumped;
+        if (sig != NULL) {
+            SAFE_FREE(channel->exit.signal);
+            channel->exit.signal = sig;
+        }
+        channel->exit.status = true;
+
         SAFE_FREE(lang);
         SAFE_FREE(errmsg);
-        SAFE_FREE(sig);
 
         return SSH_PACKET_USED;
     }
@@ -1317,6 +1323,7 @@ void ssh_channel_do_free(ssh_channel channel)
         ssh_list_free(channel->callbacks);
         channel->callbacks = NULL;
     }
+    SAFE_FREE(channel->exit.signal);
 
     channel->session = NULL;
     SAFE_FREE(channel);
