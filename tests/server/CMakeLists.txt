@@ -7,7 +7,7 @@ find_package(socket_wrapper)
 add_subdirectory(test_server)
 
 set(LIBSSH_SERVER_TESTS
-    torture_server
+    torture_server_default
     torture_server_auth_kbdint
     torture_server_config
     torture_server_algorithms
