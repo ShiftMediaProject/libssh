@@ -424,6 +424,42 @@ static void torture_channel_exit_status(void **state)
     assert_int_equal(exit_status, 0);
 }
 
+static void torture_channel_exit_signal(void **state)
+{
+    struct torture_state *s = *state;
+    ssh_session session = s->ssh.session;
+    ssh_channel channel = NULL;
+    char request[256];
+    uint32_t exit_status = (uint32_t)-1;
+    char *exit_signal = NULL;
+    int core_dumped = false;
+    int rc;
+
+    rc = snprintf(request, sizeof(request), "cat");
+    assert_return_code(rc, errno);
+
+    channel = ssh_channel_new(session);
+    assert_non_null(channel);
+
+    rc = ssh_channel_open_session(channel);
+    assert_ssh_return_code(session, rc);
+
+    /* Make the request, read parts with close */
+    rc = ssh_channel_request_exec(channel, request);
+    assert_ssh_return_code(session, rc);
+    rc = ssh_channel_request_send_signal(channel, "TERM");
+    assert_ssh_return_code(session, rc);
+
+    exit_status = ssh_channel_get_exit_state(channel,
+                                             &exit_status,
+                                             &exit_signal,
+                                             &core_dumped);
+    assert_ssh_return_code(session, rc);
+    assert_int_equal(exit_status, 0);
+    assert_string_equal(exit_signal, "TERM");
+    SAFE_FREE(exit_signal);
+}
+
 
 /* Ensure that calling 'ssh_channel_get_exit_status' on a freed channel does not
  * lead to segmentation faults. */
@@ -569,6 +605,9 @@ int torture_run_tests(void) {
                                         session_setup,
                                         session_teardown),
         cmocka_unit_test_setup_teardown(torture_channel_exit_status,
+                                        session_setup,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_channel_exit_signal,
                                         session_setup,
                                         session_teardown),
         cmocka_unit_test_setup_teardown(torture_freed_channel_get_exit_status,
