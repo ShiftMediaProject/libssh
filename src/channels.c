@@ -3359,14 +3359,15 @@ ssh_session ssh_channel_get_session(ssh_channel channel)
 
 static int ssh_channel_exit_status_termination(void *c)
 {
-  ssh_channel channel = c;
-  if(channel->exit_status != -1 ||
-      /* When a channel is closed, no exit status message can
-       * come anymore */
-      (channel->flags & SSH_CHANNEL_FLAG_CLOSED_REMOTE) ||
-      channel->session->session_state == SSH_SESSION_STATE_ERROR)
-    return 1;
-  else
+    ssh_channel channel = c;
+    if (channel->exit_status != -1 ||
+        /* When a channel is closed, no exit status message can
+         * come anymore */
+        (channel->flags & SSH_CHANNEL_FLAG_CLOSED_REMOTE) ||
+        channel->session->session_state == SSH_SESSION_STATE_ERROR)
+    {
+        return 1;
+    }
     return 0;
 }
 
