@@ -784,29 +784,28 @@ SSH_PACKET_CALLBACK(channel_rcv_close) {
     return SSH_PACKET_USED;
 }
 
-SSH_PACKET_CALLBACK(channel_rcv_request) {
-	ssh_channel channel;
-	char *request=NULL;
+SSH_PACKET_CALLBACK(channel_rcv_request)
+{
+    ssh_channel channel = NULL;
+    char *request = NULL;
     uint8_t want_reply;
     int rc;
-	(void)user;
-	(void)type;
+    (void)user;
+    (void)type;
 
-	channel = channel_from_msg(session,packet);
-	if (channel == NULL) {
-		SSH_LOG(SSH_LOG_FUNCTIONS,"%s", ssh_get_error(session));
-		return SSH_PACKET_USED;
-	}
+    channel = channel_from_msg(session, packet);
+    if (channel == NULL) {
+        SSH_LOG(SSH_LOG_FUNCTIONS, "%s", ssh_get_error(session));
+        return SSH_PACKET_USED;
+    }
 
-	rc = ssh_buffer_unpack(packet, "sb",
-	        &request,
-	        &want_reply);
-	if (rc != SSH_OK) {
-		SSH_LOG(SSH_LOG_PACKET, "Invalid MSG_CHANNEL_REQUEST");
-		return SSH_PACKET_USED;
-	}
+    rc = ssh_buffer_unpack(packet, "sb", &request, &want_reply);
+    if (rc != SSH_OK) {
+        SSH_LOG(SSH_LOG_PACKET, "Invalid MSG_CHANNEL_REQUEST");
+        return SSH_PACKET_USED;
+    }
 
-	if (strcmp(request,"exit-status") == 0) {
+    if (strcmp(request, "exit-status") == 0) {
         SAFE_FREE(request);
         rc = ssh_buffer_unpack(packet, "d", &channel->exit.code);
         if (rc != SSH_OK) {
@@ -826,60 +825,62 @@ SSH_PACKET_CALLBACK(channel_rcv_request) {
                                    channel,
                                    channel->exit.code);
 
-		return SSH_PACKET_USED;
-	}
+        return SSH_PACKET_USED;
+    }
 
-	if (strcmp(request,"signal") == 0) {
+    if (strcmp(request, "signal") == 0) {
         char *sig = NULL;
 
-		SAFE_FREE(request);
-		SSH_LOG(SSH_LOG_PACKET, "received signal");
+        SAFE_FREE(request);
+        SSH_LOG(SSH_LOG_PACKET, "received signal");
 
-		rc = ssh_buffer_unpack(packet, "s", &sig);
-		if (rc != SSH_OK) {
-			SSH_LOG(SSH_LOG_PACKET, "Invalid MSG_CHANNEL_REQUEST");
-			return SSH_PACKET_USED;
-		}
+        rc = ssh_buffer_unpack(packet, "s", &sig);
+        if (rc != SSH_OK) {
+            SSH_LOG(SSH_LOG_PACKET, "Invalid MSG_CHANNEL_REQUEST");
+            return SSH_PACKET_USED;
+        }
 
-		SSH_LOG(SSH_LOG_PACKET,
-				"Remote connection sent a signal SIG %s", sig);
+        SSH_LOG(SSH_LOG_PACKET, "Remote connection sent a signal SIG %s", sig);
         ssh_callbacks_execute_list(channel->callbacks,
                                    ssh_channel_callbacks,
                                    channel_signal_function,
                                    channel->session,
                                    channel,
                                    sig);
-		SAFE_FREE(sig);
+        SAFE_FREE(sig);
 
-		return SSH_PACKET_USED;
-	}
+        return SSH_PACKET_USED;
+    }
 
-	if (strcmp(request, "exit-signal") == 0) {
-		const char *core = "(core dumped)";
-		char *sig = NULL;
-		char *errmsg = NULL;
-		char *lang = NULL;
-		uint8_t core_dumped;
+    if (strcmp(request, "exit-signal") == 0) {
+        const char *core = "(core dumped)";
+        char *sig = NULL;
+        char *errmsg = NULL;
+        char *lang = NULL;
+        uint8_t core_dumped;
 
-		SAFE_FREE(request);
+        SAFE_FREE(request);
 
-		rc = ssh_buffer_unpack(packet, "sbss",
-		        &sig, /* signal name */
-		        &core_dumped,    /* core dumped */
-		        &errmsg, /* error message */
-		        &lang);
-		if (rc != SSH_OK) {
-			SSH_LOG(SSH_LOG_PACKET, "Invalid MSG_CHANNEL_REQUEST");
-			return SSH_PACKET_USED;
-		}
+        rc = ssh_buffer_unpack(packet,
+                               "sbss",
+                               &sig,         /* signal name */
+                               &core_dumped, /* core dumped */
+                               &errmsg,      /* error message */
+                               &lang);
+        if (rc != SSH_OK) {
+            SSH_LOG(SSH_LOG_PACKET, "Invalid MSG_CHANNEL_REQUEST");
+            return SSH_PACKET_USED;
+        }
 
-		if (core_dumped == 0) {
-			core = "";
-		}
+        if (core_dumped == 0) {
+            core = "";
+        }
 
-		SSH_LOG(SSH_LOG_PACKET,
-				"Remote connection closed by signal SIG %s %s", sig, core);
-		ssh_callbacks_execute_list(channel->callbacks,
+        SSH_LOG(SSH_LOG_PACKET,
+                "Remote connection closed by signal SIG %s %s",
+                sig,
+                core);
+        ssh_callbacks_execute_list(channel->callbacks,
                                    ssh_channel_callbacks,
                                    channel_exit_signal_function,
                                    channel->session,
@@ -891,71 +892,76 @@ SSH_PACKET_CALLBACK(channel_rcv_request) {
 
         SAFE_FREE(lang);
         SAFE_FREE(errmsg);
-		SAFE_FREE(sig);
+        SAFE_FREE(sig);
 
-		return SSH_PACKET_USED;
-	}
-	if(strcmp(request,"keepalive@openssh.com")==0){
-	  SAFE_FREE(request);
-	  SSH_LOG(SSH_LOG_DEBUG,"Responding to Openssh's keepalive");
-
-      rc = ssh_buffer_pack(session->out_buffer,
-                           "bd",
-                           SSH2_MSG_CHANNEL_FAILURE,
-                           channel->remote_channel);
-      if (rc != SSH_OK) {
-          return SSH_PACKET_USED;
-      }
-	  ssh_packet_send(session);
-
-	  return SSH_PACKET_USED;
-	}
-
-  if (strcmp(request, "auth-agent-req@openssh.com") == 0) {
-    int status;
-
-    SAFE_FREE(request);
-    SSH_LOG(SSH_LOG_DEBUG, "Received an auth-agent-req request");
-
-    status = SSH2_MSG_CHANNEL_FAILURE;
-    ssh_callbacks_iterate(channel->callbacks,
-                          ssh_channel_callbacks,
-                          channel_auth_agent_req_function) {
-        ssh_callbacks_iterate_exec(channel_auth_agent_req_function,
-                                   channel->session,
-                                   channel);
-        /* in lieu of a return value, if the callback exists it's supported */
-        status = SSH2_MSG_CHANNEL_SUCCESS;
-        break;
+        return SSH_PACKET_USED;
     }
-    ssh_callbacks_iterate_end();
+    if (strcmp(request, "keepalive@openssh.com") == 0) {
+        SAFE_FREE(request);
+        SSH_LOG(SSH_LOG_DEBUG, "Responding to Openssh's keepalive");
 
-    if (want_reply) {
         rc = ssh_buffer_pack(session->out_buffer,
                              "bd",
-                             status,
+                             SSH2_MSG_CHANNEL_FAILURE,
                              channel->remote_channel);
         if (rc != SSH_OK) {
             return SSH_PACKET_USED;
         }
         ssh_packet_send(session);
+
+        return SSH_PACKET_USED;
     }
 
-    return SSH_PACKET_USED;
-  }
+    if (strcmp(request, "auth-agent-req@openssh.com") == 0) {
+        int status;
+
+        SAFE_FREE(request);
+        SSH_LOG(SSH_LOG_DEBUG, "Received an auth-agent-req request");
+
+        status = SSH2_MSG_CHANNEL_FAILURE;
+        ssh_callbacks_iterate (channel->callbacks,
+                               ssh_channel_callbacks,
+                               channel_auth_agent_req_function) {
+            ssh_callbacks_iterate_exec(channel_auth_agent_req_function,
+                                       channel->session,
+                                       channel);
+            /* in lieu of a return value, if the callback exists it's supported
+             */
+            status = SSH2_MSG_CHANNEL_SUCCESS;
+            break;
+        }
+        ssh_callbacks_iterate_end();
+
+        if (want_reply) {
+            rc = ssh_buffer_pack(session->out_buffer,
+                                 "bd",
+                                 status,
+                                 channel->remote_channel);
+            if (rc != SSH_OK) {
+                return SSH_PACKET_USED;
+            }
+            ssh_packet_send(session);
+        }
+
+        return SSH_PACKET_USED;
+    }
 #ifdef WITH_SERVER
-	/* If we are here, that means we have a request that is not in the understood
-	 * client requests. That means we need to create a ssh message to be passed
-	 * to the user code handling ssh messages
-	 */
-	ssh_message_handle_channel_request(session,channel,packet,request,want_reply);
+    /* If we are here, that means we have a request that is not in the
+     * understood client requests. That means we need to create a ssh message to
+     * be passed to the user code handling ssh messages
+     */
+    ssh_message_handle_channel_request(session,
+                                       channel,
+                                       packet,
+                                       request,
+                                       want_reply);
 #else
     SSH_LOG(SSH_LOG_DEBUG, "Unhandled channel request %s", request);
 #endif
 
-	SAFE_FREE(request);
+    SAFE_FREE(request);
 
-	return SSH_PACKET_USED;
+    return SSH_PACKET_USED;
 }
 
 /*
