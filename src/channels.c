@@ -122,7 +122,7 @@ ssh_channel ssh_channel_new(ssh_session session)
     }
 
     channel->session = session;
-    channel->exit_status = (uint32_t)-1;
+    channel->exit.code = (uint32_t)-1;
     channel->flags = SSH_CHANNEL_FLAG_NOT_BOUND;
 
     if (session->channels == NULL) {
@@ -808,19 +808,23 @@ SSH_PACKET_CALLBACK(channel_rcv_request) {
 
 	if (strcmp(request,"exit-status") == 0) {
         SAFE_FREE(request);
-        rc = ssh_buffer_unpack(packet, "d", &channel->exit_status);
+        rc = ssh_buffer_unpack(packet, "d", &channel->exit.code);
         if (rc != SSH_OK) {
             SSH_LOG(SSH_LOG_PACKET, "Invalid exit-status packet");
             return SSH_PACKET_USED;
         }
-        SSH_LOG(SSH_LOG_PACKET, "received exit-status %d", channel->exit_status);
+        channel->exit.status = true;
+
+        SSH_LOG(SSH_LOG_PACKET,
+                "received exit-status %u",
+                channel->exit.code);
 
         ssh_callbacks_execute_list(channel->callbacks,
                                    ssh_channel_callbacks,
                                    channel_exit_status_function,
                                    channel->session,
                                    channel,
-                                   channel->exit_status);
+                                   channel->exit.code);
 
 		return SSH_PACKET_USED;
 	}
@@ -3360,7 +3364,7 @@ ssh_session ssh_channel_get_session(ssh_channel channel)
 static int ssh_channel_exit_status_termination(void *c)
 {
     ssh_channel channel = c;
-    if (channel->exit_status != (uint32_t)-1 ||
+    if (channel->exit.status ||
         /* When a channel is closed, no exit status message can
          * come anymore */
         (channel->flags & SSH_CHANNEL_FLAG_CLOSED_REMOTE) ||
@@ -3402,7 +3406,7 @@ int ssh_channel_get_exit_status(ssh_channel channel)
   if (rc == SSH_ERROR || channel->session->session_state ==
       SSH_SESSION_STATE_ERROR)
     return SSH_ERROR;
-  return channel->exit_status;
+  return channel->exit.code;
 }
 
 /*
