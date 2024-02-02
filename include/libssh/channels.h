@@ -80,7 +80,7 @@ struct ssh_channel_struct {
     ssh_buffer stdout_buffer;
     ssh_buffer stderr_buffer;
     void *userarg;
-    int exit_status;
+    uint32_t exit_status;
     enum ssh_channel_request_state_e request_state;
     struct ssh_list *callbacks; /* list of ssh_channel_callbacks */
 

@@ -122,7 +122,7 @@ ssh_channel ssh_channel_new(ssh_session session)
     }
 
     channel->session = session;
-    channel->exit_status = -1;
+    channel->exit_status = (uint32_t)-1;
     channel->flags = SSH_CHANNEL_FLAG_NOT_BOUND;
 
     if (session->channels == NULL) {
@@ -3360,7 +3360,7 @@ ssh_session ssh_channel_get_session(ssh_channel channel)
 static int ssh_channel_exit_status_termination(void *c)
 {
     ssh_channel channel = c;
-    if (channel->exit_status != -1 ||
+    if (channel->exit_status != (uint32_t)-1 ||
         /* When a channel is closed, no exit status message can
          * come anymore */
         (channel->flags & SSH_CHANNEL_FLAG_CLOSED_REMOTE) ||
