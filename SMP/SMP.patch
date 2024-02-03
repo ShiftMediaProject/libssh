@@ -41,7 +41,7 @@ index 6be33c77..70686735 100644
  
  #else
 diff --git a/src/init.c b/src/init.c
-index e516c331..2df4aafa 100644
+index e516c331..6de564a1 100644
 --- a/src/init.c
 +++ b/src/init.c
 @@ -35,17 +35,40 @@
@@ -72,7 +72,7 @@ index e516c331..2df4aafa 100644
 +#else
  #ifdef HAVE_CONSTRUCTOR_ATTRIBUTE
 -#define CONSTRUCTOR_ATTRIBUTE __attribute__((constructor))
-+##define CONSTRUCTOR_ATTRIBUTE(_func) void _func(void) __attribute__((constructor))
++#define CONSTRUCTOR_ATTRIBUTE(_func) void _func(void) __attribute__((constructor))
  #else
 -#define CONSTRUCTOR_ATTRIBUTE
 +#define CONSTRUCTOR_ATTRIBUTE(_func)
