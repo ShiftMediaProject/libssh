@@ -58,7 +58,7 @@
 #endif
 #else
 #ifdef HAVE_CONSTRUCTOR_ATTRIBUTE
-##define CONSTRUCTOR_ATTRIBUTE(_func) void _func(void) __attribute__((constructor))
+#define CONSTRUCTOR_ATTRIBUTE(_func) void _func(void) __attribute__((constructor))
 #else
 #define CONSTRUCTOR_ATTRIBUTE(_func)
 #endif /* HAVE_CONSTRUCTOR_ATTRIBUTE */
