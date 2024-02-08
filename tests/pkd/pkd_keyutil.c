@@ -8,6 +8,7 @@
 
 #include <setjmp.h> // for cmocka
 #include <stdarg.h> // for cmocka
+#include <stdint.h> // for cmocka
 #include <unistd.h> // for cmocka
 #include <cmocka.h>
 
