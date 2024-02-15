@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.5.0)
+cmake_minimum_required(VERSION 3.12.0)
 cmake_policy(SET CMP0048 NEW)
 
 # Specify search path for CMake modules to be loaded by include()
