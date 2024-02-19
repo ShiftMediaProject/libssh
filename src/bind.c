@@ -149,14 +149,6 @@ ssh_bind ssh_bind_new(void) {
 static int ssh_bind_import_keys(ssh_bind sshbind) {
   int rc;
 
-  if (sshbind->ecdsakey == NULL &&
-      sshbind->rsakey == NULL &&
-      sshbind->ed25519key == NULL) {
-      ssh_set_error(sshbind, SSH_FATAL,
-                    "ECDSA, ED25519, or RSA host key file must be set");
-      return SSH_ERROR;
-  }
-
 #ifdef HAVE_ECC
   if (sshbind->ecdsa == NULL && sshbind->ecdsakey != NULL) {
       rc = ssh_pki_import_privkey_file(sshbind->ecdsakey,
@@ -225,11 +217,27 @@ static int ssh_bind_import_keys(ssh_bind sshbind) {
   return SSH_OK;
 }
 
-int ssh_bind_listen(ssh_bind sshbind)
-{
-    const char *host = NULL;
+int ssh_bind_listen(ssh_bind sshbind) {
+    const char *host;
     socket_t fd;
     int rc;
+
+    /* Apply global bind configurations, if it hasn't been applied before */
+    rc = ssh_bind_options_parse_config(sshbind, NULL);
+    if (rc != 0) {
+        ssh_set_error(sshbind, SSH_FATAL,"Could not parse global config");
+        return SSH_ERROR;
+    }
+
+    /* Set default hostkey paths if no hostkey was found before */
+    if (sshbind->ecdsakey == NULL &&
+        sshbind->rsakey == NULL &&
+        sshbind->ed25519key == NULL) {
+
+        sshbind->ecdsakey = strdup("/etc/ssh/ssh_host_ecdsa_key");
+        sshbind->rsakey = strdup("/etc/ssh/ssh_host_rsa_key");
+        sshbind->ed25519key = strdup("/etc/ssh/ssh_host_ed25519_key");
+    }
 
     /* Apply global bind configurations, if it hasn't been applied before */
     rc = ssh_bind_options_parse_config(sshbind, NULL);
@@ -421,13 +429,6 @@ int ssh_bind_accept_fd(ssh_bind sshbind, ssh_session session, socket_t fd)
 
     if (session == NULL){
         ssh_set_error(sshbind, SSH_FATAL,"session is null");
-        return SSH_ERROR;
-    }
-
-    /* Apply global bind configurations, if it hasn't been applied before */
-    rc = ssh_bind_options_parse_config(sshbind, NULL);
-    if (rc != 0) {
-        ssh_set_error(sshbind, SSH_FATAL,"Could not parse global config");
         return SSH_ERROR;
     }
 

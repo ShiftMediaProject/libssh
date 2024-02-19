@@ -84,13 +84,10 @@ if (UNIX AND NOT WIN32)
         torture_threads_pki_rsa
     )
     if (WITH_SERVER)
-        # Not working correctly
-        # add_cmocka_test(torture_server_x11 torture_server_x11.c ${TEST_TARGET_LIBRARIES})
-        # the signals are not testable under cmocka
-        # set(LIBSSH_THREAD_UNIT_TESTS
-        #     ${LIBSSH_THREAD_UNIT_TESTS}
-        #     torture_unit_server
-        # )
+        set(LIBSSH_THREAD_UNIT_TESTS
+            ${LIBSSH_THREAD_UNIT_TESTS}
+            torture_unit_server
+        )
     endif (WITH_SERVER)
 endif (UNIX AND NOT WIN32)
 

@@ -45,32 +45,10 @@ The goal is to show the API in action.
 #define BUF_SIZE 1048576
 #endif
 
-#ifndef KEYS_FOLDER
-#ifdef _WIN32
-#define KEYS_FOLDER
-#else
-#define KEYS_FOLDER "/etc/ssh/"
-#endif
-#endif
-
 #define SESSION_END (SSH_CLOSED | SSH_CLOSED_ERROR)
 #define SFTP_SERVER_PATH "/usr/lib/sftp-server"
 #define AUTH_KEYS_MAX_LINE_SIZE 2048
 
-static void set_default_keys(ssh_bind sshbind,
-                             int rsa_already_set,
-                             int ecdsa_already_set) {
-    if (!rsa_already_set) {
-        ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY,
-                             KEYS_FOLDER "ssh_host_rsa_key");
-    }
-    if (!ecdsa_already_set) {
-        ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY,
-                             KEYS_FOLDER "ssh_host_ecdsa_key");
-    }
-    ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY,
-                         KEYS_FOLDER "ssh_host_ed25519_key");
-}
 #define DEF_STR_SIZE 1024
 char authorizedkeys[DEF_STR_SIZE] = {0};
 char username[128] = "myuser";
@@ -146,14 +124,6 @@ static struct argp_option options[] = {
         .group = 0
     },
     {
-        .name  = "no-default-keys",
-        .key   = 'n',
-        .arg   = NULL,
-        .flags = 0,
-        .doc   = "Do not set default key locations.",
-        .group = 0
-    },
-    {
         .name  = "verbose",
         .key   = 'v',
         .arg   = NULL,
@@ -169,30 +139,19 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
     /* Get the input argument from argp_parse, which we
      * know is a pointer to our arguments structure. */
     ssh_bind sshbind = state->input;
-    static int no_default_keys = 0;
-    static int rsa_already_set = 0, ecdsa_already_set = 0;
 
     switch (key) {
-        case 'n':
-            no_default_keys = 1;
-            break;
         case 'p':
             ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_BINDPORT_STR, arg);
             break;
         case 'k':
             ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY, arg);
-            /* We can't track the types of keys being added with this
-               option, so let's ensure we keep the keys we're adding
-               by just not setting the default keys */
-            no_default_keys = 1;
             break;
         case 'r':
             ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY, arg);
-            rsa_already_set = 1;
             break;
         case 'e':
             ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY, arg);
-            ecdsa_already_set = 1;
             break;
         case 'a':
             strncpy(authorizedkeys, arg, DEF_STR_SIZE-1);
@@ -219,13 +178,6 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state) {
                 /* Not enough arguments. */
                 argp_usage (state);
             }
-
-            if (!no_default_keys) {
-                set_default_keys(sshbind,
-                                 rsa_already_set,
-                                 ecdsa_already_set);
-            }
-
             break;
         default:
             return ARGP_ERR_UNKNOWN;
@@ -242,10 +194,8 @@ static int parse_opt(int argc, char **argv, ssh_bind sshbind) {
     int ecdsa_already_set = 0;
     int key;
 
-    while((key = getopt(argc, argv, "a:e:k:np:P:r:u:v")) != -1) {
-        if (key == 'n') {
-            no_default_keys = 1;
-        } else if (key == 'p') {
+    while((key = getopt(argc, argv, "a:e:k:p:P:r:u:v")) != -1) {
+        if (key == 'p') {
             ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_BINDPORT_STR, optarg);
         } else if (key == 'k') {
             ssh_bind_options_set(sshbind, SSH_BIND_OPTIONS_HOSTKEY, optarg);
@@ -281,7 +231,6 @@ static int parse_opt(int argc, char **argv, ssh_bind sshbind) {
                "  -e, --ecdsakey=FILE        Set the ecdsa key (deprecated alias for 'k').\n"
                "  -k, --hostkey=FILE         Set a host key.  Can be used multiple times.\n"
                "                             Implies no default keys.\n"
-               "  -n, --no-default-keys      Do not set default key locations.\n"
                "  -p, --port=PORT            Set the port to bind.\n"
                "  -P, --pass=PASSWORD        Set expected password.\n"
                "  -r, --rsakey=FILE          Set the rsa key (deprecated alias for 'k').\n"
