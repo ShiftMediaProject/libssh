@@ -434,7 +434,7 @@ static void torture_freed_channel_get_exit_status(void **state)
         (channel->flags & SSH_CHANNEL_FLAG_NOT_BOUND)) {
         channel_freed = true;
     }
-    ssh_channel_free(channel);
+    SSH_CHANNEL_FREE(channel);
 
     if (!channel_freed) {
         rc = ssh_channel_get_exit_status(channel);
