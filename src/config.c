@@ -434,10 +434,18 @@ ssh_match_exec(ssh_session session, const char *command, bool negate)
 }
 #endif /* WITH_EXEC */
 
-/* @brief: Parse the ProxyJump configuration line and if parsing,
+/**
+ * @brief: Parse the ProxyJump configuration line and if parsing,
  * stores the result in the configuration option
+ *
+ * @param[in]   session    The ssh session
+ * @param[in]   s          The string to be parsed.
+ * @param[in]   do_parsing Whether to parse or not.
+ *
+ * @returns     SSH_OK if the provided string is formatted and parsed correctly
+ *              SSH_ERROR on failure
  */
-static int
+int
 ssh_config_parse_proxy_jump(ssh_session session, const char *s, bool do_parsing)
 {
     char *c = NULL, *cp = NULL, *endp = NULL;
@@ -446,12 +454,16 @@ ssh_config_parse_proxy_jump(ssh_session session, const char *s, bool do_parsing)
     char *port = NULL;
     char *next = NULL;
     int cmp, rv = SSH_ERROR;
+    struct ssh_jump_info_struct *jump_host = NULL;
     bool parse_entry = do_parsing;
+    bool libssh_proxy_jump = ssh_libssh_proxy_jumps();
 
     /* Special value none disables the proxy */
     cmp = strcasecmp(s, "none");
-    if (cmp == 0 && do_parsing) {
-        ssh_options_set(session, SSH_OPTIONS_PROXYCOMMAND, s);
+    if (cmp == 0) {
+        if (!libssh_proxy_jump && do_parsing) {
+            ssh_options_set(session, SSH_OPTIONS_PROXYCOMMAND, s);
+        }
         return SSH_OK;
     }
 
@@ -469,25 +481,65 @@ ssh_config_parse_proxy_jump(ssh_session session, const char *s, bool do_parsing)
             /* Split out the token */
             *endp = '\0';
         }
-        if (parse_entry) {
+        if (parse_entry && libssh_proxy_jump) {
+            jump_host = calloc(1, sizeof(struct ssh_jump_info_struct));
+            if (jump_host == NULL) {
+                ssh_set_error_oom(session);
+                rv = SSH_ERROR;
+                goto out;
+            }
+
+            rv = ssh_config_parse_uri(cp,
+                                      &jump_host->username,
+                                      &jump_host->hostname,
+                                      &port,
+                                      false);
+            if (rv != SSH_OK) {
+                ssh_set_error_invalid(session);
+                SAFE_FREE(jump_host);
+                goto out;
+            }
+            if (port == NULL) {
+                jump_host->port = 22;
+            } else {
+                jump_host->port = strtol(port, NULL, 10);
+                SAFE_FREE(port);
+            }
+
+            /* Prepend because we will recursively proxy jump */
+            rv = ssh_list_prepend(session->opts.proxy_jumps, jump_host);
+            if (rv != SSH_OK) {
+                ssh_set_error_oom(session);
+                SAFE_FREE(jump_host);
+                goto out;
+            }
+        } else if (parse_entry) {
             /* We actually care only about the first item */
             rv = ssh_config_parse_uri(cp, &username, &hostname, &port, false);
+            if (rv != SSH_OK) {
+                ssh_set_error_invalid(session);
+                goto out;
+            }
             /* The rest of the list needs to be passed on */
             if (endp != NULL) {
                 next = strdup(endp + 1);
                 if (next == NULL) {
                     ssh_set_error_oom(session);
                     rv = SSH_ERROR;
+                    goto out;
                 }
             }
         } else {
             /* The rest is just sanity-checked to avoid failures later */
             rv = ssh_config_parse_uri(cp, NULL, NULL, NULL, false);
+            if (rv != SSH_OK) {
+                ssh_set_error_invalid(session);
+                goto out;
+            }
         }
-        if (rv != SSH_OK) {
-            goto out;
+        if (!libssh_proxy_jump) {
+            parse_entry = 0;
         }
-        parse_entry = 0;
         if (endp != NULL) {
             cp = endp + 1;
         } else {
@@ -495,7 +547,7 @@ ssh_config_parse_proxy_jump(ssh_session session, const char *s, bool do_parsing)
         }
     } while (cp != NULL);
 
-    if (hostname != NULL && do_parsing) {
+    if (!libssh_proxy_jump && hostname != NULL && do_parsing) {
         char com[512] = {0};
 
         rv = snprintf(com, sizeof(com), "ssh%s%s%s%s%s%s -W '[%%h]:%%p' %s",
@@ -511,11 +563,19 @@ ssh_config_parse_proxy_jump(ssh_session session, const char *s, bool do_parsing)
             rv = SSH_ERROR;
             goto out;
         }
-        ssh_options_set(session, SSH_OPTIONS_PROXYCOMMAND, com);
+        rv = ssh_options_set(session, SSH_OPTIONS_PROXYCOMMAND, com);
+        if (rv != SSH_OK) {
+            ssh_set_error_oom(session);
+            goto out;
+        }
     }
+
     rv = SSH_OK;
 
 out:
+    if (rv != SSH_OK) {
+        ssh_proxyjumps_free(session->opts.proxy_jumps);
+    }
     SAFE_FREE(username);
     SAFE_FREE(hostname);
     SAFE_FREE(port);
@@ -1063,7 +1123,8 @@ ssh_config_parse_line(ssh_session session,
             return -1;
         }
         /* We share the seen value with the ProxyCommand */
-        rv = ssh_config_parse_proxy_jump(session, p,
+        rv = ssh_config_parse_proxy_jump(session,
+                                         p,
                                          (*parsing && !seen[SOC_PROXYCOMMAND]));
         if (rv != SSH_OK) {
             SAFE_FREE(x);

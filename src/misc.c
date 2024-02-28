@@ -2200,4 +2200,46 @@ int ssh_check_username_syntax(const char *username)
 
     return SSH_OK;
 }
+
+/**
+ * @brief Free proxy jump list
+ *
+ * Frees everything in a proxy jump list, but doesn't free the ssh_list
+ *
+ * @param proxy_jump_list
+ *
+ */
+void
+ssh_proxyjumps_free(struct ssh_list *proxy_jump_list)
+{
+    struct ssh_jump_info_struct *jump = NULL;
+
+    for (jump =
+             ssh_list_pop_head(struct ssh_jump_info_struct *, proxy_jump_list);
+         jump != NULL;
+         jump = ssh_list_pop_head(struct ssh_jump_info_struct *,
+                                  proxy_jump_list)) {
+        SAFE_FREE(jump->hostname);
+        SAFE_FREE(jump->username);
+        SAFE_FREE(jump);
+    }
+}
+
+/**
+ * @brief Check if libssh proxy jumps is enabled
+ *
+ * If env variable OPENSSH_PROXYJUMP is set to 1 then proxyjump will be
+ * through the OpenSSH binary.
+ *
+ * @return false if OPENSSH_PROXYJUMP=1
+ *         true otherwise
+ */
+bool
+ssh_libssh_proxy_jumps(void)
+{
+    const char *t = getenv("OPENSSH_PROXYJUMP");
+
+    return !(t != NULL && t[0] == '1');
+}
+
 /** @} */

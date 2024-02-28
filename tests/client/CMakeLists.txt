@@ -33,6 +33,12 @@ if (WITH_PKCS11_URI)
         torture_auth_pkcs11)
 endif()
 
+if (HAVE_PTHREAD)
+    set(LIBSSH_CLIENT_TESTS
+        ${LIBSSH_CLIENT_TESTS}
+        torture_proxyjump)
+endif()
+
 if (DEFAULT_C_NO_DEPRECATION_FLAGS)
     set_source_files_properties(torture_knownhosts.c
                                 PROPERTIES

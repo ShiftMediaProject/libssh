@@ -18,6 +18,12 @@ set(TORTURE_LINK_LIBRARIES
     ${CMOCKA_LIBRARY}
     ssh::static)
 
+if (NOT WIN32)
+    set(TORTURE_LINK_LIBRARIES
+        ${TORTURE_LINK_LIBRARIES}
+        pthread)
+endif(NOT WIN32)
+
 # create test library
 add_library(${TORTURE_LIBRARY}
             STATIC
@@ -257,7 +263,7 @@ if (CLIENT_TESTING OR SERVER_TESTING)
     # ssh_ping
     add_executable(ssh_ping ssh_ping.c)
     target_compile_options(ssh_ping PRIVATE ${DEFAULT_C_COMPILE_FLAGS})
-    target_link_libraries(ssh_ping ssh::static)
+    target_link_libraries(ssh_ping ssh::static pthread)
 
     # homedir will be used in passwd
     set(HOMEDIR ${CMAKE_CURRENT_BINARY_DIR}/home)

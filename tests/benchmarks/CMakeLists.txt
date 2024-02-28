@@ -14,4 +14,4 @@ include_directories(${libssh_BINARY_DIR})
 
 add_executable(benchmarks ${benchmarks_SRCS})
 
-target_link_libraries(benchmarks ssh::static)
+target_link_libraries(benchmarks ssh::static pthread)

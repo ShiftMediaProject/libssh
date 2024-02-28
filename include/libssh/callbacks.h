@@ -1074,6 +1074,45 @@ LIBSSH_API int ssh_set_log_callback(ssh_logging_callback cb);
  */
 LIBSSH_API ssh_logging_callback ssh_get_log_callback(void);
 
+/**
+ * @brief SSH proxyjump before connection callback. Called before calling
+ * ssh_connect()
+ * @param session Jump session handler
+ * @param userdata Userdata to be passed to the callback function.
+ *
+ * @return         0 on success, < 0 on error.
+ */
+typedef int (*ssh_jump_before_connection_callback)(ssh_session session,
+                                                   void *userdata);
+
+/**
+ * @brief SSH proxyjump verify knownhost callback. Verify the host.
+ *        If not specified default function will be used.
+ * @param session Jump session handler
+ * @param userdata Userdata to be passed to the callback function.
+ *
+ * @return         0 on success, < 0 on error.
+ */
+typedef int (*ssh_jump_verify_knownhost_callback)(ssh_session session,
+                                                  void *userdata);
+
+/**
+ * @brief SSH proxyjump user authentication callback. Authenticate the user.
+ * @param session Jump session handler
+ * @param userdata Userdata to be passed to the callback function.
+ *
+ * @return         0 on success, < 0 on error.
+ */
+typedef int (*ssh_jump_authenticate_callback)(ssh_session session,
+                                              void *userdata);
+
+struct ssh_jump_callbacks_struct {
+    void *userdata;
+    ssh_jump_before_connection_callback before_connection;
+    ssh_jump_verify_knownhost_callback verify_knownhost;
+    ssh_jump_authenticate_callback authenticate;
+};
+
 #ifdef __cplusplus
 }
 #endif

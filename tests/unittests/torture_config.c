@@ -14,6 +14,7 @@
 #include "match.c"
 #include "config.c"
 #include "libssh/socket.h"
+#include "libssh/misc.h"
 
 extern LIBSSH_THREAD int ssh_log_level;
 
@@ -692,6 +693,34 @@ static void torture_config_auth_methods_string(void **state)
 }
 
 /**
+ * @brief Helper for checking hostname, username and port of ssh_jump_info_struct
+ */
+static void
+helper_proxy_jump_check(struct ssh_iterator *jump,
+                        const char *hostname,
+                        const char *username,
+                        const char *port)
+{
+    struct ssh_jump_info_struct *jis =
+        ssh_iterator_value(struct ssh_jump_info_struct *, jump);
+
+    assert_string_equal(jis->hostname, hostname);
+
+    if (username != NULL) {
+        assert_string_equal(jis->username, username);
+    } else {
+        assert_null(jis->username);
+    }
+
+    if (port != NULL) {
+        int iport = strtol(port, NULL, 10);
+        assert_int_equal(jis->port, iport);
+    } else {
+        assert_int_equal(jis->port, 22);
+    }
+}
+
+/**
  * @brief Verify the configuration parser does not choke on unknown
  * or unsupported configuration options
  */
@@ -702,15 +731,18 @@ static void torture_config_unknown(void **state,
     int ret = 0;
 
     /* test corner cases */
+    /* Without libssh proxy jump */
+    torture_setenv("OPENSSH_PROXYJUMP", "1");
     _parse_config(session, file, string, SSH_OK);
     assert_string_equal(session->opts.ProxyCommand,
-            "ssh -W '[%h]:%p' many-spaces.com");
+                        "ssh -W '[%h]:%p' many-spaces.com");
     assert_string_equal(session->opts.host, "equal.sign");
 
     ret = ssh_config_parse_file(session, "/etc/ssh/ssh_config");
     assert_true(ret == 0);
     ret = ssh_config_parse_file(session, GLOBAL_CLIENT_CONFIG);
     assert_true(ret == 0);
+    torture_unsetenv("OPENSSH_PROXYJUMP");
 }
 
 /**
@@ -994,7 +1026,88 @@ static void torture_config_proxyjump(void **state,
                                      const char *file, const char *string)
 {
     ssh_session session = *state;
+
     const char *config;
+
+
+    /* Tests for libssh based proxyjump */
+    /* Simplest version with just a hostname */
+    torture_reset_config(session);
+    ssh_options_set(session, SSH_OPTIONS_HOST, "simple");
+    _parse_config(session, file, string, SSH_OK);
+    helper_proxy_jump_check(session->opts.proxy_jumps->root,
+                            "jumpbox",
+                            NULL,
+                            NULL);
+
+    /* With username */
+    torture_reset_config(session);
+    ssh_options_set(session, SSH_OPTIONS_HOST, "user");
+    _parse_config(session, file, string, SSH_OK);
+    helper_proxy_jump_check(session->opts.proxy_jumps->root,
+                            "jumpbox",
+                            "user",
+                            NULL);
+
+    /* With port */
+    torture_reset_config(session);
+    ssh_options_set(session, SSH_OPTIONS_HOST, "port");
+    _parse_config(session, file, string, SSH_OK);
+    helper_proxy_jump_check(session->opts.proxy_jumps->root,
+                            "jumpbox",
+                            NULL,
+                            "2222");
+
+    /* Two step jump */
+    torture_reset_config(session);
+    ssh_options_set(session, SSH_OPTIONS_HOST, "two-step");
+    _parse_config(session, file, string, SSH_OK);
+    helper_proxy_jump_check(session->opts.proxy_jumps->root,
+                            "second",
+                            "u2",
+                            "33");
+    helper_proxy_jump_check(session->opts.proxy_jumps->root->next,
+                            "first",
+                            "u1",
+                            "222");
+
+    /* none */
+    torture_reset_config(session);
+    ssh_options_set(session, SSH_OPTIONS_HOST, "none");
+    _parse_config(session, file, string, SSH_OK);
+    assert_int_equal(ssh_list_count(session->opts.proxy_jumps), 0);
+
+    /* If also ProxyCommand is specified, the first is applied */
+    torture_reset_config(session);
+    ssh_options_set(session, SSH_OPTIONS_HOST, "only-command");
+    _parse_config(session, file, string, SSH_OK);
+    assert_string_equal(session->opts.ProxyCommand, PROXYCMD);
+    assert_int_equal(ssh_list_count(session->opts.proxy_jumps), 0);
+
+    /* If also ProxyCommand is specified, the first is applied */
+    torture_reset_config(session);
+    SAFE_FREE(session->opts.ProxyCommand);
+    ssh_options_set(session, SSH_OPTIONS_HOST, "only-jump");
+    _parse_config(session, file, string, SSH_OK);
+    assert_null(session->opts.ProxyCommand);
+    helper_proxy_jump_check(session->opts.proxy_jumps->root,
+                            "jumpbox",
+                            NULL,
+                            NULL);
+
+    /* IPv6 address */
+    torture_reset_config(session);
+    ssh_options_set(session, SSH_OPTIONS_HOST, "ipv6");
+    _parse_config(session, file, string, SSH_OK);
+    helper_proxy_jump_check(session->opts.proxy_jumps->root,
+                            "2620:52:0::fed",
+                            NULL,
+                            NULL);
+
+    torture_reset_config(session);
+
+    /* Tests for proxycommand based proxyjump */
+    torture_setenv("OPENSSH_PROXYJUMP", "1");
 
     /* Simplest version with just a hostname */
     torture_reset_config(session);
@@ -1049,6 +1162,7 @@ static void torture_config_proxyjump(void **state,
     assert_string_equal(session->opts.ProxyCommand,
                         "ssh -W '[%h]:%p' 2620:52:0::fed");
 
+
     /* Multiple @ is allowed in second jump */
     config = "Host allowed-hostname\n"
              "\tProxyJump localhost,user@principal.com@jumpbox:22\n";
@@ -1076,8 +1190,44 @@ static void torture_config_proxyjump(void **state,
     _parse_config(session, file, string, SSH_OK);
     assert_string_equal(session->opts.ProxyCommand,
                         "ssh -l user@principal.com -p 22 -W '[%h]:%p' jumpbox");
+    torture_unsetenv("OPENSSH_PROXYJUMP");
+
+    /* Tests for libssh based proxyjump */
+    /* Multiple @ is allowed in second jump */
+    config = "Host allowed-hostname\n"
+             "\tProxyJump localhost,user@principal.com@jumpbox:22\n";
+    if (file != NULL) {
+        torture_write_file(file, config);
+    } else {
+        string = config;
+    }
+    torture_reset_config(session);
+    ssh_options_set(session, SSH_OPTIONS_HOST, "allowed-hostname");
+    _parse_config(session, file, string, SSH_OK);
+    helper_proxy_jump_check(session->opts.proxy_jumps->root,
+                            "jumpbox",
+                            "user@principal.com",
+                            "22");
+
+    /* Multiple @ is allowed */
+    config = "Host allowed-hostname\n"
+             "\tProxyJump user@principal.com@jumpbox:22\n";
+    if (file != NULL) {
+        torture_write_file(file, config);
+    } else {
+        string = config;
+    }
+    torture_reset_config(session);
+    ssh_options_set(session, SSH_OPTIONS_HOST, "allowed-hostname");
+    _parse_config(session, file, string, SSH_OK);
+    helper_proxy_jump_check(session->opts.proxy_jumps->root,
+                            "jumpbox",
+                            "user@principal.com",
+                            "22");
+    torture_reset_config(session);
 
     /* In this part, we try various other config files and strings. */
+    torture_setenv("OPENSSH_PROXYJUMP", "1");
 
     /* Try to create some invalid configurations */
     /* Non-numeric port */
@@ -1223,6 +1373,8 @@ static void torture_config_proxyjump(void **state,
     torture_reset_config(session);
     ssh_options_set(session, SSH_OPTIONS_HOST, "no-port");
     _parse_config(session, file, string, SSH_ERROR);
+
+    torture_unsetenv("OPENSSH_PROXYJUMP");
 }
 
 /**

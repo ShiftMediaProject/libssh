@@ -93,7 +93,7 @@ static void torture_options_set_proxycommand(void **state)
 #ifdef WITH_EXEC
     assert_ssh_return_code(session, rc);
     fd = ssh_get_fd(session);
-    assert_true(fd != SSH_INVALID_SOCKET);
+    assert_int_not_equal(fd, SSH_INVALID_SOCKET);
     rc = fcntl(fd, F_GETFL);
     assert_int_equal(rc & O_RDWR, O_RDWR);
 #else
@@ -145,7 +145,7 @@ static void torture_options_set_proxycommand_ssh(void **state)
 #ifdef WITH_EXEC
     assert_ssh_return_code(session, rc);
     fd = ssh_get_fd(session);
-    assert_true(fd != SSH_INVALID_SOCKET);
+    assert_int_not_equal(fd, SSH_INVALID_SOCKET);
     rc = fcntl(fd, F_GETFL);
     assert_int_equal(rc & O_RDWR, O_RDWR);
 #else
@@ -176,7 +176,7 @@ static void torture_options_set_proxycommand_ssh_stderr(void **state)
 #ifdef WITH_EXEC
     assert_ssh_return_code(session, rc);
     fd = ssh_get_fd(session);
-    assert_true(fd != SSH_INVALID_SOCKET);
+    assert_int_not_equal(fd, SSH_INVALID_SOCKET);
     rc = fcntl(fd, F_GETFL);
     assert_int_equal(rc & O_RDWR, O_RDWR);
 #else

@@ -96,6 +96,7 @@ ssh_session ssh_new(void)
     session->auth.supported_methods = 0;
     ssh_set_blocking(session, 1);
     session->maxchannel = FIRST_CHANNEL;
+    session->proxy_root = true;
 
     session->agent = ssh_agent_new(session);
     if (session->agent == NULL) {
@@ -137,6 +138,16 @@ ssh_session ssh_new(void)
     }
     /* the default certificates are loaded automatically from the default
      * identities later */
+
+    session->opts.proxy_jumps = ssh_list_new();
+    if (session->opts.proxy_jumps == NULL) {
+        goto err;
+    }
+
+    session->opts.proxy_jumps_user_cb = ssh_list_new();
+    if (session->opts.proxy_jumps_user_cb == NULL) {
+        goto err;
+    }
 
     id = strdup("%d/id_ed25519");
     if (id == NULL) {
@@ -320,6 +331,10 @@ void ssh_free(ssh_session session)
         }
         ssh_list_free(session->opts.certificate_non_exp);
     }
+
+    ssh_proxyjumps_free(session->opts.proxy_jumps);
+    SSH_LIST_FREE(session->opts.proxy_jumps);
+    SSH_LIST_FREE(session->opts.proxy_jumps_user_cb);
 
     while ((b = ssh_list_pop_head(struct ssh_buffer_struct *,
                                   session->out_queue)) != NULL) {
