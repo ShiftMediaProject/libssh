@@ -855,8 +855,7 @@ LIBSSH_API unsigned long sftp_tell(sftp_file file);
  * @param file          Open sftp file handle.
  *
  * @return              The offset of the current byte relative to the beginning
- *                      of the file associated with the file descriptor. < 0 on
- *                      error.
+ *                      of the file associated with the file descriptor.
  */
 LIBSSH_API uint64_t sftp_tell64(sftp_file file);
 
