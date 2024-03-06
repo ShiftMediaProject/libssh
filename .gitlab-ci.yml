@@ -100,6 +100,16 @@ workflow:
 ###############################################################################
 #                                   Review                                    #
 ###############################################################################
+codespell:
+  stage: review
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
+  script:
+    - codespell --ignore-words-list=keypair,sorce,ned,nd,ue
+  tags:
+    - shared
+  only:
+    - merge_requests
+
 clang-format:
   variables:
     GIT_DEPTH: 100
@@ -538,6 +548,9 @@ freebsd/openssl_1.1.1/x86_64:
   tags:
     - windows
     - shared-windows
+  only:
+    - merge_requests
+    - branches
   except:
     - tags
   artifacts:
@@ -615,14 +628,3 @@ coverity:
     when: on_failure
     paths:
       - obj/cov-int/*.txt
-
-###############################################################################
-#                                 Codespell                                   #
-###############################################################################
-codespell:
-  stage: review
-  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
-  script:
-    - codespell --ignore-words-list=keypair,sorce,ned,nd,ue
-  tags:
-    - shared
