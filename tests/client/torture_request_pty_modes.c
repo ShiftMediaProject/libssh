@@ -89,6 +89,7 @@ static int check_channel_output(ssh_channel c, const char *expected)
     nbytes = ssh_channel_read(c, buffer, sizeof(buffer) - 1, 0);
     while (nbytes > 0) {
         buffer[nbytes]='\0';
+        ssh_log_hexdump("Read bytes:", (unsigned char *)buffer, nbytes);
         if (strstr(buffer, expected) != NULL)
         {
             return 1;
