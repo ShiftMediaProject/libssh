@@ -216,7 +216,9 @@ encode_termios_opts(struct termios *attr, unsigned char *buf, size_t buflen)
     SSH_ENCODE_INPUT_OPT(INLCR)
     SSH_ENCODE_INPUT_OPT(IGNCR)
     SSH_ENCODE_INPUT_OPT(ICRNL)
+#ifdef IUCLC
     SSH_ENCODE_INPUT_OPT(IUCLC)
+#endif
     SSH_ENCODE_INPUT_OPT(IXON)
     SSH_ENCODE_INPUT_OPT(IXANY)
     SSH_ENCODE_INPUT_OPT(IXOFF)
@@ -229,7 +231,9 @@ encode_termios_opts(struct termios *attr, unsigned char *buf, size_t buflen)
 #define SSH_ENCODE_OUTPUT_OPT(opt) \
     SSH_ENCODE_OPT(TTY_OP_##opt, (attr->c_oflag & opt) ? 1 : 0)
     SSH_ENCODE_OUTPUT_OPT(OPOST)
+#ifdef OLCUC
     SSH_ENCODE_OUTPUT_OPT(OLCUC)
+#endif
     SSH_ENCODE_OUTPUT_OPT(ONLCR)
     SSH_ENCODE_OUTPUT_OPT(OCRNL)
     SSH_ENCODE_OUTPUT_OPT(ONOCR)
@@ -248,7 +252,9 @@ encode_termios_opts(struct termios *attr, unsigned char *buf, size_t buflen)
     SSH_ENCODE_OPT(TTY_OP_##opt, (attr->c_lflag & opt) ? 1 : 0)
     SSH_ENCODE_LOCAL_OPT(ISIG)
     SSH_ENCODE_LOCAL_OPT(ICANON)
+#ifdef XCASE
     SSH_ENCODE_LOCAL_OPT(XCASE)
+#endif
     SSH_ENCODE_LOCAL_OPT(ECHO)
     SSH_ENCODE_LOCAL_OPT(ECHOE)
     SSH_ENCODE_LOCAL_OPT(ECHOK)
