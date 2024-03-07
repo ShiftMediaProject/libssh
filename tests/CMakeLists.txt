@@ -187,6 +187,10 @@ if (CLIENT_TESTING OR SERVER_TESTING)
         if (NOT SOFTHSM_FOUND)
             message(SEND_ERROR "Could not find softhsm module!")
         endif (NOT SOFTHSM_FOUND)
+        find_library(PKCS11SPY
+            NAMES
+                pkcs11-spy.so
+        )
         if (WITH_PKCS11_PROVIDER)
             find_package(PkgConfig)
             if (PKG_CONFIG_FOUND)

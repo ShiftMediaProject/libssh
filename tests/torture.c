@@ -1207,6 +1207,7 @@ void torture_setup_tokens(const char *temp_dir,
     char token_setup_start_cmd[1024] = {0};
     char socket_path[1204] = {0};
     char conf_path[1024] = {0};
+    char *env = NULL;
     int rc;
 
     rc = snprintf(token_setup_start_cmd,
@@ -1239,9 +1240,19 @@ void torture_setup_tokens(const char *temp_dir,
 
     setenv("PKCS11_PROVIDER_MODULE", P11_KIT_CLIENT, 1);
     /* This is useful for debugging PKCS#11 calls */
-    setenv("PKCS11SPY", P11_KIT_CLIENT, 1);
-    setenv("PKCS11_PROVIDER_MODULE", "/usr/lib64/pkcs11-spy.so", 1);
+
+    env = getenv("TORTURE_PKCS11");
+    if (env != NULL && env[0] != '\0') {
+#ifdef PKCS11SPY
+        setenv("PKCS11SPY", P11_KIT_CLIENT, 1);
+        setenv("PKCS11_PROVIDER_MODULE", PKCS11SPY, 1);
 #else
+        fprintf(stderr, "[ TORTURE  ] >>> pkcs11-spy not found\n");
+#endif
+    }
+#else
+    (void)env;
+
     snprintf(conf_path, sizeof(conf_path), "%s/softhsm.conf", temp_dir);
     setenv("SOFTHSM2_CONF", conf_path, 1);
 #endif /* WITH_PKCS11_PROVIDER */
