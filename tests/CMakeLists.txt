@@ -26,10 +26,13 @@ add_library(${TORTURE_LIBRARY}
                 torture_key.c
                 torture_pki.c
                 torture_cmocka.c)
-target_link_libraries(${TORTURE_LIBRARY} ${TORTURE_LINK_LIBRARIES})
+target_link_libraries(${TORTURE_LIBRARY} PRIVATE ${TORTURE_LINK_LIBRARIES})
 target_compile_options(${TORTURE_LIBRARY} PRIVATE
                        -DSSH_PING_EXECUTABLE="${CMAKE_CURRENT_BINARY_DIR}/ssh_ping"
 )
+if (WITH_COVERAGE)
+    append_coverage_compiler_flags_to_target(${TORTURE_LIBRARY})
+endif (WITH_COVERAGE)
 
 # The shared version of the library is only useful when client testing is
 # enabled
@@ -60,7 +63,7 @@ if (CLIENT_TESTING)
                     torture_pki.c
                     torture_cmocka.c
                )
-    target_link_libraries(${TORTURE_SHARED_LIBRARY}
+    target_link_libraries(${TORTURE_SHARED_LIBRARY} PUBLIC
                           ${CMOCKA_LIBRARY}
                           ssh::static
                           ${WRAP_SYMBOLS}
@@ -69,11 +72,14 @@ if (CLIENT_TESTING)
                            -DSSH_PING_EXECUTABLE="${CMAKE_CURRENT_BINARY_DIR}/ssh_ping"
                            -DTORTURE_SHARED
     )
+    if (WITH_COVERAGE)
+        append_coverage_compiler_flags_to_target(${TORTURE_SHARED_LIBRARY})
+    endif (WITH_COVERAGE)
 endif ()
 
 if (ARGP_LIBRARIES)
     target_link_libraries(${TORTURE_LIBRARY}
-        ${ARGP_LIBRARIES}
+        PUBLIC ${ARGP_LIBRARIES}
     )
 endif()
 

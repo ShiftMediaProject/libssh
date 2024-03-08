@@ -188,18 +188,18 @@ if (WITH_SYMBOL_VERSIONING AND ABIMAP_FOUND)
 endif (WITH_SYMBOL_VERSIONING AND ABIMAP_FOUND)
 
 # Coverage
-if (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+if (WITH_COVERAGE)
     include(CodeCoverage)
     setup_target_for_coverage_lcov(
         NAME "coverage"
         EXECUTABLE make test
         DEPENDENCIES ssh tests)
-    set(GCOVR_ADDITIONAL_ARGS --xml-pretty --exclude-unreachable-branches --print-summary --gcov-ignore-parse-errors)
+    set(GCOVR_ADDITIONAL_ARGS --xml-pretty --exclude-unreachable-branches --print-summary)
     setup_target_for_coverage_gcovr_xml(
         NAME "coverage_xml"
         EXECUTABLE make test
         DEPENDENCIES ssh tests)
-endif (CMAKE_BUILD_TYPE STREQUAL "Coverage")
+endif (WITH_COVERAGE)
 
 add_custom_target(dist COMMAND ${CMAKE_MAKE_PROGRAM} package_source DEPENDS ${_SYMBOL_TARGET} VERBATIM)
 
@@ -215,6 +215,7 @@ message(STATUS "********************************************")
 message(STATUS "********** ${PROJECT_NAME} build options : **********")
 
 message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "Coverage: ${WITH_COVERAGE}")
 message(STATUS "zlib support: ${WITH_ZLIB}")
 message(STATUS "libgcrypt support: ${WITH_GCRYPT}")
 message(STATUS "libmbedTLS support: ${WITH_MBEDTLS}")

@@ -371,6 +371,10 @@ if (MINGW)
     target_link_libraries(ssh PRIVATE "-Wl,--enable-stdcall-fixup")
     target_compile_definitions(ssh PRIVATE "_POSIX_SOURCE")
 endif ()
+if (WITH_COVERAGE)
+    include(CodeCoverage)
+    append_coverage_compiler_flags_to_target(ssh)
+endif (WITH_COVERAGE)
 
 
 install(TARGETS ssh
@@ -423,6 +427,9 @@ if (BUILD_STATIC_LIB)
   if (WIN32)
     target_compile_definitions(ssh-static PUBLIC "LIBSSH_STATIC")
   endif (WIN32)
+    if (WITH_COVERAGE)
+        append_coverage_compiler_flags_to_target(ssh-static)
+    endif (WITH_COVERAGE)
 endif (BUILD_STATIC_LIB)
 
 message(STATUS "Threads_FOUND=${Threads_FOUND}")
