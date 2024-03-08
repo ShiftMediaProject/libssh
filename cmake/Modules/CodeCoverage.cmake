@@ -164,7 +164,7 @@ foreach(LANG ${LANGUAGES})
   endif()
 endforeach()
 
-set(COVERAGE_COMPILER_FLAGS "-g --coverage"
+set(COVERAGE_COMPILER_FLAGS "-g --coverage -fprofile-update=atomic"
     CACHE INTERNAL "")
 
 if(CMAKE_CXX_COMPILER_ID MATCHES "(GNU|Clang)")
