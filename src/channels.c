@@ -3239,6 +3239,8 @@ int ssh_channel_read_nonblocking(ssh_channel channel,
 /**
  * @brief Polls a channel for data to read.
  *
+ * If callbacks are set on the channel, they will be called.
+ *
  * @param[in]  channel  The channel to poll.
  *
  * @param[in]  is_stderr A boolean to select the stderr stream.
@@ -3266,7 +3268,7 @@ int ssh_channel_poll(ssh_channel channel, int is_stderr)
     stdbuf = channel->stderr_buffer;
   }
 
-  if (ssh_buffer_get_len(stdbuf) == 0 && channel->remote_eof == 0) {
+  if (channel->remote_eof == 0) {
     if (channel->session->session_state == SSH_SESSION_STATE_ERROR){
       return SSH_ERROR;
     }
