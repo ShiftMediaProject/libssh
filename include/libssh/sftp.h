@@ -949,6 +949,29 @@ LIBSSH_API int sftp_rename(sftp_session sftp, const char *original, const  char 
 LIBSSH_API int sftp_setstat(sftp_session sftp, const char *file, sftp_attributes attr);
 
 /**
+ * @brief This request is like setstat (excluding mode and size) but sets file
+ * attributes on symlinks themselves.
+ *
+ * Note, that this function can only set time values using 32 bit values due to
+ * the restrictions in the SFTP protocol version 3 implemented by libssh.
+ * The support for 64 bit time values was introduced in SFTP version 5, which is
+ * not implemented by libssh nor any major SFTP servers.
+ *
+ * @param sftp          The sftp session handle.
+ *
+ * @param file          The symbolic link which attributes should be changed.
+ *
+ * @param attr          The file attributes structure with the attributes set
+ *                      which should be changed.
+ *
+ * @return              0 on success, < 0 on error with ssh and sftp error set.
+ *
+ * @see sftp_get_error()
+ */
+LIBSSH_API int
+sftp_lsetstat(sftp_session sftp, const char *file, sftp_attributes attr);
+
+/**
  * @brief Change the file owner and group
  *
  * @param sftp          The sftp session handle.
