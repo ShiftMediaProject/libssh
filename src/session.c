@@ -502,14 +502,16 @@ const char* ssh_get_hmac_out(ssh_session session) {
  *
  * @param[in]  session  The SSH session to disconnect.
  */
-void ssh_silent_disconnect(ssh_session session) {
-  if (session == NULL) {
-    return;
-  }
+void
+ssh_silent_disconnect(ssh_session session)
+{
+    if (session == NULL) {
+        return;
+    }
 
-  ssh_socket_close(session->socket);
-  session->alive = 0;
-  ssh_disconnect(session);
+    ssh_socket_close(session->socket);
+    session->alive = 0;
+    ssh_disconnect(session);
 }
 
 /**
