@@ -486,9 +486,7 @@ static void ssh_client_connection_callback(ssh_session session)
 
     return;
 error:
-    ssh_socket_close(session->socket);
-    session->alive = 0;
-    session->session_state = SSH_SESSION_STATE_ERROR;
+    ssh_session_socket_close(session);
     SSH_LOG(SSH_LOG_WARN, "%s", ssh_get_error(session));
 }
 
@@ -798,10 +796,7 @@ ssh_disconnect(ssh_session session)
         }
 
         ssh_packet_send(session);
-        /* Do not close the socket, if the fd was set via options. */
-        if (session->opts.fd == SSH_INVALID_SOCKET) {
-            ssh_socket_close(session->socket);
-        }
+        ssh_session_socket_close(session);
     }
 
 error:

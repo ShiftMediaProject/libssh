@@ -308,6 +308,7 @@ int ssh_auth_reply_success(ssh_session session, int partial);
 /* client.c */
 
 int ssh_send_banner(ssh_session session, int is_server);
+void ssh_session_socket_close(ssh_session session);
 
 /* connect.c */
 socket_t ssh_connect_host_nonblocking(ssh_session session, const char *host,

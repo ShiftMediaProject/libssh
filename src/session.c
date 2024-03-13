@@ -496,6 +496,21 @@ const char* ssh_get_hmac_out(ssh_session session) {
 }
 
 /**
+ * @internal
+ * @brief Close the connection socket if it is a socket created by us.
+ * Does not close the sockets provided by the user through options API.
+ */
+void
+ssh_session_socket_close(ssh_session session)
+{
+    if (session->opts.fd == SSH_INVALID_SOCKET) {
+        ssh_socket_close(session->socket);
+    }
+    session->alive = 0;
+    session->session_state = SSH_SESSION_STATE_ERROR;
+}
+
+/**
  * @brief Disconnect impolitely from a remote host by closing the socket.
  *
  * Suitable if you forked and want to destroy this session.
@@ -509,8 +524,7 @@ ssh_silent_disconnect(ssh_session session)
         return;
     }
 
-    ssh_socket_close(session->socket);
-    session->alive = 0;
+    ssh_session_socket_close(session);
     ssh_disconnect(session);
 }
 
