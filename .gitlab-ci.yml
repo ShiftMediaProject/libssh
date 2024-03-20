@@ -100,35 +100,21 @@ workflow:
 ###############################################################################
 #                                   Review                                    #
 ###############################################################################
-codespell:
-  stage: review
-  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
-  script:
-    - codespell --ignore-words-list=keypair,sorce,ned,nd,ue
-  tags:
-    - shared
-  only:
-    - merge_requests
-
-clang-format:
+review:
   variables:
     GIT_DEPTH: 100
   stage: review
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
   script:
-    - ./.gitlab-ci/clang-format-check.sh
-  only:
-    - merge_requests
+    - ERROR=0
+      codespell --ignore-words-list=keypair,sorce,ned,nd,ue || ERROR=1;
+      ./.gitlab-ci/clang-format-check.sh || ERROR=1;
+      ./.gitlab-ci/git-check-signoff-trailer.sh ${CI_MERGE_REQUEST_DIFF_BASE_SHA} || ERROR=1;
+      exit $ERROR
   # the format is not always matching our intentions
   allow_failure: true
-
-git-log-check:
-  variables:
-    GIT_DEPTH: 100
-  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
-  stage: review
-  script:
-    - ./.gitlab-ci/git-check-signoff-trailer.sh ${CI_MERGE_REQUEST_DIFF_BASE_SHA}
+  tags:
+    - shared
   only:
     - merge_requests
 
