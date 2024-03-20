@@ -22,6 +22,8 @@ BinPackArguments: false
 BinPackParameters: false
 AllowAllArgumentsOnNextLine: false
 AllowShortFunctionsOnASingleLine: Empty
+# TODO with Clang 19, replace the below with
+# BreakAfterReturnType: ExceptShortType
 AlwaysBreakAfterReturnType: AllDefinitions
 AlignEscapedNewlines: Left
 ForEachMacros: ['ssh_callbacks_iterate']
