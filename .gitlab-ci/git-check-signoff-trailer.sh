@@ -21,12 +21,12 @@ echo -e "${blue}Checking commit range: $CI_COMMIT_RANGE"
 echo
 echo
 
-for commit in `git rev-list $CI_COMMIT_RANGE`; do
-    git show -s --format=%B $commit | grep "^Signed-off-by: " 2>&1 >/dev/null
+for commit in $(git rev-list "$CI_COMMIT_RANGE"); do
+    git show -s --format=%B "$commit" | grep "^Signed-off-by: " >/dev/null 2>&1
     ret=$?
     if [ $ret -eq 1 ]; then
         echo -e "${red}  >>> Missing Signed-off-by trailer in commit $commit"
-        failed=`expr $failed + 1`
+        failed=$(("$failed" + 1))
     fi
 done
 

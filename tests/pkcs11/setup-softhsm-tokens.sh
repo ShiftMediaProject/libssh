@@ -94,8 +94,8 @@ fi
 # when creating more keys, we need to restart the p11-kit
 # so it can pick up the new keys
 if [ -h "$TESTDIR/p11-kit-server.socket" ]; then
-    kill -9 $(cat $TESTDIR/p11-kit-server.pid)
-    rm $TESTDIR/p11-kit-server.socket
+    kill -9 "$(cat "$TESTDIR/p11-kit-server.pid")"
+    rm "$TESTDIR/p11-kit-server.socket"
 fi
 
 # p11-kit complains if there is no runtime directory
@@ -113,7 +113,7 @@ if [ $ret -ne 0 ]; then
     echo "$out"
     exit 1
 fi
-eval $out
+eval "$out"
 
 # Symlink the p11-kit-server socket to "known place"
 P11_KIT_SERVER_ADDRESS_PATH=${P11_KIT_SERVER_ADDRESS:10}
