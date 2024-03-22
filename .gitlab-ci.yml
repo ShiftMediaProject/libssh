@@ -110,7 +110,6 @@ review:
       codespell --ignore-words-list=keypair,sorce,ned,nd,ue || ERROR=1;
       ./.gitlab-ci/clang-format-check.sh || ERROR=1;
       ./.gitlab-ci/git-check-signoff-trailer.sh ${CI_MERGE_REQUEST_DIFF_BASE_SHA} || ERROR=1;
-      ./.gitlab-ci/git-check-signoff-trailer.sh ${CI_MERGE_REQUEST_DIFF_BASE_SHA} || ERROR=1;
       ./.gitlab-ci/shellcheck.sh || ERROR=1;
       exit $ERROR
   # the format is not always matching our intentions
