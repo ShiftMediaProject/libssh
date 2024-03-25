@@ -1144,6 +1144,27 @@ LIBSSH_API int sftp_server_version(sftp_session sftp);
  */
 LIBSSH_API char *sftp_expand_path(sftp_session sftp, const char *path);
 
+/**
+ * @brief Get the specified user's home directory
+ *
+ * This calls the "home-directory" extension. You should check if the extension
+ * is supported using:
+ *
+ * @code
+ * int supported  = sftp_extension_supported(sftp, "home-directory", "1");
+ * @endcode
+ *
+ * @param sftp          The sftp session handle.
+ *
+ * @param username      username of the user whose home directory is requested.
+ *
+ * @return              On success, a newly allocated string containing the
+ *                      absolute real-path of the home directory of the user.
+ *                      NULL on error. The caller needs to free the memory
+ *                      using ssh_string_free_char().
+ */
+LIBSSH_API char *sftp_home_directory(sftp_session sftp, const char *username);
+
 #ifdef WITH_SERVER
 /**
  * @brief Create a new sftp server session.
