@@ -76,6 +76,7 @@ if (WIN32)
 endif (WIN32)
 
 if (OPENSSL_FOUND)
+    set(CMAKE_REQUIRED_INCLUDES ${OPENSSL_INCLUDE_DIR})
     set(CMAKE_REQUIRED_LIBRARIES OpenSSL::Crypto)
 
     check_include_file(openssl/des.h HAVE_OPENSSL_DES_H)
@@ -102,6 +103,7 @@ if (OPENSSL_FOUND)
     check_function_exists(RAND_priv_bytes HAVE_OPENSSL_RAND_PRIV_BYTES)
     check_function_exists(EVP_chacha20 HAVE_OPENSSL_EVP_CHACHA20)
 
+    unset(CMAKE_REQUIRED_INCLUDES)
     unset(CMAKE_REQUIRED_LIBRARIES)
 endif()
 
