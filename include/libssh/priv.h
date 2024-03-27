@@ -274,6 +274,10 @@ void ssh_log_common(struct ssh_common_struct *common,
                     const char *function,
                     const char *format, ...) PRINTF_ATTRIBUTE(4, 5);
 
+void _ssh_remove_legacy_log_cb(void);
+
+/* log.c */
+void _ssh_reset_log_cb(void);
 
 /* ERROR HANDLING */
 
