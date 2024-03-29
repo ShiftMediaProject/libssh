@@ -67,6 +67,7 @@ struct torture_sftp {
 
 struct torture_state {
     char *socket_dir;
+    char *gss_dir;
     char *pcap_file;
     char *log_file;
     char *srv_pidfile;
@@ -147,6 +148,15 @@ void torture_reset_config(ssh_session session);
 void torture_setup_create_libssh_config(void **state);
 
 void torture_setup_libssh_server(void **state, const char *server_path);
+
+#ifdef WITH_GSSAPI
+void torture_setup_kdc_server(void **state,
+                              const char *kadmin_script,
+                              const char *kinit_script);
+void torture_teardown_kdc_server(void **state);
+void torture_set_kdc_env_str(const char *gss_dir, char *env, size_t size);
+void torture_set_env_from_str(const char *env);
+#endif /* WITH_GSSAPI */
 
 #if defined(HAVE_WEAK_ATTRIBUTE) && defined(TORTURE_SHARED)
 __attribute__((weak)) int torture_run_tests(void);

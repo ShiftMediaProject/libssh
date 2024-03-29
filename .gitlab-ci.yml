@@ -31,7 +31,7 @@ workflow:
   variables:
     CMAKE_DEFAULT_OPTIONS: "-DCMAKE_BUILD_TYPE=RelWithDebInfo -DPICKY_DEVELOPER=ON"
     CMAKE_BUILD_OPTIONS: "-DWITH_BLOWFISH_CIPHER=ON -DWITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON -DWITH_PCAP=ON -DWITH_DEBUG_CRYPTO=ON -DWITH_DEBUG_PACKET=ON -DWITH_DEBUG_CALLTRACE=ON"
-    CMAKE_TEST_OPTIONS: "-DUNIT_TESTING=ON -DCLIENT_TESTING=ON -DSERVER_TESTING=ON -DWITH_BENCHMARKS=ON -DFUZZ_TESTING=ON"
+    CMAKE_TEST_OPTIONS: "-DUNIT_TESTING=ON -DCLIENT_TESTING=ON -DSERVER_TESTING=ON -DGSSAPI_TESTING=ON -DWITH_BENCHMARKS=ON -DFUZZ_TESTING=ON"
     CMAKE_OPTIONS: $CMAKE_DEFAULT_OPTIONS $CMAKE_BUILD_OPTIONS $CMAKE_TEST_OPTIONS
   before_script: &build
     - uname -a
@@ -445,8 +445,6 @@ alpine/openssl_3.0.x/musl:
 ###############################################################################
 tumbleweed/openssl_3.0.x/x86_64/gcc:
   extends: .tumbleweed
-  variables:
-    CMAKE_ADDITIONAL_OPTIONS: "-DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config"
 
 tumbleweed/openssl_3.0.x/x86/gcc:
   extends: .tumbleweed
@@ -464,7 +462,7 @@ tumbleweed/openssl_3.0.x/x86/gcc:
 tumbleweed/openssl_3.0.x/x86_64/gcc7:
   extends: .tumbleweed
   variables:
-    CMAKE_ADDITIONAL_OPTIONS: "-DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7 -DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config"
+    CMAKE_ADDITIONAL_OPTIONS: "-DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7"
 
 tumbleweed/openssl_3.0.x/x86/gcc7:
   extends: .tumbleweed
@@ -481,7 +479,7 @@ tumbleweed/openssl_3.0.x/x86/gcc7:
 tumbleweed/openssl_3.0.x/x86_64/clang:
   extends: .tumbleweed
   variables:
-    CMAKE_ADDITIONAL_OPTIONS: "-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config"
+    CMAKE_ADDITIONAL_OPTIONS: "-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++"
 
 tumbleweed/mbedtls-3.6.x/x86_64/gcc:
   extends: .tumbleweed

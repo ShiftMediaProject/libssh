@@ -1060,6 +1060,9 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_gssapi_token_client){
         session->auth.state = SSH_AUTH_STATE_GSSAPI_MIC_SENT;
     }
 
+    ssh_gssapi_free(session);
+    session->gssapi = NULL;
+
     return SSH_PACKET_USED;
 
 error:

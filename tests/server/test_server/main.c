@@ -272,7 +272,8 @@ static int init_server_state(struct server_state_st *state,
         state->auth_methods = atoi(arguments->auth_methods);
     } else {
         state->auth_methods = SSH_AUTH_METHOD_PASSWORD |
-                              SSH_AUTH_METHOD_PUBLICKEY;
+                              SSH_AUTH_METHOD_PUBLICKEY |
+                              SSH_AUTH_METHOD_GSSAPI_MIC;
     }
 
     state->with_pcap = arguments->with_pcap;

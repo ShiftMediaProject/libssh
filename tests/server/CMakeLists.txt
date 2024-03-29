@@ -14,10 +14,19 @@ set(LIBSSH_SERVER_TESTS
     torture_sftpserver
 )
 
+if (WITH_GSSAPI AND GSSAPI_FOUND AND GSSAPI_TESTING)
+    set(LIBSSH_SERVER_TESTS
+        ${LIBSSH_SERVER_TESTS}
+        torture_gssapi_server_auth)
+endif()
+
 include_directories(${libssh_SOURCE_DIR}/include
                     ${libssh_BINARY_DIR}/include
                     ${libssh_BINARY_DIR}
                     test_server)
+
+set(TORTURE_SERVER_ENVIRONMENT ${TORTURE_ENVIRONMENT})
+list(APPEND TORTURE_SERVER_ENVIRONMENT NSS_WRAPPER_HOSTS=${CMAKE_BINARY_DIR}/tests/etc/hosts)
 
 if (ARGP_INCLUDE_DIR)
     include_directories(${ARGP_INCLUDE_DIR})
@@ -41,7 +50,7 @@ foreach(_SRV_TEST ${LIBSSH_SERVER_TESTS})
             TEST
                 ${_SRV_TEST}
             PROPERTY
-                ENVIRONMENT ${TORTURE_ENVIRONMENT})
+                ENVIRONMENT ${TORTURE_SERVER_ENVIRONMENT})
     endif()
 endforeach()
 

@@ -193,7 +193,6 @@ int auth_gssapi_mic_cb(ssh_session session,
         printf("Received some gssapi credentials\n");
     } else {
         printf("Not received any forwardable creds\n");
-        goto denied;
     }
 
     printf("Authenticated\n");
@@ -203,8 +202,6 @@ int auth_gssapi_mic_cb(ssh_session session,
 
     return SSH_AUTH_SUCCESS;
 
-denied:
-    sdata->auth_attempts++;
 null_userdata:
     return SSH_AUTH_DENIED;
 }
@@ -910,7 +907,8 @@ void default_handle_session_cb(ssh_event event,
     } else {
         ssh_set_auth_methods(session,
                 SSH_AUTH_METHOD_PASSWORD |
-                SSH_AUTH_METHOD_PUBLICKEY);
+                SSH_AUTH_METHOD_PUBLICKEY|
+                SSH_AUTH_METHOD_GSSAPI_MIC);
     }
 
     ssh_event_add_session(event, session);

@@ -39,6 +39,12 @@ if (HAVE_PTHREAD)
         torture_proxyjump)
 endif()
 
+if (WITH_GSSAPI AND GSSAPI_FOUND AND GSSAPI_TESTING)
+    set(LIBSSH_CLIENT_TESTS
+        ${LIBSSH_CLIENT_TESTS}
+        torture_gssapi_auth)
+endif()
+
 if (DEFAULT_C_NO_DEPRECATION_FLAGS)
     set_source_files_properties(torture_knownhosts.c
                                 PROPERTIES

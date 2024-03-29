@@ -16,6 +16,7 @@ option(WITH_PKCS11_PROVIDER "Use the PKCS#11 provider for accessing pkcs11 objec
 option(UNIT_TESTING "Build with unit tests" OFF)
 option(CLIENT_TESTING "Build with client tests; requires openssh" OFF)
 option(SERVER_TESTING "Build with server tests; requires openssh and dropbear" OFF)
+option(GSSAPI_TESTING "Build with GSSAPI tests; requires krb5-server,krb5-libs and krb5-workstation" OFF)
 option(WITH_BENCHMARKS "Build benchmarks tools; enables unit testing and client tests" OFF)
 option(WITH_EXAMPLES "Build examples" ON)
 option(WITH_NACL "Build with libnacl (curve25519)" ON)
@@ -38,7 +39,7 @@ if (WITH_BENCHMARKS)
   set(CLIENT_TESTING ON)
 endif()
 
-if (UNIT_TESTING OR CLIENT_TESTING OR SERVER_TESTING)
+if (UNIT_TESTING OR CLIENT_TESTING OR SERVER_TESTING OR GSSAPI_TESTING)
   set(BUILD_STATIC_LIB ON)
 endif()
 
