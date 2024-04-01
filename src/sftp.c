@@ -464,7 +464,10 @@ int sftp_init(sftp_session sftp)
 
     /* TODO: are we sure there are 4 bytes ready? */
     rc = ssh_buffer_unpack(packet->payload, "d", &version);
-    if (rc != SSH_OK){
+    if (rc != SSH_OK) {
+        ssh_set_error(sftp->session,
+                      SSH_FATAL,
+                      "Unable to unpack SSH_FXP_VERSION packet");
         sftp_set_error(sftp, SSH_FX_FAILURE);
         return -1;
     }
