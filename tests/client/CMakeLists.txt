@@ -58,6 +58,7 @@ if (WITH_SFTP)
         torture_sftp_expand_path
         torture_sftp_aio
         torture_sftp_home_directory
+        torture_sftp_setstat
         ${SFTP_BENCHMARK_TESTS})
 endif (WITH_SFTP)
 
