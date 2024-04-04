@@ -54,6 +54,8 @@ static int libssh_server_setup(void **state)
     struct test_server_st *tss = NULL;
     struct torture_state *s = NULL;
 
+    char log_file[1024];
+
     assert_non_null(state);
 
     tss = (struct test_server_st*)calloc(1, sizeof(struct test_server_st));
@@ -61,6 +63,13 @@ static int libssh_server_setup(void **state)
 
     torture_setup_socket_dir((void **)&s);
     torture_setup_create_libssh_config((void **)&s);
+
+    snprintf(log_file,
+             sizeof(log_file),
+             "%s/sshd/log",
+             s->socket_dir);
+
+    s->log_file = strdup(log_file);
 
     /* The second argument is the relative path to the "server" directory binary
      */

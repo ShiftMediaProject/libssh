@@ -59,6 +59,7 @@ struct arguments_st {
     char *password;
 
     char *config_file;
+    char *log_file;
     bool with_global_config;
     char *pid_file;
 };
@@ -84,6 +85,7 @@ static void free_arguments(struct arguments_st *arguments)
     SAFE_FREE(arguments->username);
     SAFE_FREE(arguments->password);
     SAFE_FREE(arguments->config_file);
+    SAFE_FREE(arguments->log_file);
     SAFE_FREE(arguments->pid_file);
 
 end:
@@ -174,6 +176,7 @@ static void print_server_state(struct server_state_st *state)
                 state->parse_global_config? "TRUE": "FALSE");
         printf("config_file = %s\n",
                 state->config_file? state->config_file: "NULL");
+        printf("log_file = %s\n", state->log_file ? state->log_file : "NULL");
         printf("=================================================\n");
     }
 }
@@ -295,6 +298,11 @@ static int init_server_state(struct server_state_st *state,
     if (arguments->config_file) {
         state->config_file = arguments->config_file;
         arguments->config_file = NULL;
+    }
+
+    if (arguments->log_file) {
+        state->log_file = arguments->log_file;
+        arguments->log_file = NULL;
     }
 
     /* TODO make configurable */
@@ -440,6 +448,14 @@ static struct argp_option options[] = {
         .doc   = "Use this server configuration file.",
         .group = 0
     },
+    {
+        .name  = "log_file",
+        .key   = 'l',
+        .arg   = "LOG_FILE",
+        .flags = 0,
+        .doc   = "Output log to this file.",
+        .group = 0
+    },
     { .name = NULL }
 };
 
@@ -548,6 +564,14 @@ static error_t parse_opt (int key, char *arg, struct argp_state *state)
     case 'C':
         arguments->config_file = strdup(arg);
         if (arguments->config_file == NULL) {
+            fprintf(stderr, "Out of memory\n");
+            rc = ENOMEM;
+            goto end;
+        }
+        break;
+    case 'l':
+        arguments->log_file = strdup(arg);
+        if (arguments->log_file == NULL) {
             fprintf(stderr, "Out of memory\n");
             rc = ENOMEM;
             goto end;

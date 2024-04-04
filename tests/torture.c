@@ -1020,10 +1020,12 @@ void torture_setup_libssh_server(void **state, const char *server_path)
     /* Write the start command */
     printed = snprintf(start_cmd, sizeof(start_cmd),
                        "%s"
-                       "%s -f%s -v4 -p22 -i%s -C%s%s%s",
+                       "%s -f%s -v4 -p22 -i%s -C%s%s%s%s%s",
                        timeout_cmd,
                        server_path, s->pcap_file, s->srv_pidfile,
-                       s->srv_config, extra_options, TORTURE_SSH_SERVER);
+                       s->srv_config,
+                       s->log_file ? " -l " : "", s->log_file ? s->log_file : "",
+                       extra_options, TORTURE_SSH_SERVER);
     if (printed < 0) {
         fail_msg("Failed to print start command!");
         /* Unreachable */
@@ -1116,6 +1118,7 @@ void torture_free_state(struct torture_state *s)
     free(s->srv_config);
     free(s->socket_dir);
     free(s->pcap_file);
+    free(s->log_file);
     free(s->srv_pidfile);
     free(s->srv_additional_config);
     free(s);

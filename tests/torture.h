@@ -68,6 +68,7 @@ struct torture_sftp {
 struct torture_state {
     char *socket_dir;
     char *pcap_file;
+    char *log_file;
     char *srv_pidfile;
     char *srv_config;
     bool srv_pam;
