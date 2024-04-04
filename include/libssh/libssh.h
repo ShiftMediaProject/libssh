@@ -454,6 +454,13 @@ LIBSSH_API int ssh_blocking_flush(ssh_session session, int timeout);
 LIBSSH_API ssh_channel ssh_channel_accept_x11(ssh_channel channel, int timeout_ms);
 LIBSSH_API int ssh_channel_change_pty_size(ssh_channel channel,int cols,int rows);
 LIBSSH_API int ssh_channel_close(ssh_channel channel);
+#define SSH_CHANNEL_FREE(x)      \
+    do {                         \
+        if ((x) != NULL) {       \
+            ssh_channel_free(x); \
+            (x) = NULL;          \
+        }                        \
+    } while (0)
 LIBSSH_API void ssh_channel_free(ssh_channel channel);
 LIBSSH_API int ssh_channel_get_exit_status(ssh_channel channel);
 LIBSSH_API ssh_session ssh_channel_get_session(ssh_channel channel);
