@@ -1012,7 +1012,7 @@ ssh_string pki_key_to_blob(const ssh_key key, enum ssh_key_e type)
                 if (d == NULL) {
                     goto fail;
                 }
-                rc = mbedtls_rsa_export_crt(rsa, NULL, NULL, &IQMP)
+                rc = mbedtls_rsa_export_crt(rsa, NULL, NULL, &IQMP);
                 if (rc != 0) {
                     goto fail;
                 }
