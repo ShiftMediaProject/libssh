@@ -16,7 +16,7 @@
     </ClCompile>
     <Lib>
       <AdditionalOptions>/IGNORE:4006,4221,4264  %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>libzlibd_winrt.lib;libgcryptd_winrt.lib;libgpg-errord_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>iphlpapi.lib;libzlibd_winrt.lib;libgcryptd_winrt.lib;libgpg-errord_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <PostBuildEvent>
       <Command>mkdir "$(OutDir)"\include
@@ -62,7 +62,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
     </ClCompile>
     <Lib>
       <AdditionalOptions>/IGNORE:4006,4221,4264  %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>libzlibd_winrt.lib;libgcryptd_winrt.lib;libgpg-errord_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>iphlpapi.lib;libzlibd_winrt.lib;libgcryptd_winrt.lib;libgpg-errord_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <PostBuildEvent>
       <Command>mkdir "$(OutDir)"\include
@@ -107,7 +107,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
       <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>zlibd_winrt.lib;gcryptd_winrt.lib;gpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>iphlpapi.lib;zlibd_winrt.lib;gcryptd_winrt.lib;gpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
@@ -153,7 +153,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
       <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>zlibd_winrt.lib;gcryptd_winrt.lib;gpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>iphlpapi.lib;zlibd_winrt.lib;gcryptd_winrt.lib;gpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
@@ -200,7 +200,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
     </ClCompile>
     <Lib>
       <AdditionalOptions>/IGNORE:4006,4221,4264  %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>libzlib_winrt.lib;libgcrypt_winrt.lib;libgpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>iphlpapi.lib;libzlib_winrt.lib;libgcrypt_winrt.lib;libgpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <PostBuildEvent>
       <Command>mkdir "$(OutDir)"\include
@@ -246,7 +246,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
     </ClCompile>
     <Lib>
       <AdditionalOptions>/IGNORE:4006,4221,4264  %(AdditionalOptions)</AdditionalOptions>
-      <AdditionalDependencies>libzlib_winrt.lib;libgcrypt_winrt.lib;libgpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>iphlpapi.lib;libzlib_winrt.lib;libgcrypt_winrt.lib;libgpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Lib>
     <PostBuildEvent>
       <Command>mkdir "$(OutDir)"\include
@@ -291,7 +291,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
       <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>zlib_winrt.lib;gcrypt_winrt.lib;gpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>iphlpapi.lib;zlib_winrt.lib;gcrypt_winrt.lib;gpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
@@ -337,7 +337,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
       <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libzlib_winrt.lib;libgcrypt_winrt.lib;libgpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>iphlpapi.lib;libzlib_winrt.lib;libgcrypt_winrt.lib;libgpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
@@ -383,7 +383,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
       <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>zlib_winrt.lib;gcrypt_winrt.lib;gpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>iphlpapi.lib;zlib_winrt.lib;gcrypt_winrt.lib;gpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>
@@ -429,7 +429,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
       <DisableSpecificWarnings>4146;4244;4267;4018;4028;4703;%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <Link>
-      <AdditionalDependencies>libzlib_winrt.lib;libgcrypt_winrt.lib;libgpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>iphlpapi.lib;libzlib_winrt.lib;libgcrypt_winrt.lib;libgpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
     </Link>
     <PostBuildEvent>

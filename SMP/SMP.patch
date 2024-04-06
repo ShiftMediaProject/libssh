@@ -1,5 +1,5 @@
 diff --git a/src/connect.c b/src/connect.c
-index 57e37e63..6f5440b2 100644
+index 15cae644..840f3c36 100644
 --- a/src/connect.c
 +++ b/src/connect.c
 @@ -37,6 +37,7 @@
@@ -101,10 +101,10 @@ index e516c331..6de564a1 100644
  static int _ssh_init(unsigned constructor) {
  
 diff --git a/src/libgcrypt.c b/src/libgcrypt.c
-index 2e44a53c..474fa4f8 100644
+index f410d997..ebb0e90b 100644
 --- a/src/libgcrypt.c
 +++ b/src/libgcrypt.c
-@@ -198,12 +198,12 @@ static int blowfish_set_key(struct ssh_cipher_struct *cipher, void *key, void *I
+@@ -145,12 +145,12 @@ static int blowfish_set_key(struct ssh_cipher_struct *cipher, void *key, void *I
  }
  
  static void blowfish_encrypt(struct ssh_cipher_struct *cipher, void *in,
@@ -119,7 +119,7 @@ index 2e44a53c..474fa4f8 100644
    gcry_cipher_decrypt(cipher->key[0], out, len, in, len);
  }
  #endif /* WITH_BLOWFISH_CIPHER */
-@@ -469,12 +469,12 @@ static int des3_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
+@@ -416,12 +416,12 @@ static int des3_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
  }
  
  static void des3_encrypt(struct ssh_cipher_struct *cipher, void *in,
@@ -135,10 +135,10 @@ index 2e44a53c..474fa4f8 100644
  }
  
 diff --git a/src/misc.c b/src/misc.c
-index 7c478a77..cc2110dc 100644
+index 7081f12a..a4a1e2ed 100644
 --- a/src/misc.c
 +++ b/src/misc.c
-@@ -51,8 +51,10 @@
+@@ -52,8 +52,10 @@
  
  #ifdef _WIN32
  
@@ -151,7 +151,7 @@ index 7c478a77..cc2110dc 100644
  #endif
  
  #include <winsock2.h> // Must be the first to include
-@@ -106,6 +108,9 @@
+@@ -110,6 +112,9 @@
  #ifdef _WIN32
  char *ssh_get_user_home_dir(void)
  {
@@ -161,7 +161,7 @@ index 7c478a77..cc2110dc 100644
    char tmp[PATH_MAX] = {0};
    char *szPath = NULL;
  
-@@ -120,6 +125,7 @@ char *ssh_get_user_home_dir(void)
+@@ -124,6 +129,7 @@ char *ssh_get_user_home_dir(void)
    }
  
    return NULL;
@@ -169,7 +169,7 @@ index 7c478a77..cc2110dc 100644
  }
  
  /* we have read access on file */
-@@ -176,22 +182,26 @@ int ssh_gettimeofday(struct timeval *__p, void *__t)
+@@ -180,22 +186,26 @@ int ssh_gettimeofday(struct timeval *__p, void *__t)
  
  char *ssh_get_local_username(void)
  {
