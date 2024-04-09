@@ -2072,6 +2072,15 @@ torture_bind_options_import_key(void **state)
     assert_int_equal(rc, -1);
     SSH_KEY_FREE(key);
 
+    /* set ed25519 key */
+    base64_key = torture_get_openssh_testkey(SSH_KEYTYPE_ED25519, 0);
+    rc = ssh_pki_import_privkey_base64(base64_key, NULL, NULL, NULL, &key);
+    assert_int_equal(rc, SSH_OK);
+    assert_non_null(key);
+
+    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY, key);
+    assert_int_equal(rc, 0);
+
     /* set rsa key */
     base64_key = torture_get_testkey(SSH_KEYTYPE_RSA, 0);
     rc = ssh_pki_import_privkey_base64(base64_key, NULL, NULL, NULL, &key);
@@ -2088,6 +2097,51 @@ torture_bind_options_import_key(void **state)
     assert_non_null(key);
 
     rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY, key);
+    assert_int_equal(rc, 0);
+#endif
+}
+
+static void
+torture_bind_options_import_key_str(void **state)
+{
+    struct bind_st *test_state = NULL;
+    ssh_bind bind = NULL;
+    int rc;
+    const char *base64_key = "";
+
+    assert_non_null(state);
+    test_state = *((struct bind_st **)state);
+    assert_non_null(test_state);
+    assert_non_null(test_state->bind);
+    bind = test_state->bind;
+
+    /* set null */
+    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY_STR, NULL);
+    assert_int_equal(rc, -1);
+    /* set invalid key */
+    rc =
+        ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY_STR, base64_key);
+    assert_int_equal(rc, -1);
+
+    /* set ed25519 key */
+    base64_key = torture_get_openssh_testkey(SSH_KEYTYPE_ED25519, 0);
+
+    rc =
+        ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY_STR, base64_key);
+    assert_int_equal(rc, 0);
+
+    /* set rsa key */
+    base64_key = torture_get_testkey(SSH_KEYTYPE_RSA, 0);
+
+    rc =
+        ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY_STR, base64_key);
+    assert_int_equal(rc, 0);
+#ifdef HAVE_ECC
+    /* set ecdsa key */
+    base64_key = torture_get_testkey(SSH_KEYTYPE_ECDSA_P521, 0);
+
+    rc =
+        ssh_bind_options_set(bind, SSH_BIND_OPTIONS_IMPORT_KEY_STR, base64_key);
     assert_int_equal(rc, 0);
 #endif
 }
@@ -2817,6 +2871,9 @@ torture_run_tests(void)
 #ifdef WITH_SERVER
     struct CMUnitTest sshbind_tests[] = {
         cmocka_unit_test_setup_teardown(torture_bind_options_import_key,
+                                        sshbind_setup,
+                                        sshbind_teardown),
+        cmocka_unit_test_setup_teardown(torture_bind_options_import_key_str,
                                         sshbind_setup,
                                         sshbind_teardown),
         cmocka_unit_test_setup_teardown(torture_bind_options_hostkey,
