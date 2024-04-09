@@ -2017,7 +2017,8 @@ static int ssh_bind_set_algo(ssh_bind sshbind,
  *                        - SSH_LOG_NOLOG: No logging
  *                        - SSH_LOG_WARNING: Only warnings
  *                        - SSH_LOG_PROTOCOL: High level protocol information
- *                        - SSH_LOG_PACKET: Lower level protocol information, packet level
+ *                        - SSH_LOG_PACKET: Lower level protocol information,
+ *                          packet level
  *                        - SSH_LOG_FUNCTIONS: Every function path
  *                        The default is SSH_LOG_NOLOG.
  *
@@ -2026,8 +2027,8 @@ static int ssh_bind_set_algo(ssh_bind sshbind,
  *                        string that will be converted to a numerical
  *                        value (e.g. "3") and interpreted according
  *                        to the values of
- *                        SSH_BIND_OPTIONS_LOG_VERBOSITY above (const
- *                        char *).
+ *                        SSH_BIND_OPTIONS_LOG_VERBOSITY above
+ *                        (const char *).
  *
  *                      - SSH_BIND_OPTIONS_RSAKEY:
  *                        Deprecated alias to SSH_BIND_OPTIONS_HOSTKEY
@@ -2048,16 +2049,16 @@ static int ssh_bind_set_algo(ssh_bind sshbind,
  *                        (ssh_key). It will be free'd by ssh_bind_free().
  *
  *                      - SSH_BIND_OPTIONS_CIPHERS_C_S:
- *                        Set the symmetric cipher client to server (const char *,
- *                        comma-separated list).
+ *                        Set the symmetric cipher client to server
+ *                        (const char *, comma-separated list).
  *
  *                      - SSH_BIND_OPTIONS_CIPHERS_S_C:
- *                        Set the symmetric cipher server to client (const char *,
- *                        comma-separated list).
+ *                        Set the symmetric cipher server to client
+ *                        (const char *, comma-separated list).
  *
  *                      - SSH_BIND_OPTIONS_KEY_EXCHANGE:
- *                        Set the key exchange method to be used (const char *,
- *                        comma-separated list). ex:
+ *                        Set the key exchange method to be used
+ *                        (const char *, comma-separated list). ex:
  *                        "ecdh-sha2-nistp256,diffie-hellman-group14-sha1"
  *
  *                      - SSH_BIND_OPTIONS_HMAC_C_S:
@@ -2113,94 +2114,98 @@ static int ssh_bind_set_algo(ssh_bind sshbind,
  *                      datatype which should be used is described at the
  *                      corresponding value of type above.
  *
- * @return              0 on success, < 0 on error, invalid option, or parameter.
+ * @return              0 on success, < 0 on error, invalid option, or
+ *                      parameter.
  */
-int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
-    const void *value)
+int
+ssh_bind_options_set(ssh_bind sshbind,
+                     enum ssh_bind_options_e type,
+                     const void *value)
 {
-  bool allowed;
-  char *p, *q;
-  const char *v;
-  int i, rc;
-  char **wanted_methods = sshbind->wanted_methods;
+    bool allowed;
+    char *p, *q;
+    const char *v;
+    int i, rc;
+    char **wanted_methods = sshbind->wanted_methods;
 
-  if (sshbind == NULL) {
-    return -1;
-  }
+    if (sshbind == NULL) {
+        return -1;
+    }
 
-  switch (type) {
+    switch (type) {
     case SSH_BIND_OPTIONS_RSAKEY:
     case SSH_BIND_OPTIONS_ECDSAKEY:
         /* deprecated */
     case SSH_BIND_OPTIONS_HOSTKEY:
-      if (value == NULL) {
-        ssh_set_error_invalid(sshbind);
-        return -1;
-      } else {
-          int key_type;
-          ssh_key key;
-          ssh_key *bind_key_loc = NULL;
-          char **bind_key_path_loc;
+        if (value == NULL) {
+            ssh_set_error_invalid(sshbind);
+            return -1;
+        } else {
+            int key_type;
+            ssh_key key;
+            ssh_key *bind_key_loc = NULL;
+            char **bind_key_path_loc;
 
-          rc = ssh_pki_import_privkey_file(value, NULL, NULL, NULL, &key);
-          if (rc != SSH_OK) {
-              return -1;
-          }
-          allowed = ssh_bind_key_size_allowed(sshbind, key);
-          if (!allowed) {
-              ssh_set_error(sshbind,
-                            SSH_FATAL,
-                            "The host key size %d is too small.",
-                            ssh_key_size(key));
-              ssh_key_free(key);
-              return -1;
-          }
+            rc = ssh_pki_import_privkey_file(value, NULL, NULL, NULL, &key);
+            if (rc != SSH_OK) {
+                return -1;
+            }
+            allowed = ssh_bind_key_size_allowed(sshbind, key);
+            if (!allowed) {
+                ssh_set_error(sshbind,
+                              SSH_FATAL,
+                              "The host key size %d is too small.",
+                              ssh_key_size(key));
+                ssh_key_free(key);
+                return -1;
+            }
 
-          key_type = ssh_key_type(key);
-          switch (key_type) {
-          case SSH_KEYTYPE_ECDSA_P256:
-          case SSH_KEYTYPE_ECDSA_P384:
-          case SSH_KEYTYPE_ECDSA_P521:
+            key_type = ssh_key_type(key);
+            switch (key_type) {
+            case SSH_KEYTYPE_ECDSA_P256:
+            case SSH_KEYTYPE_ECDSA_P384:
+            case SSH_KEYTYPE_ECDSA_P521:
 #ifdef HAVE_ECC
-              bind_key_loc = &sshbind->ecdsa;
-              bind_key_path_loc = &sshbind->ecdsakey;
+                bind_key_loc = &sshbind->ecdsa;
+                bind_key_path_loc = &sshbind->ecdsakey;
 #else
-              ssh_set_error(sshbind,
-                            SSH_FATAL,
-                            "ECDSA key used and libssh compiled "
-                            "without ECDSA support");
+                ssh_set_error(sshbind,
+                              SSH_FATAL,
+                              "ECDSA key used and libssh compiled "
+                              "without ECDSA support");
 #endif
-              break;
-          case SSH_KEYTYPE_RSA:
-              bind_key_loc = &sshbind->rsa;
-              bind_key_path_loc = &sshbind->rsakey;
-              break;
-          case SSH_KEYTYPE_ED25519:
-              bind_key_loc = &sshbind->ed25519;
-              bind_key_path_loc = &sshbind->ed25519key;
-              break;
-          default:
-              ssh_set_error(sshbind,
-                            SSH_FATAL,
-                            "Unsupported key type %d", key_type);
-          }
+                break;
+            case SSH_KEYTYPE_RSA:
+                bind_key_loc = &sshbind->rsa;
+                bind_key_path_loc = &sshbind->rsakey;
+                break;
+            case SSH_KEYTYPE_ED25519:
+                bind_key_loc = &sshbind->ed25519;
+                bind_key_path_loc = &sshbind->ed25519key;
+                break;
+            default:
+                ssh_set_error(sshbind,
+                              SSH_FATAL,
+                              "Unsupported key type %d",
+                              key_type);
+            }
 
-          if (bind_key_loc == NULL) {
-              ssh_key_free(key);
-              return -1;
-          }
+            if (bind_key_loc == NULL) {
+                ssh_key_free(key);
+                return -1;
+            }
 
-          /* Set the location of the key on disk even though we don't
-             need it in case some other function wants it */
-          rc = ssh_bind_set_key(sshbind, bind_key_path_loc, value);
-          if (rc < 0) {
-              ssh_key_free(key);
-              return -1;
-          }
-          ssh_key_free(*bind_key_loc);
-          *bind_key_loc = key;
-      }
-      break;
+            /* Set the location of the key on disk even though we don't
+               need it in case some other function wants it */
+            rc = ssh_bind_set_key(sshbind, bind_key_path_loc, value);
+            if (rc < 0) {
+                ssh_key_free(key);
+                return -1;
+            }
+            ssh_key_free(*bind_key_loc);
+            *bind_key_loc = key;
+        }
+        break;
     case SSH_BIND_OPTIONS_IMPORT_KEY:
         if (value == NULL) {
             ssh_set_error_invalid(sshbind);
@@ -2221,28 +2226,29 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
 
             key_type = ssh_key_type(key);
             switch (key_type) {
-                case SSH_KEYTYPE_ECDSA_P256:
-                case SSH_KEYTYPE_ECDSA_P384:
-                case SSH_KEYTYPE_ECDSA_P521:
+            case SSH_KEYTYPE_ECDSA_P256:
+            case SSH_KEYTYPE_ECDSA_P384:
+            case SSH_KEYTYPE_ECDSA_P521:
 #ifdef HAVE_ECC
-                    bind_key_loc = &sshbind->ecdsa;
+                bind_key_loc = &sshbind->ecdsa;
 #else
-                    ssh_set_error(sshbind,
-                                  SSH_FATAL,
-                                  "ECDSA key used and libssh compiled "
-                                  "without ECDSA support");
+                ssh_set_error(sshbind,
+                              SSH_FATAL,
+                              "ECDSA key used and libssh compiled "
+                              "without ECDSA support");
 #endif
-                    break;
-                case SSH_KEYTYPE_RSA:
-                    bind_key_loc = &sshbind->rsa;
-                    break;
-                case SSH_KEYTYPE_ED25519:
-                    bind_key_loc = &sshbind->ed25519;
-                    break;
-                default:
-                    ssh_set_error(sshbind,
-                                  SSH_FATAL,
-                                  "Unsupported key type %d", key_type);
+                break;
+            case SSH_KEYTYPE_RSA:
+                bind_key_loc = &sshbind->rsa;
+                break;
+            case SSH_KEYTYPE_ED25519:
+                bind_key_loc = &sshbind->ed25519;
+                break;
+            default:
+                ssh_set_error(sshbind,
+                              SSH_FATAL,
+                              "Unsupported key type %d",
+                              key_type);
             }
             if (bind_key_loc == NULL)
                 return -1;
@@ -2251,89 +2257,89 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
         }
         break;
     case SSH_BIND_OPTIONS_BINDADDR:
-      if (value == NULL) {
-        ssh_set_error_invalid(sshbind);
-        return -1;
-      } else {
-        SAFE_FREE(sshbind->bindaddr);
-        sshbind->bindaddr = strdup(value);
-        if (sshbind->bindaddr == NULL) {
-          ssh_set_error_oom(sshbind);
-          return -1;
+        if (value == NULL) {
+            ssh_set_error_invalid(sshbind);
+            return -1;
+        } else {
+            SAFE_FREE(sshbind->bindaddr);
+            sshbind->bindaddr = strdup(value);
+            if (sshbind->bindaddr == NULL) {
+                ssh_set_error_oom(sshbind);
+                return -1;
+            }
         }
-      }
-      break;
+        break;
     case SSH_BIND_OPTIONS_BINDPORT:
-      if (value == NULL) {
-        ssh_set_error_invalid(sshbind);
-        return -1;
-      } else {
-        int *x = (int *) value;
-        sshbind->bindport = *x & 0xffffU;
-      }
-      break;
+        if (value == NULL) {
+            ssh_set_error_invalid(sshbind);
+            return -1;
+        } else {
+            int *x = (int *)value;
+            sshbind->bindport = *x & 0xffffU;
+        }
+        break;
     case SSH_BIND_OPTIONS_BINDPORT_STR:
-      if (value == NULL) {
-        sshbind->bindport = 22 & 0xffffU;
-      } else {
-        q = strdup(value);
-        if (q == NULL) {
-          ssh_set_error_oom(sshbind);
-          return -1;
-        }
-        i = strtol(q, &p, 10);
-        if (q == p) {
-            SSH_LOG(SSH_LOG_DEBUG, "No bind port was parsed");
+        if (value == NULL) {
+            sshbind->bindport = 22 & 0xffffU;
+        } else {
+            q = strdup(value);
+            if (q == NULL) {
+                ssh_set_error_oom(sshbind);
+                return -1;
+            }
+            i = strtol(q, &p, 10);
+            if (q == p) {
+                SSH_LOG(SSH_LOG_DEBUG, "No bind port was parsed");
+                SAFE_FREE(q);
+                return -1;
+            }
             SAFE_FREE(q);
-            return -1;
-        }
-        SAFE_FREE(q);
 
-        sshbind->bindport = i & 0xffffU;
-      }
-      break;
+            sshbind->bindport = i & 0xffffU;
+        }
+        break;
     case SSH_BIND_OPTIONS_LOG_VERBOSITY:
-      if (value == NULL) {
-        ssh_set_error_invalid(sshbind);
-        return -1;
-      } else {
-        int *x = (int *) value;
-        ssh_set_log_level(*x & 0xffffU);
-      }
-      break;
-    case SSH_BIND_OPTIONS_LOG_VERBOSITY_STR:
-      if (value == NULL) {
-      	ssh_set_log_level(0);
-      } else {
-        q = strdup(value);
-        if (q == NULL) {
-          ssh_set_error_oom(sshbind);
-          return -1;
-        }
-        i = strtol(q, &p, 10);
-        if (q == p) {
-            SSH_LOG(SSH_LOG_DEBUG, "No log verbositiy was parsed");
-            SAFE_FREE(q);
+        if (value == NULL) {
+            ssh_set_error_invalid(sshbind);
             return -1;
+        } else {
+            int *x = (int *)value;
+            ssh_set_log_level(*x & 0xffffU);
         }
-        SAFE_FREE(q);
+        break;
+    case SSH_BIND_OPTIONS_LOG_VERBOSITY_STR:
+        if (value == NULL) {
+            ssh_set_log_level(0);
+        } else {
+            q = strdup(value);
+            if (q == NULL) {
+                ssh_set_error_oom(sshbind);
+                return -1;
+            }
+            i = strtol(q, &p, 10);
+            if (q == p) {
+                SSH_LOG(SSH_LOG_DEBUG, "No log verbositiy was parsed");
+                SAFE_FREE(q);
+                return -1;
+            }
+            SAFE_FREE(q);
 
-        ssh_set_log_level(i & 0xffffU);
-      }
-      break;
-    case SSH_BIND_OPTIONS_BANNER:
-      if (value == NULL) {
-        ssh_set_error_invalid(sshbind);
-        return -1;
-      } else {
-        SAFE_FREE(sshbind->banner);
-        sshbind->banner = strdup(value);
-        if (sshbind->banner == NULL) {
-          ssh_set_error_oom(sshbind);
-          return -1;
+            ssh_set_log_level(i & 0xffffU);
         }
-      }
-      break;
+        break;
+    case SSH_BIND_OPTIONS_BANNER:
+        if (value == NULL) {
+            ssh_set_error_invalid(sshbind);
+            return -1;
+        } else {
+            SAFE_FREE(sshbind->banner);
+            sshbind->banner = strdup(value);
+            if (sshbind->banner == NULL) {
+                ssh_set_error_oom(sshbind);
+                return -1;
+            }
+        }
+        break;
     case SSH_BIND_OPTIONS_CIPHERS_C_S:
         v = value;
         if (v == NULL || v[0] == '\0') {
@@ -2394,7 +2400,7 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
             }
         }
         break;
-     case SSH_BIND_OPTIONS_HMAC_S_C:
+    case SSH_BIND_OPTIONS_HMAC_S_C:
         v = value;
         if (v == NULL || v[0] == '\0') {
             ssh_set_error_invalid(sshbind);
@@ -2484,21 +2490,26 @@ int ssh_bind_options_set(ssh_bind sshbind, enum ssh_bind_options_e type,
         } else {
             int *x = (int *)value;
             if (*x > 0 && *x < 768) {
-                ssh_set_error(sshbind, SSH_REQUEST_DENIED,
+                ssh_set_error(sshbind,
+                              SSH_REQUEST_DENIED,
                               "The provided value (%u) for minimal RSA key "
-                              "size is too small. Use at least 768 bits.", *x);
+                              "size is too small. Use at least 768 bits.",
+                              *x);
                 return -1;
             }
             sshbind->rsa_min_size = *x;
         }
         break;
     default:
-      ssh_set_error(sshbind, SSH_REQUEST_DENIED, "Unknown ssh option %d", type);
-      return -1;
-    break;
-  }
+        ssh_set_error(sshbind,
+                      SSH_REQUEST_DENIED,
+                      "Unknown ssh option %d",
+                      type);
+        return -1;
+        break;
+    }
 
-  return 0;
+    return 0;
 }
 
 static char *ssh_bind_options_expand_escape(ssh_bind sshbind, const char *s)
