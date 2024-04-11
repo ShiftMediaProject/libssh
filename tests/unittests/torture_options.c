@@ -88,6 +88,8 @@ static void torture_options_set_host(void **state) {
 
     /* disallow metacharacters in the username */
     rc = ssh_options_set(session, SSH_OPTIONS_HOST, "shallN()tP4ss -@hostname");
+    assert_string_equal(ssh_get_error(session),
+                        "Invalid argument in ssh_options_set");
     assert_ssh_return_code_equal(session, rc, SSH_ERROR);
 }
 
