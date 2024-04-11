@@ -229,8 +229,10 @@ static int session_setup(void **state)
     struct test_server_st *tss = *state;
     struct torture_state *s;
     int verbosity = torture_libssh_verbosity();
+    char template2[] = "/tmp/ssh_torture_XXXXXX";
     char *cwd = NULL;
     char *tmp_dir = NULL;
+    char *p = NULL;
     bool b = false;
     int rc;
 
@@ -243,6 +245,8 @@ static int session_setup(void **state)
     assert_non_null(cwd);
 
     tmp_dir = torture_make_temp_dir(template);
+    p = mkdtemp(template2);
+    assert_non_null(p);
     assert_non_null(tmp_dir);
 
     tss->cwd = cwd;
@@ -256,6 +260,8 @@ static int session_setup(void **state)
 
     s->ssh.tsftp = (struct torture_sftp*)calloc(1, sizeof(struct torture_sftp));
     assert_non_null(s->ssh.tsftp);
+    s->ssh.tsftp->testdir = strdup(p);
+    assert_non_null(s->ssh.tsftp->testdir);
 
     rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
     assert_ssh_return_code(s->ssh.session, rc);
@@ -332,6 +338,7 @@ static int session_teardown(void **state)
     s = tss->state;
     assert_non_null(s);
 
+    SAFE_FREE(s->ssh.tsftp->testdir);
     sftp_free(s->ssh.tsftp->sftp);
     SAFE_FREE(s->ssh.tsftp);
 
@@ -973,6 +980,87 @@ static void torture_server_sftp_extended(void **state)
     assert_int_equal(rc, SSH_OK);
 }
 
+static void
+torture_server_sftp_setstat(void **state)
+{
+
+    char name[128] = {0};
+    char data[10] = "0123456789";
+    int rc;
+    size_t len;
+    int atime = 10676, mtime = 13467;
+    mode_t mode = S_IRUSR | S_IWUSR | S_IRGRP;
+
+    struct passwd *pwd = NULL;
+    struct test_server_st *tss = *state;
+    struct torture_state *s = NULL;
+    struct torture_sftp *tsftp = NULL;
+    struct sftp_attributes_struct attr;
+    sftp_attributes tmp_attr = NULL;
+
+    sftp_session sftp = NULL;
+    ssh_session session = NULL;
+    sftp_file new_file = NULL;
+
+    pwd = getpwnam("alice");
+    assert_non_null(pwd);
+
+    assert_non_null(tss);
+
+    s = tss->state;
+    assert_non_null(s);
+
+    session = s->ssh.session;
+    assert_non_null(session);
+
+    tsftp = s->ssh.tsftp;
+    assert_non_null(tsftp);
+
+    sftp = tsftp->sftp;
+    assert_non_null(sftp);
+    assert_non_null(tsftp->testdir);
+    snprintf(name, sizeof(name), "%s/server_setstat_test", tsftp->testdir);
+    new_file = sftp_open(sftp, name, O_WRONLY | O_CREAT, 0700);
+    assert_non_null(new_file);
+    len = sftp_write(new_file, data, sizeof(data));
+    assert_int_equal(len, sizeof(data));
+    rc = sftp_close(new_file);
+    assert_int_equal(rc, SSH_OK);
+
+    ZERO_STRUCT(attr);
+    attr.flags = SSH_FILEXFER_ATTR_SIZE | SSH_FILEXFER_ATTR_PERMISSIONS |
+                 SSH_FILEXFER_ATTR_UIDGID | SSH_FILEXFER_ATTR_ACMODTIME;
+
+    attr.size = len;
+    attr.uid = pwd->pw_uid;
+    attr.gid = pwd->pw_gid;
+    attr.permissions = mode;
+    attr.atime = atime;
+    attr.mtime = mtime;
+
+    rc = sftp_setstat(sftp, name, &attr);
+    assert_int_equal(rc, SSH_OK);
+
+    assert_int_equal(rc, SSH_OK);
+
+    tmp_attr = sftp_stat(sftp, name);
+    assert_non_null(tmp_attr);
+
+    assert_int_equal(tmp_attr->uid, pwd->pw_uid);
+    assert_int_equal(tmp_attr->gid, pwd->pw_gid);
+
+    assert_int_equal(len, tmp_attr->size);
+    assert_int_equal(tmp_attr->permissions & ACCESSPERMS, mode);
+    assert_int_equal(tmp_attr->mtime, mtime);
+    assert_int_equal(tmp_attr->atime, atime);
+
+    /*negative tests*/
+    rc = sftp_setstat(sftp, "not existing", &attr);
+    assert_int_equal(rc, SSH_ERROR);
+    sftp_unlink(sftp, name);
+    sftp_attributes_free(tmp_attr);
+}
+
 int torture_run_tests(void) {
     int rc;
     struct CMUnitTest tests[] = {
@@ -995,6 +1083,9 @@ int torture_run_tests(void) {
                                         session_setup_sftp,
                                         session_teardown),
         cmocka_unit_test_setup_teardown(torture_server_sftp_extended,
+                                        session_setup_sftp,
+                                        session_teardown),
+        cmocka_unit_test_setup_teardown(torture_server_sftp_setstat,
                                         session_setup_sftp,
                                         session_teardown),
     };

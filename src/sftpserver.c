@@ -31,10 +31,19 @@
 #include <dirent.h>
 #include <sys/statvfs.h>
 #endif
+
+#ifdef HAVE_SYS_TIME_H
+#include <sys/time.h>
+#endif /* HAVE_SYS_TIME_H */
+#ifdef HAVE_SYS_UTIME_H
+#include <sys/utime.h>
+#endif /* HAVE_SYS_UTIME_H */
+
 #include <errno.h>
 #include <fcntl.h>
 #include <stdio.h>
 #include <sys/stat.h>
+#include <sys/types.h>
 #include <time.h>
 
 #include "libssh/libssh.h"
@@ -829,6 +838,7 @@ SSH_SFTP_CALLBACK(process_readlink);
 SSH_SFTP_CALLBACK(process_symlink);
 SSH_SFTP_CALLBACK(process_remove);
 SSH_SFTP_CALLBACK(process_extended_statvfs);
+SSH_SFTP_CALLBACK(process_setstat);
 
 const struct sftp_message_handler message_handlers[] = {
     {"open", NULL, SSH_FXP_OPEN, process_open},
@@ -837,7 +847,7 @@ const struct sftp_message_handler message_handlers[] = {
     {"write", NULL, SSH_FXP_WRITE, process_write},
     {"lstat", NULL, SSH_FXP_LSTAT, process_lstat},
     {"fstat", NULL, SSH_FXP_FSTAT, process_unsupposed},
-    {"setstat", NULL, SSH_FXP_SETSTAT, process_unsupposed},
+    {"setstat", NULL, SSH_FXP_SETSTAT, process_setstat},
     {"fsetstat", NULL, SSH_FXP_FSETSTAT, process_unsupposed},
     {"opendir", NULL, SSH_FXP_OPENDIR, process_opendir},
     {"readdir", NULL, SSH_FXP_READDIR, process_readdir},
@@ -1434,6 +1444,103 @@ process_stat(sftp_client_message client_msg)
         sftp_reply_attr(client_msg, &attr);
     }
 
+    return ret;
+}
+
+static int
+process_setstat(sftp_client_message client_msg)
+{
+    int rv;
+    int ret = SSH_OK;
+    int status = SSH_FX_OK;
+    uint32_t msg_flags = client_msg->attr->flags;
+    const char *filename = sftp_client_message_get_filename(client_msg);
+
+    SSH_LOG(SSH_LOG_PROTOCOL, "Processing setstat %s", filename);
+
+    if (filename == NULL) {
+        sftp_reply_status(client_msg, SSH_FX_NO_SUCH_FILE, "File name error");
+        return SSH_ERROR;
+    }
+
+    if (msg_flags & SSH_FILEXFER_ATTR_SIZE) {
+        rv = truncate(filename, client_msg->attr->size);
+        if (rv < 0) {
+            int saved_errno = errno;
+            SSH_LOG(SSH_LOG_PROTOCOL,
+                    "changing size failed: %s",
+                    strerror(saved_errno));
+            status = unix_errno_to_ssh_stat(saved_errno);
+            sftp_reply_status(client_msg, status, NULL);
+            return rv;
+        }
+    }
+
+    if (msg_flags & SSH_FILEXFER_ATTR_PERMISSIONS) {
+        rv = chmod(filename, client_msg->attr->permissions);
+        if (rv < 0) {
+            int saved_errno = errno;
+            SSH_LOG(SSH_LOG_PROTOCOL,
+                    "chmod failed: %s",
+                    strerror(saved_errno));
+            status = unix_errno_to_ssh_stat(saved_errno);
+            sftp_reply_status(client_msg, status, NULL);
+            return rv;
+        }
+    }
+
+    if (msg_flags & SSH_FILEXFER_ATTR_UIDGID) {
+        rv = chown(filename, client_msg->attr->uid, client_msg->attr->gid);
+        if (rv < 0) {
+            int saved_errno = errno;
+            SSH_LOG(SSH_LOG_PROTOCOL,
+                    "chwon failed: %s",
+                    strerror(saved_errno));
+            status = unix_errno_to_ssh_stat(saved_errno);
+            sftp_reply_status(client_msg, status, NULL);
+            return rv;
+        }
+    }
+
+    if (msg_flags & SSH_FILEXFER_ATTR_ACMODTIME) {
+#ifdef HAVE_SYS_TIME_H
+        struct timeval tv[2];
+
+        tv[0].tv_sec = client_msg->attr->atime;
+        tv[0].tv_usec = 0;
+        tv[1].tv_sec = client_msg->attr->mtime;
+        tv[1].tv_usec = 0;
+
+        rv = utimes(filename, tv);
+        if (rv < 0) {
+            int saved_errno = errno;
+            SSH_LOG(SSH_LOG_PROTOCOL,
+                    "utimes failed: %s",
+                    strerror(saved_errno));
+            status = unix_errno_to_ssh_stat(saved_errno);
+            sftp_reply_status(client_msg, status, NULL);
+            return rv;
+        }
+#else
+        struct _utimbuf tf;
+
+        tf.actime = client_msg->attr->atime;
+        tf.modtime = client_msg->attr->mtime;
+
+        rv = _utime(filename, &tf);
+        if (rv < 0) {
+            int saved_errno = errno;
+            SSH_LOG(SSH_LOG_PROTOCOL,
+                    "utimes failed: %s",
+                    strerror(saved_errno));
+            status = unix_errno_to_ssh_stat(saved_errno);
+            sftp_reply_status(client_msg, status, NULL);
+            return rv;
+        }
+#endif
+    }
+
+    sftp_reply_status(client_msg, status, NULL);
     return ret;
 }
 
