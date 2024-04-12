@@ -886,12 +886,12 @@ ssh_string pki_key_to_blob(const ssh_key key, enum ssh_key_e type)
     ssh_string n = NULL;
     ssh_string str = NULL;
 #if MBEDTLS_VERSION_MAJOR > 2
-    mbedtls_mpi E;
-    mbedtls_mpi N;
-    mbedtls_mpi D;
-    mbedtls_mpi IQMP;
-    mbedtls_mpi P;
-    mbedtls_mpi Q;
+    mbedtls_mpi E = {0};
+    mbedtls_mpi N = {0};
+    mbedtls_mpi D = {0};
+    mbedtls_mpi IQMP = {0};
+    mbedtls_mpi P = {0};
+    mbedtls_mpi Q = {0};
 #endif
     int rc;
 
