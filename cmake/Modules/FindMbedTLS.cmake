@@ -94,7 +94,7 @@ if (MBEDTLS_VERSION)
     )
 else (MBEDTLS_VERSION)
     find_package_handle_standard_args(MBedTLS
-        "Could NOT find mbedTLS, try to set the path to mbedLS root folder in
+        "Could NOT find mbedTLS, try to set the path to mbedTLS root folder in
         the system variable MBEDTLS_ROOT_DIR"
         MBEDTLS_INCLUDE_DIR
         MBEDTLS_LIBRARIES)
