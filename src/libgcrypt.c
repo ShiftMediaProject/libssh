@@ -116,7 +116,7 @@ int hmac_final(HMACCTX c, unsigned char *hashmacbuf, size_t *len) {
   return 1;
 }
 
-#ifdef WITH_BLOWFISH_CIPHER
+#ifdef HAVE_BLOWFISH
 /* the wrapper functions for blowfish */
 static int blowfish_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV){
   if (cipher->key == NULL) {
@@ -153,7 +153,7 @@ static void blowfish_decrypt(struct ssh_cipher_struct *cipher, void *in,
     void *out, size_t len) {
   gcry_cipher_decrypt(cipher->key[0], out, len, in, len);
 }
-#endif /* WITH_BLOWFISH_CIPHER */
+#endif /* HAVE_BLOWFISH */
 
 static int aes_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
   int mode=GCRY_CIPHER_MODE_CBC;
@@ -732,7 +732,7 @@ none_crypt(UNUSED_PARAM(struct ssh_cipher_struct *cipher),
 
 /* the table of supported ciphers */
 static struct ssh_cipher_struct ssh_ciphertab[] = {
-#ifdef WITH_BLOWFISH_CIPHER
+#ifdef HAVE_BLOWFISH
   {
     .name            = "blowfish-cbc",
     .blocksize       = 8,
@@ -744,7 +744,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .encrypt     = blowfish_encrypt,
     .decrypt     = blowfish_decrypt
   },
-#endif /* WITH_BLOWFISH_CIPHER */
+#endif /* HAVE_BLOWFISH */
   {
     .name            = "aes128-ctr",
     .blocksize       = 16,

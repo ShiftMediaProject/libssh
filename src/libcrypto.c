@@ -397,12 +397,12 @@ static void evp_cipher_init(struct ssh_cipher_struct *cipher)
     case SSH_3DES_CBC:
         cipher->cipher = EVP_des_ede3_cbc();
         break;
-#ifdef WITH_BLOWFISH_CIPHER
+#ifdef HAVE_BLOWFISH
     case SSH_BLOWFISH_CBC:
         cipher->cipher = EVP_bf_cbc();
         break;
         /* ciphers not using EVP */
-#endif /* WITH_BLOWFISH_CIPHER */
+#endif /* HAVE_BLOWFISH */
     case SSH_AEAD_CHACHA20_POLY1305:
         SSH_LOG(SSH_LOG_TRACE, "The ChaCha cipher cannot be handled here");
         break;
@@ -1163,7 +1163,7 @@ none_crypt(UNUSED_PARAM(struct ssh_cipher_struct *cipher),
  * The table of supported ciphers
  */
 static struct ssh_cipher_struct ssh_ciphertab[] = {
-#ifdef WITH_BLOWFISH_CIPHER
+#ifdef HAVE_BLOWFISH
   {
     .name = "blowfish-cbc",
     .blocksize = 8,
@@ -1175,7 +1175,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
     .decrypt = evp_cipher_decrypt,
     .cleanup = evp_cipher_cleanup
   },
-#endif /* WITH_BLOWFISH_CIPHER */
+#endif /* HAVE_BLOWFISH */
 #ifdef HAS_AES
   {
     .name = "aes128-ctr",

@@ -90,7 +90,7 @@ if (OPENSSL_FOUND)
     endif()
 
     if (WITH_BLOWFISH_CIPHER)
-        check_include_file(openssl/blowfish.h HAVE_OPENSSL_BLOWFISH_H)
+        check_include_file(openssl/blowfish.h HAVE_BLOWFISH)
     endif()
 
     check_include_file(openssl/ecdh.h HAVE_OPENSSL_ECDH_H)
@@ -235,6 +235,10 @@ if (MBEDTLS_FOUND)
     set(CMAKE_REQUIRED_INCLUDES "${MBEDTLS_INCLUDE_DIR}/mbedtls")
     check_include_file(chacha20.h HAVE_MBEDTLS_CHACHA20_H)
     check_include_file(poly1305.h HAVE_MBEDTLS_POLY1305_H)
+    if (WITH_BLOWFISH_CIPHER)
+        check_include_file(blowfish.h HAVE_BLOWFISH)
+    endif()
+
     unset(CMAKE_REQUIRED_INCLUDES)
 
 endif (MBEDTLS_FOUND)

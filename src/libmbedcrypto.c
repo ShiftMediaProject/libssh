@@ -898,7 +898,7 @@ none_crypt(UNUSED_PARAM(struct ssh_cipher_struct *cipher),
 #endif /* WITH_INSECURE_NONE */
 
 static struct ssh_cipher_struct ssh_ciphertab[] = {
-#ifdef WITH_BLOWFISH_CIPHER
+#ifdef HAVE_BLOWFISH
     {
         .name = "blowfish-cbc",
         .blocksize = 8,
@@ -910,7 +910,7 @@ static struct ssh_cipher_struct ssh_ciphertab[] = {
         .decrypt = cipher_decrypt_cbc,
         .cleanup = cipher_cleanup
     },
-#endif /* WITH_BLOWFISH_CIPHER */
+#endif /* HAVE_BLOWFISH */
     {
         .name = "aes128-ctr",
         .blocksize = 16,

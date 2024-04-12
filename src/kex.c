@@ -46,12 +46,8 @@
 #include "libssh/bignum.h"
 #include "libssh/token.h"
 
-#ifdef WITH_BLOWFISH_CIPHER
-# if defined(HAVE_OPENSSL_BLOWFISH_H) || defined(HAVE_LIBGCRYPT) || defined(HAVE_LIBMBEDCRYPTO)
-#  define BLOWFISH ",blowfish-cbc"
-# else
-#  define BLOWFISH ""
-# endif
+#ifdef HAVE_BLOWFISH
+# define BLOWFISH ",blowfish-cbc"
 #else
 # define BLOWFISH ""
 #endif

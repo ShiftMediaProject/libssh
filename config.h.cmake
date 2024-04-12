@@ -64,9 +64,6 @@
 /* Define to 1 if you have the <wspiapi.h> header file. */
 #cmakedefine HAVE_WSPIAPI_H 1
 
-/* Define to 1 if you have the <openssl/blowfish.h> header file. */
-#cmakedefine HAVE_OPENSSL_BLOWFISH_H 1
-
 /* Define to 1 if you have the <openssl/des.h> header file. */
 #cmakedefine HAVE_OPENSSL_DES_H 1
 
@@ -179,6 +176,9 @@
 
 /* Define to 1 if you have the `cmocka_set_test_filter' function. */
 #cmakedefine HAVE_CMOCKA_SET_TEST_FILTER 1
+
+/* Define to 1 if we have support for blowfish */
+#cmakedefine HAVE_BLOWFISH 1
 
 /*************************** LIBRARIES ***************************/
 
