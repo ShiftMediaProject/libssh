@@ -463,6 +463,11 @@ tumbleweed/openssl_3.0.x/x86_64/clang:
   variables:
     CMAKE_ADDITIONAL_OPTIONS: "-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config"
 
+tumbleweed/mbedtls-3.6.x/x86_64/gcc:
+  extends: .tumbleweed
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: "-DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config -DWITH_MBEDTLS=ON -DWITH_DEBUG_CRYPTO=ON -DWITH_BLOWFISH_CIPHER=OFF "
+
 tumbleweed/static-analysis:
   extends: .tests
   stage: analysis
