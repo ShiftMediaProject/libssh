@@ -128,56 +128,43 @@ ssh_key pki_private_key_from_base64(const char *b64_key, const char *passphrase,
             if (valid < 0) {
                 goto fail;
             }
-#if MBEDTLS_VERSION_MAJOR > 2
             valid = mbedtls_pk_parse_key(
                 pk,
                 (const unsigned char *)b64_key,
                 b64len,
                 tmp,
-                strnlen((const char *)tmp, MAX_PASSPHRASE_SIZE),
+                strnlen((const char *)tmp, MAX_PASSPHRASE_SIZE)
+#if MBEDTLS_VERSION_MAJOR > 2
+                    ,
                 mbedtls_ctr_drbg_random,
-                ctr_drbg);
-#else
-            valid = mbedtls_pk_parse_key(
-                pk,
-                (const unsigned char *)b64_key,
-                b64len,
-                tmp,
-                strnlen((const char *)tmp, MAX_PASSPHRASE_SIZE));
+                ctr_drbg
 #endif
+            );
         } else {
+            valid = mbedtls_pk_parse_key(pk,
+                                         (const unsigned char *)b64_key,
+                                         b64len,
+                                         NULL,
+                                         0
 #if MBEDTLS_VERSION_MAJOR > 2
-            valid = mbedtls_pk_parse_key(pk,
-                                         (const unsigned char *)b64_key,
-                                         b64len,
-                                         NULL,
-                                         0,
+                                         ,
                                          mbedtls_ctr_drbg_random,
-                                         ctr_drbg);
-#else
-            valid = mbedtls_pk_parse_key(pk,
-                                         (const unsigned char *)b64_key,
-                                         b64len,
-                                         NULL,
-                                         0);
+                                         ctr_drbg
 #endif
+            );
         }
     } else {
+        valid = mbedtls_pk_parse_key(pk,
+                                     (const unsigned char *)b64_key,
+                                     b64len,
+                                     (const unsigned char *)passphrase,
+                                     strnlen(passphrase, MAX_PASSPHRASE_SIZE)
 #if MBEDTLS_VERSION_MAJOR > 2
-        valid = mbedtls_pk_parse_key(pk,
-                                     (const unsigned char *)b64_key,
-                                     b64len,
-                                     (const unsigned char *)passphrase,
-                                     strnlen(passphrase, MAX_PASSPHRASE_SIZE),
+                                         ,
                                      mbedtls_ctr_drbg_random,
-                                     ctr_drbg);
-#else
-        valid = mbedtls_pk_parse_key(pk,
-                                     (const unsigned char *)b64_key,
-                                     b64len,
-                                     (const unsigned char *)passphrase,
-                                     strnlen(passphrase, MAX_PASSPHRASE_SIZE));
+                                     ctr_drbg
 #endif
+        );
     }
     if (valid != 0) {
         char error_buf[100];
@@ -329,13 +316,11 @@ int pki_pubkey_build_rsa(ssh_key key, ssh_string e, ssh_string n)
         goto fail;
     }
 
+    rsa = mbedtls_pk_rsa(*key->rsa);
 #if MBEDTLS_VERSION_MAJOR > 2
     mbedtls_mpi_init(&N);
     mbedtls_mpi_init(&E);
-#endif
 
-    rsa = mbedtls_pk_rsa(*key->rsa);
-#if MBEDTLS_VERSION_MAJOR > 2
     rc = mbedtls_mpi_read_binary(&N, ssh_string_data(n),
                                  ssh_string_len(n));
 #else
