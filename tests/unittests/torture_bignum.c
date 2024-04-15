@@ -27,10 +27,12 @@ static void check_str (int n, ssh_string str)
     }
 }
 
-static void check_bignum(int n, const char *nstr) {
-    bignum num, num2;
-    ssh_string str;
-    char *dec;
+static void check_bignum(int n, const char *nstr)
+{
+    bignum num = NULL, num2 = NULL;
+    bignum num3 = NULL;
+    ssh_string str = NULL;
+    char *dec = NULL;
 
     num = bignum_new();
     assert_non_null(num);
@@ -66,8 +68,13 @@ static void check_bignum(int n, const char *nstr) {
     assert_string_equal (nstr, dec);
     ssh_crypto_free(dec);
 
+    bignum_dup(num, &num3);
+    assert_non_null(num3);
+    assert_int_equal(0, bignum_cmp(num, num3));
+
     bignum_safe_free(num);
     bignum_safe_free(num2);
+    bignum_safe_free(num3);
 }
 
 
