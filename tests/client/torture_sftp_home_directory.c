@@ -7,11 +7,19 @@
 
 #include <errno.h>
 #include <pwd.h>
+#include <stdlib.h>
 #include <sys/types.h>
 
 static int
 sshd_setup(void **state)
 {
+    /*
+      The SFTP server used for testing is executed as a separate binary, which
+      is making the uid_wrapper lose information about what user is used, and
+      therefore, pwd is initialized to some bad value.
+      If the embedded version using internal-sftp is used in sshd, it works ok.
+     */
+    setenv("TORTURE_SFTP_SERVER", "internal-sftp", 1);
     torture_setup_sshd_server(state, false);
     return 0;
 }
@@ -19,6 +27,7 @@ sshd_setup(void **state)
 static int
 sshd_teardown(void **state)
 {
+    unsetenv("TORTURE_SFTP_SERVER");
     torture_teardown_sshd_server(state);
     return 0;
 }
