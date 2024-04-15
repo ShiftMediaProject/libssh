@@ -129,7 +129,7 @@ int ssh_mbedcry_hex2bn(bignum *dest, char *data);
         *(dest) = bignum_new(); \
     } \
     if (*(dest) != NULL) { \
-        mbedtls_mpi_copy(orig, *(dest)); \
+        mbedtls_mpi_copy(*(dest), orig); \
     } \
     } while(0)
 
