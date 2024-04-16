@@ -15,6 +15,13 @@
 static int
 sshd_setup(void **state)
 {
+    /*
+     * Without root permissions, the exec-ed SFTP server does not inherit some
+     * wrappers so we use internal-sftp for this test, which does not have this
+     * issue.
+     */
+    setenv("TORTURE_SFTP_SERVER", "internal-sftp", 1);
+
     torture_setup_sshd_server(state, false);
     return 0;
 }
@@ -22,6 +29,7 @@ sshd_setup(void **state)
 static int
 sshd_teardown(void **state)
 {
+    unsetenv("TORTURE_SFTP_SERVER");
     torture_teardown_sshd_server(state);
     return 0;
 }
