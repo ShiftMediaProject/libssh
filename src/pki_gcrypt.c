@@ -1664,7 +1664,13 @@ ssh_string pki_signature_to_blob(const ssh_signature sig)
                 return NULL;
             }
             s = gcry_sexp_nth_data(sexp, 1, &size);
-            if (*s == 0) {
+
+            /*
+             * Remove leading zeroes, but only the ones that do not make the MPI
+             * representation look like a negative value (first bit is one),
+             * which might confuse some implementations.
+             */
+            while (size > 1 && s[0] == 0 && (s[1] & 0x80) == 0) {
                 size--;
                 s++;
             }
