@@ -3149,11 +3149,12 @@ sftp_home_directory(sftp_session sftp, const char *username)
     }
 
     if (msg->packet_type == SSH_FXP_NAME) {
-        uint32_t ignored = 0;
+        uint32_t count = 0;
         char *homepath = NULL;
+        char *longpath = NULL;
+        sftp_attributes attr = NULL;
 
-        rc = ssh_buffer_unpack(msg->payload, "ds", &ignored, &homepath);
-        sftp_message_free(msg);
+        rc = ssh_buffer_unpack(msg->payload, "ds", &count, &homepath);
         if (rc != SSH_OK) {
             ssh_set_error(sftp->session,
                           SSH_ERROR,
@@ -3161,7 +3162,44 @@ sftp_home_directory(sftp_session sftp, const char *username)
             sftp_set_error(sftp, SSH_FX_FAILURE);
             return NULL;
         }
+        /*
+          for SFTP version > 3, longname field in SSH_FXP_NAME is omitted.
+        */
+        if (sftp->version <= 3) {
+            rc = ssh_buffer_unpack(msg->payload, "s", &longpath);
+            if (rc != SSH_OK) {
+                ssh_set_error(sftp->session,
+                              SSH_ERROR,
+                              "Failed to extract longname from payload");
+                sftp_set_error(sftp, SSH_FX_FAILURE);
+                return NULL;
+            }
+        }
+        attr = sftp_parse_attr(sftp, msg->payload, 0);
+        if (attr == NULL) {
+            ssh_set_error(sftp->session,
+                          SSH_FATAL,
+                          "Couldn't parse the SFTP attributes");
+            return NULL;
+        }
+        sftp_message_free(msg);
 
+        if (count != 1) {
+            if (count > 1) {
+                ssh_set_error(sftp->session,
+                              SSH_ERROR,
+                              "Multiple results returned");
+            } else {
+                ssh_set_error(sftp->session, SSH_ERROR, "No result returned");
+            }
+            sftp_set_error(sftp, SSH_FX_FAILURE);
+            return NULL;
+        }
+
+        if (longpath) {
+            free(longpath);
+        }
+        sftp_attributes_free(attr);
         return homepath;
     } else if (msg->packet_type == SSH_FXP_STATUS) {
         status = parse_status_msg(msg);
