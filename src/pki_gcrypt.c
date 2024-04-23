@@ -548,90 +548,109 @@ static ssh_buffer privatekey_string_to_buffer(const char *pkey, int type,
     return out;
 }
 
-static int b64decode_rsa_privatekey(const char *pkey, gcry_sexp_t *r,
-    ssh_auth_callback cb, void *userdata, const char *desc) {
-  const unsigned char *data;
-  ssh_string n = NULL;
-  ssh_string e = NULL;
-  ssh_string d = NULL;
-  ssh_string p = NULL;
-  ssh_string q = NULL;
-  ssh_string unused1 = NULL;
-  ssh_string unused2 = NULL;
-  ssh_string u = NULL;
-  ssh_string v = NULL;
-  ssh_buffer buffer = NULL;
-  int rc = 1;
+static int
+b64decode_rsa_privatekey(const char *pkey,
+                         gcry_sexp_t *r,
+                         ssh_auth_callback cb,
+                         void *userdata,
+                         const char *desc)
+{
+    const unsigned char *data = NULL;
+    ssh_string n = NULL;
+    ssh_string e = NULL;
+    ssh_string d = NULL;
+    ssh_string p = NULL;
+    ssh_string q = NULL;
+    ssh_string unused1 = NULL;
+    ssh_string unused2 = NULL;
+    ssh_string u = NULL;
+    ssh_string v = NULL;
+    ssh_buffer buffer = NULL;
+    int rc = 1;
+    gcry_error_t rv = 0;
 
-  buffer = privatekey_string_to_buffer(pkey, SSH_KEYTYPE_RSA, cb, userdata, desc);
-  if (buffer == NULL) {
-    return 0;
-  }
+    buffer = privatekey_string_to_buffer(pkey,
+                                         SSH_KEYTYPE_RSA,
+                                         cb,
+                                         userdata,
+                                         desc);
+    if (buffer == NULL) {
+        return 0;
+    }
 
-  if (!asn1_check_sequence(buffer)) {
+    if (!asn1_check_sequence(buffer)) {
+        SSH_BUFFER_FREE(buffer);
+        return 0;
+    }
+
+    v = asn1_get_int(buffer);
+    if (v == NULL) {
+        SSH_BUFFER_FREE(buffer);
+        return 0;
+    }
+
+    data = ssh_string_data(v);
+    if (ssh_string_len(v) != 1 || data[0] != 0) {
+        SSH_STRING_FREE(v);
+        SSH_BUFFER_FREE(buffer);
+        return 0;
+    }
+
+    n = asn1_get_int(buffer);
+    e = asn1_get_int(buffer);
+    d = asn1_get_int(buffer);
+    q = asn1_get_int(buffer);
+    p = asn1_get_int(buffer);
+    unused1 = asn1_get_int(buffer);
+    unused2 = asn1_get_int(buffer);
+    u = asn1_get_int(buffer);
+
     SSH_BUFFER_FREE(buffer);
-    return 0;
-  }
 
-  v = asn1_get_int(buffer);
-  if (v == NULL) {
-    SSH_BUFFER_FREE(buffer);
-    return 0;
-  }
+    if (n == NULL || e == NULL || d == NULL || p == NULL || q == NULL ||
+        unused1 == NULL || unused2 == NULL || u == NULL) {
+        rc = 0;
+        goto error;
+    }
 
-  data = ssh_string_data(v);
-  if (ssh_string_len(v) != 1 || data[0] != 0) {
-    SSH_STRING_FREE(v);
-    SSH_BUFFER_FREE(buffer);
-    return 0;
-  }
-
-  n = asn1_get_int(buffer);
-  e = asn1_get_int(buffer);
-  d = asn1_get_int(buffer);
-  q = asn1_get_int(buffer);
-  p = asn1_get_int(buffer);
-  unused1 = asn1_get_int(buffer);
-  unused2 = asn1_get_int(buffer);
-  u = asn1_get_int(buffer);
-
-  SSH_BUFFER_FREE(buffer);
-
-  if (n == NULL || e == NULL || d == NULL || p == NULL || q == NULL ||
-      unused1 == NULL || unused2 == NULL|| u == NULL) {
-    rc = 0;
-    goto error;
-  }
-
-  if (gcry_sexp_build(r, NULL,
-      "(private-key(rsa(n %b)(e %b)(d %b)(p %b)(q %b)(u %b)))",
-      ssh_string_len(n), ssh_string_data(n),
-      ssh_string_len(e), ssh_string_data(e),
-      ssh_string_len(d), ssh_string_data(d),
-      ssh_string_len(p), ssh_string_data(p),
-      ssh_string_len(q), ssh_string_data(q),
-      ssh_string_len(u), ssh_string_data(u))) {
-    rc = 0;
-  }
+    rv = gcry_sexp_build(
+        r,
+        NULL,
+        "(private-key(rsa(n %b)(e %b)(d %b)(p %b)(q %b)(u %b)))",
+        ssh_string_len(n),
+        ssh_string_data(n),
+        ssh_string_len(e),
+        ssh_string_data(e),
+        ssh_string_len(d),
+        ssh_string_data(d),
+        ssh_string_len(p),
+        ssh_string_data(p),
+        ssh_string_len(q),
+        ssh_string_data(q),
+        ssh_string_len(u),
+        ssh_string_data(u));
+    if (rv) {
+        rc = 0;
+    }
 
 error:
-  ssh_string_burn(n);
-  SSH_STRING_FREE(n);
-  ssh_string_burn(e);
-  SSH_STRING_FREE(e);
-  ssh_string_burn(d);
-  SSH_STRING_FREE(d);
-  ssh_string_burn(p);
-  SSH_STRING_FREE(p);
-  ssh_string_burn(q);
-  SSH_STRING_FREE(q);
-  SSH_STRING_FREE(unused1);
-  SSH_STRING_FREE(unused2);
-  ssh_string_burn(u);
-  SSH_STRING_FREE(u);
-  SSH_STRING_FREE(v);
+    ssh_string_burn(n);
+    SSH_STRING_FREE(n);
+    ssh_string_burn(e);
+    SSH_STRING_FREE(e);
+    ssh_string_burn(d);
+    SSH_STRING_FREE(d);
+    ssh_string_burn(p);
+    SSH_STRING_FREE(p);
+    ssh_string_burn(q);
+    SSH_STRING_FREE(q);
+    SSH_STRING_FREE(unused1);
+    SSH_STRING_FREE(unused2);
+    ssh_string_burn(u);
+    SSH_STRING_FREE(u);
+    SSH_STRING_FREE(v);
 
-  return rc;
+    return rc;
 }
 
 #ifdef HAVE_GCRYPT_ECC
@@ -1200,16 +1219,20 @@ ssh_key pki_key_dup(const ssh_key key, int demote)
     return new;
 }
 
-static int pki_key_generate(ssh_key key, int parameter, const char *type_s, int type){
-    gcry_sexp_t params;
+static int
+pki_key_generate(ssh_key key, int parameter, const char *type_s, int type)
+{
+    gcry_sexp_t params = NULL;
     int rc;
     rc = gcry_sexp_build(&params,
-            NULL,
-            "(genkey(%s(nbits %d)(transient-key)))",
-            type_s,
-            parameter);
-    if (rc != 0)
+                         NULL,
+                         "(genkey(%s(nbits %d)(transient-key)))",
+                         type_s,
+                         parameter);
+    if (rc != 0) {
         return SSH_ERROR;
+    }
+
     switch (type) {
     case SSH_KEYTYPE_RSA:
         rc = gcry_pk_genkey(&key->rsa, params);
@@ -1228,7 +1251,9 @@ static int pki_key_generate(ssh_key key, int parameter, const char *type_s, int 
     return SSH_OK;
 }
 
-int pki_key_generate_rsa(ssh_key key, int parameter){
+int
+pki_key_generate_rsa(ssh_key key, int parameter)
+{
     return pki_key_generate(key, parameter, "rsa", SSH_KEYTYPE_RSA);
 }
 
