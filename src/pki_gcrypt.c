@@ -153,7 +153,7 @@ static ssh_string asn1_get_bit_string(ssh_buffer buffer)
     ssh_string str;
     unsigned char type;
     uint32_t size;
-    unsigned char unused, last, *p;
+    unsigned char unused, last, *p = NULL;
     uint32_t len;
 
     len = ssh_buffer_get_data(buffer, &type, 1);
@@ -412,10 +412,10 @@ static ssh_buffer privatekey_string_to_buffer(const char *pkey, int type,
                 ssh_auth_callback cb, void *userdata, const char *desc) {
     ssh_buffer buffer = NULL;
     ssh_buffer out = NULL;
-    const char *p;
+    const char *p = NULL;
     unsigned char *iv = NULL;
-    const char *header_begin;
-    const char *header_end;
+    const char *header_begin = NULL;
+    const char *header_end = NULL;
     unsigned int header_begin_size;
     unsigned int header_end_size;
     unsigned int key_len = 0;
@@ -637,8 +637,8 @@ error:
 #ifdef HAVE_GCRYPT_ECC
 static int pki_key_ecdsa_to_nid(gcry_sexp_t k)
 {
-    gcry_sexp_t sexp;
-    const char *tmp;
+    gcry_sexp_t sexp = NULL;
+    const char *tmp = NULL;
     size_t size;
 
     sexp = gcry_sexp_find_token(k, "curve", 0);
@@ -786,7 +786,7 @@ static int b64decode_ecdsa_privatekey(const char *pkey, gcry_sexp_t *r,
                                       void *userdata,
                                       const char *desc)
 {
-    const unsigned char *data;
+    const unsigned char *data = NULL;
     ssh_buffer buffer = NULL;
     gcry_error_t err = 0;
     ssh_string v = NULL;
@@ -1070,7 +1070,7 @@ int pki_pubkey_build_ecdsa(ssh_key key, int nid, ssh_string e)
 
 ssh_key pki_key_dup(const ssh_key key, int demote)
 {
-    ssh_key new;
+    ssh_key new = NULL;
     gcry_error_t err = 0;
     int rc;
 
@@ -1259,9 +1259,9 @@ static int _bignum_cmp(const gcry_sexp_t s1,
                        const gcry_sexp_t s2,
                        const char *what)
 {
-    gcry_sexp_t sexp;
-    bignum b1;
-    bignum b2;
+    gcry_sexp_t sexp = NULL;
+    bignum b1 = NULL;
+    bignum b2 = NULL;
     int result;
 
     sexp = gcry_sexp_find_token(s1, what, 0);
@@ -1368,8 +1368,8 @@ int pki_key_compare(const ssh_key k1,
 
 ssh_string pki_key_to_blob(const ssh_key key, enum ssh_key_e type)
 {
-    ssh_buffer buffer;
-    ssh_string type_s;
+    ssh_buffer buffer = NULL;
+    ssh_string type_s = NULL;
     ssh_string str = NULL;
     ssh_string e = NULL;
     ssh_string n = NULL;
@@ -1627,7 +1627,7 @@ ssh_string pki_signature_to_blob(const ssh_signature sig)
 {
     const char *s = NULL;  /* used in RSA */
 
-    gcry_sexp_t sexp;
+    gcry_sexp_t sexp = NULL;
     size_t size = 0;
     ssh_string sig_blob = NULL;
     int rc;
@@ -1732,7 +1732,7 @@ ssh_signature pki_signature_from_blob(const ssh_key pubkey,
                                       enum ssh_keytypes_e type,
                                       enum ssh_digest_e hash_type)
 {
-    ssh_signature sig;
+    ssh_signature sig = NULL;
     gcry_error_t err;
     size_t len;
     size_t rsalen;
@@ -1894,8 +1894,8 @@ ssh_signature pki_do_sign_hash(const ssh_key privkey,
                                enum ssh_digest_e hash_type)
 {
     const char *hash_c = NULL;
-    ssh_signature sig;
-    gcry_sexp_t sexp;
+    ssh_signature sig = NULL;
+    gcry_sexp_t sexp = NULL;
     gcry_error_t err;
 
     sig = ssh_signature_new();
@@ -2071,7 +2071,7 @@ int pki_verify_data_signature(ssh_signature signature,
                               size_t input_len)
 {
     const char *hash_type = NULL;
-    gcry_sexp_t sexp;
+    gcry_sexp_t sexp = NULL;
     gcry_error_t err;
 
     unsigned char ghash[SHA512_DIGEST_LEN + 1] = {0};
