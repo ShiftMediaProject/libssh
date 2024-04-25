@@ -169,13 +169,25 @@ int ssh_kdf(struct ssh_crypto_struct *crypto,
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
     EVP_KDF_CTX *ctx = EVP_KDF_CTX_new_id(EVP_KDF_SSHKDF);
 #else
-    EVP_KDF *kdf = EVP_KDF_fetch(NULL, "SSHKDF", NULL);
-    EVP_KDF_CTX *ctx = EVP_KDF_CTX_new(kdf);
-    OSSL_PARAM_BLD *param_bld = OSSL_PARAM_BLD_new();
+    EVP_KDF_CTX *ctx = NULL;
+    OSSL_PARAM_BLD *param_bld = NULL;
     OSSL_PARAM *params = NULL;
-    const char *md = sshkdf_digest_to_md(crypto->digest_type);
+    const char *md = NULL;
+    EVP_KDF *kdf = NULL;
 
+    md = sshkdf_digest_to_md(crypto->digest_type);
+    if (md == NULL) {
+        return -1;
+    }
+
+    kdf = EVP_KDF_fetch(NULL, "SSHKDF", NULL);
+    if (kdf == NULL) {
+        return -1;
+    }
+    ctx = EVP_KDF_CTX_new(kdf);
     EVP_KDF_free(kdf);
+
+    param_bld = OSSL_PARAM_BLD_new();
     if (param_bld == NULL) {
         EVP_KDF_CTX_free(ctx);
         return -1;
