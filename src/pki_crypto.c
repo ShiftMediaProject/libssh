@@ -1509,6 +1509,7 @@ ssh_string pki_key_to_blob(const ssh_key key, enum ssh_key_e type)
                 RSA_get0_factors(key_rsa, &bp, &bq);
                 RSA_get0_crt_params(key_rsa, NULL, NULL, &biqmp);
 #else
+                OSSL_PARAM_free(params);
                 rc = EVP_PKEY_todata(key->key, EVP_PKEY_KEYPAIR, &params);
                 if (rc != 1) {
                     goto fail;
@@ -1755,6 +1756,7 @@ ssh_string pki_key_to_blob(const ssh_key key, enum ssh_key_e type)
                 e = NULL;
                 if (type == SSH_KEY_PRIVATE) {
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
+                    OSSL_PARAM_free(params);
                     rc = EVP_PKEY_todata(key->key, EVP_PKEY_KEYPAIR, &params);
                     if (rc < 0) {
                         goto fail;
@@ -1797,6 +1799,7 @@ ssh_string pki_key_to_blob(const ssh_key key, enum ssh_key_e type)
                     }
                 }
 #if OPENSSL_VERSION_NUMBER >= 0x30000000L
+                bignum_safe_free(bd);
                 OSSL_PARAM_free(params);
 #endif /* OPENSSL_VERSION_NUMBER */
                 break;
