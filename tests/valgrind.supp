@@ -123,13 +123,6 @@
    Memcheck:Cond
    fun:SHA1_*
 }
-
-{
-   openssl_CRYPTO_leak
-   Memcheck:Leak
-   fun:*alloc
-   fun:CRYPTO_*
-}
 {
    openssl_CRYPTO_leak
    Memcheck:Cond
