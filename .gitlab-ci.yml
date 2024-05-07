@@ -47,7 +47,7 @@ workflow:
       make -j$(nproc) install
   # Do not use after_script as it does not make the targets fail
   tags:
-    - shared
+    - saas-linux-small-amd64
   only:
     - merge_requests
     - branches
@@ -115,7 +115,7 @@ review:
   # the format is not always matching our intentions
   allow_failure: true
   tags:
-    - shared
+    - saas-linux-small-amd64
   only:
     - merge_requests
 
@@ -353,7 +353,7 @@ fedora/mingw32:
 
       export CI_COMMIT_RANGE="$CI_COMMIT_BEFORE_SHA..$CI_COMMIT_SHA"
   tags:
-    - shared
+    - saas-linux-small-amd64
   except:
     - tags
   only:
@@ -521,8 +521,12 @@ freebsd/openssl_1.1.1/x86_64:
 ###############################################################################
 #                           Visual Studio builds                              #
 ###############################################################################
+# 2024-05-13: These jobs run out of the stages as they take extremely long and
+# usually timeout with the update to Gitlab 17.0
 .vs:
-  stage: test
+  stage: analysis
+  needs: []
+  allow_failure: true
   cache:
     key: vcpkg.${CI_JOB_NAME}
     paths:
@@ -533,8 +537,7 @@ freebsd/openssl_1.1.1/x86_64:
     - cmake --build .
     - ctest --output-on-failure
   tags:
-    - windows
-    - shared-windows
+    - saas-windows-medium-amd64
   only:
     - merge_requests
     - branches
@@ -601,7 +604,7 @@ coverity:
       --form description="CI build"
       https://scan.coverity.com/builds?project=$COVERITY_SCAN_PROJECT_NAME
   tags:
-    - shared
+    - saas-linux-small-amd64
   only:
     refs:
       - master
