@@ -1219,7 +1219,7 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 int *x = (int *)value;
                 if (*x > 0 && *x < 768) {
                     ssh_set_error(session, SSH_REQUEST_DENIED,
-                                  "The provided value (%u) for minimal RSA key "
+                                  "The provided value (%d) for minimal RSA key "
                                   "size is too small. Use at least 768 bits.",
                                   *x);
                     return -1;
@@ -2471,7 +2471,7 @@ ssh_bind_options_set(ssh_bind sshbind,
             if (*x > 0 && *x < 768) {
                 ssh_set_error(sshbind,
                               SSH_REQUEST_DENIED,
-                              "The provided value (%u) for minimal RSA key "
+                              "The provided value (%d) for minimal RSA key "
                               "size is too small. Use at least 768 bits.",
                               *x);
                 return -1;
