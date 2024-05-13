@@ -40,8 +40,8 @@
 #include "libssh/session.h"
 #include "libssh/misc.h"
 #include "libssh/pki.h"
-#include "libssh/dh.h"
 #include "libssh/messages.h"
+#include "libssh/socket.h"
 #ifdef WITH_SERVER
 #include "libssh/server.h"
 #include "libssh/gssapi.h"
@@ -96,6 +96,41 @@ static int ssh_message_reply_default(ssh_message msg) {
 }
 
 #endif
+
+static int ssh_send_disconnect(ssh_session session)
+{
+    int rc = SSH_ERROR;
+
+    if (session == NULL) {
+        return SSH_ERROR;
+    }
+
+    if (session->disconnect_message == NULL) {
+        session->disconnect_message = strdup("Bye Bye");
+        if (session->disconnect_message == NULL) {
+            ssh_set_error_oom(session);
+            return SSH_ERROR;
+        }
+    }
+
+    if (session->socket != NULL && ssh_socket_is_open(session->socket)) {
+        rc = ssh_buffer_pack(session->out_buffer,
+                             "bdss",
+                             SSH2_MSG_DISCONNECT,
+                             SSH2_DISCONNECT_BY_APPLICATION,
+                             session->disconnect_message,
+                             ""); /* language tag */
+        if (rc != SSH_OK) {
+            ssh_set_error_oom(session);
+            return SSH_ERROR;
+        }
+
+        rc = ssh_packet_send(session);
+        ssh_session_socket_close(session);
+    }
+
+    return rc;
+}
 
 #ifdef WITH_SERVER
 
@@ -303,7 +338,7 @@ static int ssh_execute_server_request(ssh_session session, ssh_message msg)
                 if (rc == 0) {
                     ssh_message_reply_default(msg);
                 } else {
-                    ssh_disconnect(session);
+                    ssh_send_disconnect(session);
                 }
 
                 return SSH_OK;
@@ -1182,7 +1217,7 @@ SSH_PACKET_CALLBACK(ssh_packet_channel_open){
         ssh_session_set_disconnect_message(session, "No more sessions allowed!");
         ssh_set_error(session, SSH_FATAL, "No more sessions allowed!");
         session->session_state = SSH_SESSION_STATE_ERROR;
-        ssh_disconnect(session);
+        ssh_send_disconnect(session);
         goto error;
     }
 
