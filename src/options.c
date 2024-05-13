@@ -1220,7 +1220,8 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 if (*x > 0 && *x < 768) {
                     ssh_set_error(session, SSH_REQUEST_DENIED,
                                   "The provided value (%u) for minimal RSA key "
-                                  "size is too small. Use at least 768 bits.", *x);
+                                  "size is too small. Use at least 768 bits.",
+                                  *x);
                     return -1;
                 }
                 session->opts.rsa_min_size = *x;
