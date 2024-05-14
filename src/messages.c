@@ -1011,7 +1011,7 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_request){
      ssh_gssapi_handle_userauth(session, msg->auth_request.username, n_oid, oids);
 
      for(i=0;i<(int)n_oid;++i){
-    	 SAFE_FREE(oids[i]);
+         SAFE_FREE(oids[i]);
      }
      SAFE_FREE(oids);
      /* bypass the message queue thing */

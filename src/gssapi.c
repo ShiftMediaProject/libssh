@@ -38,37 +38,11 @@
 #include <libssh/string.h>
 #include <libssh/server.h>
 
-/** current state of an GSSAPI authentication */
-enum ssh_gssapi_state_e {
-    SSH_GSSAPI_STATE_NONE, /* no status */
-    SSH_GSSAPI_STATE_RCV_TOKEN, /* Expecting a token */
-    SSH_GSSAPI_STATE_RCV_MIC, /* Expecting a MIC */
-};
-
-struct ssh_gssapi_struct{
-    enum ssh_gssapi_state_e state; /* current state */
-    struct gss_OID_desc_struct mech; /* mechanism being elected for auth */
-    gss_cred_id_t server_creds; /* credentials of server */
-    gss_cred_id_t client_creds; /* creds delegated by the client */
-    gss_ctx_id_t ctx; /* the authentication context */
-    gss_name_t client_name; /* Identity of the client */
-    char *user; /* username of client */
-    char *canonic_user; /* canonic form of the client's username */
-    char *service; /* name of the service */
-    struct {
-        gss_name_t server_name; /* identity of server */
-        OM_uint32 flags; /* flags used for init context */
-        gss_OID oid; /* mech being used for authentication */
-        gss_cred_id_t creds; /* creds used to initialize context */
-        gss_cred_id_t client_deleg_creds; /* delegated creds (const, not freeable) */
-    } client;
-};
-
-
 /** @internal
  * @initializes a gssapi context for authentication
  */
-static int ssh_gssapi_init(ssh_session session)
+int
+ssh_gssapi_init(ssh_session session)
 {
     if (session->gssapi != NULL)
         return SSH_OK;
@@ -84,21 +58,60 @@ static int ssh_gssapi_init(ssh_session session)
     return SSH_OK;
 }
 
+void
+ssh_gssapi_log_error(int verb, const char *msg_a, int maj_stat, int min_stat)
+{
+    gss_buffer_desc msg = GSS_C_EMPTY_BUFFER;
+    OM_uint32 dummy_min;
+    OM_uint32 message_context = 0;
+
+    do {
+        gss_display_status(&dummy_min,
+                           maj_stat,
+                           GSS_C_GSS_CODE,
+                           GSS_C_NO_OID,
+                           &message_context,
+                           &msg);
+        SSH_LOG(verb, "GSSAPI(%s): %s", msg_a, (const char *)msg.value);
+        gss_release_buffer(&dummy_min, &msg);
+
+    } while (message_context != 0);
+
+    do {
+        gss_display_status(&dummy_min,
+                           min_stat,
+                           GSS_C_MECH_CODE,
+                           GSS_C_NO_OID,
+                           &message_context,
+                           &msg);
+        SSH_LOG(verb, "GSSAPI(%s): %s", msg_a, (const char *)msg.value);
+        gss_release_buffer(&dummy_min, &msg);
+
+    } while (message_context != 0);
+}
+
 /** @internal
  * @frees a gssapi context
  */
-static void ssh_gssapi_free(ssh_session session)
+void
+ssh_gssapi_free(ssh_session session)
 {
     OM_uint32 min;
     if (session->gssapi == NULL)
         return;
     SAFE_FREE(session->gssapi->user);
-    SAFE_FREE(session->gssapi->mech.elements);
+
+    gss_release_name(&min, &session->gssapi->client.server_name);
     gss_release_cred(&min,&session->gssapi->server_creds);
     if (session->gssapi->client.creds !=
                     session->gssapi->client.client_deleg_creds) {
         gss_release_cred(&min, &session->gssapi->client.creds);
     }
+    gss_release_oid(&min, &session->gssapi->client.oid);
+    gss_delete_sec_context(&min, &session->gssapi->ctx, GSS_C_NO_BUFFER);
+
+    SAFE_FREE(session->gssapi->mech.elements);
+    SAFE_FREE(session->gssapi->canonic_user);
     SAFE_FREE(session->gssapi);
 }
 
@@ -132,55 +145,6 @@ static int ssh_gssapi_send_response(ssh_session session, ssh_string oid)
 
 #endif /* WITH_SERVER */
 
-static void ssh_gssapi_log_error(int verb,
-                                 const char *msg,
-                                 int maj_stat,
-                                 int min_stat)
-{
-    gss_buffer_desc msg_maj = {
-        .length = 0,
-    };
-    gss_buffer_desc msg_min = {
-        .length = 0,
-    };
-    OM_uint32 dummy_maj, dummy_min;
-    OM_uint32 message_context = 0;
-
-    dummy_maj = gss_display_status(&dummy_min,
-                                   maj_stat,
-                                   GSS_C_GSS_CODE,
-                                   GSS_C_NO_OID,
-                                   &message_context,
-                                   &msg_maj);
-    if (dummy_maj != 0) {
-        goto out;
-    }
-
-    dummy_maj = gss_display_status(&dummy_min,
-                                   min_stat,
-                                   GSS_C_MECH_CODE,
-                                   GSS_C_NO_OID,
-                                   &message_context,
-                                   &msg_min);
-    if (dummy_maj != 0) {
-        goto out;
-    }
-
-    SSH_LOG(verb,
-            "GSSAPI(%s): %s - %s",
-            msg,
-            (const char *)msg_maj.value,
-            (const char *)msg_min.value);
-
-out:
-    if (msg_maj.value) {
-        gss_release_buffer(&dummy_min, &msg_maj);
-    }
-    if (msg_min.value) {
-        gss_release_buffer(&dummy_min, &msg_min);
-    }
-}
-
 #ifdef WITH_SERVER
 
 /** @internal
@@ -204,19 +168,30 @@ ssh_gssapi_handle_userauth(ssh_session session, const char *user,
     struct gss_OID_desc_struct oid;
     int rc;
 
-    if (ssh_callbacks_exists(session->server_callbacks, gssapi_select_oid_function)){
-        ssh_string oid_s = session->server_callbacks->gssapi_select_oid_function(session,
-                user, n_oid, oids,
-                session->server_callbacks->userdata);
-        if (oid_s != NULL){
-            if (ssh_gssapi_init(session) == SSH_ERROR)
-                return SSH_ERROR;
-            session->gssapi->state = SSH_GSSAPI_STATE_RCV_TOKEN;
+    /* Destroy earlier GSSAPI context if any */
+    ssh_gssapi_free(session);
+    rc = ssh_gssapi_init(session);
+    if (rc == SSH_ERROR)
+        return rc;
+
+    /* Callback should select oid and acquire credential */
+    if (ssh_callbacks_exists(session->server_callbacks,
+                             gssapi_select_oid_function)) {
+        ssh_string oid_s = NULL;
+        session->gssapi->state = SSH_GSSAPI_STATE_RCV_TOKEN;
+        SAFE_FREE(session->gssapi->user);
+        session->gssapi->user = strdup(user);
+        oid_s = session->server_callbacks->gssapi_select_oid_function(
+            session,
+            user,
+            n_oid,
+            oids,
+            session->server_callbacks->userdata);
+        if (oid_s != NULL) {
             rc = ssh_gssapi_send_response(session, oid_s);
-            SSH_STRING_FREE(oid_s);
             return rc;
         } else {
-            return ssh_auth_reply_default(session,0);
+            return ssh_auth_reply_default(session, 0);
         }
     }
     gss_create_empty_oid_set(&min_stat, &both_supported);
@@ -263,11 +238,6 @@ ssh_gssapi_handle_userauth(ssh_session session, const char *user,
         ssh_auth_reply_default(session, 0);
         gss_release_oid_set(&min_stat, &both_supported);
         return SSH_OK;
-    }
-    /* from now we have room for context */
-    if (ssh_gssapi_init(session) == SSH_ERROR) {
-        gss_release_oid_set(&min_stat, &both_supported);
-        return SSH_ERROR;
     }
 
     name_buf.value = service_name;
@@ -337,7 +307,8 @@ ssh_gssapi_handle_userauth(ssh_session session, const char *user,
     return ssh_gssapi_send_response(session, oids[i]);
 }
 
-static char *ssh_gssapi_name_to_char(gss_name_t name)
+char *
+ssh_gssapi_name_to_char(gss_name_t name)
 {
     gss_buffer_desc buffer;
     OM_uint32 maj_stat, min_stat;
@@ -390,8 +361,6 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_gssapi_token_server){
                 token, &out_token, session->server_callbacks->userdata);
         if (rc == SSH_ERROR){
             ssh_auth_reply_default(session, 0);
-            ssh_gssapi_free(session);
-            session->gssapi=NULL;
             return SSH_PACKET_USED;
         }
         if (ssh_string_len(out_token) != 0){
@@ -405,9 +374,8 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_gssapi_token_server){
             }
             ssh_packet_send(session);
             SSH_STRING_FREE(out_token);
-        } else {
-            session->gssapi->state = SSH_GSSAPI_STATE_RCV_MIC;
         }
+        session->gssapi->state = SSH_GSSAPI_STATE_RCV_MIC;
         return SSH_PACKET_USED;
     }
     hexa = ssh_get_hexa(ssh_string_data(token),ssh_string_len(token));
@@ -435,8 +403,6 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_gssapi_token_server){
                              min_stat);
         gss_release_buffer(&min_stat, &output_token);
         ssh_auth_reply_default(session,0);
-        ssh_gssapi_free(session);
-        session->gssapi=NULL;
         return SSH_PACKET_USED;
     }
 
@@ -452,14 +418,13 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_gssapi_token_server){
         if (rc != SSH_OK) {
             ssh_set_error_oom(session);
             ssh_auth_reply_default(session, 0);
-            ssh_gssapi_free(session);
-            session->gssapi = NULL;
             return SSH_PACKET_USED;
         }
         ssh_packet_send(session);
     }
 
     gss_release_buffer(&min_stat, &output_token);
+    gss_release_name(&min_stat, &client_name);
 
     if(maj_stat == GSS_S_COMPLETE){
         session->gssapi->state = SSH_GSSAPI_STATE_RCV_MIC;
@@ -578,7 +543,6 @@ error:
     ssh_auth_reply_default(session,0);
 
 end:
-    ssh_gssapi_free(session);
     if (mic_buffer != NULL) {
         SSH_BUFFER_FREE(mic_buffer);
     }
@@ -691,6 +655,10 @@ static int ssh_gssapi_match(ssh_session session, gss_OID_set *valid_oids)
                                     &session->gssapi->client.creds,
                                     &actual_mechs, NULL);
         if (GSS_ERROR(maj_stat)) {
+            ssh_gssapi_log_error(SSH_LOG_DEBUG,
+                                 "acquiring credential",
+                                 maj_stat,
+                                 min_stat);
             ret = SSH_ERROR;
             goto end;
         }
@@ -751,6 +719,8 @@ int ssh_gssapi_auth_mic(ssh_session session)
     gss_buffer_desc hostname;
     const char *gss_host = session->opts.host;
 
+    /* Destroy earlier GSSAPI context if any */
+    ssh_gssapi_free(session);
     rc = ssh_gssapi_init(session);
     if (rc == SSH_ERROR) {
         return SSH_AUTH_ERROR;
@@ -935,8 +905,6 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_gssapi_response){
 
 error:
     session->auth.state = SSH_AUTH_STATE_ERROR;
-    ssh_gssapi_free(session);
-    session->gssapi = NULL;
     return SSH_PACKET_USED;
 }
 
@@ -1060,14 +1028,9 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_gssapi_token_client){
         session->auth.state = SSH_AUTH_STATE_GSSAPI_MIC_SENT;
     }
 
-    ssh_gssapi_free(session);
-    session->gssapi = NULL;
-
     return SSH_PACKET_USED;
 
 error:
     session->auth.state = SSH_AUTH_STATE_ERROR;
-    ssh_gssapi_free(session);
-    session->gssapi = NULL;
     return SSH_PACKET_USED;
 }

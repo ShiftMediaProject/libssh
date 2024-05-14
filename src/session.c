@@ -39,6 +39,7 @@
 #include "libssh/buffer.h"
 #include "libssh/poll.h"
 #include "libssh/pki.h"
+#include "libssh/gssapi.h"
 
 #define FIRST_CHANNEL 42 // why not ? it helps to find bugs.
 
@@ -286,6 +287,10 @@ void ssh_free(ssh_session session)
   if (session->packet_callbacks) {
     ssh_list_free(session->packet_callbacks);
   }
+
+#ifdef WITH_GSSAPI
+    ssh_gssapi_free(session);
+#endif
 
   /* options */
   if (session->opts.identity) {

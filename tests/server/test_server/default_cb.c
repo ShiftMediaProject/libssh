@@ -923,7 +923,7 @@ void default_handle_session_cb(ssh_event event,
 
         if (ssh_event_dopoll(event, 100) == SSH_ERROR) {
             fprintf(stderr, "do_poll error: %s\n", ssh_get_error(session));
-            return;
+            goto end;
         }
         n++;
     }

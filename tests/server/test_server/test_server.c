@@ -56,6 +56,8 @@ void free_server_state(struct server_state_st *state)
     SAFE_FREE(state->expected_password);
     SAFE_FREE(state->config_file);
     SAFE_FREE(state->log_file);
+    SAFE_FREE(state->server_cb);
+    SAFE_FREE(state->channel_cb);
 }
 
 /* SIGCHLD handler for cleaning up dead children. */
