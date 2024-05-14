@@ -1217,6 +1217,14 @@ int ssh_options_set(ssh_session session, enum ssh_options_e type,
                 return -1;
             } else {
                 int *x = (int *)value;
+
+                if (*x < 0) {
+                    ssh_set_error_invalid(session);
+                    return -1;
+                }
+
+                /* (*x == 0) is allowed as it is used to revert to default */
+
                 if (*x > 0 && *x < 768) {
                     ssh_set_error(session, SSH_REQUEST_DENIED,
                                   "The provided value (%d) for minimal RSA key "
@@ -2468,6 +2476,14 @@ ssh_bind_options_set(ssh_bind sshbind,
             return -1;
         } else {
             int *x = (int *)value;
+
+            if (*x < 0) {
+                ssh_set_error_invalid(sshbind);
+                return -1;
+            }
+
+            /* (*x == 0) is allowed as it is used to revert to default */
+
             if (*x > 0 && *x < 768) {
                 ssh_set_error(sshbind,
                               SSH_REQUEST_DENIED,
