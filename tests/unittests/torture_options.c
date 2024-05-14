@@ -1954,6 +1954,44 @@ static void torture_options_set_verbosity (void **state)
     assert_int_not_equal(new_level, 0);
 }
 
+static void torture_options_set_rsa_min_size(void **state)
+{
+    ssh_session session = *state;
+    int min_allowed = 768, key_size, rc;
+
+    /* Check that passing NULL leads to failure */
+    rc = ssh_options_set(session, SSH_OPTIONS_RSA_MIN_SIZE, NULL);
+    assert_int_equal(rc, -1);
+
+    /*
+     * Check that supplying a value less than the allowed minimum leads
+     * to failure
+     */
+    key_size = min_allowed - 2;
+    rc = ssh_options_set(session, SSH_OPTIONS_RSA_MIN_SIZE, &key_size);
+    assert_int_equal(rc, -1);
+
+    /* Check that supplying a negative value leads to failure */
+    key_size = -10;
+    rc = ssh_options_set(session, SSH_OPTIONS_RSA_MIN_SIZE, &key_size);
+    assert_int_equal(rc, -1);
+
+    /* Check that supplying 0 succeeds (used to revert to default) */
+    key_size = 0;
+    rc = ssh_options_set(session, SSH_OPTIONS_RSA_MIN_SIZE, &key_size);
+    assert_ssh_return_code(session, rc);
+
+    /* Check that supplying allowed minimum succeeds */
+    key_size = min_allowed;
+    rc = ssh_options_set(session, SSH_OPTIONS_RSA_MIN_SIZE, &key_size);
+    assert_ssh_return_code(session, rc);
+
+    /* Check that supplying a value greater than allowed minimum succeeds */
+    key_size = min_allowed + 10;
+    rc = ssh_options_set(session, SSH_OPTIONS_RSA_MIN_SIZE, &key_size);
+    assert_ssh_return_code(session, rc);
+}
+
 #ifdef WITH_SERVER
 const char template[] = "temp_dir_XXXXXX";
 
@@ -2866,6 +2904,9 @@ torture_run_tests(void)
                                         teardown),
         cmocka_unit_test_setup_teardown(torture_options_apply, setup, teardown),
         cmocka_unit_test_setup_teardown(torture_options_set_verbosity,
+                                        setup,
+                                        teardown),
+        cmocka_unit_test_setup_teardown(torture_options_set_rsa_min_size,
                                         setup,
                                         teardown),
     };
