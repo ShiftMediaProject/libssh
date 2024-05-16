@@ -133,6 +133,12 @@ centos9s/openssl_3.0.x/x86_64:
       make -j$(nproc) &&
       ctest --output-on-failure
 
+centos9s/mbedtls_2.x/x86_64:
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$CENTOS9_BUILD
+  extends: .tests
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: "-DWITH_MBEDTLS=ON -DWITH_DEBUG_CRYPTO=ON -DWITH_BLOWFISH_CIPHER=OFF"
+
 centos9s/openssl_3.0.x/x86_64/fips:
   extends: .fips
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$CENTOS9_BUILD
@@ -288,7 +294,7 @@ fedora/libgcrypt/x86_64:
   variables:
     CMAKE_ADDITIONAL_OPTIONS: "-DWITH_GCRYPT=ON -DWITH_DEBUG_CRYPTO=ON"
 
-fedora/mbedtls/x86_64:
+fedora/mbedtls_2.x/x86_64:
   extends: .fedora
   variables:
     CMAKE_ADDITIONAL_OPTIONS: "-DWITH_MBEDTLS=ON -DWITH_DEBUG_CRYPTO=ON "
