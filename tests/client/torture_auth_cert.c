@@ -100,7 +100,7 @@ static int session_setup_ssh_dir(void **state)
 
     session_setup(state);
 
-    rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_SSH_DIR, &no_home);
+    rc = ssh_options_set(s->ssh.session, SSH_OPTIONS_SSH_DIR, no_home);
     assert_ssh_return_code(s->ssh.session, rc);
 
     return 0;
