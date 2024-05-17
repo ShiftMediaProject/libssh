@@ -2360,6 +2360,51 @@ static void torture_bind_options_rsakey(void **state)
     assert_string_equal(bind->rsakey, LIBSSH_RSA_TESTKEY);
 }
 
+static void torture_bind_options_set_rsa_min_size(void **state)
+{
+    struct bind_st *test_state = NULL;
+    ssh_bind bind = NULL;
+    int rc, min_allowed = 768, key_size;
+
+    assert_non_null(state);
+    test_state = *((struct bind_st **)state);
+    assert_non_null(test_state);
+    assert_non_null(test_state->bind);
+    bind = test_state->bind;
+
+    /* Check that passing NULL leads to failure */
+    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_RSA_MIN_SIZE, NULL);
+    assert_int_equal(rc, -1);
+
+    /*
+     * Check that supplying a value less than the allowed minimum leads
+     * to failure
+     */
+    key_size = min_allowed - 2;
+    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_RSA_MIN_SIZE, &key_size);
+    assert_int_equal(rc, -1);
+
+    /* Check that supplying a negative value leads to failure */
+    key_size = -10;
+    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_RSA_MIN_SIZE, &key_size);
+    assert_int_equal(rc, -1);
+
+    /* Check that supplying 0 succeeds (used to revert to default) */
+    key_size = 0;
+    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_RSA_MIN_SIZE, &key_size);
+    assert_int_equal(rc, 0);
+
+    /* Check that supplying allowed minimum succeeds */
+    key_size = min_allowed;
+    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_RSA_MIN_SIZE, &key_size);
+    assert_int_equal(rc, 0);
+
+    /* Check that supplying a value greater than allowed minimum succeeds */
+    key_size = min_allowed + 10;
+    rc = ssh_bind_options_set(bind, SSH_BIND_OPTIONS_RSA_MIN_SIZE, &key_size);
+    assert_int_equal(rc, 0);
+}
+
 #ifdef HAVE_ECC
 static void torture_bind_options_ecdsakey(void **state)
 {
@@ -2938,6 +2983,9 @@ torture_run_tests(void)
                                         sshbind_setup,
                                         sshbind_teardown),
         cmocka_unit_test_setup_teardown(torture_bind_options_rsakey,
+                                        sshbind_setup,
+                                        sshbind_teardown),
+        cmocka_unit_test_setup_teardown(torture_bind_options_set_rsa_min_size,
                                         sshbind_setup,
                                         sshbind_teardown),
 #ifdef HAVE_ECC
