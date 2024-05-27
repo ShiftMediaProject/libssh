@@ -314,7 +314,7 @@ int ssh_options_set_algo(ssh_session session,
  *                The hostname or ip address to connect to (const char *).
  *
  *              - SSH_OPTIONS_PORT:
- *                The port to connect to (unsigned int *).
+ *                The port to connect to (unsigned int).
  *
  *              - SSH_OPTIONS_PORT_STR:
  *                The port to connect to (const char *).
@@ -575,7 +575,7 @@ int ssh_options_set_algo(ssh_session session,
  *                configuration option as they are considered completely broken.
  *                Setting 0 will revert the value to defaults.
  *                Default is 1024 bits or 2048 bits in FIPS mode.
- *                (int *)
+ *                (int)
 
  *              - SSH_OPTIONS_IDENTITY_AGENT
  *                Set the path to the SSH agent socket. If unset, the
@@ -2012,13 +2012,13 @@ static int ssh_bind_set_algo(ssh_bind sshbind,
  *                        Set the IP address to bind (const char *).
  *
  *                      - SSH_BIND_OPTIONS_BINDPORT:
- *                        Set the port to bind (unsigned int *).
+ *                        Set the port to bind (unsigned int).
  *
  *                      - SSH_BIND_OPTIONS_BINDPORT_STR:
  *                        Set the port to bind (const char *).
  *
  *                      - SSH_BIND_OPTIONS_LOG_VERBOSITY:
- *                        Set the session logging verbosity (int *).
+ *                        Set the session logging verbosity (int).
  *                        The logging verbosity should have one of the
  *                        following values, which are listed in order
  *                        of increasing verbosity.  Every log message
