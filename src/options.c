@@ -612,6 +612,21 @@ int ssh_options_set_algo(ssh_session session,
  *               type set.
  *
  * @return       0 on success, < 0 on error.
+ *
+ * @warning      When the option value to set is represented via a pointer
+ *               (e.g const char * in case of strings, ssh_key in case of a
+ *               libssh key), the value parameter should be that pointer.
+ *               Do NOT pass a pointer to a pointer (const char **, ssh_key *)
+ *
+ * @warning      When the option value to set is not a pointer (e.g int,
+ *               unsigned int, bool, long), the value parameter should be
+ *               a pointer to the location storing the value to set (int *,
+ *               unsigned int *, bool *, long *)
+ *
+ * @warning      If the value parameter has an invalid type (e.g if its not a
+ *               pointer when it should have been a pointer, or if its a pointer
+ *               to a pointer when it should have just been a pointer), then the
+ *               behaviour is undefined.
  */
 int ssh_options_set(ssh_session session, enum ssh_options_e type,
                     const void *value)
@@ -2130,6 +2145,22 @@ static int ssh_bind_set_algo(ssh_bind sshbind,
  *
  * @return              0 on success, < 0 on error, invalid option, or
  *                      parameter.
+ *
+ * @warning             When the option value to set is represented via a
+ *                      pointer (e.g const char * in case of strings, ssh_key
+ *                      in case of a libssh key), the value parameter should be
+ *                      that pointer. Do NOT pass a pointer to a pointer (const
+ *                      char **, ssh_key *)
+ *
+ * @warning             When the option value to set is not a pointer (e.g int,
+ *                      unsigned int, bool, long), the value parameter should be
+ *                      a pointer to the location storing the value to set (int
+ *                      *, unsigned int *, bool *, long *)
+ *
+ * @warning             If the value parameter has an invalid type (e.g if its
+ *                      not a pointer when it should have been a pointer, or if
+ *                      its a pointer to a pointer when it should have just been
+ *                      a pointer), then the behaviour is undefined.
  */
 int
 ssh_bind_options_set(ssh_bind sshbind,
