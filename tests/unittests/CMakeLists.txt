@@ -48,6 +48,9 @@ if (UNIX AND NOT WIN32)
         torture_pki_ed25519
         # requires /dev/null
         torture_channel
+        # requires some non-standard API from netdb.h, in.h
+        # and arpa/inet.h for handling IP addresses
+        torture_config_match_localnetwork
     )
 
     if (WITH_SERVER)
