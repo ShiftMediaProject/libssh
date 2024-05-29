@@ -27,12 +27,12 @@
 #ifndef _WIN32
 /* This is needed for a standard getpwuid_r on opensolaris */
 #define _POSIX_PTHREAD_SEMANTICS
-#include <pwd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <netinet/in.h>
 #include <arpa/inet.h>
 #include <net/if.h>
+#include <netinet/in.h>
+#include <pwd.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 #endif /* _WIN32 */
 
@@ -2226,5 +2226,4 @@ int ssh_check_username_syntax(const char *username)
 
     return SSH_OK;
 }
-
 /** @} */

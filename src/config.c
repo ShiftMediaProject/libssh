@@ -39,6 +39,8 @@
 # include <errno.h>
 # include <signal.h>
 # include <sys/wait.h>
+# include <ifaddrs.h>
+# include <net/if.h>
 #endif
 
 #include "libssh/config_parser.h"
@@ -160,7 +162,8 @@ enum ssh_config_match_e {
     MATCH_HOST,
     MATCH_ORIGINALHOST,
     MATCH_USER,
-    MATCH_LOCALUSER
+    MATCH_LOCALUSER,
+    MATCH_LOCALNETWORK
 };
 
 struct ssh_config_match_keyword_table_s {
@@ -168,16 +171,18 @@ struct ssh_config_match_keyword_table_s {
     enum ssh_config_match_e opcode;
 };
 
-static struct ssh_config_match_keyword_table_s ssh_config_match_keyword_table[] = {
-    { "all", MATCH_ALL },
-    { "canonical", MATCH_CANONICAL },
-    { "final", MATCH_FINAL },
-    { "exec", MATCH_EXEC },
-    { "host", MATCH_HOST },
-    { "originalhost", MATCH_ORIGINALHOST },
-    { "user", MATCH_USER },
-    { "localuser", MATCH_LOCALUSER },
-    { NULL, MATCH_UNKNOWN },
+static struct ssh_config_match_keyword_table_s
+    ssh_config_match_keyword_table[] = {
+        {"all", MATCH_ALL},
+        {"canonical", MATCH_CANONICAL},
+        {"final", MATCH_FINAL},
+        {"exec", MATCH_EXEC},
+        {"host", MATCH_HOST},
+        {"originalhost", MATCH_ORIGINALHOST},
+        {"user", MATCH_USER},
+        {"localuser", MATCH_LOCALUSER},
+        {"localnetwork", MATCH_LOCALNETWORK},
+        {NULL, MATCH_UNKNOWN},
 };
 
 static int ssh_config_parse_line(ssh_session session, const char *line,
@@ -572,6 +577,99 @@ ssh_config_make_absolute(ssh_session session,
     return out;
 }
 
+#ifndef _WIN32
+/**
+ * @brief Checks if host address matches the local network specified.
+ *
+ * Verify whether a local network interface address matches any of the CIDR
+ * patterns.
+ *
+ * @param addrlist The CIDR pattern-list to be checked, can contain both
+ *                 IPv4 and IPv6 addresses and has to be comma separated
+ *                 (',' only, space after comma not allowed).
+ *
+ * @param negate   The negate condition. The return value is negated
+ *                 (returns 1 instead of 0 and vice versa).
+ *
+ * @return 1 if match found.
+ * @return 0 if no match found.
+ * @return -1 on errors.
+ */
+static int
+ssh_match_localnetwork(const char *addrlist, bool negate)
+{
+    struct ifaddrs *ifa = NULL, *ifaddrs = NULL;
+    int r, found = 0;
+    char address[NI_MAXHOST], err_msg[SSH_ERRNO_MSG_MAX] = {0};
+    socklen_t sa_len;
+
+    r = getifaddrs(&ifaddrs);
+    if (r != 0) {
+        SSH_LOG(SSH_LOG_WARN,
+                "Match localnetwork: getifaddrs() failed: %s",
+                ssh_strerror(r, err_msg, SSH_ERRNO_MSG_MAX));
+        return -1;
+    }
+
+    for (ifa = ifaddrs; ifa != NULL; ifa = ifa->ifa_next) {
+        if (ifa->ifa_addr == NULL || (ifa->ifa_flags & IFF_UP) == 0) {
+            continue;
+        }
+
+        switch (ifa->ifa_addr->sa_family) {
+        case AF_INET:
+            sa_len = sizeof(struct sockaddr_in);
+            break;
+        case AF_INET6:
+            sa_len = sizeof(struct sockaddr_in6);
+            break;
+        default:
+            SSH_LOG(SSH_LOG_TRACE,
+                    "Interface %s: unsupported address family %d",
+                    ifa->ifa_name,
+                    ifa->ifa_addr->sa_family);
+            continue;
+        }
+
+        r = getnameinfo(ifa->ifa_addr,
+                        sa_len,
+                        address,
+                        sizeof(address),
+                        NULL,
+                        0,
+                        NI_NUMERICHOST);
+        if (r != 0) {
+            SSH_LOG(SSH_LOG_TRACE,
+                    "Interface %s getnameinfo failed: %s",
+                    ifa->ifa_name,
+                    gai_strerror(r));
+            continue;
+        }
+        SSH_LOG(SSH_LOG_TRACE,
+                "Interface %s address %s",
+                ifa->ifa_name,
+                address);
+
+        r = match_cidr_address_list(address,
+                                    addrlist,
+                                    ifa->ifa_addr->sa_family);
+        if (r == 1) {
+            SSH_LOG(SSH_LOG_TRACE,
+                    "Matched interface %s: address %s in %s",
+                    ifa->ifa_name,
+                    address,
+                    addrlist);
+            found = 1;
+            break;
+        }
+    }
+
+    freeifaddrs(ifaddrs);
+
+    return (found == (negate ? 0 : 1));
+}
+#endif
+
 static int
 ssh_config_parse_line(ssh_session session,
                       const char *line,
@@ -794,6 +892,47 @@ ssh_config_parse_line(ssh_session session,
                 result &= ssh_config_match(session->opts.username, p, negate);
                 args++;
                 break;
+
+#ifndef _WIN32
+            case MATCH_LOCALNETWORK:
+                /* Here we match only one argument */
+                p = ssh_config_get_str_tok(&s, NULL);
+                if (p == NULL || p[0] == '\0') {
+                    ssh_set_error(session,
+                                  SSH_FATAL,
+                                  "line %d: ERROR - Match local network keyword"
+                                  "requires argument",
+                                  count);
+                    SAFE_FREE(x);
+                    return -1;
+                }
+                rv = match_cidr_address_list(NULL, p, -1);
+                if (rv == -1) {
+                    ssh_set_error(session,
+                                  SSH_FATAL,
+                                  "line %d: ERROR - List invalid entry: %s",
+                                  count,
+                                  p);
+                    SAFE_FREE(x);
+                    return -1;
+                }
+                rv = ssh_match_localnetwork(p, negate);
+                if (rv == -1) {
+                    ssh_set_error(session,
+                                  SSH_FATAL,
+                                  "line %d: ERROR - Error while retrieving "
+                                  "network interface information -"
+                                  " List entry: %s",
+                                  count,
+                                  p);
+                    SAFE_FREE(x);
+                    return -1;
+                }
+
+                result &= rv;
+                args++;
+                break;
+#endif
 
             case MATCH_UNKNOWN:
             default:
