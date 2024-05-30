@@ -223,7 +223,7 @@ ssh_gssapi_handle_userauth(ssh_session session, const char *user,
 
     maj_stat = gss_indicate_mechs(&min_stat, &supported);
     if (maj_stat != GSS_S_COMPLETE) {
-        SSH_LOG(SSH_LOG_DEBUG, "indicate mecks %d, %d", maj_stat, min_stat);
+        SSH_LOG(SSH_LOG_DEBUG, "indicate mechs %d, %d", maj_stat, min_stat);
         ssh_gssapi_log_error(SSH_LOG_DEBUG,
                              "indicate mechs",
                              maj_stat,
