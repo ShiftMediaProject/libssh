@@ -589,7 +589,7 @@ int ssh_options_set_algo(ssh_session session,
  *
  *              - SSH_OPTIONS_CONTROL_MASTER
  *                Set the option to enable the sharing of multiple sessions over a
- *                single network connection using connection multiplexing.
+ *                single network connection using connection multiplexing (int).
  *
  *                The possible options are among the following:
  *                 - SSH_CONTROL_MASTER_AUTO: enable connection sharing if possible
