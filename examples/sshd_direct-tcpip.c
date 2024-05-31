@@ -526,7 +526,7 @@ message_callback(UNUSED_PARAM(ssh_session session),
                 }
 
                 pFd = malloc(sizeof *pFd);
-                cb_chan = malloc(sizeof *cb_chan);
+                cb_chan = calloc(1, sizeof *cb_chan);
                 event_fd_data = malloc(sizeof *event_fd_data);
                 if (pFd == NULL || cb_chan == NULL || event_fd_data == NULL) {
                     SAFE_FREE(pFd);
