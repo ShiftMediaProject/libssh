@@ -135,8 +135,13 @@ int benchmarks_raw_up (ssh_session session, struct argument_s *args,
   snprintf(cmd,sizeof(cmd),"%s /tmp/eater.py", PYTHON_PATH);
   if(ssh_channel_request_exec(channel,cmd)==SSH_ERROR)
     goto error;
-  if((err=ssh_channel_read(channel,buffer,sizeof(buffer)-1,0))==SSH_ERROR)
-    goto error;
+  err = ssh_channel_read(channel, buffer, sizeof(buffer) - 1, 0);
+  if (err == SSH_ERROR)
+      goto error;
+  if (err == SSH_AGAIN) {
+      fprintf(stderr, "ssh_channel_read timeout");
+      goto error;
+  }
   buffer[err]=0;
   if(!strstr(buffer,"go")){
     fprintf(stderr,"parse error : %s\n",buffer);
@@ -160,9 +165,13 @@ int benchmarks_raw_up (ssh_session session, struct argument_s *args,
 
   if(args->verbose>0)
     fprintf(stdout,"Finished upload, now waiting the ack\n");
-
-  if((err=ssh_channel_read(channel,buffer,5,0))==SSH_ERROR)
+  err = ssh_channel_read(channel, buffer, 5, 0);
+  if (err == SSH_ERROR)
       goto error;
+  if (err == SSH_AGAIN) {
+      fprintf(stderr, "ssh_channel_read timeout");
+      goto error;
+  }
   buffer[err]=0;
   if(!strstr(buffer,"done")){
     fprintf(stderr,"parse error : %s\n",buffer);
@@ -272,8 +281,12 @@ int benchmarks_raw_down (ssh_session session, struct argument_s *args,
     if(toread > args->chunksize)
       toread = args->chunksize;
     r=ssh_channel_read(channel,buffer,toread,0);
-    if(r == SSH_ERROR)
-      goto error;
+    if (r == SSH_ERROR)
+        goto error;
+    if (r == SSH_AGAIN) {
+        fprintf(stderr, "ssh_channel_read timeout");
+        goto error;
+    }
     total += r;
   }
 

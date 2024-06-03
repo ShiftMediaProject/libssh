@@ -7,31 +7,35 @@
 
 #include "config.h"
 
-#include "torture.h"
 #include "sftp.c"
+#include "torture.h"
 
-#include <libssh/socket.h>
-#include <sys/types.h>
-#include <pwd.h>
 #include <errno.h>
+#include <libssh/socket.h>
+#include <pwd.h>
+#include <sys/types.h>
 
-static int sshd_setup(void **state)
+static int
+sshd_setup(void **state)
 {
     torture_setup_sshd_server(state, false);
 
     return 0;
 }
 
-static int sshd_teardown(void **state) {
+static int
+sshd_teardown(void **state)
+{
     torture_teardown_sshd_server(state);
 
     return 0;
 }
 
-static int session_setup(void **state)
+static int
+session_setup(void **state)
 {
     struct torture_state *s = *state;
-    struct passwd *pwd;
+    struct passwd *pwd = NULL;
     int rc;
 
     pwd = getpwnam("bob");
@@ -53,7 +57,8 @@ static int session_setup(void **state)
     return 0;
 }
 
-static int session_teardown(void **state)
+static int
+session_teardown(void **state)
 {
     struct torture_state *s = *state;
 
@@ -65,31 +70,42 @@ static int session_teardown(void **state)
     return 0;
 }
 
-static void torture_sftp_packet_read(void **state) {
+static void
+torture_sftp_packet_read(void **state)
+{
     struct torture_state *s = *state;
     struct torture_sftp *t = s->ssh.tsftp;
+    sftp_packet packet = NULL;
 
     int fds[2];
     int rc;
 
-    // creating blocking fd is the default pipe behaviour
+    /* creating blocking fd is the default pipe behaviour */
     rc = pipe(fds);
-    assert_true(rc == 0);
+    assert_return_code(rc, errno);
 
+    t->ssh->opts.timeout = 1;
     ssh_socket_set_fd(t->ssh->socket, fds[0]);
 
-    rc = sftp_packet_read(t->sftp);
-    assert_true(rc == SSH_AGAIN);
+    /*
+     * Making sure that the sftp_packet_read function times out and returns
+     * NULL.
+     */
+    packet = sftp_packet_read(t->sftp);
+    assert_null(packet);
 
     close(fds[0]);
     close(fds[1]);
 }
 
-int torture_run_tests(void) {
+int
+torture_run_tests(void)
+{
     int rc;
     struct CMUnitTest tests[] = {
-      cmocka_unit_test_setup_teardown(torture_sftp_packet_read, session_setup,
-                                      session_teardown),
+        cmocka_unit_test_setup_teardown(torture_sftp_packet_read,
+                                        session_setup,
+                                        session_teardown),
     };
 
     ssh_init();

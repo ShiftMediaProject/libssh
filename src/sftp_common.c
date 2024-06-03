@@ -87,6 +87,12 @@ sftp_packet sftp_packet_read(sftp_session sftp)
                               "Received EOF while reading sftp packet size");
                 sftp_set_error(sftp, SSH_FX_EOF);
                 goto error;
+            } else {
+                ssh_set_error(sftp->session,
+                              SSH_FATAL,
+                              "Timeout while reading sftp packet size");
+                sftp_set_error(sftp, SSH_FX_FAILURE);
+                goto error;
             }
         } else {
             nread += s;
@@ -111,6 +117,12 @@ sftp_packet sftp_packet_read(sftp_session sftp)
                               SSH_FATAL,
                               "Received EOF while reading sftp packet type");
                 sftp_set_error(sftp, SSH_FX_EOF);
+                goto error;
+            } else {
+                ssh_set_error(sftp->session,
+                              SSH_FATAL,
+                              "Timeout while reading sftp packet type");
+                sftp_set_error(sftp, SSH_FX_FAILURE);
                 goto error;
             }
         }
@@ -146,6 +158,12 @@ sftp_packet sftp_packet_read(sftp_session sftp)
                               SSH_REQUEST_DENIED,
                               "Received EOF while reading sftp packet");
                 sftp_set_error(sftp, SSH_FX_EOF);
+                goto error;
+            } else {
+                ssh_set_error(sftp->session,
+                              SSH_FATAL,
+                              "Timeout while reading sftp packet");
+                sftp_set_error(sftp, SSH_FX_FAILURE);
                 goto error;
             }
         }
@@ -697,7 +715,8 @@ static void request_queue_free(sftp_request_queue queue)
     SAFE_FREE(queue);
 }
 
-static int sftp_enqueue(sftp_session sftp, sftp_message msg) 
+static int
+sftp_enqueue(sftp_session sftp, sftp_message msg)
 {
     sftp_request_queue queue = NULL;
     sftp_request_queue ptr;
