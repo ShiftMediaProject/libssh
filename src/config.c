@@ -41,6 +41,7 @@
 # include <sys/wait.h>
 # include <ifaddrs.h>
 # include <net/if.h>
+# include <netinet/in.h>
 #endif
 
 #include "libssh/config_parser.h"

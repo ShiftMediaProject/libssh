@@ -103,20 +103,22 @@ subnet_mask_to_prefix_length_4(struct in_addr subnet_mask)
 static int
 subnet_mask_to_prefix_length_6(struct in6_addr subnet_mask)
 {
-    uint32_t *mask = NULL, chunk;
-    int i, prefix_length = 0;
+    uint8_t *mask = NULL, chunk;
+    int i, j, prefix_length = 0;
 
-    mask = (uint32_t *)&subnet_mask.s6_addr[0];
+    mask = subnet_mask.s6_addr;
 
-    /* Count the number of consecutive 1 bits in each 32-bit chunk */
-    for (i = 0; i < 4; i++) {
-        chunk = ntohl(mask[i]);
+    /* Count the number of consecutive 1 bits in each byte chunk */
+    for (i = 0; i < 16; i++) {
+        chunk = mask[i];
         while (chunk) {
-            if (chunk & 0x80000000) {
-                prefix_length++;
-                chunk <<= 1;
-            } else {
-                break;
+            for (j = 0; j < 8; j++) {
+                if (chunk & 0x80) {
+                    prefix_length++;
+                    chunk <<= 1;
+                } else {
+                    break;
+                }
             }
         }
     }
@@ -244,9 +246,9 @@ get_network_id(char *net_id_4, char *net_id_6)
             }
 
             /* Calculate the network ID */
-            for (i = 0; i < 4; i++) {
-                network_id_6.s6_addr32[i] =
-                    addr6.s6_addr32[i] & subnet_mask_6.s6_addr32[i];
+            for (i = 0; i < 16; i++) {
+                network_id_6.s6_addr[i] =
+                    addr6.s6_addr[i] & subnet_mask_6.s6_addr[i];
             }
 
             /* Convert network ID to string and compute prefix length */

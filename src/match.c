@@ -40,6 +40,11 @@
 #include <ctype.h>
 #include <stdbool.h>
 #include <sys/types.h>
+#ifndef _WIN32
+#include <arpa/inet.h>
+#include <netinet/in.h>
+#include <sys/socket.h>
+#endif
 
 #include "libssh/priv.h"
 
@@ -219,29 +224,28 @@ cidr_match_6(struct in6_addr *host_addr,
              struct in6_addr *net_addr,
              unsigned int bits)
 {
-    const uint32_t *a = host_addr->s6_addr32;
-    const uint32_t *b = net_addr->s6_addr32;
+    const uint8_t *a = host_addr->s6_addr;
+    const uint8_t *b = net_addr->s6_addr;
 
-    unsigned int qwords_whole, bits_left;
+    unsigned int byte_whole, bits_left;
 
-    /* The number of complete 32-bit words covered by the prefix */
-    qwords_whole = bits / 32;
+    /* The number of a complete byte covered by the prefix */
+    byte_whole = bits / 8;
 
     /*
-     * The number of bits remaining in the incomplete (last) 32-bit word
+     * The number of bits remaining in the incomplete (last) byte
      * covered by the prefix
      */
-    bits_left = bits % 32;
+    bits_left = bits % 8;
 
-    if (qwords_whole) {
-        if (memcmp(a, b, qwords_whole * 4) != 0) {
+    if (byte_whole) {
+        if (memcmp(a, b, byte_whole) != 0) {
             return 0;
         }
     }
 
     if (bits_left) {
-        if ((a[qwords_whole] ^ b[qwords_whole]) &
-            htonl((0xFFFFFFFFu << (32 - bits_left)) & 0xFFFFFFFFu)) {
+        if ((a[byte_whole] ^ b[byte_whole]) & (0xFFu << (8 - bits_left))) {
             return 0;
         }
     }
