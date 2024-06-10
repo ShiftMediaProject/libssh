@@ -248,8 +248,6 @@ struct ssh_session_struct {
         char *wanted_methods[SSH_KEX_METHODS];
         char *pubkey_accepted_types;
         char *ProxyCommand;
-        char *custombanner;
-        char *moduli_file;
         char *agent_socket;
         unsigned long timeout; /* seconds */
         unsigned long timeout_usec;
@@ -272,6 +270,13 @@ struct ssh_session_struct {
         int control_master;
         char *control_path;
     } opts;
+
+    /* server options */
+    struct {
+        char *custombanner;
+        char *moduli_file;
+    } server_opts;
+
     /* counters */
     ssh_counter socket_counter;
     ssh_counter raw_counter;

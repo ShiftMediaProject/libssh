@@ -643,7 +643,7 @@ static SSH_PACKET_CALLBACK(ssh_packet_server_dhgex_request)
             pn = pmin;
         }
     }
-    rc = ssh_retrieve_dhgroup(session->opts.moduli_file,
+    rc = ssh_retrieve_dhgroup(session->server_opts.moduli_file,
                               pmin,
                               pn,
                               pmax,

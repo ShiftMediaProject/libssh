@@ -185,13 +185,13 @@ int ssh_send_banner(ssh_session session, int server)
     int rc = SSH_ERROR;
 
     if (server == 1) {
-        if (session->opts.custombanner == NULL){
+        if (session->server_opts.custombanner == NULL) {
             session->serverbanner = strdup(banner);
             if (session->serverbanner == NULL) {
                 goto end;
             }
         } else {
-            len = strlen(session->opts.custombanner);
+            len = strlen(session->server_opts.custombanner);
             session->serverbanner = malloc(len + 8 + 1);
             if(session->serverbanner == NULL) {
                 goto end;
@@ -199,7 +199,7 @@ int ssh_send_banner(ssh_session session, int server)
             snprintf(session->serverbanner,
                      len + 8 + 1,
                      "SSH-2.0-%s",
-                     session->opts.custombanner);
+                     session->server_opts.custombanner);
         }
 
         snprintf(buffer,

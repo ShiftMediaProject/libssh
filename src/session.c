@@ -339,8 +339,6 @@ void ssh_free(ssh_session session)
 
   SAFE_FREE(session->opts.agent_socket);
   SAFE_FREE(session->opts.bindaddr);
-  SAFE_FREE(session->opts.custombanner);
-  SAFE_FREE(session->opts.moduli_file);
   SAFE_FREE(session->opts.username);
   SAFE_FREE(session->opts.host);
   SAFE_FREE(session->opts.sshdir);
@@ -357,6 +355,9 @@ void ssh_free(ssh_session session)
           SAFE_FREE(session->opts.wanted_methods[i]);
       }
   }
+
+  SAFE_FREE(session->server_opts.custombanner);
+  SAFE_FREE(session->server_opts.moduli_file);
 
   _ssh_remove_legacy_log_cb();
 

@@ -480,16 +480,16 @@ int ssh_bind_accept_fd(ssh_bind sshbind, ssh_session session, socket_t fd)
     session->common.log_verbosity = sshbind->common.log_verbosity;
 
     if (sshbind->banner != NULL) {
-        session->opts.custombanner = strdup(sshbind->banner);
-        if (session->opts.custombanner == NULL) {
+        session->server_opts.custombanner = strdup(sshbind->banner);
+        if (session->server_opts.custombanner == NULL) {
             ssh_set_error_oom(sshbind);
             return SSH_ERROR;
         }
     }
 
     if (sshbind->moduli_file != NULL) {
-        session->opts.moduli_file = strdup(sshbind->moduli_file);
-        if (session->opts.moduli_file == NULL) {
+        session->server_opts.moduli_file = strdup(sshbind->moduli_file);
+        if (session->server_opts.moduli_file == NULL) {
             ssh_set_error_oom(sshbind);
             return SSH_ERROR;
         }
