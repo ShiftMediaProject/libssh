@@ -583,10 +583,7 @@ void torture_setup_socket_dir(void **state)
     assert_non_null(s->socket_dir);
 
 #ifdef WITH_GSSAPI
-    snprintf(gss_dir,
-             sizeof(gss_dir),
-             "%s/gss",
-             s->socket_dir);
+    snprintf(gss_dir, sizeof(gss_dir), "%s/gss", s->socket_dir);
     rc = mkdir(gss_dir, 0755);
     assert_return_code(rc, errno);
     s->gss_dir = strdup(gss_dir);
@@ -945,17 +942,21 @@ int torture_wait_for_daemon(unsigned int seconds)
 void
 torture_set_kdc_env_str(const char *gss_dir, char *env, size_t size)
 {
-    snprintf(env,
-             size,
-             "KRB5CCNAME=%s/cc "
-             "KRB5_CONFIG=%s/k/krb5.conf "
-             "KRB5_KDC_PROFILE=%s/k "
-             "KRB5_KTNAME=%s/d/ssh.keytab "
-             "KRB5RCACHETYPE=none ",
-             gss_dir,
-             gss_dir,
-             gss_dir,
-             gss_dir);
+    int rc;
+    rc = snprintf(env,
+                  size,
+                  "KRB5CCNAME=%s/cc "
+                  "KRB5_CONFIG=%s/k/krb5.conf "
+                  "KRB5_KDC_PROFILE=%s/k "
+                  "KRB5_KTNAME=%s/d/ssh.keytab "
+                  "KRB5RCACHETYPE=none ",
+                  gss_dir,
+                  gss_dir,
+                  gss_dir,
+                  gss_dir);
+    if (rc < 0 || rc >= (int)size) {
+        fail_msg("snprintf failed");
+    }
 }
 
 void
@@ -965,21 +966,21 @@ torture_set_env_from_str(const char *env)
 
     vars = ssh_tokenize(env, ' ');
     if (vars == NULL) {
-        fail_msg("bad environment string");
+        fail_msg("failed to tokenize environment string");
     }
 
     for (int i = 0; vars->tokens[i]; i++) {
         var = ssh_tokenize(vars->tokens[i], '=');
         if (var == NULL) {
             ssh_tokens_free(vars);
-            fail_msg("bad environment string");
+            fail_msg("invalid environment string format");
         }
         if (var->tokens[0] != NULL && var->tokens[1] != NULL) {
             setenv(var->tokens[0], var->tokens[1], 1);
         } else {
             ssh_tokens_free(var);
             ssh_tokens_free(vars);
-            fail_msg("bad environment string");
+            fail_msg("invalid environment string format");
         }
         ssh_tokens_free(var);
     }
@@ -1031,14 +1032,14 @@ void torture_setup_libssh_server(void **state, const char *server_path)
     if (s->srv_additional_config != NULL) {
         printed = snprintf(extra_options, sizeof(extra_options), " %s ",
                            s->srv_additional_config);
-        if (printed < 0) {
+        if (printed < 0 || printed >= (ssize_t)sizeof(extra_options)) {
             fail_msg("Failed to print additional config!");
             /* Unreachable */
             __builtin_unreachable();
         }
     } else {
         printed = snprintf(extra_options, sizeof(extra_options), " ");
-        if (printed < 0) {
+        if (printed < 0 || printed >= (ssize_t)sizeof(extra_options)) {
             fail_msg("Failed to print empty additional config!");
             /* Unreachable */
             __builtin_unreachable();
@@ -1068,7 +1069,7 @@ void torture_setup_libssh_server(void **state, const char *server_path)
                        ld_preload,
                        force_fips,
                        kdc_env);
-    if (printed < 0) {
+    if (printed < 0 || printed >= (ssize_t)sizeof(env)) {
         fail_msg("Failed to print env!");
         /* Unreachable */
         __builtin_unreachable();
@@ -1090,7 +1091,7 @@ void torture_setup_libssh_server(void **state, const char *server_path)
                        s->srv_config,
                        s->log_file ? " -l " : "", s->log_file ? s->log_file : "",
                        extra_options, TORTURE_SSH_SERVER);
-    if (printed < 0) {
+    if (printed < 0 || printed >= (ssize_t)sizeof(start_cmd)) {
         fail_msg("Failed to print start command!");
         /* Unreachable */
         __builtin_unreachable();
@@ -1154,14 +1155,17 @@ static int torture_start_sshd_server(void **state)
     setenv("NSS_WRAPPER_HOSTNAME", "server.libssh.site", 1);
     torture_set_kdc_env_str(s->gss_dir, kdc_env, sizeof(kdc_env));
 #endif
-    snprintf(sshd_start_cmd,
-             sizeof(sshd_start_cmd),
-             "%s " SSHD_EXECUTABLE
-             " -r -f %s -E %s/sshd/daemon.log 2> %s/sshd/cwrap.log",
-             kdc_env,
-             s->srv_config,
-             s->socket_dir,
-             s->socket_dir);
+    rc = snprintf(sshd_start_cmd,
+                  sizeof(sshd_start_cmd),
+                  "%s " SSHD_EXECUTABLE
+                  " -r -f %s -E %s/sshd/daemon.log 2> %s/sshd/cwrap.log",
+                  kdc_env,
+                  s->srv_config,
+                  s->socket_dir,
+                  s->socket_dir);
+    if (rc < 0 || rc >= (int)sizeof(sshd_start_cmd)) {
+        fail_msg("snprintf failed");
+    }
 
     rc = system(sshd_start_cmd);
     assert_return_code(rc, errno);
@@ -1214,7 +1218,10 @@ torture_setup_kdc_server(void **state,
 
     /* Remove the previous files and folders, but keep the same directory
      * because we pass only one temporary directory to the server */
-    snprintf(command, sizeof(command), "rm -rf %s/*", s->gss_dir);
+    rc = snprintf(command, sizeof(command), "rm -rf %s/*", s->gss_dir);
+    if (rc < 0 || rc >= (int)sizeof(command)) {
+        fail_msg("snprintf failed");
+    }
     rc = system(command);
     assert_return_code(rc, errno);
 
@@ -1230,11 +1237,14 @@ torture_setup_kdc_server(void **state,
     torture_write_file(kadmin_file, kadmin_script);
     torture_write_file(kinit_file, kinit_script);
 
-    snprintf(command,
-             sizeof(command),
-             "%s/tests/gss/kdcsetup.sh %s",
-             BINARYDIR,
-             s->socket_dir);
+    rc = snprintf(command,
+                  sizeof(command),
+                  "%s/tests/gss/kdcsetup.sh %s",
+                  BINARYDIR,
+                  s->socket_dir);
+    if (rc < 0 || rc >= (int)sizeof(command)) {
+        fail_msg("snprintf failed");
+    }
     rc = system(command);
     assert_return_code(rc, errno);
     assert_int_equal(rc, 0);
@@ -1257,10 +1267,13 @@ torture_teardown_kdc_server(void **state)
 {
     struct torture_state *s = *state;
     int rc;
-    char temp[1024] = {0};
+    char pid_path[1024] = {0};
 
-    snprintf(temp, sizeof(temp), "%s/pid", s->gss_dir);
-    rc = torture_terminate_process(temp);
+    rc = snprintf(pid_path, sizeof(pid_path), "%s/pid", s->gss_dir);
+    if (rc < 0 || rc >= (int)sizeof(pid_path)) {
+        fail_msg("snprintf failed");
+    }
+    rc = torture_terminate_process(pid_path);
     assert_return_code(rc, errno);
 }
 

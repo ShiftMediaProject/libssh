@@ -283,6 +283,7 @@ typedef ssh_channel (*ssh_channel_open_request_session_callback) (ssh_session se
 
 /*
  * @brief handle the beginning of a GSSAPI authentication, server side.
+ *        Callback should select the oid and also acquire the server credential.
  * @param session current session handler
  * @param user the username of the client
  * @param n_oid number of available oids
@@ -365,6 +366,7 @@ struct ssh_server_callbacks_struct {
    */
   ssh_channel_open_request_session_callback channel_open_request_session_function;
   /** This function will be called when a new gssapi authentication is attempted.
+   * This should select the oid and acquire credential for the server.
    */
   ssh_gssapi_select_oid_callback gssapi_select_oid_function;
   /** This function will be called when a gssapi token comes in.

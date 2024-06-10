@@ -6,6 +6,7 @@
 #include <pwd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <gssapi/gssapi.h>
 
 #include "libssh/libssh.h"
 #include "torture.h"
@@ -145,13 +146,33 @@ setup_config(void **state)
 }
 
 static int
-setup_default_server(void **state)
+auth_gssapi_mic(ssh_session session,
+                UNUSED_PARAM(const char *user),
+                UNUSED_PARAM(const char *principal),
+                void *userdata)
+{
+    OM_uint32 min_stat;
+    ssh_gssapi_creds creds = ssh_gssapi_get_creds(session);
+    assert_non_null(creds);
+
+    gss_release_cred(&min_stat, creds);
+
+    return SSH_AUTH_SUCCESS;
+}
+
+static int
+setup_callback_server(void **state)
 {
     struct torture_state *s = NULL;
     struct server_state_st *ss = NULL;
     struct test_server_st *tss = NULL;
     char pid_str[1024];
     pid_t pid;
+    struct session_data_st sdata = {.channel = NULL,
+                                    .auth_attempts = 0,
+                                    .authenticated = 0,
+                                    .username = SSHD_DEFAULT_USER,
+                                    .password = SSHD_DEFAULT_PASSWORD};
     int rc;
 
     setup_config(state);
@@ -159,6 +180,10 @@ setup_default_server(void **state)
     tss = *state;
     ss = tss->ss;
     s = tss->state;
+
+    ss->server_cb = get_default_server_cb();
+    ss->server_cb->auth_gssapi_mic_function = auth_gssapi_mic;
+    ss->server_cb->userdata = &sdata;
 
     /* Start the server using the default values */
     pid = fork_run_server(ss, free_test_server_state, &tss);
@@ -201,6 +226,7 @@ teardown_default_server(void **state)
     /* This function can be reused */
     torture_teardown_sshd_server((void **)&s);
 
+    SAFE_FREE(tss->ss->server_cb);
     free_server_state(tss->ss);
     SAFE_FREE(tss->ss);
     SAFE_FREE(tss);
@@ -212,7 +238,7 @@ static int
 session_setup(void **state)
 {
     struct test_server_st *tss = *state;
-    struct torture_state *s;
+    struct torture_state *s = NULL;
     int verbosity = torture_libssh_verbosity();
     char *cwd = NULL;
     bool b = false;
@@ -253,7 +279,7 @@ static int
 session_teardown(void **state)
 {
     struct test_server_st *tss = *state;
-    struct torture_state *s;
+    struct torture_state *s = NULL;
     int rc = 0;
 
     assert_non_null(tss);
@@ -273,12 +299,16 @@ session_teardown(void **state)
 }
 
 static void
-torture_gssapi_server_auth_no_client_cred(void **state)
+torture_gssapi_server_delegate_creds(void **state)
 {
     struct test_server_st *tss = *state;
-    struct torture_state *s;
+    struct torture_state *s = NULL;
     ssh_session session;
     int rc;
+    OM_uint32 maj_stat, min_stat;
+    gss_cred_id_t client_creds = GSS_C_NO_CREDENTIAL;
+    gss_OID_set no_mechs = GSS_C_NO_OID_SET;
+    int t = 1;
 
     assert_non_null(tss);
 
@@ -288,111 +318,11 @@ torture_gssapi_server_auth_no_client_cred(void **state)
     session = s->ssh.session;
     assert_non_null(session);
 
-    rc = ssh_connect(session);
-    assert_int_equal(rc, SSH_OK);
-
-    /* No client credential */
-    torture_setup_kdc_server(
-        (void**)&s,
-        "kadmin.local addprinc -randkey host/server.libssh.site \n"
-        "kadmin.local ktadd -k $(dirname $0)/d/ssh.keytab host/server.libssh.site \n"
-        "kadmin.local addprinc -pw bar alice \n"
-        "kadmin.local list_principals",
-
-        /* No TGT */
-        "");
-    rc = ssh_userauth_gssapi(session);
-    assert_int_equal(rc, SSH_AUTH_DENIED);
-    torture_teardown_kdc_server((void **)&s);
-}
-
-static void
-torture_gssapi_server_auth_invalid_host(void **state)
-{
-    struct test_server_st *tss = *state;
-    struct torture_state *s;
-    ssh_session session;
-    int rc;
-
-    assert_non_null(tss);
-
-    s = tss->state;
-    assert_non_null(s);
-
-    session = s->ssh.session;
-    assert_non_null(session);
-
-    rc = ssh_connect(session);
-    assert_int_equal(rc, SSH_OK);
-
-    /* Invalid host principal */
-    torture_setup_kdc_server(
-        (void **)&s,
-        "kadmin.local addprinc -randkey host/invalid.libssh.site \n"
-        "kadmin.local ktadd -k $(dirname $0)/d/ssh.keytab host/invalid.libssh.site \n"
-        "kadmin.local addprinc -pw bar alice \n"
-        "kadmin.local list_principals",
-
-        "echo bar | kinit alice");
-    rc = ssh_userauth_gssapi(session);
-    assert_int_equal(rc, SSH_AUTH_ERROR);
-    torture_teardown_kdc_server((void **)&s);
-}
-
-static void
-torture_gssapi_server_auth(void **state)
-{
-    struct test_server_st *tss = *state;
-    struct torture_state *s;
-    ssh_session session;
-    int rc;
-
-    assert_non_null(tss);
-
-    s = tss->state;
-    assert_non_null(s);
-
-    session = s->ssh.session;
-    assert_non_null(session);
-
-    rc = ssh_connect(session);
-    assert_int_equal(rc, SSH_OK);
-
-    /* Valid */
-    torture_setup_kdc_server(
-        (void **)&s,
-        "kadmin.local addprinc -randkey host/server.libssh.site\n"
-        "kadmin.local ktadd -k $(dirname $0)/d/ssh.keytab host/server.libssh.site\n"
-        "kadmin.local addprinc -pw bar alice\n"
-        "kadmin.local list_principals",
-
-        "echo bar | kinit alice");
-
-    rc = ssh_userauth_gssapi(session);
-    assert_int_equal(rc, SSH_OK);
-    torture_teardown_kdc_server((void **)&s);
-}
-
-static void
-torture_gssapi_auth_server_identity(void **state)
-{
-    struct test_server_st *tss = *state;
-    struct torture_state *s;
-    ssh_session session;
-    int rc;
-
-    assert_non_null(tss);
-
-    s = tss->state;
-    assert_non_null(s);
-
-    session = s->ssh.session;
-    assert_non_null(session);
+    ssh_options_set(session, SSH_OPTIONS_GSSAPI_DELEGATE_CREDENTIALS, &t);
 
     rc = ssh_connect(session);
     assert_ssh_return_code(session, rc);
 
-    /* Invalid server identity option */
     torture_setup_kdc_server(
         (void **)&s,
         "kadmin.local addprinc -randkey host/server.libssh.site \n"
@@ -401,27 +331,25 @@ torture_gssapi_auth_server_identity(void **state)
         "kadmin.local list_principals",
 
         "echo bar | kinit alice");
-    ssh_options_set(session,
-                    SSH_OPTIONS_GSSAPI_SERVER_IDENTITY,
-                    "invalid.libssh.site");
-    rc = ssh_userauth_gssapi(session);
-    assert_int_equal(rc, SSH_AUTH_ERROR);
-    torture_teardown_kdc_server((void **)&s);
 
-    /* Valid server identity option*/
-    torture_setup_kdc_server(
-        (void **)&s,
-        "kadmin.local addprinc -randkey host/server.libssh.site \n"
-        "kadmin.local ktadd -k $(dirname $0)/d/ssh.keytab host/server.libssh.site \n"
-        "kadmin.local addprinc -pw bar alice \n"
-        "kadmin.local list_principals",
+    maj_stat = gss_acquire_cred(&min_stat,
+                                GSS_C_NO_NAME,
+                                GSS_C_INDEFINITE,
+                                GSS_C_NO_OID_SET,
+                                GSS_C_INITIATE,
+                                &client_creds,
+                                &no_mechs,
+                                NULL);
+    assert_int_equal(GSS_ERROR(maj_stat), 0);
 
-        "echo bar | kinit alice");
-    ssh_options_set(session,
-                    SSH_OPTIONS_GSSAPI_SERVER_IDENTITY,
-                    "server.libssh.site");
+    ssh_gssapi_set_creds(session, client_creds);
+
     rc = ssh_userauth_gssapi(session);
     assert_int_equal(rc, SSH_AUTH_SUCCESS);
+
+    gss_release_cred(&min_stat, &client_creds);
+    gss_release_oid_set(&min_stat, &no_mechs);
+
     torture_teardown_kdc_server((void **)&s);
 }
 
@@ -430,24 +358,16 @@ torture_run_tests(void)
 {
     int rc;
     struct CMUnitTest tests[] = {
-        cmocka_unit_test_setup_teardown(torture_gssapi_server_auth_no_client_cred,
+        cmocka_unit_test_setup_teardown(torture_gssapi_server_delegate_creds,
                                         session_setup,
                                         session_teardown),
-        cmocka_unit_test_setup_teardown(torture_gssapi_server_auth_invalid_host,
-                                        session_setup,
-                                        session_teardown),
-        cmocka_unit_test_setup_teardown(torture_gssapi_auth_server_identity,
-                                        session_setup,
-                                        session_teardown),
-        cmocka_unit_test_setup_teardown(torture_gssapi_server_auth,
-                                        session_setup,
-                                        session_teardown),
+
     };
 
     ssh_init();
     torture_filter_tests(tests);
     rc = cmocka_run_group_tests(tests,
-                                setup_default_server,
+                                setup_callback_server,
                                 teardown_default_server);
     ssh_finalize();
 

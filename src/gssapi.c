@@ -194,6 +194,7 @@ ssh_gssapi_handle_userauth(ssh_session session, const char *user,
             return ssh_auth_reply_default(session, 0);
         }
     }
+    /* Default implementation for selecting oid and acquiring credential */
     gss_create_empty_oid_set(&min_stat, &both_supported);
 
     maj_stat = gss_indicate_mechs(&min_stat, &supported);
@@ -655,7 +656,7 @@ static int ssh_gssapi_match(ssh_session session, gss_OID_set *valid_oids)
                                     &session->gssapi->client.creds,
                                     &actual_mechs, NULL);
         if (GSS_ERROR(maj_stat)) {
-            ssh_gssapi_log_error(SSH_LOG_DEBUG,
+            ssh_gssapi_log_error(SSH_LOG_WARN,
                                  "acquiring credential",
                                  maj_stat,
                                  min_stat);

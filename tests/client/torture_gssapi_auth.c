@@ -177,7 +177,9 @@ torture_gssapi_auth_server_identity(void **state)
         "kadmin.local list_principals",
 
         "echo bar | kinit alice");
-    ssh_options_set(session, SSH_OPTIONS_GSSAPI_SERVER_IDENTITY, "invalid.libssh.site");
+    ssh_options_set(session,
+                    SSH_OPTIONS_GSSAPI_SERVER_IDENTITY,
+                    "invalid.libssh.site");
     rc = ssh_userauth_gssapi(session);
     assert_int_equal(rc, SSH_AUTH_ERROR);
     torture_teardown_kdc_server(state);
@@ -191,7 +193,9 @@ torture_gssapi_auth_server_identity(void **state)
         "kadmin.local list_principals",
 
         "echo bar | kinit alice");
-    ssh_options_set(session, SSH_OPTIONS_GSSAPI_SERVER_IDENTITY, "server.libssh.site");
+    ssh_options_set(session,
+                    SSH_OPTIONS_GSSAPI_SERVER_IDENTITY,
+                    "server.libssh.site");
     rc = ssh_userauth_gssapi(session);
     assert_int_equal(rc, SSH_AUTH_SUCCESS);
     torture_teardown_kdc_server(state);
@@ -242,7 +246,6 @@ torture_gssapi_auth_delegate_creds(void **state)
 
     torture_teardown_kdc_server(state);
 }
-
 
 int
 torture_run_tests(void)

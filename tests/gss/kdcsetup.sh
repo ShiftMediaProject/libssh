@@ -12,7 +12,7 @@ cat<<EOF > "$WORKDIR"/k/kdc.conf
         key_stash_file = $WORKDIR/stash
         kdc_listen = $(hostname -f)
         kdc_tcp_listen = $(hostname -f)
-        default_principal_flags = +preauth
+        default_principal_flags = +preauth,+forwardable
     }
 [logging]
    kdc = FILE:$WORKDIR/kdc.log
@@ -22,6 +22,7 @@ EOF
 cat<<EOF > "$WORKDIR"/k/krb5.conf
 [libdefaults]
         default_realm = LIBSSH.SITE
+        forwardable = true
 
 [realms]
         LIBSSH.SITE = {
