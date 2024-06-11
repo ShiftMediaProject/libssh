@@ -578,6 +578,21 @@ match_cidr_address_list(const char *address,
 }
 #endif
 
+/**
+ * @brief Tries to match an object against a comma separated group of objects
+ *
+ * The characters '*' and '?' are NOT considered wildcards and an object in the
+ * group preceded by a ! does NOT indicate negation. The characters '*', '?'
+ * and '!' are treated normally like other characters, only ',' (comma) is
+ * treated specially and is considered as a delimiter that separates objects in
+ * the group.
+ *
+ * @param[in] group     Group of objects (comma separated) to match against.
+ *
+ * @param[in] object    Object to match.
+ *
+ * @returns             1 if there is a match, 0 if there is no match at all.
+ */
 int match_group(const char *group, const char *object)
 {
     const char *a;
