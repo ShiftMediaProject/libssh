@@ -576,7 +576,7 @@ match_cidr_address_list(const char *address,
 
     return rc;
 }
-#endif
+#endif /* _WIN32 */
 
 /**
  * @brief Tries to match an object against a comma separated group of objects
