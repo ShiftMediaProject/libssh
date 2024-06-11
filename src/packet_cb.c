@@ -170,8 +170,8 @@ SSH_PACKET_CALLBACK(ssh_packet_newkeys)
 
         /* Check if signature from server matches user preferences */
         if (session->opts.wanted_methods[SSH_HOSTKEYS]) {
-            rc = ssh_match_group(session->opts.wanted_methods[SSH_HOSTKEYS],
-                                 sig->type_c);
+            rc = match_group(session->opts.wanted_methods[SSH_HOSTKEYS],
+                             sig->type_c);
             if (rc == 0) {
                 ssh_set_error(session,
                               SSH_FATAL,
@@ -277,10 +277,14 @@ SSH_PACKET_CALLBACK(ssh_packet_ext_info)
         if (cmp == 0) {
             /* TODO check for NULL bytes */
             SSH_LOG(SSH_LOG_PACKET, "Extension: %s=<%s>", name, value);
-            if (ssh_match_group(value, "rsa-sha2-512")) {
+
+            rc = match_group(value, "rsa-sha2-512");
+            if (rc == 1) {
                 session->extensions |= SSH_EXT_SIG_RSA_SHA512;
             }
-            if (ssh_match_group(value, "rsa-sha2-256")) {
+
+            rc = match_group(value, "rsa-sha2-256");
+            if (rc == 1) {
                 session->extensions |= SSH_EXT_SIG_RSA_SHA256;
             }
         } else {

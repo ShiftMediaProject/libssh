@@ -510,16 +510,16 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
      * flag and verify packet sequence numbers.
      */
     if (server_kex) {
-        ok = ssh_match_group(crypto->client_kex.methods[SSH_KEX],
-                             KEX_STRICT_CLIENT);
+        ok = match_group(crypto->client_kex.methods[SSH_KEX],
+                         KEX_STRICT_CLIENT);
         if (ok) {
             SSH_LOG(SSH_LOG_DEBUG, "Client supports strict kex, enabling.");
             session->flags |= SSH_SESSION_FLAG_KEX_STRICT;
         }
     } else {
         /* client kex */
-        ok = ssh_match_group(crypto->server_kex.methods[SSH_KEX],
-                             KEX_STRICT_SERVER);
+        ok = match_group(crypto->server_kex.methods[SSH_KEX],
+                         KEX_STRICT_SERVER);
         if (ok) {
             SSH_LOG(SSH_LOG_DEBUG, "Server supports strict kex, enabling.");
             session->flags |= SSH_SESSION_FLAG_KEX_STRICT;
@@ -531,8 +531,8 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
          * If client sent a ext-info-c message in the kex list, it supports
          * RFC 8308 extension negotiation.
          */
-        ok = ssh_match_group(crypto->client_kex.methods[SSH_KEX],
-                             KEX_EXTENSION_CLIENT);
+        ok = match_group(crypto->client_kex.methods[SSH_KEX],
+                         KEX_EXTENSION_CLIENT);
         if (ok) {
             const char *hostkeys = NULL, *wanted_hostkeys = NULL;
 
@@ -546,7 +546,7 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
              */
             hostkeys = crypto->client_kex.methods[SSH_HOSTKEYS];
             wanted_hostkeys = session->opts.wanted_methods[SSH_HOSTKEYS];
-            ok = ssh_match_group(hostkeys, "rsa-sha2-512");
+            ok = match_group(hostkeys, "rsa-sha2-512");
             if (ok) {
                 /* Check if rsa-sha2-512 is allowed by config */
                 if (wanted_hostkeys != NULL) {
@@ -558,7 +558,7 @@ SSH_PACKET_CALLBACK(ssh_packet_kexinit)
                     SAFE_FREE(is_allowed);
                 }
             }
-            ok = ssh_match_group(hostkeys, "rsa-sha2-256");
+            ok = match_group(hostkeys, "rsa-sha2-256");
             if (ok) {
                 /* Check if rsa-sha2-256 is allowed by config */
                 if (wanted_hostkeys != NULL) {

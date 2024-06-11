@@ -105,8 +105,6 @@ void ssh_timestamp_init(struct ssh_timestamp *ts);
 int ssh_timeout_elapsed(struct ssh_timestamp *ts, int timeout);
 int ssh_timeout_update(struct ssh_timestamp *ts, int timeout);
 
-int ssh_match_group(const char *group, const char *object);
-
 void uint64_inc(unsigned char *counter);
 
 void ssh_log_hexdump(const char *descr, const unsigned char *what, size_t len);

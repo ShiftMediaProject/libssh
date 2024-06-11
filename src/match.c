@@ -577,3 +577,28 @@ match_cidr_address_list(const char *address,
     return rc;
 }
 #endif
+
+int match_group(const char *group, const char *object)
+{
+    const char *a;
+    const char *z;
+
+    z = group;
+    do {
+        a = strchr(z, ',');
+        if (a == NULL) {
+            if (strcmp(z, object) == 0) {
+                return 1;
+            }
+            return 0;
+        } else {
+            if (strncmp(z, object, a - z) == 0) {
+                return 1;
+            }
+        }
+        z = a + 1;
+    } while (1);
+
+    /* not reached */
+    return 0;
+}

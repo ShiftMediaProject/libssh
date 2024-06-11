@@ -1571,32 +1571,6 @@ int ssh_timeout_update(struct ssh_timestamp *ts, int timeout)
   return ret >= 0 ? ret: 0;
 }
 
-
-int ssh_match_group(const char *group, const char *object)
-{
-    const char *a;
-    const char *z;
-
-    z = group;
-    do {
-        a = strchr(z, ',');
-        if (a == NULL) {
-            if (strcmp(z, object) == 0) {
-                return 1;
-            }
-            return 0;
-        } else {
-            if (strncmp(z, object, a - z) == 0) {
-                return 1;
-            }
-        }
-        z = a + 1;
-    } while(1);
-
-    /* not reached */
-    return 0;
-}
-
 #if !defined(HAVE_EXPLICIT_BZERO)
 void explicit_bzero(void *s, size_t n)
 {

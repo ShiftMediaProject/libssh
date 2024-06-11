@@ -933,9 +933,9 @@ SSH_PACKET_CALLBACK(ssh_packet_userauth_request){
         if (rc == SSH_OK) {
             /* Check if the signature from client matches server preferences */
             if (session->opts.pubkey_accepted_types) {
-                if (!ssh_match_group(session->opts.pubkey_accepted_types,
-                            sig->type_c))
-                {
+                cmp = match_group(session->opts.pubkey_accepted_types,
+                                  sig->type_c);
+                if (cmp != 1) {
                     ssh_set_error(session,
                             SSH_FATAL,
                             "Public key from client (%s) doesn't match server "

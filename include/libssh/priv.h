@@ -335,6 +335,7 @@ int match_cidr_address_list(const char *address,
                             const char *addrlist,
                             int sa_family);
 #endif
+int match_group(const char *group, const char *object);
 
 /* connector.c */
 int ssh_connector_set_event(ssh_connector connector, ssh_event event);

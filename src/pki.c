@@ -371,7 +371,7 @@ int ssh_key_algorithm_allowed(ssh_session session, const char *type)
     }
 
     SSH_LOG(SSH_LOG_DEBUG, "Checking %s with list <%s>", type, allowed_list);
-    return ssh_match_group(allowed_list, type);
+    return match_group(allowed_list, type);
 }
 
 bool ssh_key_size_allowed_rsa(int min_size, ssh_key key)
