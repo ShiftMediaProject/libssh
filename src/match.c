@@ -595,8 +595,12 @@ match_cidr_address_list(const char *address,
  */
 int match_group(const char *group, const char *object)
 {
-    const char *a;
-    const char *z;
+    const char *a = NULL;
+    const char *z = NULL;
+
+    if (group == NULL || object == NULL) {
+        return 0;
+    }
 
     z = group;
     do {
