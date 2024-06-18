@@ -33,7 +33,7 @@ The libssh library provides:
  - <strong>Thread-safe</strong>: Just don't share sessions
  - <strong>Non-blocking</strong>: it can be used both blocking and non-blocking
  - <strong>Your sockets</strong>: the app hands over the socket, or uses libssh sockets
- - <b>OpenSSL</b> or <b>gcrypt</b>: builds with either
+ - <b>OpenSSL</b>, <b>MBedTLS</b> or <b>gcrypt</b> (deprecated): builds with either
 
 @section main-additional-features Additional Features
 

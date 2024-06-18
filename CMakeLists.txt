@@ -48,6 +48,7 @@ endif (WITH_ZLIB)
 
 if (WITH_GCRYPT)
   find_package(GCrypt 1.5.0 REQUIRED)
+  message(WARNING "libgcrypt cryptographic backend is deprecated and will be removed in future releases.")
 elseif(WITH_MBEDTLS)
     find_package(MbedTLS REQUIRED)
 else()
