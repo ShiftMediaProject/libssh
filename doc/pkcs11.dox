@@ -21,6 +21,9 @@ To build and use libssh with PKCS #11 support:
 3. Install and configure engine_pkcs11 (https://github.com/OpenSC/libp11).
 4. Plug in a working smart card or configure softhsm (https://www.opendnssec.org/softhsm).
 
+@warning The support for Engines was deprecated in OpenSSL 3.0 so this approach
+is deprecated in libssh 0.11.x.
+
 # Pre-requisites (OpenSSL 3.0.8+)
 
 The OpenSSL 3.0 is deprecating usage of low-level engines in favor of high-level
