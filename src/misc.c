@@ -73,7 +73,7 @@
 #include "libssh/session.h"
 
 #ifdef HAVE_LIBGCRYPT
-#define GCRYPT_STRING "/gnutls"
+#define GCRYPT_STRING "/gcrypt"
 #else
 #define GCRYPT_STRING ""
 #endif
