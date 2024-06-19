@@ -1,7 +1,128 @@
 CHANGELOG
 =========
 
-version 0.10.0 (released 2022-07-xx)
+version 0.11.0 (released 2024-07-31)
+  * Deprecations and Removals:
+    * Dropped support for DSA
+    * Deprecated Blowfish cipher (will be removed in next release)
+    * Deprecated SSH_BIND_OPTIONS_{RSA,ECDSA}KEY in favor of generic HOSTKEY
+    * Removed the usage of deprecated OpenSSL APIs (Note: Minimum supported
+      OpenSSL version is 1.1.1)
+    * Disabled preauth compression (zlib) by default
+    * Support for pkcs#11 engines are deprecated, pkcs11-provider is used instead
+    * Deprecation of old async SFTP API
+    * libgcrypt cryptographic backend is deprecated
+    * Deprecation of knownhosts hashing
+  * SFTP Improvements:
+    * Added support for async SFTP IO
+    * Added support for sftp_limits() and applied capping to SFTP read/write
+      operations accordingly
+    * Added sftp_home_directory() API support for sftp extension "home-directory"
+    * Added sftp_lsetstat() API for lsetstat extensions
+    * Added sftp_expand_path() to canonicalize path using expand-path@openssh.com
+      extension
+    * Implemented stat and realpath in sftpserver
+    * Added sftp_readlink() API to support hardlink@openssh.com
+    * New extensible callback based SFTP server
+    * Introduced the posix-rename@openssh.com extension
+  * New functions and features:
+    * Added support for PKCS #11 provider for OpenSSL 3.0
+    * Added testing for GSSAPI Authentication
+    * Implemented proxy jump using libssh
+    * Recategorized loglevels to show fatal errors and alignment with OpenSSH
+      log levels
+    * Added ssh_channel_request_pty_size_modes() API to set terminal modes for
+      PTYs
+    * Added function to check username syntax
+    * Added support to check all keys in authorized_keys instead of one in
+      example server implementation
+    * Handled hostkey similar to OpenSSH
+    * Added ssh_session_socket_close() API in order to not close socket passed
+      through options on error conditions
+    * Added option SSH_BIND_OPTIONS_IMPORT_KEY_STR to read user-supplied key
+      string in ssh_bind_options_set()
+    * Improved log handling around ssh_set_callbacks
+    * Added ssh_set_error_invalid in ssh_options_set()
+    * Prevented signature blob to start with 1 bit in libgcrypt
+    * Added support to unbreak key comparison of Ed25519 keys imported from PEM
+      or OpenSSH container
+    * Added support to calculate missing CRT parameters when building RSA key
+    * Added ssh_pki_export_privkey_base64_format() and
+      ssh_pki_export_privkey_file_format() to support exporting keys in different
+      formats (PEM, OpenSSH)
+    * Added support to compare certificates and handle automatic certificate
+      authentication
+    * Added support to make compile-commands generation conditional
+    * Built fuzzers for normal testing
+    * Avoided passing other events to callbacks when called recursively
+    * Added control master and path options
+    * Refactored channel_rcv_data, check for errors and report more useful errors
+    * Added support to connect to other host addresses than just the first one
+    * Terminated the server properly when the MaxAuthTries is reached
+    * Added support for no-more-sessions@openssh.com request in both client and
+      server
+    * Added callback to support forwarded-tcpip requests
+    * Bumped minimal CMake version to 3.12
+    * Added support for MBedTLS 3.6.x
+    * Added support for +,-,^ modifiers in front of algorithm lists in options
+    * Added callbacks for channel open response, and channel request response
+    * Replaced chroot() from chroot_wrapper internal library with chroot()
+      from priv_wrapper package
+    * Added a placeholder for non-expanded identities
+    * Improved handling of channel transfer window sizes
+
+version 0.10.6 (released 2023-12-18)
+ * Fix CVE-2023-6004: Command injection using proxycommand
+ * Fix CVE-2023-48795: Potential downgrade attack using strict kex
+ * Fix CVE-2023-6918: Missing checks for return values of MD functions
+ * Fix ssh_send_issue_banner() for CMD(PowerShell)
+ * Avoid passing other events to callbacks when poll is called recursively (#202)
+ * Allow @ in usernames when parsing from URI composes
+
+version 0.10.5 (released 2023-05-04)
+ * Fix CVE-2023-1667: a NULL dereference during rekeying with algorithm guessing
+ * Fix CVE-2023-2283: a possible authorization bypass in
+   pki_verify_data_signature under low-memory conditions.
+ * Fix several memory leaks in GSSAPI handling code
+ * Escape braces in ProxyCommand created from ProxyJump options for zsh
+   compatibility.
+ * Fix pkg-config path relocation for MinGW
+ * Improve doxygen documentation
+ * Fix build with cygwin due to the glob support
+ * Do not enqueue outgoing packets after sending SSH2_MSG_NEWKEYS
+ * Add support for SSH_SUPPRESS_DEPRECATED
+ * Avoid functions declarations without prototype to build with clang 15
+ * Fix spelling issues
+ * Avoid expanding KnownHosts, ProxyCommands and IdentityFiles repetitively
+ * Add support sk-* keys through configuration
+ * Improve checking for Argp library
+ * Log information about received extensions
+ * Correctly handle rekey with delayed compression
+ * Move the EC keys handling to OpenSSL 3.0 API
+ * Record peer disconnect message
+ * Avoid deadlock when write buffering occurs and we call poll recursively to
+   flush the output buffer
+ * Disable preauthentication compression by default
+ * Add CentOS 8 Stream / OpenSSL 1.1.1 to CI
+ * Add accidentally removed default compile flags
+ * Solve incorrect parsing of ProxyCommand option
+
+version 0.10.4 (released 2022-09-07)
+  * Fixed issues with KDF on big endian
+
+version 0.10.3 (released 2022-09-05)
+  * Fixed possible infinite loop in known hosts checking
+
+version 0.10.2 (released 2022-09-02)
+  * Fixed tilde expansion when handling include directives
+  * Fixed building the shared torture library
+  * Made rekey test more robust (fixes running on i586 build systems e.g koji)
+
+version 0.10.1 (released 2022-08-30)
+  * Fixed proxycommand support
+  * Fixed musl libc support
+
+version 0.10.0 (released 2022-08-26)
   * Added support for OpenSSL 3.0
   * Added support for mbedTLS 3
   * Added support for Smart Cards  (through openssl pkcs11 engine)
