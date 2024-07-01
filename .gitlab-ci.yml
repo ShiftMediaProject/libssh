@@ -226,11 +226,7 @@ fedora/openssl_3.0.x/x86_64/minimal:
       -DWITH_GEX=OFF .. &&
       make -j$(nproc)
 
-# The PKCS#11 support is turned off as it brings dozens of memory issues from
-# engine_pkcs11 or openssl itself
-fedora/valgrind:
-  variables:
-    CMAKE_ADDITIONAL_OPTIONS: -DWITH_PKCS11_URI=OFF
+.valgrind:
   extends: .fedora
   stage: analysis
   script:
@@ -238,6 +234,24 @@ fedora/valgrind:
       make -j$(nproc) &&
       make test_memcheck
     - cat Testing/Temporary/MemoryChecker.*.log | wc -l | grep "^0$"
+
+# The PKCS#11 support is turned off as it brings dozens of memory issues from
+# engine_pkcs11 or openssl itself
+fedora/valgrind/openssl:
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: -DWITH_PKCS11_URI=OFF
+  extends: .valgrind
+
+fedora/valgrind/mbedtls:
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: -DWITH_MBEDTLS=ON
+  extends: .valgrind
+
+fedora/valgrind/libgcrypt:
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: -DWITH_GCRYPT=ON
+  extends: .valgrind
+  allow_failure: true
 
 # Address sanitizer doesn't mix well with LD_PRELOAD used in the testsuite
 # so, this is only enabled for unit tests right now.

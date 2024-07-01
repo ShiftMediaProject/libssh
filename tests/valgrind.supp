@@ -151,3 +151,49 @@
    fun:torture_run_tests
    fun:main
 }
+
+## libgcrypt
+{
+   Reachable allocations from libgcrypt
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:gcry_check_version
+   fun:ssh_crypto_init
+   fun:_ssh_init
+   fun:libssh_constructor
+   fun:call_init
+   fun:__libc_start_main@@GLIBC_2.34
+   fun:(below main)
+}
+{
+   randomize in libgcrypt keeps some memory around
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:_gcry_xmalloc
+   fun:_gcry_xcalloc
+   fun:initialize.lto_priv.0
+   fun:_gcry_rngcsprng_randomize
+   fun:ssh_get_random
+   ...
+}
+{
+   EC key operation allocs some reachable memory
+   Memcheck:Leak
+   match-leak-kinds: reachable
+   fun:malloc
+   ...
+   fun:_gcry_xmalloc
+   fun:_gcry_mpi_alloc
+   fun:_gcry_mpi_scan
+   fun:ec_p_init.lto_priv.0
+   ...
+   fun:_gcry_mpi_ec_internal_new
+   fun:ecc_sign.lto_priv.0
+   fun:_gcry_pk_sign
+   fun:gcry_pk_sign
+   ...
+}
