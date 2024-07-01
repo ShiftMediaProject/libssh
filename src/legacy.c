@@ -83,17 +83,21 @@ int ssh_userauth_pubkey(ssh_session session,
     key->type = privatekey->type;
     key->type_c = ssh_key_type_to_char(key->type);
     key->flags = SSH_KEY_FLAG_PRIVATE|SSH_KEY_FLAG_PUBLIC;
-#ifndef HAVE_LIBCRYPTO
-    key->rsa = privatekey->rsa_priv;
-#else
+#if defined(HAVE_LIBMBEDCRYPTO)
+    key->pk = privatekey->rsa_priv;
+#elif defined(HAVE_LIBCRYPTO)
     key->key = privatekey->key_priv;
+#else
+    key->rsa = privatekey->rsa_priv;
 #endif /* HAVE_LIBCRYPTO */
 
     rc = ssh_userauth_publickey(session, username, key);
-#ifndef HAVE_LIBCRYPTO
-    key->rsa = NULL;
-#else
+#if defined(HAVE_LIBMBEDCRYPTO)
+    key->pk = NULL;
+#elif defined(HAVE_LIBCRYPTO)
     key->key = NULL;
+#else
+    key->rsa = NULL;
 #endif /* HAVE_LIBCRYPTO */
     ssh_key_free(key);
 
@@ -386,17 +390,21 @@ ssh_public_key publickey_from_privatekey(ssh_private_key prv) {
     privkey->type = prv->type;
     privkey->type_c = ssh_key_type_to_char(privkey->type);
     privkey->flags = SSH_KEY_FLAG_PRIVATE | SSH_KEY_FLAG_PUBLIC;
-#ifndef HAVE_LIBCRYPTO
-    privkey->rsa = prv->rsa_priv;
-#else
+#if defined(HAVE_LIBMBEDCRYPTO)
+    privkey->pk = prv->rsa_priv;
+#elif defined(HAVE_LIBCRYPTO)
     privkey->key = prv->key_priv;
+#else
+    privkey->rsa = prv->rsa_priv;
 #endif /* HAVE_LIBCRYPTO */
 
     rc = ssh_pki_export_privkey_to_pubkey(privkey, &pubkey);
-#ifndef HAVE_LIBCRYPTO
-    privkey->rsa = NULL;
-#else
+#if defined(HAVE_LIBMBEDCRYPTO)
+    privkey->pk = NULL;
+#elif defined(HAVE_LIBCRYPTO)
     privkey->key = NULL;
+#else
+    privkey->rsa = NULL;
 #endif /* HAVE_LIBCRYPTO */
     ssh_key_free(privkey);
     if (rc < 0) {
@@ -443,14 +451,15 @@ ssh_private_key privatekey_from_file(ssh_session session,
     }
 
     privkey->type = key->type;
-#ifndef HAVE_LIBCRYPTO
-    privkey->rsa_priv = key->rsa;
-
-    key->rsa = NULL;
-#else
+#if defined(HAVE_LIBMBEDCRYPTO)
+    privkey->rsa_priv = key->pk;
+    key->pk = NULL;
+#elif defined(HAVE_LIBCRYPTO)
     privkey->key_priv = key->key;
-
     key->key = NULL;
+#else
+    privkey->rsa_priv = key->rsa;
+    key->rsa = NULL;
 #endif /* HAVE_LIBCRYPTO */
 
     ssh_key_free(key);
@@ -537,12 +546,15 @@ ssh_public_key publickey_from_string(ssh_session session, ssh_string pubkey_s) {
     pubkey->type = key->type;
     pubkey->type_c = key->type_c;
 
-#ifndef HAVE_LIBCRYPTO
-    pubkey->rsa_pub = key->rsa;
-    key->rsa = NULL;
-#else
+#if defined(HAVE_LIBMBEDCRYPTO)
+    pubkey->rsa_pub = key->pk;
+    key->pk = NULL;
+#elif defined(HAVE_LIBCRYPTO)
     pubkey->key_pub = key->key;
     key->key = NULL;
+#else
+    pubkey->rsa_pub = key->rsa;
+    key->rsa = NULL;
 #endif /* HAVE_LIBCRYPTO */
 
     ssh_key_free(key);
@@ -567,10 +579,12 @@ ssh_string publickey_to_string(ssh_public_key pubkey) {
     key->type = pubkey->type;
     key->type_c = pubkey->type_c;
 
-#ifndef HAVE_LIBCRYPTO
-    key->rsa = pubkey->rsa_pub;
-#else
+#if defined(HAVE_LIBMBEDCRYPTO)
+    key->pk = pubkey->rsa_pub;
+#elif defined(HAVE_LIBCRYPTO)
     key->key = pubkey->key_pub;
+#else
+    key->rsa = pubkey->rsa_pub;
 #endif /* HAVE_LIBCRYPTO */
 
     rc = ssh_pki_export_pubkey_blob(key, &key_blob);
@@ -578,10 +592,12 @@ ssh_string publickey_to_string(ssh_public_key pubkey) {
         key_blob = NULL;
     }
 
-#ifndef HAVE_LIBCRYPTO
-    key->rsa = NULL;
-#else
+#if defined(HAVE_LIBMBEDCRYPTO)
+    key->pk = NULL;
+#elif defined(HAVE_LIBCRYPTO)
     key->key = NULL;
+#else
+    key->rsa = NULL;
 #endif /* HAVE_LIBCRYPTO */
     ssh_key_free(key);
 
