@@ -2819,16 +2819,18 @@ int pki_uri_import(const char *uri_name,
 
         if (ossl_type == OSSL_STORE_INFO_PUBKEY && key_type == SSH_KEY_PUBLIC) {
             pkey = OSSL_STORE_INFO_get1_PUBKEY(info);
-            break;
         } else if (ossl_type == OSSL_STORE_INFO_PKEY &&
                    key_type == SSH_KEY_PRIVATE) {
             pkey = OSSL_STORE_INFO_get1_PKEY(info);
-            break;
         } else {
             SSH_LOG(SSH_LOG_TRACE,
                     "Ignoring object not matching our type: %d",
                     ossl_type);
+            OSSL_STORE_INFO_free(info);
+            continue;
         }
+        OSSL_STORE_INFO_free(info);
+        break;
     }
     OSSL_STORE_close(store);
     if (pkey == NULL) {
