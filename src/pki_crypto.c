@@ -33,7 +33,9 @@
 
 #include <openssl/pem.h>
 #include <openssl/evp.h>
+#if defined(WITH_PKCS11_URI) && !defined(WITH_PKCS11_PROVIDER)
 #include <openssl/engine.h>
+#endif
 #include <openssl/err.h>
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
 #include <openssl/dsa.h>
