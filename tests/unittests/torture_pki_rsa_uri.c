@@ -89,7 +89,7 @@ static int setup_tokens(void **state)
 static int setup_directory_structure(void **state)
 {
     struct pki_st *test_state = NULL;
-    char *temp_dir;
+    char *temp_dir = NULL;
     int rc;
 
     test_state = (struct pki_st *)malloc(sizeof(struct pki_st));
@@ -103,6 +103,7 @@ static int setup_directory_structure(void **state)
 
     rc = torture_change_dir(temp_dir);
     assert_int_equal(rc, 0);
+    free(temp_dir);
 
     test_state->temp_dir = torture_get_current_working_dir();
     assert_non_null(test_state->temp_dir);

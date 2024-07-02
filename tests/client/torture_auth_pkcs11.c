@@ -116,7 +116,7 @@ static int setup_session(void **state)
 
     s->private_data = test_state;
 
-    test_state->orig_dir = strdup(torture_get_current_working_dir());
+    test_state->orig_dir = torture_get_current_working_dir();
     assert_non_null(test_state->orig_dir);
 
     temp_dir = torture_make_temp_dir(template);
@@ -125,7 +125,7 @@ static int setup_session(void **state)
     rc = torture_change_dir(temp_dir);
     assert_int_equal(rc, 0);
 
-    test_state->temp_dir = strdup(torture_get_current_working_dir());
+    test_state->temp_dir = torture_get_current_working_dir();
     assert_non_null(test_state->temp_dir);
 
     snprintf(keys_dir, sizeof(keys_dir), "%s/tests/keys/pkcs11/", SOURCEDIR);
@@ -240,9 +240,6 @@ int torture_run_tests(void) {
                                         session_teardown),
     };
 
-    ssh_session session = ssh_new();
-    int verbosity = SSH_LOG_FUNCTIONS;
-    ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
     ssh_init();
     torture_filter_tests(tests);
     rc = cmocka_run_group_tests(tests, sshd_setup, sshd_teardown);
