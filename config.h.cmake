@@ -231,8 +231,13 @@
 /* Define to 1 if you want to enable DH group exchange algorithms */
 #cmakedefine WITH_GEX 1
 
-/* Define to 1 if you want to enable none cipher and MAC */
+/* Define to 1 if you want to enable insecure none cipher and MAC */
 #cmakedefine WITH_INSECURE_NONE 1
+
+/* Define to 1 if you want to allow libssh to execute arbitrary commands from
+ * configuration files or options (match exec, proxy commands and OpenSSH-based
+ * proxy-jumps). */
+#cmakedefine WITH_EXEC 1
 
 /* Define to 1 if you want to enable blowfish cipher support */
 #cmakedefine WITH_BLOWFISH_CIPHER 1

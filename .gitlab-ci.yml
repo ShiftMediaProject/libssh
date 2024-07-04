@@ -217,6 +217,7 @@ fedora/openssl_3.0.x/x86_64/minimal:
   variables:
   script:
     - cmake $CMAKE_DEFAULT_OPTIONS
+      -DWITH_EXEC=OFF
       -DWITH_SFTP=OFF
       -DWITH_SERVER=OFF
       -DWITH_ZLIB=OFF

@@ -1147,7 +1147,7 @@ static void torture_options_config_match(void **state)
 
     rv = ssh_options_parse_config(session, "test_config");
     assert_ssh_return_code(session, rv);
-#ifdef _WIN32
+#ifndef WITH_EXEC
     /* The match exec is not supported on windows at this moment */
     assert_int_equal(session->opts.port, 34);
 #else
@@ -1169,7 +1169,7 @@ static void torture_options_config_match(void **state)
 
     rv = ssh_options_parse_config(session, "test_config");
     assert_ssh_return_code(session, rv);
-#ifdef _WIN32
+#ifndef WITH_EXEC
     /* The match exec is not supported on windows at this moment */
     assert_int_equal(session->opts.port, 34);
 #else
@@ -1222,7 +1222,7 @@ static void torture_options_config_match_multi(void **state)
 
     rv = ssh_options_parse_config(session, "test_config");
     assert_ssh_return_code(session, rv);
-#ifdef _WIN32
+#ifndef WITH_EXEC
     /* The match exec is not supported on windows at this moment */
     assert_int_equal(session->opts.port, 34);
 #else

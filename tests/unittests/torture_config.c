@@ -862,7 +862,7 @@ static void torture_config_match(void **state,
     }
     torture_reset_config(session);
     _parse_config(session, file, string, SSH_OK);
-#ifdef _WIN32
+#ifndef WITH_EXEC
     /* The match exec is not supported on windows at this moment */
     assert_string_equal(session->opts.host, "otherhost");
 #else
@@ -878,7 +878,7 @@ static void torture_config_match(void **state,
     }
     torture_reset_config(session);
     _parse_config(session, file, string, SSH_OK);
-#ifdef _WIN32
+#ifndef WITH_EXEC
     /* The match exec is not supported on windows at this moment */
     assert_string_equal(session->opts.host, "otherhost");
 #else
@@ -894,7 +894,7 @@ static void torture_config_match(void **state,
     }
     torture_reset_config(session);
     _parse_config(session, file, string, SSH_OK);
-#ifdef _WIN32
+#ifndef WITH_EXEC
     /* The match exec is not supported on windows at this moment */
     assert_string_equal(session->opts.host, "otherhost");
 #else
@@ -1855,7 +1855,7 @@ static void torture_config_parser_get_cmd(void **state)
 {
     char *p = NULL, *tok = NULL;
     char data[256];
-#ifdef __unix__
+#ifdef WITH_EXEC
     FILE *outfile = NULL, *infile = NULL;
     int pid;
     char buffer[256] = {0};
@@ -1899,7 +1899,7 @@ static void torture_config_parser_get_cmd(void **state)
     assert_string_equal(tok, data);
     assert_int_equal(*p, '\0');
 
-#ifdef __unix__
+#ifdef WITH_EXEC
     /* Check if the command would get correctly executed
      * Use the script file "hello world.sh" to echo the first argument
      * Run as <= "/workdir/hello world.sh" "hello libssh" => */
@@ -1929,7 +1929,7 @@ static void torture_config_parser_get_cmd(void **state)
 
     fclose(outfile);
     assert_string_equal(buffer, "hello libssh");
-#endif
+#endif /* WITH_EXEC */
 }
 
 /* ssh_config_get_token() should behave as expected
