@@ -251,7 +251,6 @@ fedora/valgrind/libgcrypt:
   variables:
     CMAKE_ADDITIONAL_OPTIONS: -DWITH_GCRYPT=ON
   extends: .valgrind
-  allow_failure: true
 
 # Address sanitizer doesn't mix well with LD_PRELOAD used in the testsuite
 # so, this is only enabled for unit tests right now.
