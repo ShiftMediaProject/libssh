@@ -41,9 +41,10 @@
 
 #ifdef HAVE_LIBCRYPTO
 
+#include <openssl/err.h>
+#include <openssl/md5.h>
 #include <openssl/opensslv.h>
 #include <openssl/sha.h>
-#include <openssl/md5.h>
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
 #include <openssl/rsa.h>
 #include <openssl/hmac.h>
@@ -52,7 +53,9 @@
 #include <openssl/core_names.h>
 #endif /* OPENSSL_VERSION_NUMBER */
 #include <openssl/rand.h>
+#if defined(WITH_PKCS11_URI) && !defined(WITH_PKCS11_PROVIDER)
 #include <openssl/engine.h>
+#endif
 
 #include "libcrypto-compat.h"
 
@@ -93,7 +96,7 @@ void ssh_reseed(void){
 #endif
 }
 
-#ifndef WITH_PKCS11_PROVIDER
+#if defined(WITH_PKCS11_URI) && !defined(WITH_PKCS11_PROVIDER)
 static ENGINE *engine = NULL;
 
 ENGINE *pki_get_engine(void)
@@ -125,7 +128,7 @@ ENGINE *pki_get_engine(void)
     }
     return engine;
 }
-#endif /* WITH_PKCS11_PROVIDER */
+#endif /* defined(WITH_PKCS11_URI) && !defined(WITH_PKCS11_PROVIDER) */
 
 #ifdef HAVE_OPENSSL_EVP_KDF_CTX
 #if OPENSSL_VERSION_NUMBER < 0x30000000L
