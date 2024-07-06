@@ -165,4 +165,7 @@ char *torture_create_temp_file(const char *template);
 char *torture_get_current_working_dir(void);
 int torture_change_dir(char *path);
 
+void torture_setenv(char const* variable, char const* value);
+void torture_unsetenv(char const* variable);
+
 #endif /* _TORTURE_H */

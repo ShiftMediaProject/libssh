@@ -1655,6 +1655,33 @@ void torture_reset_config(ssh_session session)
     memset(session->opts.options_seen, 0, sizeof(session->opts.options_seen));
 }
 
+void torture_unsetenv(const char *variable)
+{
+    int rc;
+#ifdef WIN32
+    rc = _putenv_s(variable, "");
+#else
+    rc = unsetenv(variable);
+#endif  // WIN32
+    assert_return_code(rc, errno);
+}
+
+void torture_setenv(const char *variable, const char *value)
+{
+    int rc;
+#ifdef WIN32
+    if (value != NULL) {
+        rc = _putenv_s(variable, value);
+        assert_return_code(rc, errno);
+    } else {
+        torture_unsetenv(variable);
+    }
+#else
+    rc = setenv(variable, value, 1);
+    assert_return_code(rc, errno);
+#endif  // WIN32
+}
+
 #if defined(HAVE_WEAK_ATTRIBUTE) && defined(TORTURE_SHARED)
 __attribute__((weak)) int torture_run_tests(void)
 {
