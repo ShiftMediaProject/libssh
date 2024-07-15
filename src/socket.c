@@ -1083,6 +1083,10 @@ jump_thread_func(void *arg)
     /* Pop the information about the current jump */
     jis = ssh_list_pop_head(struct ssh_jump_info_struct *,
                             jump_session->opts.proxy_jumps);
+    if (jis == NULL) {
+        SSH_LOG(SSH_LOG_WARN, "Inconsistent list of proxy jumps received");
+        goto exit;
+    }
 
     ssh_options_set(jump_session, SSH_OPTIONS_HOST, jis->hostname);
     ssh_options_set(jump_session, SSH_OPTIONS_USER, jis->username);
