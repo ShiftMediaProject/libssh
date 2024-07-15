@@ -291,9 +291,11 @@ static void ssh_connector_fd_in_cb(ssh_connector connector)
                  * Loop around write in case the write blocks even for CHUNKSIZE
                  * bytes
                  */
-                while (total != r) {
-                    w = ssh_connector_fd_write(connector, buffer + total, r - total);
-                    if (w < 0){
+                while (total < r) {
+                    w = ssh_connector_fd_write(connector,
+                                               buffer + total,
+                                               r - total);
+                    if (w < 0) {
                         ssh_connector_except(connector, connector->out_fd);
                         return;
                     }
