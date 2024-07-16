@@ -1026,8 +1026,10 @@ process_write(sftp_client_message client_msg)
     rv = lseek(fd, client_msg->offset, SEEK_SET);
     if (rv == -1) {
         sftp_reply_status(client_msg, SSH_FX_FAILURE, NULL);
-        SSH_LOG(SSH_LOG_PROTOCOL, "error seeking file at offset: %" PRIu64,
+        SSH_LOG(SSH_LOG_PROTOCOL,
+                "error seeking file at offset: %" PRIu64,
                 client_msg->offset);
+        return SSH_ERROR;
     }
     written = ssh_writen(fd, msg_data, len);
     if (written != (ssize_t)len) {
