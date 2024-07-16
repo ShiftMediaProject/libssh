@@ -946,7 +946,7 @@ process_read(sftp_client_message client_msg)
     ssize_t readn = 0;
     int fd = -1;
     char *buffer = NULL;
-    int rv;
+    off_t off;
 
     ssh_log_hexdump("Processing read: handle:",
                     (const unsigned char *)ssh_string_get_char(handle),
@@ -962,8 +962,8 @@ process_read(sftp_client_message client_msg)
         SSH_LOG(SSH_LOG_PROTOCOL, "invalid fd (%d) received from handle", fd);
         return SSH_ERROR;
     }
-    rv = lseek(fd, client_msg->offset, SEEK_SET);
-    if (rv == -1) {
+    off = lseek(fd, client_msg->offset, SEEK_SET);
+    if (off == -1) {
         sftp_reply_status(client_msg, SSH_FX_FAILURE, NULL);
         SSH_LOG(SSH_LOG_PROTOCOL,
                 "error seeking file fd: %d at offset: %" PRIu64,
@@ -1004,7 +1004,7 @@ process_write(sftp_client_message client_msg)
     int fd = -1;
     const char *msg_data = NULL;
     uint32_t len;
-    int rv;
+    off_t off;
 
     ssh_log_hexdump("Processing write: handle",
                     (const unsigned char *)ssh_string_get_char(handle),
@@ -1023,8 +1023,8 @@ process_write(sftp_client_message client_msg)
     msg_data = ssh_string_get_char(client_msg->data);
     len = ssh_string_len(client_msg->data);
 
-    rv = lseek(fd, client_msg->offset, SEEK_SET);
-    if (rv == -1) {
+    off = lseek(fd, client_msg->offset, SEEK_SET);
+    if (off == -1) {
         sftp_reply_status(client_msg, SSH_FX_FAILURE, NULL);
         SSH_LOG(SSH_LOG_PROTOCOL,
                 "error seeking file at offset: %" PRIu64,
