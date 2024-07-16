@@ -1642,7 +1642,9 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request){
 
         SSH_LOG(SSH_LOG_PROTOCOL, "Received no-more-sessions@openssh.com %d", want_reply);
 
-        ssh_message_global_request_reply_success(msg, 0);
+        if (want_reply) {
+            ssh_message_global_request_reply_success(msg, 0);
+        }
 
         session->flags |= SSH_SESSION_FLAG_NO_MORE_SESSIONS;
     } else {
