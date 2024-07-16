@@ -2089,7 +2089,7 @@ ssize_t ssh_writen(int fd, const void *buf, size_t nbytes)
                               ((const char *)buf) + total_bytes_written,
                               nbytes - total_bytes_written);
         if (bytes_written == -1) {
-            if(errno == EINTR) {
+            if (errno == EINTR) {
                 /* Ignoring errors due to signal interrupts */
                 continue;
             }
