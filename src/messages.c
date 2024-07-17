@@ -1403,8 +1403,12 @@ int ssh_message_handle_channel_request(ssh_session session, ssh_channel channel,
   }
 
   SSH_LOG(SSH_LOG_PACKET,
-      "Received a %s channel_request for channel (%" PRIu32 ":%" PRIu32 ") (want_reply=%hhd)",
-      request, channel->local_channel, channel->remote_channel, want_reply);
+          "Received a %s channel_request for channel (%" PRIu32 ":%" PRIu32
+          ") (want_reply=%hhu)",
+          request,
+          channel->local_channel,
+          channel->remote_channel,
+          want_reply);
 
   msg->type = SSH_REQUEST_CHANNEL;
   msg->channel_request.channel = channel;
@@ -1586,13 +1590,19 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request){
         msg->global_request.type = SSH_GLOBAL_REQUEST_TCPIP_FORWARD;
         msg->global_request.want_reply = want_reply;
 
-        SSH_LOG(SSH_LOG_DEBUG, "Received SSH_MSG_GLOBAL_REQUEST %s %d %s:%d", request, want_reply,
+        SSH_LOG(SSH_LOG_DEBUG,
+                "Received SSH_MSG_GLOBAL_REQUEST %s %hhu %s:%d",
+                request,
+                want_reply,
                 msg->global_request.bind_address,
                 msg->global_request.bind_port);
 
         if(ssh_callbacks_exists(session->common.callbacks, global_request_function)) {
-            SSH_LOG(SSH_LOG_DEBUG, "Calling callback for SSH_MSG_GLOBAL_REQUEST %s %d %s:%d", request,
-                    want_reply, msg->global_request.bind_address,
+            SSH_LOG(SSH_LOG_DEBUG,
+                    "Calling callback for SSH_MSG_GLOBAL_REQUEST %s %hhu %s:%d",
+                    request,
+                    want_reply,
+                    msg->global_request.bind_address,
                     msg->global_request.bind_port);
             session->common.callbacks->global_request_function(session, msg, session->common.callbacks->userdata);
         } else {
@@ -1616,7 +1626,10 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request){
         msg->global_request.type = SSH_GLOBAL_REQUEST_CANCEL_TCPIP_FORWARD;
         msg->global_request.want_reply = want_reply;
 
-        SSH_LOG(SSH_LOG_DEBUG, "Received SSH_MSG_GLOBAL_REQUEST %s %d %s:%d", request, want_reply,
+        SSH_LOG(SSH_LOG_DEBUG,
+                "Received SSH_MSG_GLOBAL_REQUEST %s %hhu %s:%d",
+                request,
+                want_reply,
                 msg->global_request.bind_address,
                 msg->global_request.bind_port);
 
@@ -1630,7 +1643,9 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request){
     } else if(strcmp(request, "keepalive@openssh.com") == 0) {
         msg->global_request.type = SSH_GLOBAL_REQUEST_KEEPALIVE;
         msg->global_request.want_reply = want_reply;
-        SSH_LOG(SSH_LOG_DEBUG, "Received keepalive@openssh.com %d", want_reply);
+        SSH_LOG(SSH_LOG_DEBUG,
+                "Received keepalive@openssh.com %hhu",
+                want_reply);
         if(ssh_callbacks_exists(session->common.callbacks, global_request_function)) {
             session->common.callbacks->global_request_function(session, msg, session->common.callbacks->userdata);
         } else {
@@ -1640,7 +1655,9 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request){
         msg->global_request.type = SSH_GLOBAL_REQUEST_NO_MORE_SESSIONS;
         msg->global_request.want_reply = want_reply;
 
-        SSH_LOG(SSH_LOG_PROTOCOL, "Received no-more-sessions@openssh.com %d", want_reply);
+        SSH_LOG(SSH_LOG_PROTOCOL,
+                "Received no-more-sessions@openssh.com %hhu",
+                want_reply);
 
         if (want_reply) {
             ssh_message_global_request_reply_success(msg, 0);
@@ -1648,8 +1665,10 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request){
 
         session->flags |= SSH_SESSION_FLAG_NO_MORE_SESSIONS;
     } else {
-        SSH_LOG(SSH_LOG_DEBUG, "UNKNOWN SSH_MSG_GLOBAL_REQUEST %s, "
-                "want_reply = %d", request, want_reply);
+        SSH_LOG(SSH_LOG_DEBUG,
+                "UNKNOWN SSH_MSG_GLOBAL_REQUEST %s,xwant_reply = %hhu",
+                request,
+                want_reply);
         goto reply_with_failure;
     }
 
