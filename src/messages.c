@@ -1665,11 +1665,15 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request)
                 want_reply);
         if (ssh_callbacks_exists(session->common.callbacks,
                                  global_request_function)) {
+            SSH_LOG(SSH_LOG_DEBUG,
+                    "Calling callback for SSH_MSG_GLOBAL_REQUEST %s %hhu",
+                    request,
+                    want_reply);
             session->common.callbacks->global_request_function(
                 session,
                 msg,
                 session->common.callbacks->userdata);
-        } else {
+        } else if (want_reply) {
             ssh_message_global_request_reply_success(msg, 0);
         }
     } else if (strcmp(request, "no-more-sessions@openssh.com") == 0) {
@@ -1679,8 +1683,17 @@ SSH_PACKET_CALLBACK(ssh_packet_global_request)
         SSH_LOG(SSH_LOG_PROTOCOL,
                 "Received no-more-sessions@openssh.com %hhu",
                 want_reply);
-
-        if (want_reply) {
+        if (ssh_callbacks_exists(session->common.callbacks,
+                                 global_request_function)) {
+            SSH_LOG(SSH_LOG_DEBUG,
+                    "Calling callback for SSH_MSG_GLOBAL_REQUEST %s %hhu",
+                    request,
+                    want_reply);
+            session->common.callbacks->global_request_function(
+                session,
+                msg,
+                session->common.callbacks->userdata);
+        } else if (want_reply) {
             ssh_message_global_request_reply_success(msg, 0);
         }
 
