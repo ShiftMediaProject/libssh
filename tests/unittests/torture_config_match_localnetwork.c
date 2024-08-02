@@ -3,7 +3,9 @@
 #include "libssh/options.h"
 #include "libssh/session.h"
 #include "match.c"
+#ifdef HAVE_IFADDRS_H
 #include <ifaddrs.h>
+#endif
 #include <net/if.h>
 #include <stdbool.h>
 
