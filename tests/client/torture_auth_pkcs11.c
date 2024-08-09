@@ -177,13 +177,10 @@ static void torture_auth_autopubkey(void **state, const char *obj_name, const ch
     struct torture_state *s = *state;
     ssh_session session = s->ssh.session;
     int rc;
-    int verbosity = 4;
     char priv_uri[1042];
+
     /* Authenticate as charlie with bob his pubkey */
     rc = ssh_options_set(session, SSH_OPTIONS_USER, TORTURE_SSH_USER_CHARLIE);
-    assert_int_equal(rc, SSH_OK);
-
-    rc = ssh_options_set(session, SSH_OPTIONS_LOG_VERBOSITY, &verbosity);
     assert_int_equal(rc, SSH_OK);
 
     snprintf(priv_uri, sizeof(priv_uri), "pkcs11:token=%s;object=%s;type=private?pin-value=%s",
