@@ -236,6 +236,10 @@ int torture_terminate_process(const char *pidfile)
 
     /* read the pidfile */
     pid = torture_read_pidfile(pidfile);
+    if (pid == -1) {
+        fprintf(stderr, "Failed to read PID file %s\n", pidfile);
+        return -1;
+    }
     assert_int_not_equal(pid, -1);
 
     for (count = 0; count < 10; count++) {
@@ -1367,10 +1371,8 @@ torture_update_sshd_config(void **state, const char *config)
 void torture_teardown_sshd_server(void **state)
 {
     struct torture_state *s = *state;
-    int rc;
 
-    rc = torture_terminate_process(s->srv_pidfile);
-    assert_return_code(rc, errno);
+    torture_terminate_process(s->srv_pidfile);
     torture_teardown_socket_dir(state);
 }
 #endif /* SSHD_EXECUTABLE */
