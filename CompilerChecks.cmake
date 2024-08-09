@@ -16,7 +16,6 @@ if (UNIX)
         endif()
     endif()
 
-    add_c_compiler_flag("-std=gnu99" SUPPORTED_COMPILER_FLAGS)
     add_c_compiler_flag("-Wpedantic" SUPPORTED_COMPILER_FLAGS)
     add_c_compiler_flag("-Wall" SUPPORTED_COMPILER_FLAGS)
     add_c_compiler_flag("-Wshadow" SUPPORTED_COMPILER_FLAGS)
