@@ -84,18 +84,24 @@ static int session_teardown(void **state)
 static int check_channel_output(ssh_channel c, const char *expected)
 {
     char buffer[4096] = {0};
-    int nbytes;
+    int nbytes, offset = 0;
 
     nbytes = ssh_channel_read(c, buffer, sizeof(buffer) - 1, 0);
     while (nbytes > 0) {
-        buffer[nbytes]='\0';
-        ssh_log_hexdump("Read bytes:", (unsigned char *)buffer, nbytes);
+        buffer[offset + nbytes] = '\0';
+        ssh_log_hexdump("Read bytes:",
+                        (unsigned char *)buffer,
+                        offset + nbytes);
         if (strstr(buffer, expected) != NULL)
         {
             return 1;
         }
-
-        nbytes = ssh_channel_read(c, buffer, sizeof(buffer), 0);
+        /* read on */
+        offset = nbytes;
+        nbytes = ssh_channel_read(c,
+                                  buffer + offset,
+                                  sizeof(buffer) - offset - 1,
+                                  0);
     }
     return 0;
 }
