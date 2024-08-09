@@ -756,6 +756,9 @@ static void torture_setup_create_sshd_config(void **state, bool pam)
 #if OPENSSH_VERSION_MAJOR == 8 && OPENSSH_VERSION_MINOR >= 2
              "CASignatureAlgorithms " OPENSSH_KEYS "\n"
 #endif
+#if (OPENSSH_VERSION_MAJOR == 9 && OPENSSH_VERSION_MINOR >= 8) || OPENSSH_VERSION_MAJOR > 9
+             "PerSourcePenaltyExemptList 127.0.0.21\n"
+#endif
              "Ciphers " OPENSSH_CIPHERS "\n"
              "KexAlgorithms " OPENSSH_KEX "\n"
              "MACs " OPENSSH_MACS "\n"
@@ -786,6 +789,9 @@ static void torture_setup_create_sshd_config(void **state, bool pam)
              "%s\n" /* Here comes UsePam */
              "%s" /* The space for test-specific options */
              "\n"
+#if (OPENSSH_VERSION_MAJOR == 9 && OPENSSH_VERSION_MINOR >= 8) || OPENSSH_VERSION_MAJOR > 9
+             "PerSourcePenaltyExemptList 127.0.0.21\n"
+#endif
              "Ciphers "
                 "aes256-gcm@openssh.com,aes256-ctr,aes256-cbc,"
                 "aes128-gcm@openssh.com,aes128-ctr,aes128-cbc"
