@@ -200,14 +200,12 @@ void crypto_free(struct ssh_crypto_struct *crypto)
         SAFE_FREE(crypto->secret_hash);
     }
 #ifdef WITH_ZLIB
-    if (crypto->compress_out_ctx &&
-        (deflateEnd(crypto->compress_out_ctx) != 0)) {
-        inflateEnd(crypto->compress_out_ctx);
+    if (crypto->compress_out_ctx) {
+        deflateEnd(crypto->compress_out_ctx);
     }
     SAFE_FREE(crypto->compress_out_ctx);
 
-    if (crypto->compress_in_ctx &&
-        (deflateEnd(crypto->compress_in_ctx) != 0)) {
+    if (crypto->compress_in_ctx) {
         inflateEnd(crypto->compress_in_ctx);
     }
     SAFE_FREE(crypto->compress_in_ctx);
