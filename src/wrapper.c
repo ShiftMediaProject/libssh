@@ -154,11 +154,10 @@ struct ssh_crypto_struct *crypto_new(void)
 {
     struct ssh_crypto_struct *crypto;
 
-    crypto = malloc(sizeof(struct ssh_crypto_struct));
+    crypto = calloc(1, sizeof(struct ssh_crypto_struct));
     if (crypto == NULL) {
         return NULL;
     }
-    ZERO_STRUCTP(crypto);
     return crypto;
 }
 
