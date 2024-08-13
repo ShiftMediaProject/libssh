@@ -1377,7 +1377,9 @@ void torture_setup_tokens(const char *temp_dir,
 {
     char token_setup_start_cmd[1024] = {0};
     char socket_path[1204] = {0};
+#ifndef WITH_PKCS11_PROVIDER
     char conf_path[1024] = {0};
+#endif /* WITH_PKCS11_PROVIDER */
     char *env = NULL;
     int rc;
 
@@ -1394,8 +1396,8 @@ void torture_setup_tokens(const char *temp_dir,
                   P11_KIT_CLIENT
 #else
                   ""
-#endif
-                 );
+#endif /* WITH_PKCS11_PROVIDER */
+    );
     assert_int_not_equal(rc, sizeof(token_setup_start_cmd));
 
     rc = system(token_setup_start_cmd);
@@ -1419,7 +1421,7 @@ void torture_setup_tokens(const char *temp_dir,
         setenv("PKCS11_PROVIDER_MODULE", PKCS11SPY, 1);
 #else
         fprintf(stderr, "[ TORTURE  ] >>> pkcs11-spy not found\n");
-#endif
+#endif /* PKCS11SPY */
     }
 #else
     (void)env;
@@ -1431,11 +1433,9 @@ void torture_setup_tokens(const char *temp_dir,
 
 void torture_cleanup_tokens(const char *temp_dir)
 {
-    char pidfile[1024] = {0};
-    int rc;
-    pid_t pid;
-
 #ifdef WITH_PKCS11_PROVIDER
+    char pidfile[1024] = {0};
+
     snprintf(pidfile, sizeof(pidfile), "%s/p11-kit-server.pid", temp_dir);
     torture_terminate_process(pidfile);
 #else
