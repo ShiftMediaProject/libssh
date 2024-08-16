@@ -264,7 +264,9 @@ encode_termios_opts(struct termios *attr, unsigned char *buf, size_t buflen)
     SSH_ENCODE_LOCAL_OPT(IEXTEN)
     SSH_ENCODE_LOCAL_OPT(ECHOCTL)
     SSH_ENCODE_LOCAL_OPT(ECHOKE)
+#ifdef PENDIN
     SSH_ENCODE_LOCAL_OPT(PENDIN)
+#endif
 #undef SSH_ENCODE_LOCAL_OPT
 
 #define SSH_ENCODE_CC_OPT(opt) SSH_ENCODE_OPT(TTY_OP_##opt, attr->c_cc[opt])
