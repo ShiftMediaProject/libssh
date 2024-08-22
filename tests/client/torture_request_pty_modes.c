@@ -231,8 +231,8 @@ static void torture_request_pty_modes_use_default_modes(void **state)
     rc = ssh_channel_request_exec(c, "/bin/echo -e '>TEST\\r\\n<'");
     assert_ssh_return_code(session, rc);
 
-    /* expect the input unmodified */
-    string_found = check_channel_output(c, ">TEST\r\n<");
+    /* expect the CRLF translated to newline */
+    string_found = check_channel_output(c, ">TEST\r\r\n<");
     assert_int_equal(string_found, 1);
 
     ssh_channel_close(c);
