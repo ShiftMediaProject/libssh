@@ -33,7 +33,6 @@
 #include <pwd.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-
 #endif /* _WIN32 */
 
 #include <errno.h>
@@ -56,6 +55,9 @@
 # ifndef _WIN32_IE
 #  define _WIN32_IE 0x0501 // SHGetSpecialFolderPath
 # endif
+# define WIN32_LEAN_AND_MEAN
+# include <windows.h>
+# include <iphlpapi.h>
 #endif
 
 #include <winsock2.h> // Must be the first to include
@@ -201,7 +203,7 @@ char *ssh_get_local_username(void)
         return NULL;
     }
 
-    if (GetUserName(user, &size)) {
+    if (GetUserNameA(user, &size)) {
         rc = ssh_check_username_syntax(user);
         if (rc == SSH_OK) {
             return user;
@@ -250,6 +252,7 @@ int ssh_is_ipaddr(const char *str)
         int sslen = sizeof(ss);
         char *network_interface = strchr(s, '%');
 
+#if !defined(WINAPI_FAMILY) || !(WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
         /* link-local (IP:v6:addr%ifname). */
         if (network_interface != NULL) {
             rc = if_nametoindex(network_interface + 1);
@@ -259,6 +262,7 @@ int ssh_is_ipaddr(const char *str)
             }
             *network_interface = '\0';
         }
+#endif
         rc = WSAStringToAddressA((LPSTR) s,
                                  AF_INET6,
                                  NULL,
