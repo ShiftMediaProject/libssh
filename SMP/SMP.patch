@@ -109,7 +109,7 @@ index e516c331..bf61e0fb 100644
  static int _ssh_init(unsigned constructor) {
  
 diff --git a/src/misc.c b/src/misc.c
-index 6ae7cdf1..2cb2cb95 100644
+index 7fe243f5..42ace24b 100644
 --- a/src/misc.c
 +++ b/src/misc.c
 @@ -33,7 +33,6 @@
