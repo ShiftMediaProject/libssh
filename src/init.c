@@ -36,26 +36,30 @@
 #endif
 
 #if defined(_WIN32) && defined(_MSC_VER) && defined(LIBSSH_STATIC)
+# ifdef read
+#  undef read
+#  define BACKUP_READ
+# endif
 # define CONSTRUCTOR_ATTRIBUTE_(_func,p) static void _func(void); \
     static int _func ## _wrapper(void) { _func(); return 0; } \
     __pragma(section(".CRT$XCU",read)) \
     __declspec(allocate(".CRT$XCU")) int (* _func##_)(void) = _func ## _wrapper; \
     __pragma(comment(linker,"/include:" p #_func "_"))
-#ifdef _WIN64
-#define CONSTRUCTOR_ATTRIBUTE(f) CONSTRUCTOR_ATTRIBUTE_(f,"")
-#else
-#define CONSTRUCTOR_ATTRIBUTE(f) CONSTRUCTOR_ATTRIBUTE_(f,"_")
-#endif
+# ifdef _WIN64
+#  define CONSTRUCTOR_ATTRIBUTE(f) CONSTRUCTOR_ATTRIBUTE_(f,"")
+# else
+#  define CONSTRUCTOR_ATTRIBUTE(f) CONSTRUCTOR_ATTRIBUTE_(f,"_")
+# endif
 # define DESTRUCTOR_ATTRIBUTE_(_func,p) static void _func(void); \
     static int _func ## _constructor(void) { atexit (_func); return 0; } \
     __pragma(section(".CRT$XCU",read)) \
     __declspec(allocate(".CRT$XCU")) int (* _func##_)(void) = _func ## _constructor; \
     __pragma(comment(linker,"/include:" p #_func "_"))
-#ifdef _WIN64
-#define DESTRUCTOR_ATTRIBUTE(f) DESTRUCTOR_ATTRIBUTE_(f,"")
-#else
-#define DESTRUCTOR_ATTRIBUTE(f) DESTRUCTOR_ATTRIBUTE_(f,"_")
-#endif
+# ifdef _WIN64
+#  define DESTRUCTOR_ATTRIBUTE(f) DESTRUCTOR_ATTRIBUTE_(f,"")
+# else
+#  define DESTRUCTOR_ATTRIBUTE(f) DESTRUCTOR_ATTRIBUTE_(f,"_")
+# endif
 #else
 #ifdef HAVE_CONSTRUCTOR_ATTRIBUTE
 #define CONSTRUCTOR_ATTRIBUTE(_func) void _func(void) __attribute__((constructor))
@@ -81,6 +85,10 @@ static int _ssh_init_ret = 0;
 
 CONSTRUCTOR_ATTRIBUTE(libssh_constructor);
 DESTRUCTOR_ATTRIBUTE(libssh_destructor);
+
+#ifdef BACKUP_READ
+# define read _read
+#endif
 
 static int _ssh_init(unsigned constructor) {
 
