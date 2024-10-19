@@ -162,9 +162,10 @@ int ssh_config_get_yesno(char **str, int notfound)
 }
 
 int ssh_config_parse_uri(const char *tok,
-        char **username,
-        char **hostname,
-        char **port)
+                         char **username,
+                         char **hostname,
+                         char **port,
+                         bool ignore_port)
 {
     char *endp = NULL;
     long port_n;
@@ -193,6 +194,10 @@ int ssh_config_parse_uri(const char *tok,
             if (*username == NULL) {
                 goto error;
             }
+            rc = ssh_check_username_syntax(*username);
+            if (rc != SSH_OK) {
+                goto error;
+            }
         }
         tok = endp + 1;
         /* If there is second @ character, this does not look like our URI */
@@ -210,12 +215,17 @@ int ssh_config_parse_uri(const char *tok,
         if (endp == NULL) {
             goto error;
         }
-    } else {
-        /* Hostnames or aliases expand to the last colon or to the end */
+    } else if (!ignore_port) {
+        /* Hostnames or aliases expand to the last colon (if port is requested)
+         * or to the end */
         endp = strrchr(tok, ':');
         if (endp == NULL) {
             endp = strchr(tok, '\0');
         }
+    } else {
+        /* If no port is requested, expand to the end of line
+         * (to accommodate the IPv6 addresses) */
+        endp = strchr(tok, '\0');
     }
     if (tok == endp) {
         /* Zero-length hostnames are not valid */
@@ -247,7 +257,7 @@ int ssh_config_parse_uri(const char *tok,
         /* Verify the port is valid positive number */
         port_n = strtol(endp + 1, &port_end, 10);
         if (port_n < 1 || *port_end != '\0') {
-            SSH_LOG(SSH_LOG_WARN, "Failed to parse port number."
+            SSH_LOG(SSH_LOG_TRACE, "Failed to parse port number."
                     " The value '%ld' is invalid or there are some"
                     " trailing characters: '%s'", port_n, port_end);
             goto error;

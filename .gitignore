@@ -1,6 +1,5 @@
 *.a
 *.o
-.*
 *.swp
 *~$
 cscope.*
@@ -10,3 +9,4 @@ compile_commands.json
 tags
 /build
 /obj*
+doc/tags.xml

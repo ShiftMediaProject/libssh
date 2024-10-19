@@ -1,7 +1,6 @@
 ---
 variables:
   BUILD_IMAGES_PROJECT: libssh/build-images
-  CENTOS7_BUILD: buildenv-centos7
   CENTOS8_BUILD: buildenv-c8s
   CENTOS9_BUILD: buildenv-c9s
   FEDORA_BUILD: buildenv-fedora
@@ -16,12 +15,23 @@ stages:
   - test
   - analysis
 
+# This is some black magic to select between branch pipelines and
+# merge request pipelines to avoid running same pipelines in twice
+workflow:
+  rules:
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS && $CI_PIPELINE_SOURCE == "push"'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_COMMIT_BRANCH'
+
 .build:
   stage: build
   variables:
     CMAKE_DEFAULT_OPTIONS: "-DCMAKE_BUILD_TYPE=RelWithDebInfo -DPICKY_DEVELOPER=ON"
-    CMAKE_BUILD_OPTIONS: "-DWITH_BLOWFISH_CIPHER=ON -DWITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON -DWITH_PCAP=ON -DWITH_DEBUG_CRYPTO=ON -DWITH_DEBUG_PACKET=ON -DWITH_DEBUG_CALLTRACE=ON -DWITH_DSA=ON"
-    CMAKE_TEST_OPTIONS: "-DUNIT_TESTING=ON -DCLIENT_TESTING=ON -DSERVER_TESTING=ON -DWITH_BENCHMARKS=ON"
+    CMAKE_BUILD_OPTIONS: "-DWITH_BLOWFISH_CIPHER=ON -DWITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON -DWITH_PCAP=ON -DWITH_DEBUG_CRYPTO=ON -DWITH_DEBUG_PACKET=ON -DWITH_DEBUG_CALLTRACE=ON"
+    CMAKE_TEST_OPTIONS: "-DUNIT_TESTING=ON -DCLIENT_TESTING=ON -DSERVER_TESTING=ON -DGSSAPI_TESTING=ON -DWITH_BENCHMARKS=ON -DFUZZ_TESTING=ON"
     CMAKE_OPTIONS: $CMAKE_DEFAULT_OPTIONS $CMAKE_BUILD_OPTIONS $CMAKE_TEST_OPTIONS
   before_script: &build
     - uname -a
@@ -37,7 +47,11 @@ stages:
       make -j$(nproc) install
   # Do not use after_script as it does not make the targets fail
   tags:
-    - shared
+    - saas-linux-small-amd64
+  only:
+    - merge_requests
+    - branches
+
   except:
     - tags
   artifacts:
@@ -70,8 +84,7 @@ stages:
 .fips:
   extends: .tests
   variables:
-    # DSA is turned off in fips mode
-    CMAKE_ADDITIONAL_OPTIONS: -DWITH_PKCS11_URI=ON -DWITH_DSA=OFF
+    CMAKE_ADDITIONAL_OPTIONS: -DWITH_PKCS11_URI=ON
   before_script:
     - *build
     - echo "# userspace fips" > /etc/system-fips
@@ -84,19 +97,31 @@ stages:
     - update-crypto-policies --set FIPS
     - update-crypto-policies --show
 
+###############################################################################
+#                                   Review                                    #
+###############################################################################
+review:
+  variables:
+    GIT_DEPTH: 100
+  stage: review
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
+  script:
+    - ERROR=0
+      codespell --ignore-words-list=keypair,sorce,ned,nd,ue || ERROR=1;
+      ./.gitlab-ci/clang-format-check.sh || ERROR=1;
+      ./.gitlab-ci/git-check-signoff-trailer.sh ${CI_MERGE_REQUEST_DIFF_BASE_SHA} || ERROR=1;
+      ./.gitlab-ci/shellcheck.sh || ERROR=1;
+      exit $ERROR
+  # the format is not always matching our intentions
+  allow_failure: true
+  tags:
+    - saas-linux-small-amd64
+  only:
+    - merge_requests
 
 ###############################################################################
 #                               CentOS builds                                 #
 ###############################################################################
-# pkd tests fail on CentOS7 docker images, so we don't use -DSERVER_TESTING=ON
-centos7/openssl_1.0.x/x86_64:
-  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$CENTOS7_BUILD
-  extends: .tests
-  script:
-    - cmake3 $CMAKE_OPTIONS .. &&
-      make -j$(nproc) &&
-      ctest --output-on-failure
-
 centos9s/openssl_3.0.x/x86_64:
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$CENTOS9_BUILD
   extends: .tests
@@ -107,6 +132,12 @@ centos9s/openssl_3.0.x/x86_64:
     - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
       make -j$(nproc) &&
       ctest --output-on-failure
+
+centos9s/mbedtls_2.x/x86_64:
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$CENTOS9_BUILD
+  extends: .tests
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: "-DWITH_MBEDTLS=ON -DWITH_DEBUG_CRYPTO=ON -DWITH_BLOWFISH_CIPHER=OFF"
 
 centos9s/openssl_3.0.x/x86_64/fips:
   extends: .fips
@@ -146,7 +177,8 @@ fedora/docs:
   extends: .build
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
   script:
-    - cmake .. && make docs
+    - cmake .. && make docs_coverage && make docs
+  coverage: '/^Documentation coverage is \d+.\d+%/'
 
 fedora/ninja:
   extends: .fedora
@@ -154,7 +186,30 @@ fedora/ninja:
   script:
     - cmake -G Ninja $CMAKE_OPTIONS ../ && ninja && CTEST_OUTPUT_ON_FAILURE=1 ninja test
 
+fedora/coverage:
+  extends: .fedora
+  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: "-DCMAKE_BUILD_TYPE=Debug -DWITH_COVERAGE=ON"
+  script:
+    - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
+      make -j$(nproc) &&
+      make coverage_xml
+  coverage: /^\s*lines:\s*\d+.\d+\%/
+  artifacts:
+    name: ${CI_JOB_NAME}-${CI_COMMIT_REF_NAME}-${CI_COMMIT_SHA}
+    expire_in: 1 week
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: obj/coverage_xml.xml
+
 fedora/openssl_3.0.x/x86_64:
+  extends: .fedora
+
+fedora/openssl_3.0.x/x86_64/pkcs11-provider:
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: -DWITH_PKCS11_URI=ON -DWITH_PKCS11_PROVIDER=ON
   extends: .fedora
 
 fedora/openssl_3.0.x/x86_64/minimal:
@@ -162,15 +217,41 @@ fedora/openssl_3.0.x/x86_64/minimal:
   variables:
   script:
     - cmake $CMAKE_DEFAULT_OPTIONS
+      -DWITH_EXEC=OFF
       -DWITH_SFTP=OFF
       -DWITH_SERVER=OFF
       -DWITH_ZLIB=OFF
       -DWITH_PCAP=OFF
-      -DWITH_DSA=OFF
       -DUNIT_TESTING=ON
       -DCLIENT_TESTING=ON
       -DWITH_GEX=OFF .. &&
       make -j$(nproc)
+
+.valgrind:
+  extends: .fedora
+  stage: analysis
+  script:
+    - cmake $CMAKE_OPTIONS $CMAKE_ADDITIONAL_OPTIONS .. &&
+      make -j$(nproc) &&
+      make test_memcheck
+    - cat Testing/Temporary/MemoryChecker.*.log | wc -l | grep "^0$"
+
+# The PKCS#11 support is turned off as it brings dozens of memory issues from
+# engine_pkcs11 or openssl itself
+fedora/valgrind/openssl:
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: -DWITH_PKCS11_URI=OFF
+  extends: .valgrind
+
+fedora/valgrind/mbedtls:
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: -DWITH_MBEDTLS=ON
+  extends: .valgrind
+
+fedora/valgrind/libgcrypt:
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: -DWITH_GCRYPT=ON
+  extends: .valgrind
 
 # Address sanitizer doesn't mix well with LD_PRELOAD used in the testsuite
 # so, this is only enabled for unit tests right now.
@@ -227,10 +308,10 @@ fedora/libgcrypt/x86_64:
   variables:
     CMAKE_ADDITIONAL_OPTIONS: "-DWITH_GCRYPT=ON -DWITH_DEBUG_CRYPTO=ON"
 
-fedora/mbedtls/x86_64:
+fedora/mbedtls_2.x/x86_64:
   extends: .fedora
   variables:
-    CMAKE_ADDITIONAL_OPTIONS: "-DWITH_MBEDTLS=ON -DWITH_DEBUG_CRYPTO=ON -DWITH_DSA=OFF"
+    CMAKE_ADDITIONAL_OPTIONS: "-DWITH_MBEDTLS=ON -DWITH_DEBUG_CRYPTO=ON "
 
 # Unit testing only, no client and pkd testing, because cwrap is not available
 # for MinGW
@@ -277,6 +358,11 @@ fedora/mingw32:
   image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
   before_script:
     - |
+      # for merge requests
+      if [[ -n "$CI_MERGE_REQUEST_DIFF_BASE_SHA" ]]; then
+          export CI_COMMIT_BEFORE_SHA="$CI_MERGE_REQUEST_DIFF_BASE_SHA"
+      fi
+      # for branches run
       if [[ -z "$CI_COMMIT_BEFORE_SHA" ]]; then
           export CI_COMMIT_BEFORE_SHA=$(git rev-parse "${CI_COMMIT_SHA}~20")
       fi
@@ -287,9 +373,11 @@ fedora/mingw32:
 
       export CI_COMMIT_RANGE="$CI_COMMIT_BEFORE_SHA..$CI_COMMIT_SHA"
   tags:
-    - shared
+    - saas-linux-small-amd64
   except:
     - tags
+  only:
+    - merge_requests
   artifacts:
     expire_in: 1 week
     when: on_failure
@@ -301,7 +389,7 @@ fedora/csbuild/openssl_3.0.x:
   script:
     - csbuild
       --build-dir=obj-csbuild
-      --build-cmd "rm -rf CMakeFiles CMakeCache.txt && cmake -DCMAKE_BUILD_TYPE=Debug -DPICKY_DEVELOPER=ON -DUNIT_TESTING=ON -DCLIENT_TESTING=ON -DSERVER_TESTING=ON -DFUZZ_TESTING=ON -DWITH_DSA=ON @SRCDIR@ && make clean && make -j$(nproc)"
+      --build-cmd "rm -rf CMakeFiles CMakeCache.txt && cmake -DCMAKE_BUILD_TYPE=Debug -DPICKY_DEVELOPER=ON -DUNIT_TESTING=ON -DCLIENT_TESTING=ON -DSERVER_TESTING=ON -DFUZZ_TESTING=ON @SRCDIR@ && make clean && make -j$(nproc)"
       --git-commit-range $CI_COMMIT_RANGE
       --color
       --print-current --print-fixed
@@ -311,7 +399,7 @@ fedora/csbuild/libgcrypt:
   script:
     - csbuild
       --build-dir=obj-csbuild
-      --build-cmd "rm -rf CMakeFiles CMakeCache.txt && cmake -DCMAKE_BUILD_TYPE=Debug -DPICKY_DEVELOPER=ON -DUNIT_TESTING=ON -DCLIENT_TESTING=ON -DSERVER_TESTING=ON -DFUZZ_TESTING=ON -DWITH_GCRYPT=ON -DWITH_DSA=ON @SRCDIR@ && make clean && make -j$(nproc)"
+      --build-cmd "rm -rf CMakeFiles CMakeCache.txt && cmake -DCMAKE_BUILD_TYPE=Debug -DPICKY_DEVELOPER=ON -DUNIT_TESTING=ON -DCLIENT_TESTING=ON -DSERVER_TESTING=ON -DFUZZ_TESTING=ON -DWITH_GCRYPT=ON @SRCDIR@ && make clean && make -j$(nproc)"
       --git-commit-range $CI_COMMIT_RANGE
       --color
       --print-current --print-fixed
@@ -357,8 +445,6 @@ alpine/openssl_3.0.x/musl:
 ###############################################################################
 tumbleweed/openssl_3.0.x/x86_64/gcc:
   extends: .tumbleweed
-  variables:
-    CMAKE_ADDITIONAL_OPTIONS: "-DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config"
 
 tumbleweed/openssl_3.0.x/x86/gcc:
   extends: .tumbleweed
@@ -370,14 +456,13 @@ tumbleweed/openssl_3.0.x/x86/gcc:
       -DWITH_SERVER=ON
       -DWITH_ZLIB=ON
       -DWITH_PCAP=ON
-      -DWITH_DSA=ON
       -DUNIT_TESTING=ON .. &&
       make -j$(nproc)
 
 tumbleweed/openssl_3.0.x/x86_64/gcc7:
   extends: .tumbleweed
   variables:
-    CMAKE_ADDITIONAL_OPTIONS: "-DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7 -DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config"
+    CMAKE_ADDITIONAL_OPTIONS: "-DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7"
 
 tumbleweed/openssl_3.0.x/x86/gcc7:
   extends: .tumbleweed
@@ -387,7 +472,6 @@ tumbleweed/openssl_3.0.x/x86/gcc7:
       -DCMAKE_C_COMPILER=gcc-7 -DCMAKE_CXX_COMPILER=g++-7
       $CMAKE_DEFAULT_OPTIONS
       -DWITH_SFTP=ON -DWITH_SERVER=ON -DWITH_ZLIB=ON -DWITH_PCAP=ON
-      -DWITH_DSA=ON
       -DUNIT_TESTING=ON .. &&
       make -j$(nproc) &&
       ctest --output-on-failure
@@ -395,7 +479,12 @@ tumbleweed/openssl_3.0.x/x86/gcc7:
 tumbleweed/openssl_3.0.x/x86_64/clang:
   extends: .tumbleweed
   variables:
-    CMAKE_ADDITIONAL_OPTIONS: "-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++ -DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config"
+    CMAKE_ADDITIONAL_OPTIONS: "-DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++"
+
+tumbleweed/mbedtls-3.6.x/x86_64/gcc:
+  extends: .tumbleweed
+  variables:
+    CMAKE_ADDITIONAL_OPTIONS: "-DKRB5_CONFIG=/usr/lib/mit/bin/krb5-config -DWITH_MBEDTLS=ON -DWITH_DEBUG_CRYPTO=ON -DWITH_BLOWFISH_CIPHER=OFF "
 
 tumbleweed/static-analysis:
   extends: .tests
@@ -455,8 +544,12 @@ freebsd/openssl_1.1.1/x86_64:
 ###############################################################################
 #                           Visual Studio builds                              #
 ###############################################################################
+# 2024-05-13: These jobs run out of the stages as they take extremely long and
+# usually timeout with the update to Gitlab 17.0
 .vs:
-  stage: test
+  stage: analysis
+  needs: []
+  allow_failure: true
   cache:
     key: vcpkg.${CI_JOB_NAME}
     paths:
@@ -467,8 +560,10 @@ freebsd/openssl_1.1.1/x86_64:
     - cmake --build .
     - ctest --output-on-failure
   tags:
-    - windows
-    - shared-windows
+    - saas-windows-medium-amd64
+  only:
+    - merge_requests
+    - branches
   except:
     - tags
   artifacts:
@@ -532,7 +627,7 @@ coverity:
       --form description="CI build"
       https://scan.coverity.com/builds?project=$COVERITY_SCAN_PROJECT_NAME
   tags:
-    - shared
+    - saas-linux-small-amd64
   only:
     refs:
       - master
@@ -546,14 +641,3 @@ coverity:
     when: on_failure
     paths:
       - obj/cov-int/*.txt
-
-###############################################################################
-#                                 Codespell                                   #
-###############################################################################
-codespell:
-  stage: review
-  image: $CI_REGISTRY/$BUILD_IMAGES_PROJECT:$FEDORA_BUILD
-  script:
-    - codespell --ignore-words-list=keypair,sorce,ned,nd,ue
-  tags:
-    - shared
