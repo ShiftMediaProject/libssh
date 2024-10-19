@@ -1,5 +1,5 @@
 diff --git a/src/connect.c b/src/connect.c
-index 15cae644..840f3c36 100644
+index dd3bbcf5..91010853 100644
 --- a/src/connect.c
 +++ b/src/connect.c
 @@ -37,6 +37,7 @@
@@ -16,8 +16,8 @@ index 15cae644..840f3c36 100644
  #endif
 +#endif
  
- #if _MSC_VER >= 1400
- #include <io.h>
+ #include <winsock2.h>
+ #include <ws2tcpip.h>
 diff --git a/src/getpass.c b/src/getpass.c
 index 6be33c77..70686735 100644
 --- a/src/getpass.c
@@ -41,34 +41,38 @@ index 6be33c77..70686735 100644
  
  #else
 diff --git a/src/init.c b/src/init.c
-index e516c331..6de564a1 100644
+index e516c331..bf61e0fb 100644
 --- a/src/init.c
 +++ b/src/init.c
-@@ -35,17 +35,40 @@
+@@ -35,17 +35,44 @@
  #include <winsock2.h>
  #endif
  
 +#if defined(_WIN32) && defined(_MSC_VER) && defined(LIBSSH_STATIC)
++# ifdef read
++#  undef read
++#  define BACKUP_READ
++# endif
 +# define CONSTRUCTOR_ATTRIBUTE_(_func,p) static void _func(void); \
 +    static int _func ## _wrapper(void) { _func(); return 0; } \
 +    __pragma(section(".CRT$XCU",read)) \
 +    __declspec(allocate(".CRT$XCU")) int (* _func##_)(void) = _func ## _wrapper; \
 +    __pragma(comment(linker,"/include:" p #_func "_"))
-+#ifdef _WIN64
-+#define CONSTRUCTOR_ATTRIBUTE(f) CONSTRUCTOR_ATTRIBUTE_(f,"")
-+#else
-+#define CONSTRUCTOR_ATTRIBUTE(f) CONSTRUCTOR_ATTRIBUTE_(f,"_")
-+#endif
++# ifdef _WIN64
++#  define CONSTRUCTOR_ATTRIBUTE(f) CONSTRUCTOR_ATTRIBUTE_(f,"")
++# else
++#  define CONSTRUCTOR_ATTRIBUTE(f) CONSTRUCTOR_ATTRIBUTE_(f,"_")
++# endif
 +# define DESTRUCTOR_ATTRIBUTE_(_func,p) static void _func(void); \
 +    static int _func ## _constructor(void) { atexit (_func); return 0; } \
 +    __pragma(section(".CRT$XCU",read)) \
 +    __declspec(allocate(".CRT$XCU")) int (* _func##_)(void) = _func ## _constructor; \
 +    __pragma(comment(linker,"/include:" p #_func "_"))
-+#ifdef _WIN64
-+#define DESTRUCTOR_ATTRIBUTE(f) DESTRUCTOR_ATTRIBUTE_(f,"")
-+#else
-+#define DESTRUCTOR_ATTRIBUTE(f) DESTRUCTOR_ATTRIBUTE_(f,"_")
-+#endif
++# ifdef _WIN64
++#  define DESTRUCTOR_ATTRIBUTE(f) DESTRUCTOR_ATTRIBUTE_(f,"")
++# else
++#  define DESTRUCTOR_ATTRIBUTE(f) DESTRUCTOR_ATTRIBUTE_(f,"_")
++# endif
 +#else
  #ifdef HAVE_CONSTRUCTOR_ATTRIBUTE
 -#define CONSTRUCTOR_ATTRIBUTE __attribute__((constructor))
@@ -89,7 +93,7 @@ index e516c331..6de564a1 100644
  
  /* Declare static mutex */
  static SSH_MUTEX ssh_init_mutex = SSH_MUTEX_STATIC_INIT;
-@@ -56,8 +79,8 @@ static int _ssh_initialized = 0;
+@@ -56,8 +83,12 @@ static int _ssh_initialized = 0;
  /* Cache the returned value */
  static int _ssh_init_ret = 0;
  
@@ -97,48 +101,26 @@ index e516c331..6de564a1 100644
 -void libssh_destructor(void) DESTRUCTOR_ATTRIBUTE;
 +CONSTRUCTOR_ATTRIBUTE(libssh_constructor);
 +DESTRUCTOR_ATTRIBUTE(libssh_destructor);
++
++#ifdef BACKUP_READ
++# define read _read
++#endif
  
  static int _ssh_init(unsigned constructor) {
  
-diff --git a/src/libgcrypt.c b/src/libgcrypt.c
-index f410d997..ebb0e90b 100644
---- a/src/libgcrypt.c
-+++ b/src/libgcrypt.c
-@@ -145,12 +145,12 @@ static int blowfish_set_key(struct ssh_cipher_struct *cipher, void *key, void *I
- }
- 
- static void blowfish_encrypt(struct ssh_cipher_struct *cipher, void *in,
--    void *out, unsigned long len) {
-+    void *out, size_t len) {
-   gcry_cipher_encrypt(cipher->key[0], out, len, in, len);
- }
- 
- static void blowfish_decrypt(struct ssh_cipher_struct *cipher, void *in,
--    void *out, unsigned long len) {
-+    void *out, size_t len) {
-   gcry_cipher_decrypt(cipher->key[0], out, len, in, len);
- }
- #endif /* WITH_BLOWFISH_CIPHER */
-@@ -416,12 +416,12 @@ static int des3_set_key(struct ssh_cipher_struct *cipher, void *key, void *IV) {
- }
- 
- static void des3_encrypt(struct ssh_cipher_struct *cipher, void *in,
--    void *out, unsigned long len) {
-+    void *out, size_t len) {
-   gcry_cipher_encrypt(cipher->key[0], out, len, in, len);
- }
- 
- static void des3_decrypt(struct ssh_cipher_struct *cipher, void *in,
--    void *out, unsigned long len) {
-+    void *out, size_t len) {
-   gcry_cipher_decrypt(cipher->key[0], out, len, in, len);
- }
- 
 diff --git a/src/misc.c b/src/misc.c
-index 7081f12a..a4a1e2ed 100644
+index 6ae7cdf1..2cb2cb95 100644
 --- a/src/misc.c
 +++ b/src/misc.c
-@@ -52,8 +52,10 @@
+@@ -33,7 +33,6 @@
+ #include <pwd.h>
+ #include <sys/socket.h>
+ #include <sys/types.h>
+-
+ #endif /* _WIN32 */
+ 
+ #include <errno.h>
+@@ -52,8 +51,13 @@
  
  #ifdef _WIN32
  
@@ -148,10 +130,13 @@ index 7081f12a..a4a1e2ed 100644
 +# ifndef _WIN32_IE
 +#  define _WIN32_IE 0x0501 // SHGetSpecialFolderPath
 +# endif
++# define WIN32_LEAN_AND_MEAN
++# include <windows.h>
++# include <iphlpapi.h>
  #endif
  
  #include <winsock2.h> // Must be the first to include
-@@ -110,6 +112,9 @@
+@@ -110,6 +114,9 @@
  #ifdef _WIN32
  char *ssh_get_user_home_dir(void)
  {
@@ -161,7 +146,7 @@ index 7081f12a..a4a1e2ed 100644
    char tmp[PATH_MAX] = {0};
    char *szPath = NULL;
  
-@@ -124,6 +129,7 @@ char *ssh_get_user_home_dir(void)
+@@ -124,6 +131,7 @@ char *ssh_get_user_home_dir(void)
    }
  
    return NULL;
@@ -169,7 +154,7 @@ index 7081f12a..a4a1e2ed 100644
  }
  
  /* we have read access on file */
-@@ -180,22 +186,26 @@ int ssh_gettimeofday(struct timeval *__p, void *__t)
+@@ -180,19 +188,22 @@ int ssh_gettimeofday(struct timeval *__p, void *__t)
  
  char *ssh_get_local_username(void)
  {
@@ -177,40 +162,44 @@ index 7081f12a..a4a1e2ed 100644
 +    return NULL;
 +#else
      DWORD size = 0;
-     char *user;
+     char *user = NULL;
+     int rc;
  
      /* get the size */
 -    GetUserName(NULL, &size);
 +    GetUserNameA(NULL, &size);
  
-     user = (char *) malloc(size);
+     user = (char *)malloc(size);
      if (user == NULL) {
          return NULL;
      }
  
 -    if (GetUserName(user, &size)) {
 +    if (GetUserNameA(user, &size)) {
-         return user;
-     }
+         rc = ssh_check_username_syntax(user);
+         if (rc == SSH_OK) {
+             return user;
+@@ -202,6 +213,7 @@ char *ssh_get_local_username(void)
+     free(user);
  
      return NULL;
 +#endif
  }
  
  int ssh_is_ipaddr_v4(const char *str)
-diff --git a/src/pki_gcrypt.c b/src/pki_gcrypt.c
-index 418a46b3..1d7dbaa7 100644
---- a/src/pki_gcrypt.c
-+++ b/src/pki_gcrypt.c
-@@ -2141,7 +2141,11 @@ ssh_signature pki_do_sign_hash(const ssh_key privkey,
-                                size_t hlen,
-                                enum ssh_digest_e hash_type)
- {
-+#if defined(_MSC_VER)
-+    unsigned char* ghash = (char*)_alloca(sizeof(char) * (hlen + 1));
-+#else
-     unsigned char ghash[hlen + 1];
+@@ -240,6 +252,7 @@ int ssh_is_ipaddr(const char *str)
+         int sslen = sizeof(ss);
+         char *network_interface = strchr(s, '%');
+ 
++#if !defined(WINAPI_FAMILY) || !(WINAPI_FAMILY==WINAPI_FAMILY_PC_APP || WINAPI_FAMILY==WINAPI_FAMILY_PHONE_APP)
+         /* link-local (IP:v6:addr%ifname). */
+         if (network_interface != NULL) {
+             rc = if_nametoindex(network_interface + 1);
+@@ -249,6 +262,7 @@ int ssh_is_ipaddr(const char *str)
+             }
+             *network_interface = '\0';
+         }
 +#endif
-     const char *hash_c = NULL;
-     ssh_signature sig;
-     gcry_sexp_t sexp;
+         rc = WSAStringToAddressA((LPSTR) s,
+                                  AF_INET6,
+                                  NULL,

@@ -61,6 +61,8 @@
     <ClCompile Include="..\src\server.c" />
     <ClCompile Include="..\src\session.c" />
     <ClCompile Include="..\src\sftp.c" />
+    <ClCompile Include="..\src\sftp_aio.c" />
+    <ClCompile Include="..\src\sftp_common.c" />
     <ClCompile Include="..\src\sftpserver.c" />
     <ClCompile Include="..\src\socket.c" />
     <ClCompile Include="..\src\string.c" />
@@ -71,6 +73,7 @@
     <ClCompile Include="..\src\threads\noop.c" />
     <ClCompile Include="..\src\threads\winlocks.c" />
     <ClCompile Include="..\src\token.c" />
+    <ClCompile Include="..\src\ttyopts.c" />
     <ClCompile Include="..\src\wrapper.c" />
   </ItemGroup>
   <ItemGroup>
@@ -116,6 +119,7 @@
     <ClInclude Include="..\include\libssh\server.h" />
     <ClInclude Include="..\include\libssh\session.h" />
     <ClInclude Include="..\include\libssh\sftp.h" />
+    <ClInclude Include="..\include\libssh\sftpserver.h" />
     <ClInclude Include="..\include\libssh\socket.h" />
     <ClInclude Include="..\include\libssh\ssh2.h" />
     <ClInclude Include="..\include\libssh\string.h" />

@@ -228,6 +228,15 @@
     <ClCompile Include="..\src\getrandom_gcrypt.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="..\src\ttyopts.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\sftp_aio.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="..\src\sftp_common.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\include\libssh\agent.h">
@@ -375,6 +384,9 @@
       <Filter>Header Files\libssh</Filter>
     </ClInclude>
     <ClInclude Include="..\include\libssh\chacha20-poly1305-common.h">
+      <Filter>Header Files\libssh</Filter>
+    </ClInclude>
+    <ClInclude Include="..\include\libssh\sftpserver.h">
       <Filter>Header Files\libssh</Filter>
     </ClInclude>
   </ItemGroup>
