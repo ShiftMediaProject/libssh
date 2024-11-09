@@ -109,6 +109,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
     <Link>
       <AdditionalDependencies>iphlpapi.lib;zlibd_winrt.lib;gcryptd_winrt.lib;gpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
+      <GenerateWindowsMetadata>true</GenerateWindowsMetadata>
     </Link>
     <PostBuildEvent>
       <Command>mkdir "$(OutDir)"\include
@@ -155,6 +156,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
     <Link>
       <AdditionalDependencies>iphlpapi.lib;zlibd_winrt.lib;gcryptd_winrt.lib;gpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
+      <GenerateWindowsMetadata>true</GenerateWindowsMetadata>
     </Link>
     <PostBuildEvent>
       <Command>mkdir "$(OutDir)"\include
@@ -293,6 +295,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
     <Link>
       <AdditionalDependencies>iphlpapi.lib;zlib_winrt.lib;gcrypt_winrt.lib;gpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
+      <GenerateWindowsMetadata>true</GenerateWindowsMetadata>
     </Link>
     <PostBuildEvent>
       <Command>mkdir "$(OutDir)"\include
@@ -339,6 +342,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
     <Link>
       <AdditionalDependencies>iphlpapi.lib;libzlib_winrt.lib;libgcrypt_winrt.lib;libgpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
+      <GenerateWindowsMetadata>true</GenerateWindowsMetadata>
     </Link>
     <PostBuildEvent>
       <Command>mkdir "$(OutDir)"\include
@@ -385,6 +389,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
     <Link>
       <AdditionalDependencies>iphlpapi.lib;zlib_winrt.lib;gcrypt_winrt.lib;gpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
+      <GenerateWindowsMetadata>true</GenerateWindowsMetadata>
     </Link>
     <PostBuildEvent>
       <Command>mkdir "$(OutDir)"\include
@@ -431,6 +436,7 @@ del /f /q $(OutDir)\licenses\libssh.txt
     <Link>
       <AdditionalDependencies>iphlpapi.lib;libzlib_winrt.lib;libgcrypt_winrt.lib;libgpg-error_winrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <AdditionalOptions>/IGNORE:4006,4221,4264 %(AdditionalOptions)</AdditionalOptions>
+      <GenerateWindowsMetadata>true</GenerateWindowsMetadata>
     </Link>
     <PostBuildEvent>
       <Command>mkdir "$(OutDir)"\include
